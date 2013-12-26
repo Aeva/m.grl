@@ -17,7 +17,6 @@ window.addEventListener("load", function () {
 	        self.state = "idle";
 	    }
 	    else {
-                console.info(age);
 	        if (age >= 1000) {
 		    self.state = "long";
 	        }
