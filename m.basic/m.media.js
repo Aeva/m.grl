@@ -149,10 +149,9 @@ please.media.handlers.img = function (url, callback) {
 // "text" media type handler
 please.media.handlers.text = function (url, callback) {
     var req = new XMLHttpRequest();
-    req.responseType = "text";
     please.media._push(req);
     req.onload = function () {
-        please.media.assets[url] = req.respones;
+        please.media.assets[url] = req.response;
         if (typeof(callback) === "function") {
             please.schedule(function(){callback("pass", url);});
         }
@@ -165,5 +164,6 @@ please.media.handlers.text = function (url, callback) {
         please.media._pop(req);
     };
     req.open('GET', url, true);
+    req.responseType = "text";
     req.send();
 };
