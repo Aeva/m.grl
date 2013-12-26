@@ -1,0 +1,89 @@
+body {
+    font-family: copystruct, sans;
+    font-size: 13px;
+    background-color: #333;
+    color: black;
+    max-width: 640px;
+    margin: auto;
+}
+
+h1 {
+    font-family: destroy, mono;
+    text-align: center;
+    font-size: 30px;
+    line-height: 1em;
+    padding: 0px;
+    margin: 0px;
+    letter-spacing: 8px;
+    margin-bottom: 1em;
+    margin-top: 1em;
+    color: black;
+}
+
+.row h2 {
+    display: inline-block;
+    text-align: center;
+    font-size: 30px;
+    line-height: 1em;
+    padding: 0px;
+    margin: 0px;
+    letter-spacing: 8px;
+    margin-bottom: 1em;
+    margin-top: 1em;
+    margin-left: 50px;
+    vertical-align: -30%;
+    color: #555;
+}
+
+.instructions, instructions h2 {
+    text-indent: 30px;
+}
+
+
+.row {
+    margin-top: 50px;
+}
+
+
+#walk, #action {
+    display: inline-block;
+    width: 80px;
+    height: 80px;
+    border: 1px solid black;
+    text-align: center;
+    line-height: 78px;
+    text-shadow: 0px -0px 2px black;
+    box-shadow: 0px 8px 18px #222;
+    /*background-color: #888;
+    color: #ccc;*/
+}
+.idle {
+    transition: background-color 1s, color 1s;
+    -moz-transition: background-color 1s, color 1s;
+    -webkit-transition: background-color 1s, color 1s;
+    -o-transition: background-color 1s, color 1s;
+    background-color: #888;
+    color: #ccc;
+}
+.short_a, .short_b, .long_a, .long_b {
+    transition: background-color .25s, color .25s;
+    -moz-transition: background-color .25s, color .25s;
+    -webkit-transition: background-color .5s, color .25s;
+    -o-transition: background-color .25s, color .25s;
+}
+.short_a {
+    background-color: #437200;
+    color: #96ff00;
+}
+.short_b {
+    background-color: #004372;
+    color: #005896;
+}
+.long_a {
+    background-color: #b1002e;
+    color: white;
+}
+.long_b {
+    background-color: #f2003c;
+    color: #5a5a5a;
+}
