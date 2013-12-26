@@ -544,7 +544,9 @@ please.media.__Animation = function (gani_text) {
         "__frames" : [],
         
         "single_dir" : false,
-        "__setbackto" : 0,
+        "looping" : false,
+        "continuous" : false,
+        "setback_to" : 0,
 
         "get_attr" : function (name) {},
         "set_attr" : function (name, value) {},
@@ -662,6 +664,32 @@ please.media.__Animation = function (gani_text) {
                 ani.__sprites[sprite_id] = sprite;
             }
 
+
+            // single direction mode
+            if (params[0] === "SINGLEDIRECTION") {
+                ani.single_dir = true;
+            }
+
+            // continuous mode
+            if (params[0] === "CONTINUOUS") {
+                ani.continuous = true;
+            }
+
+            // setbackto setting
+            if (params[0] === "SETBACKTO") {
+                ani.continuous = false;
+                if (is_number(params[1])) {
+                    ani.setbackto = Number(parasm[1]);
+                }
+                else {
+                    var next_file = params[1];
+                    if (!next_file.endsWith(".gani")) {
+                        next_file += ".gani";
+                    }
+                    ani.setbackto = next_file;
+                    ani.__resources[next_file] = true;
+                }
+            }
             
             // default values for attributes
             if (params[0].startsWith("DEFAULT")) {
@@ -691,6 +719,13 @@ please.media.__Animation = function (gani_text) {
     }
 
 
+    var last_frame = -1;
+    var new_block = function () {
+        last_frame += 1;
+        ani.__frames.push([]);
+    };
+    new_block();
+
     // pdq just to do something interesting with the data - almost
     // certainly implemented wrong
     for (var i=frames_start; i<=frames_end; i+=1) {
@@ -701,13 +736,27 @@ please.media.__Animation = function (gani_text) {
         }
         var params = split_params(line);
         if (params[0] === "WAIT") {
+            ani.__frames[last_frame].wait = params;
         }
         else if (params[0] === "PLAYSOUND") {
+            var sound_file = params[1];
+            if (!is_attr(sound_file)) {
+                ani.__resources[sound_file] = true;
+            }
+            ani.__frames[last_frame].sound = {
+                "file" : sound_file,
+                "x" : Number(params[2]),
+                "y" : Number(params[3]),
+            };
         }
         else if (is_number(params[0]) || is_attr(params[1])) {
             // line is a frame definition
+            if (ani.__frames[last_frame].length === 4) {
+                new_block();
+            }
+
             var defs = split_params(line, ",");
-            var frame = [];
+            var frame = [];                
             for (var k=0; k<defs.length; k+=1) {
                 var chunks = split_params(defs[k], " ");
                 var names = ["sprite", "x", "y"];
@@ -724,7 +773,7 @@ please.media.__Animation = function (gani_text) {
                 }
                 frame.push(sprite);
             }
-            ani.__frames.push(frame);
+            ani.__frames[last_frame].push(frame);
         }
     }
 

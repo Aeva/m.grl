@@ -56,9 +56,12 @@ var walk_callback = function (status, uri) {
         var walk_ani = please.access(uri);
 
         for (var f=0; f<walk_ani.__frames.length; f+= 1) {
-            var frame = walk_ani.__frames[f];
-            var html = draw_frame(walk_ani, frame);
-            draw_container(html);
+            var block = walk_ani.__frames[f];
+            for (var dir=0; dir<4; dir+=1) {
+                var frame = block[dir];
+                var html = draw_frame(walk_ani, frame);
+                draw_container(html);
+            }
         }
 
         // var props = [];
