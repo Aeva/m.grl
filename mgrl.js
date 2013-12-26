@@ -725,7 +725,6 @@ please.media.__Animation = function (gani_text) {
                 frame.push(sprite);
             }
             ani.__frames.push(frame);
-            console.info("added a frame set");
         }
     }
 

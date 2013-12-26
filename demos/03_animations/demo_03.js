@@ -5,47 +5,78 @@ var write = function (msg) {
 };
 
 
-var walk_ani;
+var draw_container = function (inner_html) {
+    var msg = "<div class='ani_frame'><div>" + inner_html + "</div></div>";
+    document.getElementById("page").innerHTML += msg;
+};
+
+
+// Generate html that describes a sprite instance.
+var sprite2html = function (ani_object, sprite_id, x, y) {
+    var sprite = ani_object.__sprites[sprite_id];
+    if (sprite === undefined) {
+        return "";
+    }
+    var html = '<div style="';
+    
+    var src = please.relative("img", sprite.resource);
+    var clip_x = sprite.x * -1;
+    var clip_y = sprite.y * -1;
+    html += "position: absolute;";
+    html += "display: block;";
+    html += "background-image: url('" + src + "');";
+    html += "background-position: " + clip_x + "px " + clip_y + "px;";
+    html += "width: " + sprite.w + "px;";
+    html += "height: " + sprite.h + "px;";
+    html += "left: " + x + "px;";
+    html += "top: " + y + "px;";
+    return html + '"></div>';
+};
+
+
+// This function takes an animation object as returned by
+// please.access("ani", foo), and a frame object (you can find these
+// in ani_obj.__frames[i]).
+var draw_frame = function (ani_object, frame) {
+    var html = ""
+    for (var s=0; s<frame.length; s+=1) {
+        var inst = frame[s];
+        var id = inst.sprite;
+        var x = inst.x;
+        var y = inst.y;
+        html += sprite2html(ani_object, id, x, y);
+    }
+    return html;
+};
 
 
 var walk_callback = function (status, uri) {
     if (status === "pass") {
         write("gani loaded: " + uri);
-        walk_ani = please.access(uri);
-        
-        var props = [];
-        for (var prop in walk_ani.__sprites) {
-            if (!walk_ani.__sprites.hasOwnProperty(prop)) {
-                continue;
-            }
-            props.push(prop);
-        };
+        var walk_ani = please.access(uri);
 
-        for (var i=0; i<5; i+=1) {
-            var selected = Math.floor(Math.random() *props.length);
-            var sprite = walk_ani.__sprites[props[selected]];
-
-            write(" -- Random sprite from gani:");
-            var html = "<div style=\"";
-            var src = please.relative("img", sprite.resource);
-            var x = sprite.x * -1;
-            var y = sprite.y * -1;
-            html += "display: block;";
-            html += "background-color: darkgreen;";
-            html += "border: 8px solid green;";
-            html += "background-image: url('" + src + "');";
-            html += "background-position: " + x + "px " + y + "px;";
-            html += "width: " + sprite.w + "px;";
-            html += "height: " + sprite.h + "px;";
-            html += "\"></div>";
-            write("sprite: " + sprite.hint);
-            write(html);
-
-            write("x: " + sprite.x);
-            write("y: " + sprite.y);
-            write("w: " + sprite.w);
-            write("h: " + sprite.h);
+        for (var f=0; f<walk_ani.__frames.length; f+= 1) {
+            var frame = walk_ani.__frames[f];
+            var html = draw_frame(walk_ani, frame);
+            draw_container(html);
         }
+
+        // var props = [];
+        // for (var prop in walk_ani.__sprites) {
+        //     if (!walk_ani.__sprites.hasOwnProperty(prop)) {
+        //         continue;
+        //     }
+        //     props.push(prop);
+        // };
+
+        // for (var i=0; i<5; i+=1) {
+        //     var selected = Math.floor(Math.random() *props.length);
+        //     var sprite_id = props[selected];
+
+        //     var html = sprite2html(walk_ani, sprite_id, 0, 0);
+        //     write(" -- Random sprite from gani:");
+        //     write(html);
+        // }
     }
     else {
         write("!!! " + status + " for " + uri);
@@ -54,7 +85,7 @@ var walk_callback = function (status, uri) {
 
 
 var resources_loaded = function () {
-    write("All resource downloads have completed:");
+    write("<br/>All resource downloads have completed:");
     for (var prop in please.media.assets) {
         if (please.media.assets.hasOwnProperty(prop) && prop !== "error") {
             write(" - " + prop);
