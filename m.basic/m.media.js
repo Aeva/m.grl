@@ -7,6 +7,9 @@ please.media = {
     "handlers" : {},
     "pending" : [],
     "onload_events" : [],
+    "search_paths" : {
+        "img" : "",
+    },
 
     // functions
     "connect_onload" : function (callback) {},
@@ -33,6 +36,19 @@ please.load = function (type, url, callback) {
         }
         please.media.handlers[type](url, callback);
     }
+};
+
+
+// Returns a uri for relative file names
+please.relative = function (type, file_name) {
+    if (please.media.handlers[type] === undefined) {
+        throw("Unknown media type '"+type+"'");
+    }
+    var prefix = please.media.search_paths[type] || "";
+    if (!prefix.endsWith("/")) {
+        prefix += "/";
+    }
+    return prefix + file_name;
 };
 
 
