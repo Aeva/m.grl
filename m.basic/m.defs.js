@@ -31,4 +31,3 @@ please.schedule = function (callback) {
 };
 
 
-

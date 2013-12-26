@@ -1,180 +1,171 @@
 // - m.media.js ------------------------------------------------------------- //
 
-if (window.m === undefined) { window.m = {} };
-m.media = function () {
-    // This closure creates a singleton object.
+// This closure adds media management functionality to the mgrl
+// namespace.
 
-    var cache = {};
-    var hints = {};
-    var pending = 0;
-    var api = {"default" : false,}; // public scope
+please.media = {
+    // data
+    "assets" : {},
+    "handlers" : {},
+    "pending" : [],
+    "onload_events" : [],
 
-    var GenericAsset = function (uri, media) {
-	// constructor
-	var self = this;
-	var __dead = false;
-	var __uri = uri;
-	this.ready = true;
-	this.__defineGetter__("dead", function () {return __dead});
-	this.__defineSetter__("dead", function (value) {
-	    if (!!value) {
-		self.ready = true;
-		__dead = true;
-	    }
-	    return __dead;
-	});
-	this.__defineGetter__("uri", function () {return __uri});
-	this.media = media;
-	this.variations = {}; // props are alternative media objects
+    // functions
+    "connect_onload" : function (callback) {},
+    "_push" : function (req_key) {},
+    "_pop" : function (req_key) {},
+};
+
+
+// default placeholder image
+please.media.assets["error"] = new Image();
+please.media.assets["error"].src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAACVBMVEUAAADjE2T///+ACSv4AAAAHUlEQVQI12NoYGKQWsKgNoNBcwWDVgaIAeQ2MAEAQA4FYPGbugcAAAAASUVORK5CYII="
+
+
+
+
+// Downloads an asset
+please.load = function (type, url, callback) {
+    if (please.media.handlers[type] === undefined) {
+        throw("Unknown media type '"+type+"'");
+    }
+    else {
+        if (!callback) {
+            callback = function () {};
+        }
+        please.media.handlers[type](url, callback);
+    }
+};
+
+
+// Access an asset.  If the asset is not found, this function
+// returns the hardcoded 'error' image, unless no_error is set to
+// some truthy value, in which case undefined is returned.
+please.access = function (uri, no_error) {
+    var found = please.media.assets[uri];
+    if (!found && !no_error) {
+        found = please.access("error", true);
+    }
+    return found;
+};
+
+
+// Rename an asset.  May be used to overwrite the error image, for example.
+// This doesn't remove the old uri, so I guess this is really just copying...
+please.rename = function (old_uri, new_uri) {
+    var asset = please.access(old_uri, true);
+    if (asset) {
+        new_uri = asset;
+    }
+};
+
+
+// Find the correct vendor prefix version of a css attribute.
+// Expects and returns css notation.
+please.normalize_prefix = function (property) {
+    var prefi = ["", "moz-", "webkit-", "o-", "ms-"];
+    var parts, part, check, i, k, found=false;
+    for (i=0; i<prefi.length; i+=1) {
+        check = prefi[i]+property;
+        parts = check.split("-");
+        check = parts.shift();
+        for (k=0; k<parts.length; k+=1) {
+            part = parts[0];
+            check += part[0].toUpperCase() + part.slice(1);
+        }
+        if (document.body.style[check]!== undefined) {
+            found = i;
+            break;
+        }
+    }
+    if (found === false) {
+        throw("Unsupported css property!");
+    }
+    else if (found === 0) {
+        return property;
+    }
+    else {
+        return "-" + prefi[found] + property;
+    }
+};
+
+
+// Simple function to fetch text via GET mode XHR
+please.fetch_text = function (url, callback) {
+    var request = new XMLHttpRequest();
+    request.onreadystatechange = function (event) {
+        if (request.readyState === request.DONE) {
+            var data = request.responseText;
+            var status = "fail";
+            if (data.length > 0 && request.status === 0 ||
+                (request.status >= 200 && request.status < 400)) {
+                status = "pass";
+            }
+            if (typeof(callback) === "function") {
+                please.schedule(function(){
+                    callback(status, url, data);
+                });
+            }
+        }
     };
+    request.open('GET', url, true);
+    request.send();
+}
 
-    var SpriteDownload = function (uri, onload, wait) {
-	// constructor
-	var self = this;
-	var __dead = false;
-	var __ready = false;
-	var __uri = uri;
 
-	this.onload_listeners = [];
-	if (!!onload) {
-	    this.onload_listeners.push(onload);
-	}
+// Registers an onload event
+please.media.connect_onload = function (callback) {
+    if (please.media.pending.length === 0) {
+        please.schedule(callback);
+    }
+    else {
+        if (please.media.onload_events.indexOf(callback) === -1) {
+            please.media.onload_events.push(callback);
+        }
+    }
+}
 
-	this.__defineGetter__("dead", function () {return __dead});
-	this.__defineSetter__("dead", function (value) {
-	    if (!!value) {
-		self.ready = true;
-		__dead = true;
-	    }
-	    return __dead;
-	});
-	this.__defineGetter__("ready", function () {return __ready});
-	this.__defineSetter__("ready", function (value) {
-	    if (!(__dead || __ready) && !!value) {
-		__ready = true;
-		pending -= 1;
-		if (pending === 0) {
-		    api.onload();
-		}
-	    }
-	    return __ready;
-	});
-	this.__defineGetter__("uri", function () {return __uri});
-	this.media = new Image();
-	this.varriations = {}; // props are alternative media objects
-	
-	this.media.onload = function () {
-	    console.info("Downloaded: " + __uri);
-	    if (!wait) {
-		self.ready = true;
-	    }
-	    for (var i=0; i<self.onload_listeners.length; i+=1) {
-		self.onload_listeners[i](self);
-	    }
-	};
-	var onfail = function () {
-	    // mark and sweep cache invalidation, maybe
-	    self.dead = true;
-	    console.warn("Download failed: " + __uri);
-	};
-	this.media.onabort = onfail;
-	this.media.onerror = onfail;
-	this.media.src = uri;
-	
-	pending += 1;
+
+// add a request to the 'pending' queue
+please.media._push = function (req_key) {
+    if (please.media.pending.indexOf(req_key) === -1) {
+        please.media.pending.push(req_key);
+    }
+};
+
+
+// remove a request from the 'pending' queue
+// triggers any pending onload_events if the queue is completely emptied.
+please.media._pop = function (req_key) {
+    var i = please.media.pending.indexOf(req_key);
+    if (i >= 0) {
+        please.media.pending.splice(i, 1);
+    }
+    if (please.media.pending.length === 0) {
+        please.media.onload_events.map(function (callback) {
+            please.schedule(callback);
+        });
+        please.media.onload_events = [];
+    }
+};
+
+
+// "img" media type handler
+please.media.handlers.img = function (url, callback) {
+    var req = new Image();
+    please.media._push(req);
+    req.onload = function() {
+        please.media.assets[url] = req;
+        if (typeof(callback) === "function") {
+            please.schedule(function(){callback("pass", url);});
+        }
+        please.media._pop(req);
     };
-
-    api.onload = function () {
-	// Stub. Called when 'pending' is reduced to zero.  May be called
-	// multiple times, so beware.
+    req.onerror = function () {
+        if (typeof(callback) === "function") {
+            please.schedule(function(){callback("fail", url);});
+        }
+        please.media._pop(req);
     };
-
-    api.request_image = function (uri, onload, wait) {
-	// Request an image to be cached.
-	// - Uri is the uri to load.
-	// - Onload is an optional handler to be called after the image is 
-	//   done downloading.  The sprite's cache object will be passed along 
-	//   as a parameter.  If wait (optional) is true, then the custom 
-	//   onload handler should manually set the sprite's cache object's 
-	//   "ready" parameter to true.  Said parameter is a setter, so it will
-	//   take care of tracking pending downloads automatically.
-	// - onabort and onerror will both silently fail, remove the cache
-	//   corresponding cache object, dump an error to the console, and
-	//   decrement the pending download.
-	// - If the image is already cached, but the onload parameter was
-	//   passed, that event will also be cached, but the wait status will
-	//   not be changed from the original request.
-
-	if (!cache.hasOwnProperty(uri)) {
-	    cache[uri] = new SpriteDownload(uri, onload, wait);
-	}
-	else if (!!onload) {
-	    cache[uri].onload_listeners.push(onload);
-	}
-    };
-
-    api.insert_media = function (uri, media, callback) {
-	// Similar to the request function.  Adds 'media' element to the cache,
-	// and passes the object back to the callback, if it is provided. (This
-	// is intended so that another library could then generate variations of
-	// the media object, if desired, using the same mechanism as it does for
-	// downloaded images)
-	// 'media' would normally be something like an Image or Canvas object.
-	if (!cache.hasOwnProperty(uri)) {
-	    cache[uri] = new GenericAsset(uri, media);
-	    if (!!callback) {callback(cache[uri])};
-	}
-    };
-
-    api.set_hint = function (name, uri) {
-	// Set up a hint uri pointer.  If the hint is already defined, it will
-	// be overwritten.
-	hints[name] = uri;
-    };
-
-    api.destroy_asset = function (uri) {
-	if (!cache.hasOwnProperty(uri)) {
-	    cache[uri].dead = true;
-	    // TODO maybe delete the reference, too?
-	}
-    };
-
-    var lookup = function (uri, hint) {
-	if (!!cache[uri] && cache[uri].ready) {
-	    return cache[uri];
-	}
-	else if (!!hint && hint !== "default" && !!hints[hint] && 
-		 !!cache[hints[hint]] && cache[hints[hint]].ready) {
-	    return cache[hints[hint]];
-	}
-	else if (!!hints["default"] && !!cache[hints["default"]] &&
-		 cache[hints["default"]].ready) {
-	    return cache[hints["default"]];
-	}
-	else {
-	    return false;
-	}
-    };
-
-    api.fetch = function (uri, hint) {
-	var found = lookup(uri, hint);
-	return !!found ? found.media : false;
-    };
-    
-    api.fetch_varriation = function (uri, varriation, hint) {
-	var found = lookup(uri, hint);
-	if (found) {
-	    if (found.uri === uri && !!found.varriations[varriation]) {
-		return found.varriations[varriation];
-	    }
-	    else {
-		return found.media
-	    }
-	}
-	else {
-	    return false;
-	}
-    };
-
-    return api;
-}();
+    req.src = url;
+};
