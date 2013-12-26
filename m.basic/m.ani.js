@@ -45,8 +45,11 @@ please.media.__Animation = function (gani_text) {
     var frames_start = 0;
     var frames_end = 0;
 
-    var split_params = function (line) {
-        var parts = line.split(" ");
+    var split_params = function (line, delim) {
+        if (delim === undefined) {
+            delim = " ";
+        }
+        var parts = line.split(delim);
         var params = [];
         for (var i=0; i<parts.length; i+=1) {
             var check = parts[i].trim();
@@ -169,24 +172,54 @@ please.media.__Animation = function (gani_text) {
             // determine frameset boundaries
             if (params[0] === "ANI") {
                 frames_start = i+1;
+                defs_phase = false;
             }
         }
         else {
-            if (params[1] === "ANIEND") {
+            if (params[0] === "ANIEND") {
                 frames_end = i-1;
             }
         }
     }
 
 
-    // for (var i=frames_start; i<=frames_end; i+=1) {
-    //     var line = lines[i].trim();
-    //     if (line.length == 0) {
-    //         continue;
-    //     }
-    //     var params = split_params(line);
-
-    // }
+    // pdq just to do something interesting with the data - almost
+    // certainly implemented wrong
+    for (var i=frames_start; i<=frames_end; i+=1) {
+        var line = lines[i].trim();
+        if (line.length === 0) {
+            // whitespace might actually be important
+            continue;
+        }
+        var params = split_params(line);
+        if (params[0] === "WAIT") {
+        }
+        else if (params[0] === "PLAYSOUND") {
+        }
+        else if (is_number(params[0]) || is_attr(params[1])) {
+            // line is a frame definition
+            var defs = split_params(line, ",");
+            var frame = [];
+            for (var k=0; k<defs.length; k+=1) {
+                var chunks = split_params(defs[k], " ");
+                var names = ["sprite", "x", "y"];
+                var sprite = {};
+                for (var n=0; n<names.length; n+=1) {
+                    var name = names[n];
+                    var datum = chunks[n];
+                    if (is_attr(datum)) {
+                        bind_attr(sprite, name, datum);
+                    }
+                    else {
+                        sprite[name] = Number(datum);
+                    }
+                }
+                frame.push(sprite);
+            }
+            ani.__frames.push(frame);
+            console.info("added a frame set");
+        }
+    }
 
 
     // Convert the resources dict into a list with no repeating elements eg a set:
