@@ -28,9 +28,11 @@ var walk_callback = function (status, uri) {
             write(" -- Random sprite from gani:");
             var html = "<div style=\"";
             var src = please.relative("img", sprite.resource);
-            var x = sprite.x;
+            var x = sprite.x * -1;
             var y = sprite.y * -1;
             html += "display: block;";
+            html += "background-color: darkgreen;";
+            html += "border: 8px solid green;";
             html += "background-image: url('" + src + "');";
             html += "background-position: " + x + "px " + y + "px;";
             html += "width: " + sprite.w + "px;";
