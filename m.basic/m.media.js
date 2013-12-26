@@ -1,7 +1,5 @@
 // - m.media.js ------------------------------------------------------------- //
 
-// This closure adds media management functionality to the mgrl
-// namespace.
 
 please.media = {
     // data
