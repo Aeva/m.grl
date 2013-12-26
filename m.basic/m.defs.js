@@ -1,29 +1,3 @@
-/*
-
- Mondaux Graphics & Recreation Library
- version zero - stab three
-
-.
-
- Because we're all in this together, I have decided to dedicate M.GRL
- to the public domain by way of CC0.  You are free to do what you will
- with this code - I will pass no judgement upon you.
-
- See http://creativecommons.org/publicdomain/zero/1.0/ for more info.
-
- Have a nice day!
-
-.
-
- Ugly looking LibreJS metadata:
- @source: https://github.com/Aeva/m.grl
- @license bmagnet:?xt=urn:btih:90dc5c0be029de84e523b9b3922520e79e0e6f08&dn=cc0.txt
-
-*/
-
-
-
-
 // - m.defs.js  ------------------------------------------------------------- //
 // Makes sure various handy things are implemented manually if the
 // browser lacks native support.  Also implements helper functions
@@ -58,14 +32,3 @@ please.schedule = function (callback) {
 
 
 
-// - m.media.js ------------------------------------------------------------- //
-
-m.media = function () {
-    // This closure creates a singleton object.
-
-    var cache = {}; // cached media
-
-
-
-
-}();
