@@ -1,0 +1,39 @@
+
+
+ Mondaux Graphics & Recreation Library
+ version zero - stab three
+.
+
+
+ Because we're all in this together, I have decided to dedicate M.GRL
+ to the public domain by way of CC0.  You are free to do what you will
+ with this code - I will pass no judgement upon you.
+
+ See http://creativecommons.org/publicdomain/zero/1.0/ for more info.
+
+ Have a nice day!
+.
+
+
+ The Mondaux Graphics & Recreation Library (m.grl) is a cargo-code
+ style javascript "library" for writing simple game demos.
+
+ Some basic features:
+ - asset management
+ - gani-compatible sprite animation system
+ - keyboard input handling that makes sense for games
+
+ Things the future might hold:
+ - various different types of game engines, 2D and 3D
+
+ The kind of games kept in mind for this: 
+ - retrotastic rpg short story "art games".  Keep your expectations
+ low :)
+.
+
+
+ "Mondaux" is pronounced like "monday".  Bad faux-french.
+
+ As for "m.grl", think "riot grrl" or "perl grrl".  Only its
+ javascript instead.
+.
