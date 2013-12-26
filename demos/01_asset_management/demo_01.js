@@ -71,7 +71,7 @@ addEventListener("load", function () {
     };
 
     var resources_loaded = function () {
-        write("All (non-xhr) resource downloads complete.");
+        write("All active resource downloads have completed.");
     };
 
     write("Hi there!");
@@ -85,12 +85,5 @@ addEventListener("load", function () {
     thumbnail("bogus_file.png", "bad path");
     write("")
 
-    // Note that fetch_text requests don't influence the download queue
-    // and therefor do not influence when the media onload event happens!
-    please.fetch_text("../license.txt", function (state, url, data) {
-        xhr_handler(state, url);
-    });
-    please.fetch_text("../readme.txt", xhr_handler);
-    please.fetch_text("../bogus_file", xhr_handler);
-    please.media.onload(resources_loaded);
+    please.media.connect_onload(resources_loaded);
 });

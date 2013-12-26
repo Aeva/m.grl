@@ -88,29 +88,6 @@ please.normalize_prefix = function (property) {
 };
 
 
-// Simple function to fetch text via GET mode XHR
-please.fetch_text = function (url, callback) {
-    var request = new XMLHttpRequest();
-    request.onreadystatechange = function (event) {
-        if (request.readyState === request.DONE) {
-            var data = request.responseText;
-            var status = "fail";
-            if (data.length > 0 && request.status === 0 ||
-                (request.status >= 200 && request.status < 400)) {
-                status = "pass";
-            }
-            if (typeof(callback) === "function") {
-                please.schedule(function(){
-                    callback(status, url, data);
-                });
-            }
-        }
-    };
-    request.open('GET', url, true);
-    request.send();
-}
-
-
 // Registers an onload event
 please.media.connect_onload = function (callback) {
     if (please.media.pending.length === 0) {
@@ -166,4 +143,27 @@ please.media.handlers.img = function (url, callback) {
         please.media._pop(req);
     };
     req.src = url;
+};
+
+
+// "text" media type handler
+please.media.handlers.text = function (url, callback) {
+    var req = new XMLHttpRequest();
+    req.responseType = "text";
+    please.media._push(req);
+    req.onload = function () {
+        please.media.assets[url] = req.respones;
+        if (typeof(callback) === "function") {
+            please.schedule(function(){callback("pass", url);});
+        }
+        please.media._pop(req);
+    };
+    req.onerror = function () {
+        if (typeof(callback) === "function") {
+            please.schedule(function(){callback("fail", url);});
+        }
+        please.media._pop(req);
+    };
+    req.open('GET', url, true);
+    req.send();
 };
