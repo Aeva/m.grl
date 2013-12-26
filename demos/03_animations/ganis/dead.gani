@@ -1,0 +1,82 @@
+SPRITE    0         SPRITES    0    0   24   12 shadow
+SPRITE    1     LETTERS.PNG  240   96   16   32 Question Mark
+SPRITE    2     LETTERS.PNG  224   96   16   32 Exclamation Mark
+SPRITE   40           ATTR1    0    0   48   48 hat up
+SPRITE   41           ATTR1   48    0   48   48 hat left
+SPRITE   42           ATTR1   96    0   48   48 hat down
+SPRITE   43           ATTR1  144    0   48   48 hat right
+SPRITE   44           ATTR1    0   48   48   48 hat pull up
+SPRITE   45           ATTR1   48   48   48   48 hat pull left
+SPRITE   46           ATTR1   96   48   48   48 hat pull down
+SPRITE   47           ATTR1  144   48   48   48 hat pull right
+SPRITE   48           ATTR1    0   96   48   48 hat dead
+SPRITE  100            HEAD    0    0   32   32 head up
+SPRITE  101            HEAD    0   32   32   32 head left
+SPRITE  102            HEAD    0   64   32   32 head down
+SPRITE  103            HEAD    0   96   32   32 head right
+SPRITE  115            HEAD    0  496   32   32 head hurted right
+SPRITE  116            HEAD    0  528   32   32 head dead
+SPRITE  202            BODY   64    0   32   32 body down
+SPRITE  259            BODY   96  448   32   32 body lifting right
+SPRITE  260            BODY    0  480   32   32 body hands up
+SPRITE  261            BODY   32  480   32   32 body hands left
+SPRITE  264            BODY    0  512   32   32 body carrying1 up
+SPRITE  265            BODY   32  512   32   32 body carrying1 left
+SPRITE  266            BODY   64  512   32   32 body carrying1 down
+SPRITE  267            BODY   96  512   32   32 body carrying1 right
+SPRITE  285            BODY   32  672   48   32 body dead
+
+CONTINUOUS
+SINGLEDIRECTION
+DEFAULTATTR1 hat0.png
+DEFAULTHEAD head19.png
+DEFAULTBODY body.png
+
+ANI
+   0  12  36,  202   8  18,  102   8   3,   42   0 -15
+PLAYSOUND dead.wav 1.5 2
+WAIT 2
+
+   0  12  34,    0  12  36,  266   8  18,  102   8   3,   42   0 -15,  260   8   2
+WAIT 2
+
+   0  12  36,  267   8  18,  103   8   3,   43   4 -15,  261  12   2
+WAIT 2
+
+   0  12  36,  264   8  18,  100   8   4,   40   0 -14,  260   8   2
+WAIT 2
+
+   0  12  36,  265   8  18,  101   8   3,   41  -4 -15,  261  12   2
+WAIT 2
+
+   0  12  36,  266   8  18,  102   8   3,   42   0 -15,  260   8   2
+WAIT 2
+
+   0  12  36,  267   8  18,  103   8   3,   43   4 -15,  261  13   2
+WAIT 2
+
+   0  22  44,  259  20  25,  103  20  13,   43  16  -5
+WAIT 1
+
+   0  22  44,  259  20  25,  103  20  13,   43  16  -5
+WAIT 1
+
+   0  22  44,  259  20  25,  103  20  13,   43  16  -5
+WAIT 1
+
+   0  22  44,  259  20  25,  103  20  13,   43  16  -5
+WAIT 1
+
+   0  22  44,  259  20  25,  115  23  12,   43  17  -1
+WAIT 1
+
+   0  22  44,  259  20  25,  115  23  12,   43  17  -1
+WAIT 1
+
+   0  22  44,  259  20  25,  115  23  12,   43  17  -1
+WAIT 1
+
+ 285  18  27,  116  39  27,    1  27   1,    2  46   1,   48  35  14
+WAIT 1
+
+ANIEND

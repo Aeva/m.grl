@@ -1,0 +1,168 @@
+SPRITE    0         SPRITES    0    0   24   12 shadow
+SPRITE   10          SHIELD    0    0    6   18 shield up
+SPRITE   11          SHIELD    6    0    8   20 shield left
+SPRITE   12          SHIELD   14    0   16   20 shield down
+SPRITE   13          SHIELD   30    0    8   20 shield right
+SPRITE   40           ATTR1    0    0   48   48 hat up
+SPRITE   41           ATTR1   48    0   48   48 hat left
+SPRITE   42           ATTR1   96    0   48   48 hat down
+SPRITE   43           ATTR1  144    0   48   48 hat right
+SPRITE   44           ATTR1    0   48   48   48 hat pull up
+SPRITE   45           ATTR1   48   48   48   48 hat pull left
+SPRITE   46           ATTR1   96   48   48   48 hat pull down
+SPRITE   47           ATTR1  144   48   48   48 hat pull right
+SPRITE   48           ATTR1    0   96   48   48 hat dead
+SPRITE  100            HEAD    0    0   32   32 head up
+SPRITE  101            HEAD    0   32   32   32 head left
+SPRITE  102            HEAD    0   64   32   32 head down
+SPRITE  103            HEAD    0   96   32   32 head right
+SPRITE  104            HEAD    0  128   32   48 head pulling up
+SPRITE  105            HEAD    0  176   32   32 head pulling left
+SPRITE  106            HEAD    0  208   32   32 head pulling down
+SPRITE  107            HEAD    0  240   32   32 head pulling right
+SPRITE  108            HEAD    0  272   32   32 head pushing up
+SPRITE  109            HEAD    0  304   32   32 head pushing left
+SPRITE  110            HEAD    0  336   32   32 head pushing down
+SPRITE  111            HEAD    0  368   32   32 head pushing right
+SPRITE  112            HEAD    0  400   32   32 head hurted up
+SPRITE  113            HEAD    0  432   32   32 head hurted left
+SPRITE  114            HEAD    0  464   32   32 head hurted down
+SPRITE  115            HEAD    0  496   32   32 head hurted right
+SPRITE  116            HEAD    0  528   32   32 head dead
+SPRITE  200            BODY    0    0   32   32 body up
+SPRITE  201            BODY   32    0   32   32 body left
+SPRITE  202            BODY   64    0   32   32 body down
+SPRITE  203            BODY   96    0   32   32 body right
+SPRITE  204            BODY    0   32   32   32 body walking1 up
+SPRITE  205            BODY   32   32   32   32 body walking1 left
+SPRITE  206            BODY   64   32   32   32 body walking1 down
+SPRITE  207            BODY   96   32   32   32 body walking1 right
+SPRITE  208            BODY    0   64   32   32 body walking2 up
+SPRITE  209            BODY   32   64   32   32 body walking2 left
+SPRITE  210            BODY   64   64   32   32 body walking2 down
+SPRITE  211            BODY   96   64   32   32 body walking2 right
+SPRITE  212            BODY    0   96   32   32 body walking3 up
+SPRITE  213            BODY   32   96   32   32 body walking3 left
+SPRITE  214            BODY   64   96   32   32 body walking3 down
+SPRITE  215            BODY   96   96   32   32 body walking3 right
+SPRITE  216            BODY    0  128   32   32 body walking4 up
+SPRITE  217            BODY   32  128   32   32 body walking4 left
+SPRITE  218            BODY   64  128   32   32 body walking4 down
+SPRITE  219            BODY   96  128   32   32 body walking4 right
+SPRITE  220            BODY    0  160   32   32 body walking5 up
+SPRITE  221            BODY   32  160   32   32 body walking5 left
+SPRITE  222            BODY   64  160   32   32 body walking5 down
+SPRITE  223            BODY   96  160   32   32 body walking5 right
+SPRITE  224            BODY    0  192   32   32 body sword1 up
+SPRITE  225            BODY   32  192   32   32 body sword1 left
+SPRITE  226            BODY   64  192   32   32 body sword1 down
+SPRITE  227            BODY   96  192   32   32 body sword1 right
+SPRITE  228            BODY    0  224   32   32 body sword2 up
+SPRITE  229            BODY   32  224   32   32 body sword2 left
+SPRITE  230            BODY   64  224   32   32 body sword2 down
+SPRITE  231            BODY   96  224   32   32 body sword2 right
+SPRITE  232            BODY    0  256   32   32 body sword3 up
+SPRITE  233            BODY   32  256   32   32 body sword3 left
+SPRITE  234            BODY   64  256   32   32 body sword3 down
+SPRITE  235            BODY   96  256   32   32 body sword3 right
+SPRITE  236            BODY    0  288   32   32 body sword4 up
+SPRITE  237            BODY   32  288   32   32 
+SPRITE  238            BODY   64  288   32   32 
+SPRITE  239            BODY   96  288   32   32 
+SPRITE  240            BODY    0  320   32   32 body grabbing up
+SPRITE  241            BODY   32  320   32   32 body grabbing left
+SPRITE  242            BODY   64  320   32   32 body grabbing down
+SPRITE  243            BODY   96  320   32   32 body grabbing right
+SPRITE  244            BODY    0  352   32   32 body pushing2 up
+SPRITE  245            BODY   32  352   32   32 body pushing2 left
+SPRITE  246            BODY   64  352   32   32 body pushing2 down
+SPRITE  247            BODY   96  352   32   32 body pushing2 right
+SPRITE  248            BODY    0  384   32   32 body pushing3 up
+SPRITE  249            BODY   32  384   32   32 body pushing3 left
+SPRITE  250            BODY   64  384   32   32 body pushing3 down
+SPRITE  251            BODY   96  384   32   32 body pushing3 right
+SPRITE  252            BODY    0  416   32   32 body pulling1 up
+SPRITE  253            BODY   32  416   32   32 body pulling left
+SPRITE  254            BODY   64  416   32   32 body pulling down
+SPRITE  255            BODY   96  416   32   32 body pulling right
+SPRITE  256            BODY    0  448   32   32 body lifting up
+SPRITE  257            BODY   32  448   32   32 body lifting left
+SPRITE  258            BODY   64  448   32   32 body lifting down
+SPRITE  259            BODY   96  448   32   32 body lifting right
+SPRITE  260            BODY    0  480   32   32 body hands up
+SPRITE  261            BODY   32  480   32   32 body hands left
+SPRITE  262            BODY   64  480   32   32 body hands down
+SPRITE  263            BODY   96  480   32   32 body hands right
+SPRITE  264            BODY    0  512   32   32 body carrying1 up
+SPRITE  265            BODY   32  512   32   32 body carrying1 left
+SPRITE  266            BODY   64  512   32   32 body carrying1 down
+SPRITE  267            BODY   96  512   32   32 body carrying1 right
+SPRITE  268            BODY    0  544   32   32 body carrying2 up
+SPRITE  269            BODY   32  544   32   32 body carrying2 left
+SPRITE  270            BODY   64  544   32   32 body carrying2 down
+SPRITE  271            BODY   96  544   32   32 body carrying2 right
+SPRITE  272            BODY    0  576   32   32 body carrying3 up
+SPRITE  273            BODY   32  576   32   32 body carrying3 left
+SPRITE  274            BODY   64  576   32   32 body carrying3 down
+SPRITE  275            BODY   96  576   32   32 body carrying3 right
+SPRITE  276            BODY    0  608   32   32 body carrying4 up
+SPRITE  277            BODY   32  608   32   32 body hurted up
+SPRITE  278            BODY   64  608   32   32 body carrying4 down
+SPRITE  279            BODY   96  608   32   32 body hurted down
+SPRITE  280            BODY    0  640   32   32 body carrying5 up
+SPRITE  281            BODY   32  640   32   32 body hurted left
+SPRITE  282            BODY   64  640   32   32 body carrying5 down
+SPRITE  283            BODY   96  640   32   32 body hurted right
+SPRITE  284            BODY    0  672   32   48 body pulling2 up
+SPRITE  285            BODY   32  672   48   32 body dead
+
+LOOP
+CONTINUOUS
+DEFAULTATTR1 hat0.png
+DEFAULTHEAD head19.png
+DEFAULTBODY body.png
+
+ANI
+   0  12  36,   10  36  18,  216   8  16,  100   8   4,   40   0 -14
+   0  12  36,   11   6  14,  217  12  16,  101  12   0,   41   0 -18
+   0  12  36,  218   8  16,  102   8   2,   42   0 -16,   12   8  26
+   0  12  36,   13  34  14,  219   2  16,  103   4   0,   43   0 -18
+PLAYSOUND steps2.wav 1.5 2
+
+   0  12  36,   10  36  14,  220   8  17,  100   8   0,   40   0 -18
+   0  12  36,   11   6  14,  221  10  16,  101  12   2,   41   0 -16
+   0  12  36,  222   8  20,  102   8   0,   42   0 -18,   12   8  22
+   0  12  36,   13  34  14,  223   4  16,  103   4   2,   43   0 -16
+
+   0  12  36,   10  36  18,  216   8  16,  100   8   4,   40   0 -14
+   0  12  36,   11   6  14,  217  12  16,  101  12   0,   41   0 -18
+   0  12  36,  218   8  16,  102   8   2,   42   0 -16,   12   8  26
+   0  12  36,   13  34  14,  219   2  16,  103   4   0,   43   0 -18
+
+   0  12  36,   10  36  14,  212   8  17,  100   8   4,   40   0 -14
+   0  12  36,   11   6  16,  213  12  18,  101  12   2,   41   0 -16
+   0  12  36,  214   8  16,  102   8   4,   42   0 -14,   12   8  28
+   0  12  36,   13  34  16,  215   2  18,  103   4   2,   43   0 -16
+
+   0  12  36,   10  36  16,  208   8  16,  100   8   2,   40   0 -16
+   0  12  36,   11   6  14,  209  12  14,  101  12   0,   41   0 -18
+   0  12  36,  210   8  16,  102   8   2,   42   0 -16,   12   8  26
+   0  12  36,   13  34  14,  211   2  14,  103   4   0,   43   0 -18
+PLAYSOUND steps2.wav 1.5 2
+
+   0  12  36,   10  36  14,  204   8  15,  100   8   0,   40   0 -18
+   0  12  36,   11   6  12,  205  10  16,  101  10   0,   41  -2 -18
+   0  12  36,  206   8  14,  102   8   0,   42   0 -18,   12   8  22
+   0  12  36,   13  34  12,  207   4  16,  103   6   0,   43   2 -18
+
+   0  12  36,   10  36  16,  208   8  16,  100   8   2,   40   0 -16
+   0  12  36,   11   6  14,  209  12  14,  101  12   0,   41   0 -18
+   0  12  36,  210   8  16,  102   8   2,   42   0 -16,   12   8  26
+   0  12  36,   13  34  14,  211   2  14,  103   4   0,   43   0 -18
+
+   0  12  36,   10  36  14,  212   8  16,  100   8   4,   40   0 -14
+   0  12  36,   11   6  16,  213  12  18,  101  12   2,   41   0 -16
+   0  12  36,  214   8  16,  102   8   4,   42   0 -14,   12   8  28
+   0  12  36,   13  34  16,  215   2  18,  103   4   2,   43   0 -16
+
+ANIEND

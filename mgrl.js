@@ -601,6 +601,9 @@ please.media.__Animation = function (gani_text) {
                 value = 0;
             }
             ani.__attrs[attr_name] = value;
+            if (value !== 0) {
+                ani.__resources[value] = true;
+            }
         };
         var getter = function () {
             return ani.__attrs[attr_name];
@@ -618,6 +621,7 @@ please.media.__Animation = function (gani_text) {
         return list;
     };
 
+    var defs_phase = true;
     var lines = gani_text.split("\n");
     for (var i=0; i<lines.length; i+=1) {
         var line = lines[i].trim();
@@ -626,58 +630,72 @@ please.media.__Animation = function (gani_text) {
         }
         var params = split_params(line);
 
-
-        // update a sprite definition
-        if (params[0] === "SPRITE") {
-            var sprite_id = Number(params[1]);
-            var sprite = {
-                "hint" : params[7],
-            };
-            var names = ["resource", "x", "y", "w", "h"];
-            for (var k=0; k<names.length; k+=1) {
-                var datum = params[k+2];
-                var name = names[k];
-                if (is_attr(datum)) {
-                    bind_attr(sprite, name, datum);
-                }
-                else {
-                    if (k > 0 && k < 5) {
-                        sprite[name] = Number(datum);
+        if (defs_phase) {
+            // update a sprite definition
+            if (params[0] === "SPRITE") {
+                var sprite_id = Number(params[1]);
+                var sprite = {
+                    "hint" : params.slice(7).join(" "),
+                };
+                var names = ["resource", "x", "y", "w", "h"];
+                for (var k=0; k<names.length; k+=1) {
+                    var datum = params[k+2];
+                    var name = names[k];
+                    if (is_attr(datum)) {
+                        bind_attr(sprite, name, datum);
                     }
                     else {
-                        if (k == 0) {
-                            ani.__resources[datum] = true;
+                        if (k > 0 && k < 5) {
+                            sprite[name] = Number(datum);
                         }
-                        sprite[name] = datum;
+                        else {
+                            if (k == 0) {
+                                ani.__resources[datum] = true;
+                            }
+                            sprite[name] = datum;
+                        }
                     }
                 }
+                ani.__sprites[sprite_id] = sprite;
             }
-            ani.__sprites[sprite_id] = sprite;
-        }
 
-        
-        // default values for attributes
-        if (params[0].startsWith("DEFAULT")) {
-            var attr_name = params[0].slice(7);
-            var datum = params[1];
-            if (is_number(params[1])) {
-                datum = Number(datum);
+            
+            // default values for attributes
+            if (params[0].startsWith("DEFAULT")) {
+                var attr_name = params[0].slice(7);
+                var datum = params[1];
+                if (is_number(params[1])) {
+                    datum = Number(datum);
+                }
+                else {
+                    ani.__resources[datum] = true;
+                }
+                ani.__attrs[attr_name] = datum;
             }
-            else {
-                ani.__resources[datum] = true;
-            }
-            ani.__attrs[attr_name] = datum;
-        }
 
-        
-        // determine frameset boundaries
-        if (params[0] === "ANI") {
-            frames_start = i+1;
+            
+            // determine frameset boundaries
+            if (params[0] === "ANI") {
+                frames_start = i+1;
+            }
         }
-        if (params[1] === "ANIEND") {
-            frames_end = i-1;
+        else {
+            if (params[1] === "ANIEND") {
+                frames_end = i-1;
+            }
         }
     }
+
+
+    // for (var i=frames_start; i<=frames_end; i+=1) {
+    //     var line = lines[i].trim();
+    //     if (line.length == 0) {
+    //         continue;
+    //     }
+    //     var params = split_params(line);
+
+    // }
+
 
     // Convert the resources dict into a list with no repeating elements eg a set:
     ani.__resources = get_properties(ani.__resources);
