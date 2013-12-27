@@ -7,32 +7,9 @@ window.addEventListener("load", function () {
 
     var RegisterSprite = function (group_name, keys) {
         // constructor, I guess
-        
-        var self=this;
-        this.group = please.create_input_group(group_name);
-        this.state = "idle";
 
-        this.group.on_update = function (hint, age) {
-	    if (hint === "cancel") {
-	        self.state = "idle";
-	    }
-	    else {
-	        if (age >= 1000) {
-		    self.state = "long";
-	        }
-	        else {
-		    self.state = "short";
-	        }
-	    }
-        };
-
-        this.group.on_tear_down = function () {
-	    self.group = false;
-        };
-
-        for (var i=0; i<keys.length; i+=1) {
-	    please.bind_key(group_name, keys[i]);
-        };
+        var self = this;
+        this.handler = new please.create_input_handler(group_name, keys);
 
         var fps = 60;
         var shown_state = false;
@@ -40,16 +17,16 @@ window.addEventListener("load", function () {
         var draw = function draw() {
 	    var suffix = (Math.floor((Date.now()/1000)*4.0) % 2) ? "_a" : "_b";
 	    var adjusted_state = "idle";
-	    if (self.state == "long" || self.state=="short") {
-	        var adjusted_state = self.state + suffix;
+	    if (self.handler.state == "long" || self.handler.state=="short") {
+	        var adjusted_state = self.handler.state + suffix;
 	    }
 
 	    if (adjusted_state != shown_state) {
 	        var sprite = document.getElementById(group_name);
 	        sprite.setAttribute("class", adjusted_state);
-	        if (shown_text !== self.state) {
-		    shown_text = self.state;
-		    sprite.textContent = self.state;
+	        if (shown_text !== self.handler.state) {
+		    shown_text = self.handler.state;
+		    sprite.textContent = self.handler.state;
 	        }
 	    }
         };

@@ -67,7 +67,7 @@ please.media.__AnimationInstance = function (animation_data) {
     // advance animaiton sets up events to flag when the animation has
     // updated
     var timer = -1;
-    var advance = function () {
+    var advance = function (stop_animation/*=false*/) {
         clearTimeout(timer);
         ani.__frame_pointer += 1;
         try {
@@ -76,16 +76,46 @@ please.media.__AnimationInstance = function (animation_data) {
             var frame = undefined;
         }
         if (frame === undefined) {
-            if (ani.__frame_pointer !== -1) {
+            var stopped = true;
+            var pointer_changed = false;
+            if (ani.data.looping) {
+                // looping
                 ani.__frame_pointer = -1;
-                advance();
+                pointer_changed = true;
+                stopped = false;
+            }
+            if (typeof(ani.data.setbackto) === "number") {
+                // set back to frame
+                pointer_changed = true;
+                ani.__frame_pointer = ani.data.setbackto - 1;
+            }
+            else if (ani.data.setbackto) {
+                // value is a file name
+                // FIXME: implement
+                console.warn("gani linking not yet supported");
+                stopped = true; // wouldn't normally be the case
+            }
+            if (ani.data.continuous) {
+                // not really sure what this is for
+            }
+            if (pointer_changed) {
+                advance(stopped);
             }
         }
         else {
+            if (frame.sound) {
+                var uri = please.relative("audio", frame.sound.file);
+                var sound = please.access(uri, true);
+                if (sound) {
+                    sound.play();
+                }
+            }
             please.schedule(function () {
                 ani.on_dirty(ani, frame);
             });
-            timer = setTimeout(advance, frame.durration);
+            if (!stop_animation) {
+                timer = setTimeout(advance, frame.durration);
+            }
         }
     };
 
@@ -108,6 +138,7 @@ please.media.__AnimationInstance = function (animation_data) {
         }
         var frame = ani.frames[block_i][dir];
         frame.durration = ani.frames[block_i].durration;
+        frame.sound = ani.frames[block_i].sound;
         return frame;
     };
 
@@ -146,7 +177,7 @@ please.media.__AnimationInstance = function (animation_data) {
             }
             block.durration = ani.data.base_speed;
             if (block.wait) {
-                block.durration += ani.data.base_speed*block.wait;
+                block.durration = ani.data.base_speed*(block.wait+1);
             }
             if (target_block.sound !== undefined) {
                 block.sound = {};
@@ -193,7 +224,7 @@ please.media.__AnimationData = function (gani_text) {
         },
         "frames" : [],
 
-        "base_speed" : 50,
+        "base_speed" : 100,
         
         "single_dir" : false,
         "looping" : false,
@@ -254,6 +285,11 @@ please.media.__AnimationData = function (gani_text) {
             // single direction mode
             if (params[0] === "SINGLEDIRECTION") {
                 ani.single_dir = true;
+            }
+
+            // loop mode
+            if (params[0] === "LOOP") {
+                ani.looping = true;
             }
 
             // continuous mode

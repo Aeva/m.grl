@@ -1,6 +1,6 @@
 SPRITE    0         SPRITES    0    0   24   12 shadow
-SPRITE    1     LETTERS.PNG  240   96   16   32 Question Mark
-SPRITE    2     LETTERS.PNG  224   96   16   32 Exclamation Mark
+SPRITE    1     letters.png  240   96   16   32 Question Mark
+SPRITE    2     letters.png  224   96   16   32 Exclamation Mark
 SPRITE   40           ATTR1    0    0   48   48 hat up
 SPRITE   41           ATTR1   48    0   48   48 hat left
 SPRITE   42           ATTR1   96    0   48   48 hat down

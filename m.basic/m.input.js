@@ -86,12 +86,59 @@ please.unlink_group = function(group_name) {
 \*----------------------*/
 
 
+// Constructor function.  The input handler abstracts the key/group thing.
+please.create_input_handler = function (group_name, keys) {
+    var self=this;
+    this.group = please.create_input_group(group_name);
+    this.state = "idle";
+
+    this.active = [];
+
+    this.group.on_update = function (hint, age, active_keys) {
+        var new_state = "idle";
+	if (hint !== "cancel") {
+	    if (age >= 1000) {
+		new_state = "long";
+	    }
+	    else {
+		new_state = "short";
+	    }
+	}
+
+        var keychange = active_keys.length === self.active.length;
+        for (var i=0; i<active_keys.length; i+=1) {            
+            if (self.active.indexOf(active_keys[i]) === -1) {
+                keychange = true;
+                break;
+            }
+        }
+
+        if (keychange || new_state !== self.state) {
+            self.state = new_state;
+            self.active = active_keys;
+            self.on_state_change(self.state, self.active);
+        }
+    };
+
+    this.group.on_tear_down = function () {
+	self.group = false;
+    };
+
+    // handler
+    this.on_state_change = function (state, active_keys) {}
+
+    for (var i=0; i<keys.length; i+=1) {
+	please.bind_key(group_name, keys[i]);
+    };
+};
+
+
 // Define GroupObject constructor - these guys, also known as "input
 // groups" are sets of related keybindings.  They are not intended to
 // be interacted with directly.
 please.input.__GroupObject = function(group_name) {
     var self = this;
-    var keys = [];
+    this.keys = [];
     var timestamp = 0;
     var inactive = true;
     
@@ -99,19 +146,19 @@ please.input.__GroupObject = function(group_name) {
     
     this.__register = function(key_code) {
 	// Used internally only.  Registers a keycode with this group.
-	keys.push(key_code);
+	self.keys.push(key_code);
     };
     
     this.__remove_binding = function(key_code) {
-	keys = keys.splice(keys.indexOf(key_code),1);
+	self.keys = self.keys.splice(self.keys.indexOf(key_code),1);
 	please.input.bindings[key_code].cancel(false);
     };
     
     this.__tear_down = function() {
 	// Used internally.  Removes all bindings, and does anything else
 	// that might be needed when the event is removed.
-	for (var i=0; i<keys.length; i+=1) {
-	    self.__remove_binding(keys[i]);
+	for (var i=0; i<self.keys.length; i+=1) {
+	    self.__remove_binding(self.keys[i]);
 	}
 	self.on_update("cancel", 0);
 	self.on_tear_down();
@@ -122,10 +169,10 @@ please.input.__GroupObject = function(group_name) {
 	// representing all of the bound keys.
 	var age = -1;
 	var active = [];
-	for (var i=0; i<keys.length; i+=1) {
-	    var binding = please.input.bindings[keys[i]];
+	for (var i=0; i<self.keys.length; i+=1) {
+	    var binding = please.input.bindings[self.keys[i]];
 	    if (binding.active) {
-		active.push(keys[i]);
+		active.push(self.keys[i]);
 	    }
 	}
 	if (active.length === 0) {
@@ -146,8 +193,8 @@ please.input.__GroupObject = function(group_name) {
 
     this.cancel = function() {
 	// Cancel all associated pending key events:
-	for (var i=0; i<keys.length; i+=1) {
-	    please.input.bindings[keys[i]].cancel(false);
+	for (var i=0; i<self.keys.length; i+=1) {
+	    please.input.bindings[self.keys[i]].cancel(false);
 	}
 	self.__send_update("cancel");
     };
@@ -156,7 +203,7 @@ please.input.__GroupObject = function(group_name) {
 	// this is a stub
     };
     
-    this.on_update = function(hint, age) {
+    this.on_update = function(hint, age, active_keys) {
 	// this is a stub
     };
 };

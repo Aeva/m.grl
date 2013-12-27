@@ -80,7 +80,7 @@ please.is_number = function (param) {
     if (typeof(param) === "number") {
         return true;
     }
-    else if (typeof(param === "string")) {
+    else if (typeof(param) === "string") {
         var found = param.match(/^\d+$/i);
         return (found !== null && found.length === 1);
     }
@@ -123,6 +123,7 @@ please.media = {
     "onload_events" : [],
     "search_paths" : {
         "img" : "",
+        "audio" : "",
     },
 
     // functions
@@ -260,7 +261,7 @@ please.media.guess_type = function (file_name) {
     var type_map = {
         "img" : [".png", ".gif"],
         "ani" : [".gani"],
-        "sound" : [".wav", ".mp3"],
+        "audio" : [".wav", ".mp3"],
     };
 
     for (var type in type_map) {
@@ -282,6 +283,27 @@ please.media.handlers.img = function (url, callback) {
     var req = new Image();
     please.media._push(req);
     req.onload = function() {
+        please.media.assets[url] = req;
+        if (typeof(callback) === "function") {
+            please.schedule(function(){callback("pass", url);});
+        }
+        please.media._pop(req);
+    };
+    req.onerror = function () {
+        if (typeof(callback) === "function") {
+            please.schedule(function(){callback("fail", url);});
+        }
+        please.media._pop(req);
+    };
+    req.src = url;
+};
+
+
+// "audio" media type handler
+please.media.handlers.audio = function (url, callback) {
+    var req = new Audio();
+    please.media._push(req);
+    req.oncanplaythrough = function() {
         please.media.assets[url] = req;
         if (typeof(callback) === "function") {
             please.schedule(function(){callback("pass", url);});
@@ -407,12 +429,59 @@ please.unlink_group = function(group_name) {
 \*----------------------*/
 
 
+// Constructor function.  The input handler abstracts the key/group thing.
+please.create_input_handler = function (group_name, keys) {
+    var self=this;
+    this.group = please.create_input_group(group_name);
+    this.state = "idle";
+
+    this.active = [];
+
+    this.group.on_update = function (hint, age, active_keys) {
+        var new_state = "idle";
+	if (hint !== "cancel") {
+	    if (age >= 1000) {
+		new_state = "long";
+	    }
+	    else {
+		new_state = "short";
+	    }
+	}
+
+        var keychange = active_keys.length === self.active.length;
+        for (var i=0; i<active_keys.length; i+=1) {            
+            if (self.active.indexOf(active_keys[i]) === -1) {
+                keychange = true;
+                break;
+            }
+        }
+
+        if (keychange || new_state !== self.state) {
+            self.state = new_state;
+            self.active = active_keys;
+            self.on_state_change(self.state, self.active);
+        }
+    };
+
+    this.group.on_tear_down = function () {
+	self.group = false;
+    };
+
+    // handler
+    this.on_state_change = function (state, active_keys) {}
+
+    for (var i=0; i<keys.length; i+=1) {
+	please.bind_key(group_name, keys[i]);
+    };
+};
+
+
 // Define GroupObject constructor - these guys, also known as "input
 // groups" are sets of related keybindings.  They are not intended to
 // be interacted with directly.
 please.input.__GroupObject = function(group_name) {
     var self = this;
-    var keys = [];
+    this.keys = [];
     var timestamp = 0;
     var inactive = true;
     
@@ -420,19 +489,19 @@ please.input.__GroupObject = function(group_name) {
     
     this.__register = function(key_code) {
 	// Used internally only.  Registers a keycode with this group.
-	keys.push(key_code);
+	self.keys.push(key_code);
     };
     
     this.__remove_binding = function(key_code) {
-	keys = keys.splice(keys.indexOf(key_code),1);
+	self.keys = self.keys.splice(self.keys.indexOf(key_code),1);
 	please.input.bindings[key_code].cancel(false);
     };
     
     this.__tear_down = function() {
 	// Used internally.  Removes all bindings, and does anything else
 	// that might be needed when the event is removed.
-	for (var i=0; i<keys.length; i+=1) {
-	    self.__remove_binding(keys[i]);
+	for (var i=0; i<self.keys.length; i+=1) {
+	    self.__remove_binding(self.keys[i]);
 	}
 	self.on_update("cancel", 0);
 	self.on_tear_down();
@@ -443,10 +512,10 @@ please.input.__GroupObject = function(group_name) {
 	// representing all of the bound keys.
 	var age = -1;
 	var active = [];
-	for (var i=0; i<keys.length; i+=1) {
-	    var binding = please.input.bindings[keys[i]];
+	for (var i=0; i<self.keys.length; i+=1) {
+	    var binding = please.input.bindings[self.keys[i]];
 	    if (binding.active) {
-		active.push(keys[i]);
+		active.push(self.keys[i]);
 	    }
 	}
 	if (active.length === 0) {
@@ -467,8 +536,8 @@ please.input.__GroupObject = function(group_name) {
 
     this.cancel = function() {
 	// Cancel all associated pending key events:
-	for (var i=0; i<keys.length; i+=1) {
-	    please.input.bindings[keys[i]].cancel(false);
+	for (var i=0; i<self.keys.length; i+=1) {
+	    please.input.bindings[self.keys[i]].cancel(false);
 	}
 	self.__send_update("cancel");
     };
@@ -477,7 +546,7 @@ please.input.__GroupObject = function(group_name) {
 	// this is a stub
     };
     
-    this.on_update = function(hint, age) {
+    this.on_update = function(hint, age, active_keys) {
 	// this is a stub
     };
 };
@@ -652,7 +721,7 @@ please.media.__AnimationInstance = function (animation_data) {
     // advance animaiton sets up events to flag when the animation has
     // updated
     var timer = -1;
-    var advance = function () {
+    var advance = function (stop_animation/*=false*/) {
         clearTimeout(timer);
         ani.__frame_pointer += 1;
         try {
@@ -661,16 +730,46 @@ please.media.__AnimationInstance = function (animation_data) {
             var frame = undefined;
         }
         if (frame === undefined) {
-            if (ani.__frame_pointer !== -1) {
+            var stopped = true;
+            var pointer_changed = false;
+            if (ani.data.looping) {
+                // looping
                 ani.__frame_pointer = -1;
-                advance();
+                pointer_changed = true;
+                stopped = false;
+            }
+            if (typeof(ani.data.setbackto) === "number") {
+                // set back to frame
+                pointer_changed = true;
+                ani.__frame_pointer = ani.data.setbackto - 1;
+            }
+            else if (ani.data.setbackto) {
+                // value is a file name
+                // FIXME: implement
+                console.warn("gani linking not yet supported");
+                stopped = true; // wouldn't normally be the case
+            }
+            if (ani.data.continuous) {
+                // not really sure what this is for
+            }
+            if (pointer_changed) {
+                advance(stopped);
             }
         }
         else {
+            if (frame.sound) {
+                var uri = please.relative("audio", frame.sound.file);
+                var sound = please.access(uri, true);
+                if (sound) {
+                    sound.play();
+                }
+            }
             please.schedule(function () {
                 ani.on_dirty(ani, frame);
             });
-            timer = setTimeout(advance, frame.durration);
+            if (!stop_animation) {
+                timer = setTimeout(advance, frame.durration);
+            }
         }
     };
 
@@ -693,6 +792,7 @@ please.media.__AnimationInstance = function (animation_data) {
         }
         var frame = ani.frames[block_i][dir];
         frame.durration = ani.frames[block_i].durration;
+        frame.sound = ani.frames[block_i].sound;
         return frame;
     };
 
@@ -731,7 +831,7 @@ please.media.__AnimationInstance = function (animation_data) {
             }
             block.durration = ani.data.base_speed;
             if (block.wait) {
-                block.durration += ani.data.base_speed*block.wait;
+                block.durration = ani.data.base_speed*(block.wait+1);
             }
             if (target_block.sound !== undefined) {
                 block.sound = {};
@@ -778,7 +878,7 @@ please.media.__AnimationData = function (gani_text) {
         },
         "frames" : [],
 
-        "base_speed" : 50,
+        "base_speed" : 100,
         
         "single_dir" : false,
         "looping" : false,
@@ -839,6 +939,11 @@ please.media.__AnimationData = function (gani_text) {
             // single direction mode
             if (params[0] === "SINGLEDIRECTION") {
                 ani.single_dir = true;
+            }
+
+            // loop mode
+            if (params[0] === "LOOP") {
+                ani.looping = true;
             }
 
             // continuous mode

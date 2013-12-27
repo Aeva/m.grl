@@ -55,35 +55,22 @@ var draw_frame = function (ani_object, frame) {
 };
 
 
-var walk_callback = function (status, uri) {
+var ani_callback = function (status, uri) {
     if (status === "pass") {
-        write("gani loaded: " + uri);
         var template = please.access(uri);
-        var walk_ani = template.create();
+        var ani = template.create();
 
-        draw_container("", "ani_test");
-        walk_ani.dir = 3;
+        var stamp = "ani_test_" + Date.now();
+        draw_container("", stamp);
+        ani.dir = Math.floor(Math.random()*4);
 
-        walk_ani.on_dirty = function (ani, frame) {
-            var container = document.getElementById("ani_test");
-            var html = draw_frame(walk_ani, frame);
+        ani.on_dirty = function (ani, frame) {
+            var container = document.getElementById(stamp);
+            var html = draw_frame(ani, frame);
             container.innerHTML = html;
-            //console.info(html);
         };
 
-        walk_ani.play();
-        
-       
-
-
-        for (var f=0; f<walk_ani.frames.length; f+= 1) {
-            var block = walk_ani.frames[f];
-            for (var dir=0; dir<4; dir+=1) {
-                var frame = block[dir];
-                var html = draw_frame(walk_ani, frame);
-                draw_container(html);
-            }
-        }
+        ani.play();
     }
     else {
         write("!!! " + status + " for " + uri);
@@ -95,7 +82,7 @@ var resources_loaded = function () {
     write("<br/>All resource downloads have completed:");
     for (var prop in please.media.assets) {
         if (please.media.assets.hasOwnProperty(prop) && prop !== "error") {
-            write(" - " + prop);
+            write(" - " + "<a href='"+prop+"'>"+prop+"</a>");
         }
     }
 };
@@ -106,10 +93,15 @@ var sword_ani;
 addEventListener("load", function () {
     please.media.search_paths.img = "./images/";
     please.media.search_paths.ani = "./ganis/";
-    
-    var walk_uri = please.relative("ani", "sword.gani");
-    please.load("ani", walk_uri, walk_callback);
+    please.media.search_paths.audio = "./sounds/";
+
+
+    var ganis = ["idle", "walk", "push", "sword", "hurt", "dead"];
+    for (var i=0; i<ganis.length; i+=1) {
+        var file = ganis[i] + ".gani";
+        var uri = please.relative("ani", file);
+        please.load("ani", uri, ani_callback);
+    }
 
     please.media.connect_onload(resources_loaded);
-
 });

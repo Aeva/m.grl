@@ -9,6 +9,7 @@ please.media = {
     "onload_events" : [],
     "search_paths" : {
         "img" : "",
+        "audio" : "",
     },
 
     // functions
@@ -146,7 +147,7 @@ please.media.guess_type = function (file_name) {
     var type_map = {
         "img" : [".png", ".gif"],
         "ani" : [".gani"],
-        "sound" : [".wav", ".mp3"],
+        "audio" : [".wav", ".mp3"],
     };
 
     for (var type in type_map) {
@@ -168,6 +169,27 @@ please.media.handlers.img = function (url, callback) {
     var req = new Image();
     please.media._push(req);
     req.onload = function() {
+        please.media.assets[url] = req;
+        if (typeof(callback) === "function") {
+            please.schedule(function(){callback("pass", url);});
+        }
+        please.media._pop(req);
+    };
+    req.onerror = function () {
+        if (typeof(callback) === "function") {
+            please.schedule(function(){callback("fail", url);});
+        }
+        please.media._pop(req);
+    };
+    req.src = url;
+};
+
+
+// "audio" media type handler
+please.media.handlers.audio = function (url, callback) {
+    var req = new Audio();
+    please.media._push(req);
+    req.oncanplaythrough = function() {
         please.media.assets[url] = req;
         if (typeof(callback) === "function") {
             please.schedule(function(){callback("pass", url);});

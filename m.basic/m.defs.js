@@ -54,7 +54,7 @@ please.is_number = function (param) {
     if (typeof(param) === "number") {
         return true;
     }
-    else if (typeof(param === "string")) {
+    else if (typeof(param) === "string") {
         var found = param.match(/^\d+$/i);
         return (found !== null && found.length === 1);
     }
