@@ -224,7 +224,7 @@ please.media.__AnimationData = function (gani_text) {
             "HEAD" : "head19.png",
             "BODY" : "body.png",
             "SWORD" : "sword1.png",
-            "SHEILD" : "sheild1.png",
+            "SHEILD" : "shield1.png",
         },
         "frames" : [],
 
