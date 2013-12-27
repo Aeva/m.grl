@@ -141,6 +141,28 @@ please.media._pop = function (req_key) {
 };
 
 
+// Guess a file's media type
+please.media.guess_type = function (file_name) {
+    var type_map = {
+        "img" : [".png", ".gif"],
+        "ani" : [".gani"],
+        "sound" : [".wav", ".mp3"],
+    };
+
+    for (var type in type_map) {
+        if (!type_map.hasOwnProperty(type)) {continue;}
+        var extensions = type_map[type];
+        for (var i=0; i<extensions.length; i+=1) {
+            var test = extensions[i];
+            if (file_name.endsWith(test)) {
+                return type;
+            }
+        }        
+    }
+    return undefined;
+};
+
+
 // "img" media type handler
 please.media.handlers.img = function (url, callback) {
     var req = new Image();

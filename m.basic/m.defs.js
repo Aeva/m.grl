@@ -31,3 +31,58 @@ please.schedule = function (callback) {
 };
 
 
+// Text processing function, splits a line into parameters, and does
+// some cleaning.
+please.split_params = function (line, delim) {
+    if (delim === undefined) {
+        delim = " ";
+    }
+    var parts = line.split(delim);
+    var params = [];
+    for (var i=0; i<parts.length; i+=1) {
+        var check = parts[i].trim();
+        if (check.length > 0) {
+            params.push(check);
+        }
+    }
+    return params;
+};
+
+
+// Determines if the string contains only a number:
+please.is_number = function (param) {
+    if (typeof(param) === "number") {
+        return true;
+    }
+    else if (typeof(param === "string")) {
+        var found = param.match(/^\d+$/i);
+        return (found !== null && found.length === 1);
+    }
+    else {
+        return false;
+    }
+};
+
+
+// Determines if the string describes a gani attribute:
+please.is_attr = function (param) {
+    if (typeof(param) === "string") {
+        var found = param.match(/^[A-Z]+[0-9A-Z]*$/);
+        return (found !== null && found.length === 1);
+    }
+    else {
+        return false;
+    }
+};
+
+
+// Returns an object's properties list:
+please.get_properties = function (dict) {
+    var list = [];
+    for (var prop in dict) {
+        if (dict.hasOwnProperty(prop)) {
+            list.push(prop);
+        }
+    }
+    return list;
+};

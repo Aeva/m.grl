@@ -13,7 +13,7 @@ var draw_container = function (inner_html) {
 
 // Generate html that describes a sprite instance.
 var sprite2html = function (ani_object, sprite_id, x, y) {
-    var sprite = ani_object.__sprites[sprite_id];
+    var sprite = ani_object.sprites[sprite_id];
     if (sprite === undefined) {
         return "";
     }
@@ -53,33 +53,17 @@ var draw_frame = function (ani_object, frame) {
 var walk_callback = function (status, uri) {
     if (status === "pass") {
         write("gani loaded: " + uri);
-        var walk_ani = please.access(uri);
+        var template = please.access(uri);
+        var walk_ani = template.create();
 
-        for (var f=0; f<walk_ani.__frames.length; f+= 1) {
-            var block = walk_ani.__frames[f];
+        for (var f=0; f<walk_ani.frames.length; f+= 1) {
+            var block = walk_ani.frames[f];
             for (var dir=0; dir<4; dir+=1) {
                 var frame = block[dir];
                 var html = draw_frame(walk_ani, frame);
                 draw_container(html);
             }
         }
-
-        // var props = [];
-        // for (var prop in walk_ani.__sprites) {
-        //     if (!walk_ani.__sprites.hasOwnProperty(prop)) {
-        //         continue;
-        //     }
-        //     props.push(prop);
-        // };
-
-        // for (var i=0; i<5; i+=1) {
-        //     var selected = Math.floor(Math.random() *props.length);
-        //     var sprite_id = props[selected];
-
-        //     var html = sprite2html(walk_ani, sprite_id, 0, 0);
-        //     write(" -- Random sprite from gani:");
-        //     write(html);
-        // }
     }
     else {
         write("!!! " + status + " for " + uri);
@@ -97,10 +81,12 @@ var resources_loaded = function () {
 };
 
 
+var sword_ani;
+
 addEventListener("load", function () {
     please.media.search_paths.img = "./images/";
     please.media.search_paths.ani = "./ganis/";
-
+    
     var walk_uri = please.relative("ani", "sword.gani");
     please.load("ani", walk_uri, walk_callback);
 
