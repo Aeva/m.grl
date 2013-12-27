@@ -5,8 +5,13 @@ var write = function (msg) {
 };
 
 
-var draw_container = function (inner_html) {
-    var msg = "<div class='ani_frame'><div>" + inner_html + "</div></div>";
+var draw_container = function (inner_html, id) {
+    
+    var msg = "<div class='ani_frame'><div";
+    if (id !== undefined) {
+        msg += " id='" + id + "'";
+    }
+    msg += ">" + inner_html + "</div></div>";
     document.getElementById("page").innerHTML += msg;
 };
 
@@ -55,6 +60,21 @@ var walk_callback = function (status, uri) {
         write("gani loaded: " + uri);
         var template = please.access(uri);
         var walk_ani = template.create();
+
+        draw_container("", "ani_test");
+        walk_ani.dir = 3;
+
+        walk_ani.on_dirty = function (ani, frame) {
+            var container = document.getElementById("ani_test");
+            var html = draw_frame(walk_ani, frame);
+            container.innerHTML = html;
+            //console.info(html);
+        };
+
+        walk_ani.play();
+        
+       
+
 
         for (var f=0; f<walk_ani.frames.length; f+= 1) {
             var block = walk_ani.frames[f];

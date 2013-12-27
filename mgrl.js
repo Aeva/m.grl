@@ -619,15 +619,18 @@ please.media.__AnimationInstance = function (animation_data) {
         "__attrs" : {},
         "sprites" : {},
         "frames" : [],
+        "__frame_pointer" : 0,
+        "dir" : 2, // index of "north" "east" "south" "west"
 
         // method functions
         "set_attr" : function (attr, value) {},
         "get_attr" : function (attr) {},
         "change_animation" : function (animation_data) {},
         "play" : function () {},
+        "get_current_frame" : function () {},
 
         // event handler
-        "on_dirty" : function (ani) {},
+        "on_dirty" : function (ani, frame_data) {},
         "on_change_reel" : function (ani, new_ani) {},
     };
 
@@ -644,7 +647,54 @@ please.media.__AnimationInstance = function (animation_data) {
             object[key] = value;
         }
     };
+    
 
+    // advance animaiton sets up events to flag when the animation has
+    // updated
+    var timer = -1;
+    var advance = function () {
+        clearTimeout(timer);
+        ani.__frame_pointer += 1;
+        try {
+            var frame = ani.get_current_frame();
+        } catch (err) {
+            var frame = undefined;
+        }
+        if (frame === undefined) {
+            if (ani.__frame_pointer !== -1) {
+                ani.__frame_pointer = -1;
+                advance();
+            }
+        }
+        else {
+            please.schedule(function () {
+                ani.on_dirty(ani, frame);
+            });
+            timer = setTimeout(advance, frame.durration);
+        }
+    };
+
+
+    // play function starts the animation sequence
+    ani.play = function () {
+        ani.__frame_pointer = -1;
+        advance();
+    };
+
+
+    // get_current_frame retrieves the frame that currently should be
+    // visible
+    ani.get_current_frame = function () {
+        var block_i = ani.__frame_pointer;
+        var dir = ani.dir;
+        if (ani.data.single_dir) {
+            dir = ani.__frame_pointer % 4;
+            block_i = Math.floor(ani.__frame_pointer / 4);
+        }
+        var frame = ani.frames[block_i][dir];
+        frame.durration = ani.frames[block_i].durration;
+        return frame;
+    };
 
     // called when the object is created but also if the animation is
     // changed at some point.
@@ -679,6 +729,12 @@ please.media.__AnimationInstance = function (animation_data) {
             if (target_block.wait !== undefined) {
                 bind_or_copy(block, "wait", target_block.wait);
             }
+            block.durration = ani.data.base_speed;
+            if (block.wait) {
+                // FIXME should just be block.wait, but something is copied wrong
+                console.info(block.wait[1]);
+                block.durration += ani.data.base_speed*block.wait[1];
+            }
             if (target_block.sound !== undefined) {
                 block.sound = {};
                 for (var sound_prop in target_block.sound) {
@@ -701,18 +757,8 @@ please.media.__AnimationInstance = function (animation_data) {
             }
             ani.frames.push(block);
         }
+        ani.__frame_pointer = 0;
     };
-
-    var start_time = 0;
-    var timer = -1;
-
-    ani.play = function () {
-        start_time = Date.now();
-    };
-
-
-
-    
     build_bindings();
     return ani;
 };
@@ -733,6 +779,8 @@ please.media.__AnimationData = function (gani_text) {
             "SHEILD" : "sheild1.png",
         },
         "frames" : [],
+
+        "base_speed" : 50,
         
         "single_dir" : false,
         "looping" : false,
