@@ -146,9 +146,7 @@ please.media.__AnimationInstance = function (animation_data) {
             }
             block.durration = ani.data.base_speed;
             if (block.wait) {
-                // FIXME should just be block.wait, but something is copied wrong
-                console.info(block.wait[1]);
-                block.durration += ani.data.base_speed*block.wait[1];
+                block.durration += ani.data.base_speed*block.wait;
             }
             if (target_block.sound !== undefined) {
                 block.sound = {};
@@ -333,7 +331,7 @@ please.media.__AnimationData = function (gani_text) {
         }
         var params = please.split_params(line);
         if (params[0] === "WAIT") {
-            ani.frames[last_frame].wait = params;
+            ani.frames[last_frame].wait = Number(params[1]);
         }
         else if (params[0] === "PLAYSOUND") {
             var sound_file = params[1];
