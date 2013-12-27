@@ -61,7 +61,7 @@ var ani_callback = function (status, uri) {
         var template = please.access(uri);
         var ani = template.create();
 
-        var stamp = "ani_test_" + Date.now();
+        var stamp = "ani_test_" + Math.floor(Math.random()*Math.pow(2,64));
         draw_container("", stamp);
         ani.dir = Math.floor(Math.random()*4);
 
