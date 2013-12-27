@@ -55,6 +55,7 @@ var draw_frame = function (ani_object, frame) {
 };
 
 
+var animations = [];
 var ani_callback = function (status, uri) {
     if (status === "pass") {
         var template = please.access(uri);
@@ -69,8 +70,7 @@ var ani_callback = function (status, uri) {
             var html = draw_frame(ani, frame);
             container.innerHTML = html;
         };
-
-        ani.play();
+        animations.push(ani);
     }
     else {
         write("!!! " + status + " for " + uri);
@@ -84,6 +84,9 @@ var resources_loaded = function () {
         if (please.media.assets.hasOwnProperty(prop) && prop !== "error") {
             write(" - " + "<a href='"+prop+"'>"+prop+"</a>");
         }
+    }
+    for (var i=0; i<animations.length; i+=1) {
+        animations[i].play();
     }
 };
 

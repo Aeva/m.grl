@@ -105,8 +105,10 @@ please.media.__AnimationInstance = function (animation_data) {
         else {
             if (frame.sound) {
                 var uri = please.relative("audio", frame.sound.file);
-                var sound = please.access(uri, true);
-                if (sound) {
+                var resource = please.access(uri, true);
+                if (resource) {
+                    var sound = new Audio();
+                    sound.src = resource.src;
                     sound.play();
                 }
             }
@@ -138,7 +140,9 @@ please.media.__AnimationInstance = function (animation_data) {
         }
         var frame = ani.frames[block_i][dir];
         frame.durration = ani.frames[block_i].durration;
-        frame.sound = ani.frames[block_i].sound;
+        if (!ani.data.single_dir || dir === 0) {
+            frame.sound = ani.frames[block_i].sound;
+        }
         return frame;
     };
 
