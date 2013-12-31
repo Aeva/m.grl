@@ -10,9 +10,9 @@ if (window.please === undefined) { window.please = {} };
 
 
 // Ensure window.RequestAnimationFrame is implemented:
-if (!window.RequestAnimationFrame) {
+if (!window.requestAnimationFrame) {
     // why did we ever think vendor extensions were ever a good idea :/?
-    window.RequestAnimationFrame = window.mozRequestAnimationFrame ||
+    window.requestAnimationFrame = window.mozRequestAnimationFrame ||
         window.webkitRequestAnimationFrame ||
         window.msRequestAnimationFrame ||
         function (callback) { 

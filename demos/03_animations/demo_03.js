@@ -24,7 +24,17 @@ var sprite2html = function (ani_object, sprite_id, x, y) {
     }
     var html = '<div style="';
     
-    var src = please.relative("img", sprite.resource);
+    var uri = please.relative("img", sprite.resource);
+    if (please.access(uri, true) === undefined) {
+        please.load("img", uri, function(state, uri) {
+            if (state === "pass") {
+	        ani_object.__set_dirty();
+                notify_download(uri);
+            }
+        });
+    }
+    var src = please.access(uri).src;
+
     var clip_x = sprite.x * -1;
     var clip_y = sprite.y * -1;
     html += "position: absolute;";
@@ -78,26 +88,50 @@ var ani_callback = function (status, uri) {
 };
 
 
-var resources_loaded = function () {
-    write("<br/>All resource downloads have completed:");
-    for (var prop in please.media.assets) {
-        if (please.media.assets.hasOwnProperty(prop) && prop !== "error") {
-            write(" - " + "<a href='"+prop+"'>"+prop+"</a>");
-        }
+// changes directions and sprites
+var randomize = function () {
+    var outfits = ["green_outfit.png", "red_outfit.png"];
+    var hair_styles = ["hair_mohawk.png", "hair_messy.png", "hair_princess.png"]
+    for (var i=0; i<animations.length; i+=1) {
+        var actor = animations[i];
+        actor.dir = Math.floor(Math.random()*4);
+        var b = Math.floor(Math.random()*outfits.length);
+        var h = Math.floor(Math.random()*hair_styles.length);
+        actor.attrs.hair = hair_styles[h];
+        actor.attrs.body = outfits[b];
     }
+    setTimeout(randomize, 5000);
+};
+
+
+var cached = [];
+var notify_download = function (uri) {
+    if (please.media.assets.hasOwnProperty(uri) && 
+        uri !== "error" &&
+        cached.indexOf(uri) === -1) {
+
+        write("cached: " + "<a href='"+uri+"'>"+uri+"</a>");
+        cached.push(uri);
+    }
+};
+
+
+var resources_loaded = function () {
+    write("<br/>");
+    for (var prop in please.media.assets) {
+        notify_download(prop);
+    }
+    randomize();
     for (var i=0; i<animations.length; i+=1) {
         animations[i].play();
     }
 };
 
 
-var sword_ani;
-
 addEventListener("load", function () {
     please.media.search_paths.img = "./sprites/";
     please.media.search_paths.ani = "./keyframes/";
     please.media.search_paths.audio = "./sounds/";
-
 
     var ganis = ["idle", "walk", "magic", "fall"];
     for (var i=0; i<ganis.length; i+=1) {

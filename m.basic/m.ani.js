@@ -32,15 +32,15 @@ please.media.__AnimationInstance = function (animation_data) {
     var ani = {
         "data" : animation_data,
         "__attrs" : {},
+        "attrs" : {},
         "sprites" : {},
         "frames" : [],
         "__frame_pointer" : 0,
+        "__frame_cache" : undefined,
         "__dir" : 2, // index of "north" "east" "south" "west"
         // access .__dir via .dir
 
         // method functions
-        "set_attr" : function (attr, value) {},
-        "get_attr" : function (attr) {},
         "change_animation" : function (animation_data) {},
         "play" : function () {},
         "get_current_frame" : function () {},
@@ -81,7 +81,7 @@ please.media.__AnimationInstance = function (animation_data) {
         clearTimeout(timer);
         ani.__frame_pointer += 1;
         try {
-            var frame = ani.get_current_frame();
+            var frame = ani.__frame_cache = ani.get_current_frame();
         } catch (err) {
             var frame = undefined;
         }
@@ -122,9 +122,7 @@ please.media.__AnimationInstance = function (animation_data) {
                     sound.play();
                 }
             }
-            please.schedule(function () {
-                ani.on_dirty(ani, frame);
-            });
+            ani.__set_dirty();
             if (!stop_animation) {
                 timer = setTimeout(advance, frame.durration);
             }
@@ -156,6 +154,34 @@ please.media.__AnimationInstance = function (animation_data) {
         return frame;
     };
 
+
+    // Schedules a repaint
+    ani.__set_dirty = function () {
+        if (ani.on_dirty) {
+            window.requestAnimationFrame(function () {
+                ani.on_dirty(ani, ani.__frame_cache);
+            });
+        }
+    };
+
+    
+    // Defines the getters and setters a given property on ani.attrs
+    var setup_attr = function (property) {
+        var handle = property.toLowerCase();
+        Object.defineProperty(ani.attrs, handle, {
+            "get" : function () {
+                return ani.__attrs[property];
+            },
+            "set" : function (value) {
+                if (value !== ani.__attrs[property] && ani.__frame_cache) {
+                    ani.__set_dirty();
+                }
+                return ani.__attrs[property] = value;
+            },
+        });
+    };
+
+
     // called when the object is created but also if the animation is
     // changed at some point.
     var build_bindings = function () {
@@ -165,6 +191,7 @@ please.media.__AnimationInstance = function (animation_data) {
                 var datum = ani.data.attrs[prop];
                 if (!ani.__attrs.hasOwnProperty(prop)) {
                     ani.__attrs[prop] = datum;
+                    setup_attr(prop);
                 }
             }
         }
