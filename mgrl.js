@@ -689,7 +689,8 @@ please.media.__AnimationInstance = function (animation_data) {
         "sprites" : {},
         "frames" : [],
         "__frame_pointer" : 0,
-        "dir" : 2, // index of "north" "east" "south" "west"
+        "__dir" : 2, // index of "north" "east" "south" "west"
+        // access .__dir via .dir
 
         // method functions
         "set_attr" : function (attr, value) {},
@@ -702,6 +703,15 @@ please.media.__AnimationInstance = function (animation_data) {
         "on_dirty" : function (ani, frame_data) {},
         "on_change_reel" : function (ani, new_ani) {},
     };
+
+    Object.defineProperty(ani, "dir", {
+        "get" : function () {
+            return ani.__dir;
+        },
+        "set" : function (value) {
+            return ani.__dir = value % 4;
+        },
+    });
 
 
     // This is used to bind an object's proprety to an "attribute".
@@ -882,7 +892,7 @@ please.media.__AnimationData = function (gani_text) {
         },
         "frames" : [],
 
-        "base_speed" : 100,
+        "base_speed" : 50,
         
         "single_dir" : false,
         "looping" : false,
