@@ -1,0 +1,75 @@
+SPRITE   10            HEAD    0    0   64   64 head normal up
+SPRITE   11            HEAD    0   64   64   64 head normal left
+SPRITE   12            HEAD    0  128   64   64 head normal down
+SPRITE   13            HEAD    0  192   64   64 head normal right
+SPRITE  600            BODY   64    0   64   64 body walk 1 up
+SPRITE  601            BODY   64   64   64   64 body walk 1 left
+SPRITE  602            BODY   64  128   64   64 body walk 1 down
+SPRITE  603            BODY   64  192   64   64 body walk 1 right
+SPRITE  610            BODY  128    0   64   64 body walk 2 up
+SPRITE  611            BODY  128   64   64   64 body walk 2 left
+SPRITE  612            BODY  128  128   64   64 body walk 2 down
+SPRITE  613            BODY  128  192   64   64 body walk 2 right
+SPRITE  620            BODY  192    0   64   64 body walk 3 up
+SPRITE  621            BODY  192   64   64   64 body walk 3 left
+SPRITE  622            BODY  192  128   64   64 body walk 3 down
+SPRITE  623            BODY  192  192   64   64 body walk 3 right
+SPRITE  630            BODY  256    0   64   64 body walk 4 up
+SPRITE  631            BODY  256   64   64   64 body walk 4 left
+SPRITE  632            BODY  256  128   64   64 body walk 4 down
+SPRITE  633            BODY  256  192   64   64 body walk 4 right
+SPRITE  640            BODY  320    0   64   64 body walk 5 up
+SPRITE  641            BODY  320   64   64   64 body walk 5 left
+SPRITE  642            BODY  320  128   64   64 body walk 5 down
+SPRITE  643            BODY  320  192   64   64 body walk 5 right
+SPRITE  650            BODY  384    0   64   64 body walk 6 up
+SPRITE  651            BODY  384   64   64   64 body walk 6 left
+SPRITE  652            BODY  384  128   64   64 body walk 6 down
+SPRITE  653            BODY  384  192   64   64 body walk 6 right
+SPRITE  660            BODY  448    0   64   64 body walk 7 up
+SPRITE  661            BODY  448   64   64   64 body walk 7 left
+SPRITE  662            BODY  448  128   64   64 body walk 7 down
+SPRITE  663            BODY  448  192   64   64 body walk 7 right
+
+LOOP
+CONTINUOUS
+DEFAULTHEAD head1.png
+DEFAULTBODY body1.png
+
+ANI
+ 600  -8 -16,   10  -8 -16
+ 601  -8 -16,   11  -8 -15
+ 602  -8 -16,   12  -8 -16
+ 603  -8 -16,   13  -8 -15
+
+ 610  -8 -16,   10  -8 -16
+ 611  -8 -16,   11  -8 -15
+ 612  -8 -16,   12  -8 -16
+ 613  -8 -16,   13  -8 -15
+
+ 620  -8 -16,   10  -8 -15
+ 621  -8 -16,   11  -8 -16
+ 622  -8 -16,   12  -8 -15
+ 623  -8 -16,   13  -8 -16
+
+ 630  -8 -16,   10  -8 -16
+ 631  -8 -16,   11  -8 -16
+ 632  -8 -16,   12  -8 -16
+ 633  -8 -16,   13  -8 -16
+
+ 640  -8 -16,   10  -8 -16
+ 641  -8 -16,   11  -8 -15
+ 642  -8 -16,   12  -8 -16
+ 643  -8 -16,   13  -8 -15
+
+ 650  -8 -16,   10  -8 -16
+ 651  -8 -16,   11  -8 -15
+ 652  -8 -16,   12  -8 -16
+ 653  -8 -16,   13  -8 -15
+
+ 660  -8 -16,   10  -8 -15
+ 661  -8 -16,   11  -8 -16
+ 662  -8 -16,   12  -8 -15
+ 663  -8 -16,   13  -8 -16
+
+ANIEND

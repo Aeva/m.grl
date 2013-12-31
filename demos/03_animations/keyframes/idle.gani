@@ -1,0 +1,54 @@
+SPRITE   10            HEAD    0    0   64   64 head normal up
+SPRITE   11            HEAD    0   64   64   64 head normal left
+SPRITE   12            HEAD    0  128   64   64 head normal down
+SPRITE   13            HEAD    0  192   64   64 head normal right
+SPRITE   20            HEAD    0    0   64   64 head blink 1 up
+SPRITE   21            HEAD   64   64   64   64 head blink 1 left
+SPRITE   22            HEAD   64  128   64   64 head blink 1 down
+SPRITE   23            HEAD   64  192   64   64 head blink 1 right
+SPRITE   30            HEAD    0    0   64   64 head blink 2 up
+SPRITE   31            HEAD  128   64   64   64 head blink 2 left
+SPRITE   32            HEAD  128  128   64   64 head blink 2 down
+SPRITE   33            HEAD  128  192   64   64 head blink 2 right
+SPRITE  500            BODY    0    0   64   64 body idle up
+SPRITE  501            BODY    0   64   64   64 body idle left
+SPRITE  502            BODY    0  128   64   64 body idle down
+SPRITE  503            BODY    0  192   64   64 body idle right
+
+LOOP
+CONTINUOUS
+DEFAULTHEAD head1.png
+DEFAULTBODY body1.png
+
+ANI
+   500  -8 -16,   10  -8 -16
+   501  -8 -16,   11  -8 -16
+   502  -8 -16,   12  -8 -16
+   503  -8 -16,   13  -8 -16
+WAIT 50 RANDOM 20 100
+
+   500  -8 -16,   20  -8 -16
+   501  -8 -16,   21  -8 -16
+   502  -8 -16,   22  -8 -16
+   503  -8 -16,   23  -8 -16
+WAIT 1
+
+   500  -8 -16,   30  -8 -16
+   501  -8 -16,   31  -8 -16
+   502  -8 -16,   32  -8 -16
+   503  -8 -16,   33  -8 -16
+WAIT 1
+
+   500  -8 -16,   20  -8 -16
+   501  -8 -16,   21  -8 -16
+   502  -8 -16,   22  -8 -16
+   503  -8 -16,   23  -8 -16
+WAIT 1
+
+   500  -8 -16,   10  -8 -16
+   501  -8 -16,   11  -8 -16
+   502  -8 -16,   12  -8 -16
+   503  -8 -16,   13  -8 -16
+WAIT 1
+
+ANIEND

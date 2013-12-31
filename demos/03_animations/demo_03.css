@@ -1,3 +1,15 @@
+h1 {
+    text-align: center;
+}
+
+#content {
+    margin: auto;
+    max-width: 800px;
+    text-align: justify;
+}
+#page {
+    text-align: center;
+}
 
 .ani_frame {
     position: relative;

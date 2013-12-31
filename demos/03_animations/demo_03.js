@@ -94,12 +94,12 @@ var resources_loaded = function () {
 var sword_ani;
 
 addEventListener("load", function () {
-    please.media.search_paths.img = "./images/";
-    please.media.search_paths.ani = "./ganis/";
+    please.media.search_paths.img = "./sprites/";
+    please.media.search_paths.ani = "./keyframes/";
     please.media.search_paths.audio = "./sounds/";
 
 
-    var ganis = ["idle", "walk", "push", "sword", "hurt", "dead"];
+    var ganis = ["idle", "walk", "magic", "fall"];
     for (var i=0; i<ganis.length; i+=1) {
         var file = ganis[i] + ".gani";
         var uri = please.relative("ani", file);
