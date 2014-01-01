@@ -1,0 +1,162 @@
+@-moz-keyframes hold {
+    from {
+        background-color: #437200;
+        color: #96ff00;
+    }
+    to {
+        background-color: #004372;
+        color: #005896;
+    }
+}
+
+@-moz-keyframes charge_up {
+    from {
+        background-color: #437200;
+        color: #96ff00;
+    }
+    to {
+        background-color: #b1002e;
+        color: white;
+    }
+}
+
+@-moz-keyframes long_hold {
+    from {
+        background-color: #b1002e;
+        color: white;
+    }
+    to {
+        background-color: #f2003c;
+        color: #5a5a5a;
+    }
+}
+
+@-moz-keyframes tiny_fire {
+    from {
+        background-color: #a2314e;
+    }
+    10% {
+        background-color: #b17181;
+    }
+    20% {
+        background-color: #a2314e;
+    }
+    100% {
+        background-color: #ccc;
+    }
+}
+
+@-moz-keyframes fire {
+    from {
+        background-color: #b1002e;
+    }
+    10% {
+        background-color: #f2003c;
+    }
+    20% {
+        background-color: #b1002e;
+    }
+    30% {
+        background-color: #f2003c;
+    }
+    40% {
+        background-color: #b1002e;
+    }
+    50% {
+        background-color: #f2003c;
+    }
+    60% {
+        background-color: #b1002e;
+    }
+    70% {
+        background-color: #f2003c;
+    }
+    80% {
+        background-color: #b1002e;
+    }
+    100% {
+        background-color: #ccc;
+    }
+}
+
+
+@-webkit-keyframes hold {
+    from {
+        background-color: #437200;
+        color: #96ff00;
+    }
+    to {
+        background-color: #004372;
+        color: #005896;
+    }
+}
+
+@-webkit-keyframes charge_up {
+    from {
+        background-color: #437200;
+        color: #96ff00;
+    }
+    to {
+        background-color: #b1002e;
+        color: white;
+    }
+}
+
+@-webkit-keyframes long_hold {
+    from {
+        background-color: #b1002e;
+        color: white;
+    }
+    to {
+        background-color: #f2003c;
+        color: #5a5a5a;
+    }
+}
+
+@-webkit-keyframes tiny_fire {
+    from {
+        background-color: #a2314e;
+    }
+    10% {
+        background-color: #b17181;
+    }
+    20% {
+        background-color: #a2314e;
+    }
+    100% {
+        background-color: #ccc;
+    }
+}
+
+@-webkit-keyframes fire {
+    from {
+        background-color: #b1002e;
+    }
+    10% {
+        background-color: #f2003c;
+    }
+    20% {
+        background-color: #b1002e;
+    }
+    30% {
+        background-color: #f2003c;
+    }
+    40% {
+        background-color: #b1002e;
+    }
+    50% {
+        background-color: #f2003c;
+    }
+    60% {
+        background-color: #b1002e;
+    }
+    70% {
+        background-color: #f2003c;
+    }
+    80% {
+        background-color: #b1002e;
+    }
+    100% {
+        background-color: #ccc;
+    }
+}

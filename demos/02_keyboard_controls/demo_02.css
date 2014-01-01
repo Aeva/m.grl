@@ -140,71 +140,23 @@ li {
     -webkit-animation-direction: alternate;
 }
 
+.tiny_fire {
+    -moz-animation-name: tiny_fire;
+    -moz-animation-duration: 1s;
+    -moz-animation-timing-function: linear;
 
-@-moz-keyframes hold {
-    from {
-        background-color: #437200;
-        color: #96ff00;
-    }
-    to {
-        background-color: #004372;
-        color: #005896;
-    }
+    -webkit-animation-name: tiny_fire;
+    -webkit-animation-duration: 1s;
+    -webkit-animation-timing-function: linear;
+
 }
 
-@-moz-keyframes charge_up {
-    from {
-        background-color: #437200;
-        color: #96ff00;
-    }
-    to {
-        background-color: #b1002e;
-        color: white;
-    }
-}
+.fire {
+    -moz-animation-name: fire;
+    -moz-animation-duration: 1000ms;
+    -moz-animation-timing-function: linear;
 
-@-moz-keyframes long_hold {
-    from {
-        background-color: #b1002e;
-        color: white;
-    }
-    to {
-        background-color: #f2003c;
-        color: #5a5a5a;
-    }
-}
-
-
-
-@-webkit-keyframes hold {
-    from {
-        background-color: #437200;
-        color: #96ff00;
-    }
-    to {
-        background-color: #004372;
-        color: #005896;
-    }
-}
-
-@-webkit-keyframes charge_up {
-    from {
-        background-color: #437200;
-        color: #96ff00;
-    }
-    to {
-        background-color: #b1002e;
-        color: white;
-    }
-}
-
-@-webkit-keyframes long_hold {
-    from {
-        background-color: #b1002e;
-        color: white;
-    }
-    to {
-        background-color: #f2003c;
-        color: #5a5a5a;
-    }
+    -webkit-animation-name: fire;
+    -webkit-animation-duration: 1000ms;
+    -webkit-animation-timing-function: linear;
 }
