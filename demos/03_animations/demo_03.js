@@ -19,7 +19,7 @@ var draw_container = function (inner_html, id) {
 // Generate html that describes a sprite instance.
 var sprite2html = function (ani_object, sprite_id, x, y) {
     var sprite = ani_object.sprites[sprite_id];
-    if (sprite === undefined) {
+    if (sprite.resource === undefined) {
         return "";
     }
     var html = '<div style="';
@@ -90,7 +90,13 @@ var ani_callback = function (status, uri) {
 
 // changes directions and sprites
 var randomize = function () {
-    var outfits = ["green_outfit.png", "red_outfit.png"];
+    var outfits = [
+        "green_outfit.png",
+        "red_outfit.png",
+        "princess_dress.png",
+        "hunk_body.png",
+        "skeleton_body.png",
+    ];
     var hair_styles = ["hair_mohawk.png", "hair_messy.png", "hair_princess.png"]
     for (var i=0; i<animations.length; i+=1) {
         var actor = animations[i];
@@ -99,6 +105,20 @@ var randomize = function () {
         var h = Math.floor(Math.random()*hair_styles.length);
         actor.attrs.hair = hair_styles[h];
         actor.attrs.body = outfits[b];
+
+        if (actor.attrs.body === "hunk_body.png") {
+            actor.attrs.head = "head3.png";
+        }
+        else if (actor.attrs.body === "skeleton_body.png") {
+            actor.attrs.head = "skeleton_head.png";
+            actor.attrs.hair = undefined;
+        }
+        else {
+            actor.attrs.head = "head2.png";
+        }
+        if (Math.floor(Math.random()*10) === 0) {
+            actor.attrs.head = "skeleton_head.png";
+        }
     }
     setTimeout(randomize, 5000);
 };
