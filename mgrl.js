@@ -344,315 +344,258 @@ please.media.handlers.text = function (url, callback) {
 // - m.input.js ------------------------------------------------------------- //
 
 
-// module data
-please.input = {
-    // data
-    "groups" : {},
-    "bindings" : {},
+please.keys = {
+    "handlers" : {},
+    "stats" : {},
+    "__keycode_names" : {},
 
-    // constructors :P
-    "__GroupObject" : function (group_name) {},
-    "__KeyBinding" : function (group) {},
+    // util functions
+    "normalize_dvorak" : function (str) {},
+    "lookup_keycode" : function (code) {},
+    "__cancel" : function (char) {},
+    "__full_stop" : function () {},
+    "__event_handler" : function (event) {},
 
-    // handlers
-    "__lost_focus" : function () {},
-    "__on_event" : function (key_code) {},
-    "__clear_event" : function (key_code) {},
-
-    // support functions
-    "__cancel_all" : function () {},
-    "__dom_event" : function (e) {},
-    "__dom_cancel" : function (e) {},
-    "__dom_block" : function (e) {},
+    // api functions
+    "enable" : function () {},
+    "disable" : function () {},
+    "connect" : function (char, handler, threshold) {},
+    "remove" : function (char) {},
 };
 
 
+please.keys.normalize_dvorak = function (str) {
+    /* This function converts strings between qwerty and dvorak. */
 
-
-/*----------------------*\
-| API methods:           |
-\*----------------------*/
-
-// Call this to activate m.input.  You should do this after the window
-// object's onload event is fired.
-please.enable_input = function () {
-    addEventListener("keydown", please.input.__dom_event);
-    addEventListener("keyup", please.input.__dom_cancel);
-    addEventListener("keypress", please.input.__dom_event);
-};
-
-
-// Call this to disable input control.  This shouldn't remove
-// keybindings.
-please.disable_input = function () {
-    please.input.__cancel_all();
-    removeEventListener("keydown", please.input.__dom_event);
-    removeEventListener("keyup", please.input.__dom_cancel);
-    removeEventListener("keypress", please.input.__dom_event);
-};
-
-
-// Creates a new group and returns a binding object for it.  
-// Returns false if the named group is already registered.
-please.create_input_group = function (group_name) {
-    if (!please.input.groups[group_name]) {
-	please.input.groups[group_name] = new please.input.__GroupObject(group_name);
-	return please.input.groups[group_name];
+    if (str.length > 1) {
+        var new_str = "";
+        for (var i=0; i<str.length; i+=1) {
+            new_str += normalize_dvorak(str[i]);
+        }
+        return new_str;
     }
     else {
-	return false;
+        var qwerty = "qwertyuiop[]";
+        qwerty += "asdfghjkl;'";
+        qwerty += "zxcvbnm,./";
+        qwerty += "-=";
+        qwerty += "QWERTYUIOP{}";
+        qwerty += 'ASDFGHJKL:"';
+        qwerty += "ZXCVBNM<>?";
+        qwerty += "_+";
+        
+        var dvorak = "',.pyfgcrl/=";
+        dvorak += "aoeuidhtns-";
+        dvorak += ";qjkxbmwvz";
+        dvorak += "[]";
+        dvorak += '"<>PYFGCRL?+';
+        dvorak += "AOEUIDHTNS_";
+        dvorak += ":QJKXBMWVZ";
+        dvorak += "{}";
+
+        var k = dvorak.indexOf(str);
+        if (k >=0 && k<qwerty.length) {
+            return qwerty[k];
+        }
+        else {
+            //console.warn("Key conversion not found for " + str);
+            return str;
+        }
     }
 };
 
 
-// binds a key to a group:
-please.bind_key = function (group_name, keycode) {
-    if (please.input.groups[group_name] !== undefined) { 
-	please.input.bindings[keycode] = new please.input.__KeyBinding(
-            please.input.groups[group_name]);
-	please.input.groups[group_name].__register(keycode);
-    };
+please.keys.__keycode_names = {
+    8 : "backspace",
+    9 : "tab",
+    13 : "enter",
+    16 : "shift",
+    17 : "ctrl",
+    18 : "alt",
+    19 : "pause",
+    20 : "capslock",
+    27 : "escape",
+    33 : "page up",
+    34 : "page down",
+    35 : "end",
+    36 : "home",
+    37 : "left",
+    38 : "up",
+    39 : "right",
+    40 : "down",
+    45 : "insert",
+    46 : "delete",
+    91 : "left super",
+    92 : "right super",
+    93 : "select",
+    96 : "num 0",
+    97 : "num 1",
+    98 : "num 2",
+    99 : "num 3",
+    100 : "num 4",
+    101 : "num 5",
+    102 : "num 6",
+    103 : "num 7",
+    104 : "num 8",
+    105 : "num 9",
+    106 : "num *",
+    107 : "num +",
+    109 : "num -",
+    110 : "num .",
+    111 : "num /",
+    112 : "F1",
+    113 : "F2",
+    114 : "F3",
+    115 : "F4",
+    116 : "F5",
+    117 : "F6",
+    118 : "F7",
+    119 : "F8",
+    120 : "F9",
+    121 : "F10",
+    122 : "F11",
+    123 : "F12",
+    144 : "num lock",
+    145 : "scroll lock",
+    186 : ";",
+    187 : "=",
+    188 : ",",
+    189 : "-",
+    190 : ".",
+    191 : "/ ",
+    192 : "`",
+    219 : "[",
+    220 : "\\ "[0],
+    221 : "]",
+    222 : "'",
 };
 
 
-// Removes a group and clears related timers and key bindings.
-please.unlink_group = function(group_name) {
-    please.input.groups[group_name].__tear_down();
-    delete please.input.groups[group_name];
+please.keys.lookup_keycode = function (code) {
+    /* This function returns a human readable identifier for a given
+       keycode.  string.fromCharCode does not always produce correct
+       results */
+    var key = please.keys.__keycode_names[code];
+    if (key === undefined) {
+        key = String.fromCharCode(code);
+    }
+    if (key.length === 1 && window.location.hash === "#dvorak") {
+        key = please.keys.normalize_dvorak(key);
+    }
+    return key;
 };
 
 
+please.keys.__cancel = function (char) {
+    /* Forces a key to be released. */
+    if (please.keys.handlers[char] && please.keys.stats[char].state !== "cancel") {
+        var handler = please.keys.handlers[char];
+        var stats = please.keys.stats[char];
+        clearTimeout(stats.timeout);
+        stats.timeout = -1;
+        stats.keys = [];
+        stats.state = "cancel";
+        please.schedule(function () {handler(stats.state, char);});
+    }
+};
 
 
-/*----------------------*\
-| Constructor Functions  |
-\*----------------------*/
+please.keys.__event_handler = function (event) {
+    /* This function is responsible for determining what to do with
+       DOM keyboard events and facilitates its own event routing in a
+       way that is sane for games. */
 
+    var code = event.keyCode || event.which;
+    var key = please.keys.lookup_keycode(code).toLowerCase();
+    if (please.keys.handlers[key]) {
+        event.preventDefault();
+        var stats = please.keys.stats[key];
+        var handler = please.keys.handlers[key];
 
-// Constructor function.  The input handler abstracts the key/group thing.
-please.create_input_handler = function (group_name, keys) {
-    var self=this;
-    this.group = please.create_input_group(group_name);
-    this.state = "idle";
-
-    this.active = [];
-
-    this.group.on_update = function (hint, age, active_keys) {
-        var new_state = "idle";
-	if (hint !== "cancel") {
-	    if (age >= 1000) {
-		new_state = "long";
-	    }
-	    else {
-		new_state = "short";
-	    }
-	}
-
-        var keychange = active_keys.length === self.active.length;
-        for (var i=0; i<active_keys.length; i+=1) {            
-            if (self.active.indexOf(active_keys[i]) === -1) {
-                keychange = true;
-                break;
+        if (event.type === "keydown") {
+            if (stats.state === "cancel") {
+                stats.state = "press";
+                please.schedule(function(){handler("press", key)});
+                if (stats.threshold !== undefined) {
+                    clearTimeout(stats.timeout);
+                    stats.timeout = setTimeout(function() {
+                        stats.state = "long";
+                        handler("long", key);
+                    }, stats.threshold);
+                }
             }
         }
-
-        if (keychange || new_state !== self.state) {
-            self.state = new_state;
-            self.active = active_keys;
-            self.on_state_change(self.state, self.active);
+        else if (event.type === "keyup") {
+            please.keys.__cancel(key);
         }
-    };
-
-    this.group.on_tear_down = function () {
-	self.group = false;
-    };
-
-    // handler
-    this.on_state_change = function (state, active_keys) {}
-
-    for (var i=0; i<keys.length; i+=1) {
-	please.bind_key(group_name, keys[i]);
-    };
-};
-
-
-// Define GroupObject constructor - these guys, also known as "input
-// groups" are sets of related keybindings.  They are not intended to
-// be interacted with directly.
-please.input.__GroupObject = function(group_name) {
-    var self = this;
-    this.keys = [];
-    var timestamp = 0;
-    var inactive = true;
-    
-    this.__defineGetter__("name", function () { return group_name });
-    
-    this.__register = function(key_code) {
-	// Used internally only.  Registers a keycode with this group.
-	self.keys.push(key_code);
-    };
-    
-    this.__remove_binding = function(key_code) {
-	self.keys = self.keys.splice(self.keys.indexOf(key_code),1);
-	please.input.bindings[key_code].cancel(false);
-    };
-    
-    this.__tear_down = function() {
-	// Used internally.  Removes all bindings, and does anything else
-	// that might be needed when the event is removed.
-	for (var i=0; i<self.keys.length; i+=1) {
-	    self.__remove_binding(self.keys[i]);
-	}
-	self.on_update("cancel", 0);
-	self.on_tear_down();
-    }
-    
-    this.__send_update = function(hint) {
-	// Used internally to send an update event, abstractly 
-	// representing all of the bound keys.
-	var age = -1;
-	var active = [];
-	for (var i=0; i<self.keys.length; i+=1) {
-	    var binding = please.input.bindings[self.keys[i]];
-	    if (binding.active) {
-		active.push(self.keys[i]);
-	    }
-	}
-	if (active.length === 0) {
-	    self.on_update("cancel", 0, active);
-	    inactive = true;
-	}
-	else {
-	    if (inactive) {
-		inactive = false;
-		timestamp = Date.now();
-		self.on_update("hold", 0, active);
-	    }
-	    else {
-		self.on_update("hold", Date.now()-timestamp, active);
-	    }
-	}
-    };
-
-    this.cancel = function() {
-	// Cancel all associated pending key events:
-	for (var i=0; i<self.keys.length; i+=1) {
-	    please.input.bindings[self.keys[i]].cancel(false);
-	}
-	self.__send_update("cancel");
-    };
-    
-    this.on_tear_down = function() {
-	// this is a stub
-    };
-    
-    this.on_update = function(hint, age, active_keys) {
-	// this is a stub
-    };
-};
-
-
-// Define GroupObject constructor - these guys, also known as "input
-// groups" are sets of related keybindings.  They are not intended to
-// be interacted with directly.
-please.input.__KeyBinding = function(group) {
-    var self = this;
-    var pause_time = .05;
-    this.timer = false;
-    this.age = 0;
-    this.active = false;
-
-    this.trigger = function () {
-	self.age += pause_time;
-	self.active = true;
-	self.timer = window.setTimeout(self.trigger, pause_time * 1000);
-	group.__send_update();
-    };
-    
-    this.cancel = function (by_dom) {
-	if (self.timer !== false) {
-	    window.clearTimeout(this.timer);
-	    self.timer = false;
-	}
-	self.age = 0;
-	self.active = false;
-	if (by_dom === true) {
-	    group.__send_update();
-	}
-    };
-};
-
-
-
-
-/*------------------------*\
-| Various handlers:        |
-\*------------------------*/
-
-
-// Called when window focus is lost
-please.input.__lost_focus = function () {
-    for (var key in please.input.bindings) {
-	please.input.bindings[key].cancel(true)
     }
 };
 
 
-please.input.__on_event = function(key_code) {
-    if (please.input.bindings[key_code] !== undefined && !please.input.bindings[key_code].active) {
-	please.input.bindings[key_code].trigger();
-    }
-}
+please.keys.__full_stop = function () {
+    /* This function is called to force key-up events and clear
+       pending timeouts.  Usually this happens when the window is
+       blurred. */
 
-please.input.__clear_event = function(key_code) {
-    if (please.input.bindings[key_code] !== undefined) {
-	please.input.bindings[key_code].cancel(true);
-    }
-}
-
-
-
-
-/*-----------------------------------*\
-| Low level dom abstraction handlers: |
-\*-----------------------------------*/
-
-please.input.__cancel_all = function () {
-    for (var i=0; i<please.input.please.input.groups.length; i+=1) {
-	please.input.please.input.groups[i].cancel();
+    for (var key in please.keys.handlers) {
+        please.keys.__cancel(key);
     }
 };
 
 
-please.input.__dom_event = function (e) {
-    var key = e.keyCode;
-    please.input.__on_event(key);
-    if (please.input.bindings[key]) {
-        e.preventDefault();
-    }
+/////////////////////// API functions
+
+
+please.keys.enable = function () {
+    /* This function hooks up the event handling machinery. */
+
+    window.addEventListener("keydown", please.keys.__event_handler);
+    window.addEventListener("keypress", please.keys.__event_handler);
+    window.addEventListener("keyup", please.keys.__event_handler);
+    window.addEventListener("blur", please.keys.__full_stop);
 };
 
 
-please.input.__dom_cancel = function (e) {
-    var key = e.keyCode;
-    please.input.__clear_event(key);
-    if (please.input.bindings[key]) {
-        e.preventDefault();
-    }
+please.keys.disable = function () {
+    /* This function unhooks the event handling machinery. */
+
+    please.keys.__full_stop();
+    window.removeEventListener("keydown", please.keys.__event_handler);
+    window.removeEventListener("keypress", please.keys.__event_handler);
+    window.removeEventListener("keyup", please.keys.__event_handler);
+    window.removeEventListener("blur", please.keys.__full_stop);
 };
 
 
-please.input.__dom_block = function (e) {
-    if (please.input.bindings[e.keyCode]) {
-        e.preventDefault();
-    }
+please.keys.connect = function (char, handler, threshold) {
+    /* Adds a keyboard binding.  'Char' is something like "A", "S", "
+       ", "\t", or whatever might be reported by keyboard events.
+
+       Threshold is the number of milliseconds for which after the key
+       is held continuously for, the handler will be triggered.
+
+       The argument "handler" will be called with the argument "state"
+       which will be one of "press", "long", or "cancel".  Followed by a
+       list of keys currently pressed. */
+
+    please.keys.handlers[char] = handler;
+    please.keys.stats[char] = {
+        "threshold" : threshold,
+        "timeout" : -1,
+        "state" : "cancel",
+    };
 };
 
 
-/*------------*\
-| Wire it up:  |
-\*------------*/
-window.addEventListener("blur", please.input.__lost_focus);// - m.ani.js --------------------------------------------------------------- //
+please.keys.remove = function (char) {
+    /* Removes a keybinding set by the please.keys.connect function */
+    clearTimeout(please.keys.stats[char].timeout);
+    delete please.keys.handlers[char];
+    delete please.keys.stats[char];
+};
+
+
+// - m.ani.js --------------------------------------------------------------- //
 
 
 // "gani" media type handler

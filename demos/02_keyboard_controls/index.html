@@ -4,20 +4,34 @@
   <script type="text/javascript" src="demo_02.js" /></script>
   <link rel="stylesheet" type="text/css" href="demo_02.css" />
 </head><body>
+  <h1>Mondaux Debug</h1>
 
-    <h1>Mondaux Debug</h1>
-    
-    <div class="row">
-      <div id="walk" class="idle">idle</div>
-      <h2>Walk Group</h2>
+  <div id="demo">
+    <div id="controls">
+      <div id="directional_keys">
+        <div id="up" class="indicator idle">W</div>
+        <div id="left" class="indicator idle">A</div>
+        <div id="down" class="indicator idle">S</div>
+        <div id="right" class="indicator idle">D</div>
+      </div>
+
+      <div id="action" class="indicator idle">SPACE</div>
     </div>
-    <div class="row">
-      <div id="action" class="idle">idle</div>
-      <h2>Action Group</h2><br/><br/><br/>
-    </div>
+
+
     <div class="instructions">
       <h2>Instructions</h2>
-      <li>Press the arrow keys to interact with the "Arrow Group".</li>
-      <li>Press the 'A' key to interact with the "Action Group".</li>
+      <ul>
+        <li>WASD are the movement keys.</li>
+        <li>
+          Press and hold the space bar for about one second to see a
+          secondary action.
+        </li>
+        <li>
+          Add "<a href="#dvorak">#dvorak"</a> to the end of the url
+          to enable dvorak mode.
+        </li>
+      </ul>
     </div>
+  </div>
 </body></html>

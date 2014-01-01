@@ -1,10 +1,6 @@
 body {
     font-family: copystruct, sans;
     font-size: 13px;
-    background-color: #333;
-    color: black;
-    max-width: 640px;
-    margin: auto;
 }
 
 h1 {
@@ -20,70 +16,195 @@ h1 {
     color: black;
 }
 
-.row h2 {
-    display: inline-block;
-    text-align: center;
-    font-size: 30px;
-    line-height: 1em;
-    padding: 0px;
-    margin: 0px;
-    letter-spacing: 8px;
-    margin-bottom: 1em;
-    margin-top: 1em;
-    margin-left: 50px;
-    vertical-align: -30%;
-    color: #555;
+li {
+    font-size: 16px;
 }
 
 .instructions, instructions h2 {
     text-indent: 30px;
 }
 
+#demo {
+    width: 800px;
+    margin: auto;
+    background-color: #ccc;
+    border-radius: 8px;
+    padding-top: 40px;
+    padding-bottom: 40px;
+}
 
-.row {
-    margin-top: 50px;
+#controls { 
+    position: relative;
+    margin: auto;
+    width: 600px;
+    height: 320px;
+}
+
+#directional_keys {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 260px;
+    height: 260px;
+}
+
+#action {
+    position: absolute;
+    right: 100px;
+    top: 110px;
+}
+
+#directional_keys > div {
+    position: absolute;
+}
+
+#up {
+    top: 0px;
+    left: 90px;
+}
+
+#left {
+    top: 90px;
+    left: 0px;
+}
+
+#down {
+    bottom: 0px;
+    left: 90px;
+}
+
+#right {
+    top: 90px;
+    right: 0px;
 }
 
 
-#walk, #action {
+
+.indicator {
     display: inline-block;
     width: 80px;
     height: 80px;
     border: 1px solid black;
+    margin: -1px;
     text-align: center;
     line-height: 78px;
     text-shadow: 0px -0px 2px black;
     box-shadow: 0px 8px 18px #222;
-    /*background-color: #888;
-    color: #ccc;*/
 }
+
+
 .idle {
-    transition: background-color 1s, color 1s;
-    -moz-transition: background-color 1s, color 1s;
-    -webkit-transition: background-color 1s, color 1s;
-    -o-transition: background-color 1s, color 1s;
+    transition: background-color 200ms, color 200ms;
+    -moz-transition: background-color 200ms, color 200ms;
+    -webkit-transition: background-color 200ms, color 200ms;
+    -o-transition: background-color 200ms, color 200ms;
     background-color: #888;
     color: #ccc;
 }
-.short_a, .short_b, .long_a, .long_b {
-    transition: background-color .25s, color .25s;
-    -moz-transition: background-color .25s, color .25s;
-    -webkit-transition: background-color .5s, color .25s;
-    -o-transition: background-color .25s, color .25s;
+
+#action.press {
+    -moz-animation-name: charge_up;
+    -moz-animation-duration: 1s;
+    -moz-animation-timing-function: linear;
+
+    -webkit-animation-name: charge_up;
+    -webkit-animation-duration: 1s;
+    -webkit-animation-timing-function: linear;
 }
-.short_a {
-    background-color: #437200;
-    color: #96ff00;
+
+.press:not(#action) {
+    -moz-animation-name: hold;
+    -moz-animation-duration: 200ms;
+    -moz-animation-timing-function: linear;
+    -moz-animation-iteration-count: infinite;
+    -moz-animation-direction: alternate;
+
+    -webkit-animation-name: hold;
+    -webkit-animation-duration: 200ms;
+    -webkit-animation-timing-function: linear;
+    -webkit-animation-iteration-count: infinite;
+    -webkit-animation-direction: alternate;
 }
-.short_b {
-    background-color: #004372;
-    color: #005896;
+
+#action.long {
+    -moz-animation-name: long_hold;
+    -moz-animation-duration: 100ms;
+    -moz-animation-timing-function: linear;
+    -moz-animation-iteration-count: infinite;
+    -moz-animation-direction: alternate;
+
+    -webkit-animation-name: long_hold;
+    -webkit-animation-duration: 100ms;
+    -webkit-animation-timing-function: linear;
+    -webkit-animation-iteration-count: infinite;
+    -webkit-animation-direction: alternate;
 }
-.long_a {
-    background-color: #b1002e;
-    color: white;
+
+
+@-moz-keyframes hold {
+    from {
+        background-color: #437200;
+        color: #96ff00;
+    }
+    to {
+        background-color: #004372;
+        color: #005896;
+    }
 }
-.long_b {
-    background-color: #f2003c;
-    color: #5a5a5a;
+
+@-moz-keyframes charge_up {
+    from {
+        background-color: #437200;
+        color: #96ff00;
+    }
+    to {
+        background-color: #b1002e;
+        color: white;
+    }
+}
+
+@-moz-keyframes long_hold {
+    from {
+        background-color: #b1002e;
+        color: white;
+    }
+    to {
+        background-color: #f2003c;
+        color: #5a5a5a;
+    }
+}
+
+
+
+@-webkit-keyframes hold {
+    from {
+        background-color: #437200;
+        color: #96ff00;
+    }
+    to {
+        background-color: #004372;
+        color: #005896;
+    }
+}
+
+@-webkit-keyframes charge_up {
+    from {
+        background-color: #437200;
+        color: #96ff00;
+    }
+    to {
+        background-color: #b1002e;
+        color: white;
+    }
+}
+
+@-webkit-keyframes long_hold {
+    from {
+        background-color: #b1002e;
+        color: white;
+    }
+    to {
+        background-color: #f2003c;
+        color: #5a5a5a;
+    }
 }
