@@ -29,7 +29,7 @@ body {
     color: #444;
 }
 
-#page>h1:not(:first-child) {
+#page>h1:nth-child(2) {
      padding: 5px;
      margin: 0px;
      margin-left: -20px;

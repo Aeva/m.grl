@@ -50,7 +50,7 @@ function demo_handler (state, key) {
 
 
 function fire (state) {
-    var element = document.getElementById("demo");
+    var element = document.getElementById("page");
     // use requestAnimationFrame so that the browser doesn't
     // "optimize" out our attempt to clear any existing animations. :P
 

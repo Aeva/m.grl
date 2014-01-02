@@ -7,8 +7,22 @@ h1 {
     max-width: 800px;
     text-align: justify;
 }
-#page {
+
+#animations {
     text-align: center;
+}
+
+#console {
+    width: 350px;
+    font-family: mono;
+    font-size: 12px;
+    margin: auto;
+    margin-top: 24px;
+    margin-bottom: 48px;
+    padding-left: 2em;
+    padding-right: 2em;
+    padding-bottom: 2em;
+    border: 1px dashed #aaa;
 }
 
 .ani_frame {

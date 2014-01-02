@@ -1,7 +1,7 @@
 //
 
 var write = function (msg) {
-    document.getElementById("page").innerHTML += msg + "<br/>";
+    document.getElementById("console").innerHTML += msg + "<br/>";
 };
 
 
@@ -12,7 +12,7 @@ var draw_container = function (inner_html, id) {
         msg += " id='" + id + "'";
     }
     msg += ">" + inner_html + "</div></div>";
-    document.getElementById("page").innerHTML += msg;
+    document.getElementById("animations").innerHTML += msg;
 };
 
 
@@ -129,7 +129,6 @@ var notify_download = function (uri) {
     if (please.media.assets.hasOwnProperty(uri) && 
         uri !== "error" &&
         cached.indexOf(uri) === -1) {
-
         write("cached: " + "<a href='"+uri+"'>"+uri+"</a>");
         cached.push(uri);
     }
