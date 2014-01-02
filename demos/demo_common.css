@@ -44,6 +44,13 @@ body {
      background-color: #444;
 }
 
+#back_button {
+    text-align: center;
+    font-size: 18px;
+    margin-top: -32px;
+    margin-bottom: 24px;
+}
+
 #fine_print {
     position: absolute;
     bottom: 12px;
