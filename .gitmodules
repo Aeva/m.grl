@@ -1,0 +1,3 @@
+[submodule "demos/lpc_assets"]
+	path = demos/lpc_assets
+	url = https://github.com/Aeva/lpc_assets.git

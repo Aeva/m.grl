@@ -91,7 +91,7 @@ var ani_callback = function (status, uri) {
 
         if (uri.indexOf("campfire.gani") !== -1 && !cauldron) {
             cauldron = true;
-            ani.attrs.sprite = "boiling_cauldron.png";
+            ani.attrs.sprite = "misc/boiling_cauldron.png";
         }
     }
     else {
@@ -103,17 +103,17 @@ var ani_callback = function (status, uri) {
 // changes directions and sprites
 var randomize = function () {
     var outfits = [
-        "green_outfit.png",
-        "red_outfit.png",
-        "princess_dress.png",
-        "hunk_body.png",
-        "skeleton_body.png",
+        "outfits/green_dress.png",
+        "outfits/red_dress.png",
+        "outfits/princess_dress.png",
+        "outfits/hunk.png",
+        "bodies/skeleton.png",
     ];
     
     var hair_styles = [
-        "hair_mohawk.png",
-        "hair_messy.png", 
-        "hair_princess.png",
+        "mohawk.png",
+        "messy.png", 
+        "princess.png",
     ];
 
     var coins = [
@@ -134,25 +134,25 @@ var randomize = function () {
         actor.dir = Math.floor(Math.random()*4);
 
         if (actor.attrs.coin !== undefined) {
-            actor.attrs.coin = "coins/" + random_of(coins) + "_coin.png";
+            actor.attrs.coin = "misc/" + random_of(coins) + "_coin.png";
         }
 
         else {
-            actor.attrs.hair = random_of(hair_styles);
+            actor.attrs.hair = "hair/" + random_of(hair_styles);
             actor.attrs.body = random_of(outfits);
 
-            if (actor.attrs.body === "hunk_body.png") {
-                actor.attrs.head = "head3.png";
+            if (actor.attrs.body === "outfits/hunk.png") {
+                actor.attrs.head = "heads/masculine.png";
             }
-            else if (actor.attrs.body === "skeleton_body.png") {
-                actor.attrs.head = "skeleton_head.png";
+            else if (actor.attrs.body === "outfits/skeleton.png") {
+                actor.attrs.head = "heads/skull.png";
                 actor.attrs.hair = undefined;
             }
             else {
-                actor.attrs.head = "head2.png";
+                actor.attrs.head = "heads/default.png";
             }
             if (Math.floor(Math.random()*10) === 0) {
-                actor.attrs.head = "skeleton_head.png";
+                actor.attrs.head = "heads/skull.png";
             }
         }
     }
@@ -184,9 +184,9 @@ var resources_loaded = function () {
 
 
 addEventListener("load", function () {
-    please.media.search_paths.img = "./sprites/";
-    please.media.search_paths.ani = "./keyframes/";
-    please.media.search_paths.audio = "./sounds/";
+    please.media.search_paths.img = "../lpc_assets/sprites/";
+    please.media.search_paths.ani = "../lpc_assets/keyframes/";
+    please.media.search_paths.audio = "../lpc_assets/sounds/";
 
     var ganis = ["idle", "walk", "magic", "fall", "clock", 
                  "coin", "coin", "coin", "campfire", "campfire"];
