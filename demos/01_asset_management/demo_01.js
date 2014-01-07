@@ -78,10 +78,10 @@ addEventListener("load", function () {
     write("Be sure to take a look at the javascript debugger.");
     write("Starting downloads...<br/>");
 
-    thumbnail("../img/baul.jpg", "large image");
-    thumbnail("../img/house_map.jpg", "some map thing");
-    thumbnail("../img/mondaux_imports.png", "fancy graphic");
-    thumbnail("../img/bat.png", "hedgehog");
+    thumbnail("img/baul.jpg", "large image");
+    thumbnail("img/house_map.jpg", "some map thing");
+    thumbnail("img/mondaux_imports.png", "fancy graphic");
+    thumbnail("img/bat.png", "hedgehog");
     thumbnail("bogus_file.png", "bad path");
     write("")
 
