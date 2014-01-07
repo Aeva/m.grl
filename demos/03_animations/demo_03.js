@@ -144,7 +144,7 @@ var randomize = function () {
             if (actor.attrs.body === "outfits/hunk.png") {
                 actor.attrs.head = "heads/masculine.png";
             }
-            else if (actor.attrs.body === "outfits/skeleton.png") {
+            else if (actor.attrs.body === "bodies/skeleton.png") {
                 actor.attrs.head = "heads/skull.png";
                 actor.attrs.hair = undefined;
             }
