@@ -1,0 +1,24 @@
+SPRITE    1           CLOCK    0    0   32   80 Pendulum Left
+SPRITE    2           CLOCK   32    0   32   80 Pendulum Left
+SPRITE    3           CLOCK   64    0   32   80 Pendulum Left
+
+LOOP
+SINGLEDIRECTION
+CONTINUOUS
+
+DEFAULTCLOCK clock_frames.png
+
+ANI
+   1 8 -28
+WAIT 6
+
+   2 8 -28
+WAIT 6
+
+   3 8 -28
+WAIT 6
+
+   2 8 -28
+WAIT 6
+
+ANIEND

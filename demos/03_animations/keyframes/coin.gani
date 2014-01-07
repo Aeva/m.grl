@@ -1,0 +1,33 @@
+SPRITE 1        COIN    0       0       32      32      Coin Frame 1
+SPRITE 2        COIN   32       0       32      32      Coin Frame 2
+SPRITE 3        COIN   64       0       32      32      Coin Frame 3
+SPRITE 4        COIN   96       0       32      32      Coin Frame 4
+SPRITE 5        COIN  128       0       32      32      Coin Frame 5
+SPRITE 6        COIN  160       0       32      32      Coin Frame 6
+SPRITE 7        COIN  192       0       32      32      Coin Frame 7
+SPRITE 8        COIN  224       0       32      32      Coin Frame 8
+
+LOOP
+SINGLEDIRECTION
+CONTINUOUS
+
+DEFAULTCOIN coins/gold_coin.png
+
+ANI
+   1 8 16
+
+   2 8 16
+
+   3 8 16
+
+   4 8 16
+
+   5 8 16
+
+   6 8 16
+
+   7 8 16
+
+   8 8 16
+
+ANIEND

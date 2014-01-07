@@ -34,13 +34,19 @@ var sprite2html = function (ani_object, sprite_id, x, y) {
         });
     }
     var src = please.access(uri).src;
+    var is_error = please.access(uri).src === please.access("error").src;
 
     var clip_x = sprite.x * -1;
     var clip_y = sprite.y * -1;
     html += "position: absolute;";
     html += "display: block;";
     html += "background-image: url('" + src + "');";
-    html += "background-position: " + clip_x + "px " + clip_y + "px;";
+    if (is_error) {
+        html += "background-size:" + sprite.w + "px " + sprite.h+"px;";
+    }
+    else {
+        html += "background-position: " + clip_x + "px " + clip_y + "px;";
+    }
     html += "width: " + sprite.w + "px;";
     html += "height: " + sprite.h + "px;";
     html += "left: " + x + "px;";
@@ -66,6 +72,7 @@ var draw_frame = function (ani_object, frame) {
 
 
 var animations = [];
+var cauldron = false;
 var ani_callback = function (status, uri) {
     if (status === "pass") {
         var template = please.access(uri);
@@ -81,6 +88,11 @@ var ani_callback = function (status, uri) {
             container.innerHTML = html;
         };
         animations.push(ani);
+
+        if (uri.indexOf("campfire.gani") !== -1 && !cauldron) {
+            cauldron = true;
+            ani.attrs.sprite = "boiling_cauldron.png";
+        }
     }
     else {
         write("!!! " + status + " for " + uri);
@@ -97,27 +109,51 @@ var randomize = function () {
         "hunk_body.png",
         "skeleton_body.png",
     ];
-    var hair_styles = ["hair_mohawk.png", "hair_messy.png", "hair_princess.png"]
+    
+    var hair_styles = [
+        "hair_mohawk.png",
+        "hair_messy.png", 
+        "hair_princess.png",
+    ];
+
+    var coins = [
+        "gold",
+        "copper",
+        "silver",
+        "emerald",
+        "ruby",
+    ];
+
+    var random_of = function(array) {
+        var selected = Math.floor(Math.random()*array.length);
+        return array[selected];
+    };
+
     for (var i=0; i<animations.length; i+=1) {
         var actor = animations[i];
         actor.dir = Math.floor(Math.random()*4);
-        var b = Math.floor(Math.random()*outfits.length);
-        var h = Math.floor(Math.random()*hair_styles.length);
-        actor.attrs.hair = hair_styles[h];
-        actor.attrs.body = outfits[b];
 
-        if (actor.attrs.body === "hunk_body.png") {
-            actor.attrs.head = "head3.png";
+        if (actor.attrs.coin !== undefined) {
+            actor.attrs.coin = "coins/" + random_of(coins) + "_coin.png";
         }
-        else if (actor.attrs.body === "skeleton_body.png") {
-            actor.attrs.head = "skeleton_head.png";
-            actor.attrs.hair = undefined;
-        }
+
         else {
-            actor.attrs.head = "head2.png";
-        }
-        if (Math.floor(Math.random()*10) === 0) {
-            actor.attrs.head = "skeleton_head.png";
+            actor.attrs.hair = random_of(hair_styles);
+            actor.attrs.body = random_of(outfits);
+
+            if (actor.attrs.body === "hunk_body.png") {
+                actor.attrs.head = "head3.png";
+            }
+            else if (actor.attrs.body === "skeleton_body.png") {
+                actor.attrs.head = "skeleton_head.png";
+                actor.attrs.hair = undefined;
+            }
+            else {
+                actor.attrs.head = "head2.png";
+            }
+            if (Math.floor(Math.random()*10) === 0) {
+                actor.attrs.head = "skeleton_head.png";
+            }
         }
     }
     setTimeout(randomize, 5000);
@@ -152,7 +188,8 @@ addEventListener("load", function () {
     please.media.search_paths.ani = "./keyframes/";
     please.media.search_paths.audio = "./sounds/";
 
-    var ganis = ["idle", "walk", "magic", "fall"];
+    var ganis = ["idle", "walk", "magic", "fall", "clock", 
+                 "coin", "coin", "coin", "campfire", "campfire"];
     for (var i=0; i<ganis.length; i+=1) {
         var file = ganis[i] + ".gani";
         var uri = please.relative("ani", file);

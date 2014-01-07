@@ -1,0 +1,26 @@
+SPRITE    1          SPRITE    0    0   32   32 Fire 1
+SPRITE    2          SPRITE    0   32   32   32 Fire 2
+SPRITE    3          SPRITE    0   64   32   32 Fire 3
+SPRITE    4          SPRITE    0   96   32   32 Fire 4
+
+
+LOOP
+SINGLEDIRECTION
+CONTINUOUS
+
+DEFAULTSPRITE campfire.png
+
+ANI
+   1 8 16
+WAIT 1.5
+
+   2 8 16
+WAIT 1.5
+
+   3 8 16
+WAIT 1.5
+
+   4 8 16
+WAIT 1.5
+
+ANIEND

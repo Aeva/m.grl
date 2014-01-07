@@ -94,7 +94,11 @@ please.media.__AnimationInstance = function (animation_data) {
                 pointer_changed = true;
                 stopped = false;
             }
-            if (typeof(ani.data.setbackto) === "number") {
+            if (ani.data.setbackto === false) {
+                pointer_changed = false;
+                stopped = true;
+            }
+            else if (typeof(ani.data.setbackto) === "number") {
                 // set back to frame
                 pointer_changed = true;
                 ani.__frame_pointer = ani.data.setbackto - 1;
@@ -270,7 +274,7 @@ please.media.__AnimationData = function (gani_text) {
         "single_dir" : false,
         "looping" : false,
         "continuous" : false,
-        "setback_to" : 0,
+        "setbackto" : false,
 
         "create" : function () {},
     };
@@ -331,6 +335,9 @@ please.media.__AnimationData = function (gani_text) {
             // loop mode
             if (params[0] === "LOOP") {
                 ani.looping = true;
+                if (!ani.setbackto) {
+                    ani.setbackto = 0;
+                }
             }
 
             // continuous mode
@@ -342,7 +349,7 @@ please.media.__AnimationData = function (gani_text) {
             if (params[0] === "SETBACKTO") {
                 ani.continuous = false;
                 if (please.is_number(params[1])) {
-                    ani.setbackto = Number(parasm[1]);
+                    ani.setbackto = Number(params[1]);
                 }
                 else {
                     var next_file = params[1];
@@ -389,7 +396,7 @@ please.media.__AnimationData = function (gani_text) {
         }
     }
 
-    
+
     // next up is to parse out the frame data
     var last_frame = -1;
     var new_block = function () {
