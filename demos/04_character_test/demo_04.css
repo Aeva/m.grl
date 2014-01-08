@@ -1,0 +1,70 @@
+#game {
+    position: relative;
+    background-color: #322125;
+    width: 800px;
+    height: 600px;
+    border-radius: 4px;
+    color: white;
+}
+
+#game.loading > * {
+    display: none;
+}
+#game.loading {
+    background-color: black;
+}
+#game.loading:after {
+    position: absolute;
+    content: "Loading!";
+    color: white;
+    font-size: 64px;
+    top: 430px;
+    left: 450px;
+    transform: rotateZ(-10deg);
+}
+
+
+#overhang {
+    background-image: url('cave_overhangs.png');
+    background-repeat: no-repeat;
+    background-position: center center;
+    z-index: 400;
+    opacity: .9;
+}
+
+#backdrop {
+    background-image: url('cave_base.png');
+    background-repeat: no-repeat;
+    background-position: center center;
+    z-index: 1;
+}
+
+#chars {
+    z-index: 200;
+    margin-left: 16px;
+    margin-top: 16px;
+}
+
+.layer {
+    position: absolute;
+    width: 512px;
+    height: 512px;
+    top: 76px;
+    left: 144px;
+}
+
+#test {
+    position: absolute;
+    background-color: white;
+    width: 32px;
+    height: 32px;
+    border-top: 16px solid red;
+    border-left: 8px solid red;
+    border-right: 8px solid red;
+    opacity: .5;
+    margin-left: -24px;
+    margin-top: -32px;
+
+    top: 96px;
+    left: 128px;
+}

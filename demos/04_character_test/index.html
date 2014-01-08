@@ -1,18 +1,30 @@
 <!DOCTYPE html>
 <html><head>
+  <link rel="stylesheet" type="text/css" href="../demo_common.css" />
   <script type="text/javascript" src="../../mgrl.js"></script>
-  <script type="text/javascript" src="04_demo.js" /></script>
+  <script type="text/javascript" src="demo_04.js" /></script>
   <link rel="stylesheet" type="text/css" href="demo_04.css" />
+  <style type="text/css">
+   #headline {
+     background-color: #c1a10e!important;
+   }
+   #fine_print {
+     position: relative!important;
+   }
+  </style>
 </head><body>
-    <h1>Character Demo</h1>
+  <div id="page">
+    <h1>Mondaux Graphics & Recreation Library</h1>
+    <h1 id="headline">04 Walk-Around Demo</h1>
+    <div id="back_button">[ <a href="../">back to demo index</a> ]</div>
 
-    <div id="crosshair"></div>
-
-
-    <div class="instructions">
-      <h2>Instructions</h2>
-      <li>Press the arrow keys to interact with the "Arrow Group".</li>
-      <li>Press the 'A' key to interact with the "Action Group".</li>
+    <div id="game" class="loading">
+      <div id="overhang" class="layer"></div>
+      <div id="chars" class="layer">
+        <div id="test"></div>
+      </div>
+      <div id="backdrop" class="layer"></div>
     </div>
-    
+
+  </div>
 </body></html>
