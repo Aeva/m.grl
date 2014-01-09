@@ -112,81 +112,6 @@ please.get_properties = function (dict) {
     }
     return list;
 };
-// - m.media.js ------------------------------------------------------------- //
-
-
-please.media = {
-    // data
-    "assets" : {},
-    "handlers" : {},
-    "pending" : [],
-    "onload_events" : [],
-    "search_paths" : {
-        "img" : "",
-        "audio" : "",
-    },
-
-    // functions
-    "connect_onload" : function (callback) {},
-    "_push" : function (req_key) {},
-    "_pop" : function (req_key) {},
-};
-
-
-// default placeholder image
-please.media.assets["error"] = new Image();
-please.media.assets["error"].src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAACVBMVEUAAADjE2T///+ACSv4AAAAHUlEQVQI12NoYGKQWsKgNoNBcwWDVgaIAeQ2MAEAQA4FYPGbugcAAAAASUVORK5CYII="
-
-
-
-
-// Downloads an asset
-please.load = function (type, url, callback) {
-    if (please.media.handlers[type] === undefined) {
-        throw("Unknown media type '"+type+"'");
-    }
-    else {
-        if (!callback) {
-            callback = function () {};
-        }
-        please.media.handlers[type](url, callback);
-    }
-};
-
-
-// Returns a uri for relative file names
-please.relative = function (type, file_name) {
-    if (please.media.handlers[type] === undefined) {
-        throw("Unknown media type '"+type+"'");
-    }
-    var prefix = please.media.search_paths[type] || "";
-    if (!prefix.endsWith("/")) {
-        prefix += "/";
-    }
-    return prefix + file_name;
-};
-
-
-// Access an asset.  If the asset is not found, this function
-// returns the hardcoded 'error' image, unless no_error is set to
-// some truthy value, in which case undefined is returned.
-please.access = function (uri, no_error) {
-    var found = please.media.assets[uri];
-    if (!found && !no_error) {
-        found = please.access("error", true);
-    }
-    return found;
-};
-
-
-// Rename an asset.  May be used to overwrite the error image, for example.
-// This doesn't remove the old uri, so I guess this is really just copying...
-please.rename = function (old_uri, new_uri) {
-    var asset = please.access(old_uri, true);
-    if (asset) {
-        new_uri = asset;
-    }
-};
 
 
 // Find the correct vendor prefix version of a css attribute.
@@ -215,6 +140,93 @@ please.normalize_prefix = function (property) {
     }
     else {
         return "-" + prefi[found] + property;
+    }
+};
+// - m.media.js ------------------------------------------------------------- //
+
+
+please.media = {
+    // data
+    "assets" : {},
+    "handlers" : {},
+    "pending" : [],
+    "onload_events" : [],
+    "search_paths" : {
+        "img" : "",
+        "audio" : "",
+    },
+
+    // functions
+    "connect_onload" : function (callback) {},
+    "_push" : function (req_key) {},
+    "_pop" : function (req_key) {},
+};
+
+
+// default placeholder image
+please.media.assets["error"] = new Image();
+please.media.assets["error"].src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAACVBMVEUAAADjE2T///+ACSv4AAAAHUlEQVQI12NoYGKQWsKgNoNBcwWDVgaIAeQ2MAEAQA4FYPGbugcAAAAASUVORK5CYII="
+
+
+
+
+// Downloads an asset.
+please.load = function (type, url, callback) {
+    if (type === "guess") {
+        type = please.media.guess_type(url);
+    }
+    if (please.media.handlers[type] === undefined) {
+        throw("Unknown media type '"+type+"'");
+    }
+    else {
+        if (!callback) {
+            callback = function () {};
+        }
+        please.media.handlers[type](url, callback);
+    }
+};
+
+
+// Returns a uri for relative file names
+please.relative = function (type, file_name) {
+    if (type === "guess") {
+        type = please.media.guess_type(file_name);
+    }
+    if (please.media.handlers[type] === undefined) {
+        throw("Unknown media type '"+type+"'");
+    }
+    var prefix = please.media.search_paths[type] || "";
+    if (!prefix.endsWith("/")) {
+        prefix += "/";
+    }
+    return prefix + file_name;
+};
+
+
+// Shorthand for please.load(type, please.relative(type, file_name), callback)
+please.relative_load = function (type, file_name, callback) {
+    return please.load(type, please.relative(type, file_name), callback);
+};
+
+
+// Access an asset.  If the asset is not found, this function
+// returns the hardcoded 'error' image, unless no_error is set to
+// some truthy value, in which case undefined is returned.
+please.access = function (uri, no_error) {
+    var found = please.media.assets[uri];
+    if (!found && !no_error) {
+        found = please.access("error", true);
+    }
+    return found;
+};
+
+
+// Rename an asset.  May be used to overwrite the error image, for example.
+// This doesn't remove the old uri, so I guess this is really just copying...
+please.rename = function (old_uri, new_uri) {
+    var asset = please.access(old_uri, true);
+    if (asset) {
+        new_uri = asset;
     }
 };
 
@@ -261,7 +273,7 @@ please.media.guess_type = function (file_name) {
     var type_map = {
         "img" : [".png", ".gif"],
         "ani" : [".gani"],
-        "audio" : [".wav", ".mp3"],
+        "audio" : [".wav", ".mp3", ".ogg"],
     };
 
     for (var type in type_map) {
@@ -1099,9 +1111,11 @@ please.masks = {
     "sample_resolution" : 4,
 
     // The following are search paths, where your resources are
-    // assumed to be located:
-    "tile_path" : "/sprites/map_tiles/",
-    "mask_path" : "/sprites/tile_masks/",
+    // assumed to be located.  These are both relative to
+    // please.media.search_paths.img, and will be path normalized
+    // elsewhere.
+    "tile_path" : "map_tiles/",
+    "mask_path" : "tile_masks/",
 
     // This defines the order of preference of colors in your tile
     // set.  With the defaults below, when the mask is resized for
@@ -1110,6 +1124,9 @@ please.masks = {
         [0,   0,   0],
         [255, 255, 255],
     ],
+
+    // Default color for the mask if no mask file exists for a given image
+    "default_color" : [255, 255, 255],
 
     // Don't use the following functions directly.
     "__find" : function (file_name) {},
@@ -1196,14 +1213,15 @@ please.masks.__find = function (file_name) {
        This function returns two uris, one for the tile sheet and one
        for the mask image, based on your search paths.  Automatically
        adds a trailing slash if none exists on the search paths.
-    */
+    */    
     var normalize = function (path) {
         // I am so, so sorry
         return path.endsWith("/") ? path : path + "/";
     };
+    var base = normalize(please.media.search_paths.img);
     return {
-        "tile" : normalize(please.masks.tile_path) + file_name,
-        "mask" : normalize(please.masks.mask_path) + file_name,
+        "tile" : base + normalize(please.masks.tile_path) + file_name,
+        "mask" : base + normalize(please.masks.mask_path) + file_name,
     };
 };
 
@@ -1212,13 +1230,33 @@ please.masks.__find = function (file_name) {
 
 please.masks.__fudge_tiles = function (file_name) {
     console.warn("Not implemented: please.masks.__fudge_tiles");
+    var paths = please.masks.__find(file_name);
 };
 
 
 
 
 please.masks.__fudge_mask = function (file_name) {
-    console.warn("Not implemented: please.masks.__fudge_mask");
+    /*
+      Is called as a result of please.load_masked(...) when the mask
+      itself is missing.  This creates a blank mask file, tucks the
+      image where the mask should have been, and then calls
+      please.mask.__generate.
+     */
+    
+    var paths = please.masks.__find(file_name);
+    var tiles = please.access(paths.tile);
+    var width = tiles.width, height = tiles.height;
+
+    var canvas = document.createElement("canvas");
+    var ctx = canvas.getContext("2d");
+    canvas.width = width;
+    canvas.height = height;    
+    ctx.fillStyle = "rgb(" + please.masks.default_color.join(",") + ")";
+    ctx.fillRect(0, 0, width, height);
+
+    please.media.assets[paths.mask] = canvas;
+    please.masks.__generate(file_name);
 };
 
 
@@ -1226,4 +1264,7 @@ please.masks.__fudge_mask = function (file_name) {
 
 please.masks.__generate = function (file_name) {
     console.warn("Not implemented: please.masks.__generate");
+    var paths = please.masks.__find(file_name);
+    var canvas = document.createElement("canvas");
+    var ctx = canvas.getContext("2d");
 };

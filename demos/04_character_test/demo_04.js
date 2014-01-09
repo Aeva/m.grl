@@ -47,22 +47,16 @@ addEventListener("load", function () {
     please.media.search_paths.ani = "../lpc_assets/keyframes/";
     please.media.search_paths.audio = "../lpc_assets/sounds/";
 
-    var preload_list = [
+    Array.map([
         "idle.gani",
         "walk.gani",
         "coin.gani",
-    ];
-    
-    for (var i=0; i<preload_list.length; i+=1) {
-        var asset = preload_list[i];
-        var type = please.media.guess_type(asset);
-        var uri = please.relative(type, asset);
-        please.load(type, uri);
-    }
-
-    please.load("img", "cave_base.png");
-    please.load("img", "cave_overhangs.png");
-    please.load("img", "cave_physics.png");
+        "cave_base.png",
+        "cave_overhangs.png",
+        "cave_physics.png",
+    ], function (asset, i) {
+        please.relative_load("guess", asset);
+    });
 
     please.media.connect_onload(demo.setup);
 });

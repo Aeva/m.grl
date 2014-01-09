@@ -26,8 +26,11 @@ please.media.assets["error"].src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg
 
 
 
-// Downloads an asset
+// Downloads an asset.
 please.load = function (type, url, callback) {
+    if (type === "guess") {
+        type = please.media.guess_type(url);
+    }
     if (please.media.handlers[type] === undefined) {
         throw("Unknown media type '"+type+"'");
     }
@@ -42,6 +45,9 @@ please.load = function (type, url, callback) {
 
 // Returns a uri for relative file names
 please.relative = function (type, file_name) {
+    if (type === "guess") {
+        type = please.media.guess_type(file_name);
+    }
     if (please.media.handlers[type] === undefined) {
         throw("Unknown media type '"+type+"'");
     }
@@ -50,6 +56,12 @@ please.relative = function (type, file_name) {
         prefix += "/";
     }
     return prefix + file_name;
+};
+
+
+// Shorthand for please.load(type, please.relative(type, file_name), callback)
+please.relative_load = function (type, file_name, callback) {
+    return please.load(type, please.relative(type, file_name), callback);
 };
 
 
@@ -71,36 +83,6 @@ please.rename = function (old_uri, new_uri) {
     var asset = please.access(old_uri, true);
     if (asset) {
         new_uri = asset;
-    }
-};
-
-
-// Find the correct vendor prefix version of a css attribute.
-// Expects and returns css notation.
-please.normalize_prefix = function (property) {
-    var prefi = ["", "moz-", "webkit-", "o-", "ms-"];
-    var parts, part, check, i, k, found=false;
-    for (i=0; i<prefi.length; i+=1) {
-        check = prefi[i]+property;
-        parts = check.split("-");
-        check = parts.shift();
-        for (k=0; k<parts.length; k+=1) {
-            part = parts[0];
-            check += part[0].toUpperCase() + part.slice(1);
-        }
-        if (document.body.style[check]!== undefined) {
-            found = i;
-            break;
-        }
-    }
-    if (found === false) {
-        throw("Unsupported css property!");
-    }
-    else if (found === 0) {
-        return property;
-    }
-    else {
-        return "-" + prefi[found] + property;
     }
 };
 
@@ -147,7 +129,7 @@ please.media.guess_type = function (file_name) {
     var type_map = {
         "img" : [".png", ".gif"],
         "ani" : [".gani"],
-        "audio" : [".wav", ".mp3"],
+        "audio" : [".wav", ".mp3", ".ogg"],
     };
 
     for (var type in type_map) {

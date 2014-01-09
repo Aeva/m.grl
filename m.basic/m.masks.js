@@ -16,9 +16,11 @@ please.masks = {
     "sample_resolution" : 4,
 
     // The following are search paths, where your resources are
-    // assumed to be located:
-    "tile_path" : "/sprites/map_tiles/",
-    "mask_path" : "/sprites/tile_masks/",
+    // assumed to be located.  These are both relative to
+    // please.media.search_paths.img, and will be path normalized
+    // elsewhere.
+    "tile_path" : "map_tiles/",
+    "mask_path" : "tile_masks/",
 
     // This defines the order of preference of colors in your tile
     // set.  With the defaults below, when the mask is resized for
@@ -27,6 +29,9 @@ please.masks = {
         [0,   0,   0],
         [255, 255, 255],
     ],
+
+    // Default color for the mask if no mask file exists for a given image
+    "default_color" : [255, 255, 255],
 
     // Don't use the following functions directly.
     "__find" : function (file_name) {},
@@ -113,14 +118,15 @@ please.masks.__find = function (file_name) {
        This function returns two uris, one for the tile sheet and one
        for the mask image, based on your search paths.  Automatically
        adds a trailing slash if none exists on the search paths.
-    */
+    */    
     var normalize = function (path) {
         // I am so, so sorry
         return path.endsWith("/") ? path : path + "/";
     };
+    var base = normalize(please.media.search_paths.img);
     return {
-        "tile" : normalize(please.masks.tile_path) + file_name,
-        "mask" : normalize(please.masks.mask_path) + file_name,
+        "tile" : base + normalize(please.masks.tile_path) + file_name,
+        "mask" : base + normalize(please.masks.mask_path) + file_name,
     };
 };
 
@@ -129,13 +135,33 @@ please.masks.__find = function (file_name) {
 
 please.masks.__fudge_tiles = function (file_name) {
     console.warn("Not implemented: please.masks.__fudge_tiles");
+    var paths = please.masks.__find(file_name);
 };
 
 
 
 
 please.masks.__fudge_mask = function (file_name) {
-    console.warn("Not implemented: please.masks.__fudge_mask");
+    /*
+      Is called as a result of please.load_masked(...) when the mask
+      itself is missing.  This creates a blank mask file, tucks the
+      image where the mask should have been, and then calls
+      please.mask.__generate.
+     */
+    
+    var paths = please.masks.__find(file_name);
+    var tiles = please.access(paths.tile);
+    var width = tiles.width, height = tiles.height;
+
+    var canvas = document.createElement("canvas");
+    var ctx = canvas.getContext("2d");
+    canvas.width = width;
+    canvas.height = height;    
+    ctx.fillStyle = "rgb(" + please.masks.default_color.join(",") + ")";
+    ctx.fillRect(0, 0, width, height);
+
+    please.media.assets[paths.mask] = canvas;
+    please.masks.__generate(file_name);
 };
 
 
@@ -143,4 +169,7 @@ please.masks.__fudge_mask = function (file_name) {
 
 please.masks.__generate = function (file_name) {
     console.warn("Not implemented: please.masks.__generate");
+    var paths = please.masks.__find(file_name);
+    var canvas = document.createElement("canvas");
+    var ctx = canvas.getContext("2d");
 };

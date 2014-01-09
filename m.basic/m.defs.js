@@ -86,3 +86,33 @@ please.get_properties = function (dict) {
     }
     return list;
 };
+
+
+// Find the correct vendor prefix version of a css attribute.
+// Expects and returns css notation.
+please.normalize_prefix = function (property) {
+    var prefi = ["", "moz-", "webkit-", "o-", "ms-"];
+    var parts, part, check, i, k, found=false;
+    for (i=0; i<prefi.length; i+=1) {
+        check = prefi[i]+property;
+        parts = check.split("-");
+        check = parts.shift();
+        for (k=0; k<parts.length; k+=1) {
+            part = parts[0];
+            check += part[0].toUpperCase() + part.slice(1);
+        }
+        if (document.body.style[check]!== undefined) {
+            found = i;
+            break;
+        }
+    }
+    if (found === false) {
+        throw("Unsupported css property!");
+    }
+    else if (found === 0) {
+        return property;
+    }
+    else {
+        return "-" + prefi[found] + property;
+    }
+};
