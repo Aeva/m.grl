@@ -78,13 +78,16 @@ please.is_attr = function (param) {
 
 // Returns an object's properties list:
 please.get_properties = function (dict) {
-    var list = [];
-    for (var prop in dict) {
-        if (dict.hasOwnProperty(prop)) {
-            list.push(prop);
-        }
-    }
-    return list;
+    return Object.getOwnPropertyNames(dict);
+};
+
+
+// Equivalent to python's "for key, value in dict.items():"
+please.map_props = function (dict, callback) {
+    var keys = Object.getOwnPropertyNames(dict);
+    return keys.map(function (key) {
+        return callback(key, dict[key], dict);
+    });
 };
 
 
