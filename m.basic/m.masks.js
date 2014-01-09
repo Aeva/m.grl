@@ -92,7 +92,7 @@ please.load_masked = function (file_name) {
                 mask_status = -1;
             }
             else {
-                tile_status = 1;
+                mask_status = 1;
             }
             common_callback();
         },
@@ -116,11 +116,11 @@ please.masks.__find = function (file_name) {
     */
     var normalize = function (path) {
         // I am so, so sorry
-        return path ? path.endsWith("/") : path + "/";
+        return path.endsWith("/") ? path : path + "/";
     };
     return {
-        "tile" : normalize(please.tile_path) + file_name,
-        "mask" : normalize(please.mask_path) + file_name,
+        "tile" : normalize(please.masks.tile_path) + file_name,
+        "mask" : normalize(please.masks.mask_path) + file_name,
     };
 };
 
