@@ -249,7 +249,7 @@ demo.Actor = function (initial_animation) {
         "set" : function (value) {
             if (actor.__div !== undefined) {
                 actor.__div.style.top = ""+(value*16)+"px";
-                actor.__div.style.zIndex = 200 + 16*value;
+                actor.__div.style.zIndex = 200 + Math.round(value);
             }
             return actor.__y = value;
         },
