@@ -161,6 +161,7 @@ please.media.handlers.img = function (url, callback) {
             please.schedule(function(){callback("fail", url);});
         }
         please.media._pop(req);
+        return false;
     };
     req.src = url;
 };
@@ -182,12 +183,9 @@ please.media.handlers.audio = function (url, callback) {
             please.schedule(function(){callback("fail", url);});
         }
         please.media._pop(req);
+        return false;
     };
-    // Chrome / V8 seems to need this to be jailed, since it can throw
-    // an uncatchable error and halt execution :/
-    please.schedule(function () {
-        req.src = url;
-    });
+    req.src = url;
 };
 
 
