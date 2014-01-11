@@ -157,12 +157,12 @@ please.media.handlers.img = function (url, callback) {
         please.media._pop(req);
     };
     req.onerror = function (event) {
+        event.preventDefault();
+        event.stopPropagation();
         if (typeof(callback) === "function") {
             please.schedule(function(){callback("fail", url);});
         }
         please.media._pop(req);
-        event.preventDefault();
-        event.stopPropagation();
     };
     req.src = url;
 };
