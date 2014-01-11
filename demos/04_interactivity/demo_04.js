@@ -413,27 +413,24 @@ addEventListener("load", function () {
     please.media.search_paths.audio = "../lpc_assets/sounds/";
 
     // load demo specific assets
-    Array.map([
-        "cave_base.png",
-        "cave_overhangs.png",
-        "cave_physics.png",
-    ], function (asset) {
+    ["cave_base.png",
+     "cave_overhangs.png",
+     "cave_physics.png",
+    ].map(function (asset) {
         please.load("img", asset);
     });        
 
     // load assets from lcp_assets repository
-    Array.map([
-        "idle.gani",
-        "walk.gani",
-        "coin.gani",
-        "coin.ogg",
-        "misc/gold_coin.png",
-        "misc/copper_coin.png",
-        "misc/silver_coin.png",
-        "misc/emerald_coin.png",
-        "misc/ruby_coin.png",
-        
-    ], function (asset) {
+    ["idle.gani",
+     "walk.gani",
+     "coin.gani",
+     "coin.ogg",
+     "misc/gold_coin.png",
+     "misc/copper_coin.png",
+     "misc/silver_coin.png",
+     "misc/emerald_coin.png",
+     "misc/ruby_coin.png",
+    ].map(function (asset) {
         please.relative_load("guess", asset);
     });
 
