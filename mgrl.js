@@ -335,7 +335,11 @@ please.media.handlers.audio = function (url, callback) {
         }
         please.media._pop(req);
     };
-    req.src = url;
+    // Chrome / V8 seems to need this to be jailed, since it can throw
+    // an uncatchable error and halt execution :/
+    please.schedule(function () {
+        req.src = url;
+    });
 };
 // "text" media type handler
 please.media.handlers.text = function (url, callback) {
