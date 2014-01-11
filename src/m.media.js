@@ -38,11 +38,7 @@ please.load = function (type, url, callback) {
         if (!callback) {
             callback = function () {};
         }
-        // Because 404 errors in Chrome don't seem to be catchable...?
-        // At least for images. :/
-        please.schedule(function () {
-            please.media.handlers[type](url, callback);
-        });
+        please.media.handlers[type](url, callback);
     }
 };
 
