@@ -157,8 +157,6 @@ please.media.handlers.img = function (url, callback) {
         please.media._pop(req);
     };
     req.onerror = function (event) {
-        event.preventDefault();
-        event.stopPropagation();
         if (typeof(callback) === "function") {
             please.schedule(function(){callback("fail", url);});
         }
@@ -184,7 +182,6 @@ please.media.handlers.audio = function (url, callback) {
             please.schedule(function(){callback("fail", url);});
         }
         please.media._pop(req);
-        event.preventDefault();
     };
     req.src = url;
 };
@@ -206,7 +203,6 @@ please.media.handlers.text = function (url, callback) {
             please.schedule(function(){callback("fail", url);});
         }
         please.media._pop(req);
-        event.preventDefault();
     };
     req.open('GET', url, true);
     req.responseType = "text";
