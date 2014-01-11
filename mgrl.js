@@ -322,12 +322,16 @@ please.media.handlers.img = function (url, callback) {
 please.media.handlers.audio = function (url, callback) {
     var req = new Audio();
     please.media._push(req);
-    req.oncanplaythrough = function() {
-        please.media.assets[url] = req;
-        if (typeof(callback) === "function") {
-            please.schedule(function(){callback("pass", url);});
+    var resolved = false;
+    req.onload = req.oncanplaythrough = function() {
+        if (!resolved) {
+            resolved = true;
+            please.media.assets[url] = req;
+            if (typeof(callback) === "function") {
+                please.schedule(function(){callback("pass", url);});
+            }
+            please.media._pop(req);
         }
-        please.media._pop(req);
     };
     req.onerror = function (event) {
         if (typeof(callback) === "function") {
