@@ -162,6 +162,7 @@ please.media.handlers.img = function (url, callback) {
         }
         please.media._pop(req);
         event.preventDefault();
+        event.stopPropagation();
     };
     req.src = url;
 };
