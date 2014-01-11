@@ -190,19 +190,17 @@ please.media.__AnimationInstance = function (animation_data) {
     // changed at some point.
     var build_bindings = function () {
         // first, pull in any new defaults:
-        for (var prop in ani.data.attrs) {
-            if (ani.data.attrs.hasOwnProperty(prop)) {
-                var datum = ani.data.attrs[prop];
-                if (!ani.__attrs.hasOwnProperty(prop)) {
-                    ani.__attrs[prop] = datum;
-                    setup_attr(prop);
-                }
+        ITER_PROPS (prop, ani.data.attrs) {
+            var datum = ani.data.attrs[prop];
+            if (!ani.__attrs.hasOwnProperty(prop)) {
+                ani.__attrs[prop] = datum;
+                setup_attr(prop);
             }
         }
 
         // next, copy over sprite defs and do data binding:
         ani.sprites = {};
-        for (var sprite_id in ani.data.sprites) {
+        ITER_PROPS(sprite_id, ani.data.sprites) {
             var copy_target = ani.data.sprites[sprite_id];
             var sprite = {};
             for (var prop in copy_target) {
@@ -214,7 +212,7 @@ please.media.__AnimationInstance = function (animation_data) {
         
         // last, copy over the framesets and do data binding:
         ani.frames = [];
-        for (var i=0; i<ani.data.frames.length; i+=1) {
+        ITER(i, ani.data.frames) {
             var target_block = ani.data.frames[i];
             var block = [];
             if (target_block.wait !== undefined) {
@@ -226,18 +224,18 @@ please.media.__AnimationInstance = function (animation_data) {
             }
             if (target_block.sound !== undefined) {
                 block.sound = {};
-                for (var sound_prop in target_block.sound) {
+                ITER_PROPS(sound_prop, target_block.sound) {
                     var value = target_block.sound[sound_prop];
                     bind_or_copy(block.sound, sound_prop, value);
                 }
             }
-            for (var k=0; k<target_block.length; k+=1) {
+            ITER(k, target_block) {
                 var keyframe = target_block[k];
                 block.push([]); // add keyframe to new block
-                for (var s=0; s<keyframe.length; s+=1) {
+                ITER(s, keyframe) {
                     var target_key = keyframe[s];
                     var key = {};
-                    for (var key_prop in target_key) {
+                    ITER_PROPS(key_prop, target_key) {
                         var value = target_key[key_prop];
                         bind_or_copy(key, key_prop, value);
                     }
@@ -290,7 +288,7 @@ please.media.__AnimationData = function (gani_text) {
     var defs_phase = true;
 
     var lines = gani_text.split("\n");
-    for (var i=0; i<lines.length; i+=1) {
+    ITER(i, lines) {
         var line = lines[i].trim();
         if (line.length == 0) {
             continue;
@@ -305,7 +303,7 @@ please.media.__AnimationData = function (gani_text) {
                     "hint" : params.slice(7).join(" "),
                 };
                 var names = ["resource", "x", "y", "w", "h"];
-                for (var k=0; k<names.length; k+=1) {
+                ITER(k, names) {
                     var datum = params[k+2];
                     var name = names[k];
                     if (please.is_attr(datum)) {
@@ -387,9 +385,7 @@ please.media.__AnimationData = function (gani_text) {
 
 
     // add default attrs that might be file names to the load queue
-    var attr_names = please.get_properties(ani.attrs);
-    for (var i=0; i<attr_names.length; i+=1) {
-        var attr = attr_names[i];
+    ITER_PROPS(attr, ani.attrs) {
         var datum = ani.attrs[attr];
         if (typeof(datum) !== "number") {
             ani.__resources[datum] = true;
@@ -436,11 +432,11 @@ please.media.__AnimationData = function (gani_text) {
 
             var defs = please.split_params(line, ",");
             var frame = [];                
-            for (var k=0; k<defs.length; k+=1) {
+            ITER(k, defs) {
                 var chunks = please.split_params(defs[k], " ");
                 var names = ["sprite", "x", "y"];
                 var sprite = {};
-                for (var n=0; n<names.length; n+=1) {
+                ITER(n, names) {
                     var name = names[n];
                     var datum = chunks[n];
                     if (please.is_attr(datum)) {
@@ -460,7 +456,7 @@ please.media.__AnimationData = function (gani_text) {
     // Convert the resources dict into a list with no repeating elements eg a set:
     ani.__resources = please.get_properties(ani.__resources);
 
-    for (var i=0; i<ani.__resources.length; i+=1) {
+    ITER(i, ani.__resources) {
         var file = ani.__resources[i].toLowerCase();
         if (file.indexOf(".") === -1) {
             file += ".gani";

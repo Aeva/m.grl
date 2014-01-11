@@ -103,7 +103,7 @@ please.load_masked = function (file_name) {
         },
     };
 
-    for (var prop in paths) {
+    ITER_PROPS(prop, paths) {
         var uri = paths[prop];
         var callback = callbacks[prop];
         please.load("img", uri, callback);

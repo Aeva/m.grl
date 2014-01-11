@@ -20,33 +20,29 @@
  @license bmagnet:?xt=urn:btih:90dc5c0be029de84e523b9b3922520e79e0e6f08&dn=cc0.txt
 
 */
-
-
-
-
+"use strict";
+/*
+  M.grl uses macros in its sources that, when compiled into actual
+  javascript, are no longer visible, but may leave some unusual
+  structures.
+ */
 // - m.defs.js  ------------------------------------------------------------- //
 // Makes sure various handy things are implemented manually if the
 // browser lacks native support.  Also implements helper functions
 // used widely in the codebase, and defines the module's faux
 // namespace.
-
-
 // Define said namespace:
 if (window.please === undefined) { window.please = {} };
-
-
 // Ensure window.RequestAnimationFrame is implemented:
 if (!window.requestAnimationFrame) {
     // why did we ever think vendor extensions were ever a good idea :/?
     window.requestAnimationFrame = window.mozRequestAnimationFrame ||
         window.webkitRequestAnimationFrame ||
         window.msRequestAnimationFrame ||
-        function (callback) { 
+        function (callback) {
             setTimeout(callback, 1000 / 60);
         };
 }
-
-
 // Schedules a callback to executed whenever it is convinient to do
 // so.  This is useful for preventing errors from completely halting
 // the program's execution, and makes some errors easier to find.
@@ -55,8 +51,6 @@ please.schedule = function (callback) {
         window.setTimeout(callback, 0);
     }
 };
-
-
 // Text processing function, splits a line into parameters, and does
 // some cleaning.
 please.split_params = function (line, delim) {
@@ -73,8 +67,6 @@ please.split_params = function (line, delim) {
     }
     return params;
 };
-
-
 // Determines if the string contains only a number:
 please.is_number = function (param) {
     if (typeof(param) === "number") {
@@ -88,8 +80,6 @@ please.is_number = function (param) {
         return false;
     }
 };
-
-
 // Determines if the string describes a gani attribute:
 please.is_attr = function (param) {
     if (typeof(param) === "string") {
@@ -100,33 +90,18 @@ please.is_attr = function (param) {
         return false;
     }
 };
-
-
 // Returns an object's properties list:
-please.get_properties = function (dict) {
-    return Object.getOwnPropertyNames(dict);
-};
-
-
-// Equivalent to python's "for key, value in dict.items():"
-please.map_props = function (dict, callback) {
-    var keys = Object.getOwnPropertyNames(dict);
-    return keys.map(function (key) {
-        return callback(key, dict[key], dict);
-    });
-};
-
-
+please.get_properties = Object.getOwnPropertyNames;
 // Find the correct vendor prefix version of a css attribute.
 // Expects and returns css notation.
 please.normalize_prefix = function (property) {
     var prefi = ["", "moz-", "webkit-", "o-", "ms-"];
-    var parts, part, check, i, k, found=false;
-    for (i=0; i<prefi.length; i+=1) {
+    var parts, part, check, found=false;
+    for (var i=0; i<prefi.length; i+=1) {
         check = prefi[i]+property;
         parts = check.split("-");
         check = parts.shift();
-        for (k=0; k<parts.length; k+=1) {
+        for (var k=0; k<parts.length; k+=1) {
             part = parts[0];
             check += part[0].toUpperCase() + part.slice(1);
         }
@@ -146,8 +121,6 @@ please.normalize_prefix = function (property) {
     }
 };
 // - m.media.js ------------------------------------------------------------- //
-
-
 please.media = {
     // data
     "assets" : {},
@@ -158,21 +131,14 @@ please.media = {
         "img" : "",
         "audio" : "",
     },
-
     // functions
     "connect_onload" : function (callback) {},
     "_push" : function (req_key) {},
     "_pop" : function (req_key) {},
 };
-
-
 // default placeholder image
 please.media.assets["error"] = new Image();
 please.media.assets["error"].src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAACVBMVEUAAADjE2T///+ACSv4AAAAHUlEQVQI12NoYGKQWsKgNoNBcwWDVgaIAeQ2MAEAQA4FYPGbugcAAAAASUVORK5CYII="
-
-
-
-
 // Downloads an asset.
 please.load = function (type, url, callback) {
     if (type === "guess") {
@@ -188,8 +154,6 @@ please.load = function (type, url, callback) {
         please.media.handlers[type](url, callback);
     }
 };
-
-
 // Returns a uri for relative file names
 please.relative = function (type, file_name) {
     if (type === "guess") {
@@ -204,14 +168,10 @@ please.relative = function (type, file_name) {
     }
     return prefix + file_name;
 };
-
-
 // Shorthand for please.load(type, please.relative(type, file_name), callback)
 please.relative_load = function (type, file_name, callback) {
     return please.load(type, please.relative(type, file_name), callback);
 };
-
-
 // Access an asset.  If the asset is not found, this function
 // returns the hardcoded 'error' image, unless no_error is set to
 // some truthy value, in which case undefined is returned.
@@ -222,8 +182,6 @@ please.access = function (uri, no_error) {
     }
     return found;
 };
-
-
 // Rename an asset.  May be used to overwrite the error image, for example.
 // This doesn't remove the old uri, so I guess this is really just copying...
 please.rename = function (old_uri, new_uri) {
@@ -232,8 +190,6 @@ please.rename = function (old_uri, new_uri) {
         new_uri = asset;
     }
 };
-
-
 // Registers an onload event
 please.media.connect_onload = function (callback) {
     if (please.media.pending.length === 0) {
@@ -245,16 +201,12 @@ please.media.connect_onload = function (callback) {
         }
     }
 }
-
-
 // add a request to the 'pending' queue
 please.media._push = function (req_key) {
     if (please.media.pending.indexOf(req_key) === -1) {
         please.media.pending.push(req_key);
     }
 };
-
-
 // remove a request from the 'pending' queue
 // triggers any pending onload_events if the queue is completely emptied.
 please.media._pop = function (req_key) {
@@ -269,8 +221,6 @@ please.media._pop = function (req_key) {
         please.media.onload_events = [];
     }
 };
-
-
 // Guess a file's media type
 please.media.guess_type = function (file_name) {
     var type_map = {
@@ -278,21 +228,17 @@ please.media.guess_type = function (file_name) {
         "ani" : [".gani"],
         "audio" : [".wav", ".mp3", ".ogg"],
     };
-
-    for (var type in type_map) {
-        if (!type_map.hasOwnProperty(type)) {continue;}
+    for (var type in type_map) if (type_map.hasOwnProperty(type)) {
         var extensions = type_map[type];
         for (var i=0; i<extensions.length; i+=1) {
             var test = extensions[i];
             if (file_name.endsWith(test)) {
                 return type;
             }
-        }        
+        }
     }
     return undefined;
 };
-
-
 // "img" media type handler
 please.media.handlers.img = function (url, callback) {
     var req = new Image();
@@ -312,8 +258,6 @@ please.media.handlers.img = function (url, callback) {
     };
     req.src = url;
 };
-
-
 // "audio" media type handler
 please.media.handlers.audio = function (url, callback) {
     var req = new Audio();
@@ -333,8 +277,6 @@ please.media.handlers.audio = function (url, callback) {
     };
     req.src = url;
 };
-
-
 // "text" media type handler
 please.media.handlers.text = function (url, callback) {
     var req = new XMLHttpRequest();
@@ -357,31 +299,24 @@ please.media.handlers.text = function (url, callback) {
     req.send();
 };
 // - m.input.js ------------------------------------------------------------- //
-
-
 please.keys = {
     "handlers" : {},
     "stats" : {},
     "__keycode_names" : {},
-
     // util functions
     "normalize_dvorak" : function (str) {},
     "lookup_keycode" : function (code) {},
     "__cancel" : function (char) {},
     "__full_stop" : function () {},
     "__event_handler" : function (event) {},
-
     // api functions
     "enable" : function () {},
     "disable" : function () {},
     "connect" : function (char, handler, threshold) {},
     "remove" : function (char) {},
 };
-
-
 please.keys.normalize_dvorak = function (str) {
     /* This function converts strings between qwerty and dvorak. */
-
     if (str.length > 1) {
         var new_str = "";
         for (var i=0; i<str.length; i+=1) {
@@ -398,7 +333,6 @@ please.keys.normalize_dvorak = function (str) {
         qwerty += 'ASDFGHJKL:"';
         qwerty += "ZXCVBNM<>?";
         qwerty += "_+";
-        
         var dvorak = "',.pyfgcrl/=";
         dvorak += "aoeuidhtns-";
         dvorak += ";qjkxbmwvz";
@@ -407,7 +341,6 @@ please.keys.normalize_dvorak = function (str) {
         dvorak += "AOEUIDHTNS_";
         dvorak += ":QJKXBMWVZ";
         dvorak += "{}";
-
         var k = dvorak.indexOf(str);
         if (k >=0 && k<qwerty.length) {
             return qwerty[k];
@@ -418,8 +351,6 @@ please.keys.normalize_dvorak = function (str) {
         }
     }
 };
-
-
 please.keys.__keycode_names = {
     8 : "backspace",
     9 : "tab",
@@ -484,8 +415,6 @@ please.keys.__keycode_names = {
     221 : "]",
     222 : "'",
 };
-
-
 please.keys.lookup_keycode = function (code) {
     /* This function returns a human readable identifier for a given
        keycode.  string.fromCharCode does not always produce correct
@@ -499,8 +428,6 @@ please.keys.lookup_keycode = function (code) {
     }
     return key;
 };
-
-
 please.keys.__cancel = function (char) {
     /* Forces a key to be released. */
     if (please.keys.handlers[char] && please.keys.stats[char].state !== "cancel") {
@@ -513,20 +440,16 @@ please.keys.__cancel = function (char) {
         please.schedule(function () {handler(stats.state, char);});
     }
 };
-
-
 please.keys.__event_handler = function (event) {
     /* This function is responsible for determining what to do with
        DOM keyboard events and facilitates its own event routing in a
        way that is sane for games. */
-
     var code = event.keyCode || event.which;
     var key = please.keys.lookup_keycode(code).toLowerCase();
     if (please.keys.handlers[key]) {
         event.preventDefault();
         var stats = please.keys.stats[key];
         var handler = please.keys.handlers[key];
-
         if (event.type === "keydown") {
             if (stats.state === "cancel") {
                 stats.state = "press";
@@ -545,43 +468,30 @@ please.keys.__event_handler = function (event) {
         }
     }
 };
-
-
 please.keys.__full_stop = function () {
     /* This function is called to force key-up events and clear
        pending timeouts.  Usually this happens when the window is
        blurred. */
-
-    for (var key in please.keys.handlers) {
+    for (var key in please.keys.handlers) if (please.keys.handlers.hasOwnProperty(key)) {
         please.keys.__cancel(key);
     }
 };
-
-
 /////////////////////// API functions
-
-
 please.keys.enable = function () {
     /* This function hooks up the event handling machinery. */
-
     window.addEventListener("keydown", please.keys.__event_handler);
     window.addEventListener("keypress", please.keys.__event_handler);
     window.addEventListener("keyup", please.keys.__event_handler);
     window.addEventListener("blur", please.keys.__full_stop);
 };
-
-
 please.keys.disable = function () {
     /* This function unhooks the event handling machinery. */
-
     please.keys.__full_stop();
     window.removeEventListener("keydown", please.keys.__event_handler);
     window.removeEventListener("keypress", please.keys.__event_handler);
     window.removeEventListener("keyup", please.keys.__event_handler);
     window.removeEventListener("blur", please.keys.__full_stop);
 };
-
-
 please.keys.connect = function (char, handler, threshold) {
     /* Adds a keyboard binding.  'Char' is something like "A", "S", "
        ", "\t", or whatever might be reported by keyboard events.
@@ -592,7 +502,6 @@ please.keys.connect = function (char, handler, threshold) {
        The argument "handler" will be called with the argument "state"
        which will be one of "press", "long", or "cancel".  Followed by a
        list of keys currently pressed. */
-
     please.keys.handlers[char] = handler;
     please.keys.stats[char] = {
         "threshold" : threshold,
@@ -600,19 +509,13 @@ please.keys.connect = function (char, handler, threshold) {
         "state" : "cancel",
     };
 };
-
-
 please.keys.remove = function (char) {
     /* Removes a keybinding set by the please.keys.connect function */
     clearTimeout(please.keys.stats[char].timeout);
     delete please.keys.handlers[char];
     delete please.keys.stats[char];
 };
-
-
 // - m.ani.js --------------------------------------------------------------- //
-
-
 // "gani" media type handler
 please.media.search_paths.ani = "";
 please.media.handlers.ani = function (url, callback) {
@@ -636,8 +539,6 @@ please.media.handlers.ani = function (url, callback) {
     req.responseType = "text";
     req.send();
 };
-
-
 // Function returns Animation Instance object.  AnimationData.create()
 // wraps this function, so you don't need to use it directly.
 please.media.__AnimationInstance = function (animation_data) {
@@ -651,17 +552,14 @@ please.media.__AnimationInstance = function (animation_data) {
         "__frame_cache" : undefined,
         "__dir" : 2, // index of "north" "east" "south" "west"
         // access .__dir via .dir
-
         // method functions
         "change_animation" : function (animation_data) {},
         "play" : function () {},
         "get_current_frame" : function () {},
-
         // event handler
         "on_dirty" : function (ani, frame_data) {},
         "on_change_reel" : function (ani, new_ani) {},
     };
-
     Object.defineProperty(ani, "dir", {
         "get" : function () {
             return ani.__dir;
@@ -670,8 +568,6 @@ please.media.__AnimationInstance = function (animation_data) {
             return ani.__dir = value % 4;
         },
     });
-
-
     // This is used to bind an object's proprety to an "attribute".
     var bind_or_copy = function (object, key, value) {
         if (please.is_attr(value)) {
@@ -684,8 +580,6 @@ please.media.__AnimationInstance = function (animation_data) {
             object[key] = value;
         }
     };
-    
-
     // advance animaiton sets up events to flag when the animation has
     // updated
     var timer = -1;
@@ -744,15 +638,11 @@ please.media.__AnimationInstance = function (animation_data) {
             }
         }
     };
-
-
     // play function starts the animation sequence
     ani.play = function () {
         ani.__frame_pointer = -1;
         advance();
     };
-
-
     // get_current_frame retrieves the frame that currently should be
     // visible
     ani.get_current_frame = function () {
@@ -769,8 +659,6 @@ please.media.__AnimationInstance = function (animation_data) {
         }
         return frame;
     };
-
-
     // Schedules a repaint
     ani.__set_dirty = function () {
         if (ani.on_dirty) {
@@ -779,8 +667,6 @@ please.media.__AnimationInstance = function (animation_data) {
             });
         }
     };
-
-    
     // Defines the getters and setters a given property on ani.attrs
     var setup_attr = function (property) {
         var handle = property.toLowerCase();
@@ -796,25 +682,20 @@ please.media.__AnimationInstance = function (animation_data) {
             },
         });
     };
-
-
     // called when the object is created but also if the animation is
     // changed at some point.
     var build_bindings = function () {
         // first, pull in any new defaults:
-        for (var prop in ani.data.attrs) {
-            if (ani.data.attrs.hasOwnProperty(prop)) {
-                var datum = ani.data.attrs[prop];
-                if (!ani.__attrs.hasOwnProperty(prop)) {
-                    ani.__attrs[prop] = datum;
-                    setup_attr(prop);
-                }
+        for (var prop in ani.data.attrs) if (ani.data.attrs.hasOwnProperty(prop)) {
+            var datum = ani.data.attrs[prop];
+            if (!ani.__attrs.hasOwnProperty(prop)) {
+                ani.__attrs[prop] = datum;
+                setup_attr(prop);
             }
         }
-
         // next, copy over sprite defs and do data binding:
         ani.sprites = {};
-        for (var sprite_id in ani.data.sprites) {
+        for (var sprite_id in ani.data.sprites) if (ani.data.sprites.hasOwnProperty(sprite_id)) {
             var copy_target = ani.data.sprites[sprite_id];
             var sprite = {};
             for (var prop in copy_target) {
@@ -823,7 +704,6 @@ please.media.__AnimationInstance = function (animation_data) {
             }
             ani.sprites[sprite_id] = sprite;
         }
-        
         // last, copy over the framesets and do data binding:
         ani.frames = [];
         for (var i=0; i<ani.data.frames.length; i+=1) {
@@ -838,7 +718,7 @@ please.media.__AnimationInstance = function (animation_data) {
             }
             if (target_block.sound !== undefined) {
                 block.sound = {};
-                for (var sound_prop in target_block.sound) {
+                for (var sound_prop in target_block.sound) if (target_block.sound.hasOwnProperty(sound_prop)) {
                     var value = target_block.sound[sound_prop];
                     bind_or_copy(block.sound, sound_prop, value);
                 }
@@ -849,7 +729,7 @@ please.media.__AnimationInstance = function (animation_data) {
                 for (var s=0; s<keyframe.length; s+=1) {
                     var target_key = keyframe[s];
                     var key = {};
-                    for (var key_prop in target_key) {
+                    for (var key_prop in target_key) if (target_key.hasOwnProperty(key_prop)) {
                         var value = target_key[key_prop];
                         bind_or_copy(key, key_prop, value);
                     }
@@ -863,14 +743,11 @@ please.media.__AnimationInstance = function (animation_data) {
     build_bindings();
     return ani;
 };
-
-
 // Constructor function, parses gani files
 please.media.__AnimationData = function (gani_text) {
     var ani = {
         "__raw_data" : gani_text,
         "__resources" : {}, // files that this gani would load, using dict as a set
-
         "sprites" : {},
         "attrs" : {
             "SPRITES" : "sprites.png",
@@ -880,27 +757,21 @@ please.media.__AnimationData = function (gani_text) {
             "SHIELD" : "shield1.png",
         },
         "frames" : [],
-
         "base_speed" : 50,
-        
         "single_dir" : false,
         "looping" : false,
         "continuous" : false,
         "setbackto" : false,
-
         "create" : function () {},
     };
-
     // the create function returns an AnimationInstance for this
     // animation.
     ani.create = function () {
         return please.media.__AnimationInstance(ani);
     };
-
     var frames_start = 0;
     var frames_end = 0;
     var defs_phase = true;
-
     var lines = gani_text.split("\n");
     for (var i=0; i<lines.length; i+=1) {
         var line = lines[i].trim();
@@ -908,7 +779,6 @@ please.media.__AnimationData = function (gani_text) {
             continue;
         }
         var params = please.split_params(line);
-
         if (defs_phase) {
             // update a sprite definition
             if (params[0] === "SPRITE") {
@@ -937,13 +807,10 @@ please.media.__AnimationData = function (gani_text) {
                 }
                 ani.sprites[sprite_id] = sprite;
             }
-
-
             // single direction mode
             if (params[0] === "SINGLEDIRECTION") {
                 ani.single_dir = true;
             }
-
             // loop mode
             if (params[0] === "LOOP") {
                 ani.looping = true;
@@ -951,12 +818,10 @@ please.media.__AnimationData = function (gani_text) {
                     ani.setbackto = 0;
                 }
             }
-
             // continuous mode
             if (params[0] === "CONTINUOUS") {
                 ani.continuous = true;
             }
-
             // setbackto setting
             if (params[0] === "SETBACKTO") {
                 ani.continuous = false;
@@ -972,7 +837,6 @@ please.media.__AnimationData = function (gani_text) {
                     ani.__resources[next_file] = true;
                 }
             }
-            
             // default values for attributes
             if (params[0].startsWith("DEFAULT")) {
                 var attr_name = params[0].slice(7);
@@ -982,8 +846,6 @@ please.media.__AnimationData = function (gani_text) {
                 }
                 ani.attrs[attr_name] = datum;
             }
-
-            
             // determine frameset boundaries
             if (params[0] === "ANI") {
                 frames_start = i+1;
@@ -996,19 +858,13 @@ please.media.__AnimationData = function (gani_text) {
             }
         }
     }
-
-
     // add default attrs that might be file names to the load queue
-    var attr_names = please.get_properties(ani.attrs);
-    for (var i=0; i<attr_names.length; i+=1) {
-        var attr = attr_names[i];
+    for (var attr in ani.attrs) if (ani.attrs.hasOwnProperty(attr)) {
         var datum = ani.attrs[attr];
         if (typeof(datum) !== "number") {
             ani.__resources[datum] = true;
         }
     }
-
-
     // next up is to parse out the frame data
     var last_frame = -1;
     var new_block = function () {
@@ -1016,7 +872,6 @@ please.media.__AnimationData = function (gani_text) {
         ani.frames.push([]);
     };
     new_block();
-
     // pdq just to do something interesting with the data - almost
     // certainly implemented wrong
     for (var i=frames_start; i<=frames_end; i+=1) {
@@ -1045,9 +900,8 @@ please.media.__AnimationData = function (gani_text) {
             if (ani.frames[last_frame].length === 4) {
                 new_block();
             }
-
             var defs = please.split_params(line, ",");
-            var frame = [];                
+            var frame = [];
             for (var k=0; k<defs.length; k+=1) {
                 var chunks = please.split_params(defs[k], " ");
                 var names = ["sprite", "x", "y"];
@@ -1067,11 +921,8 @@ please.media.__AnimationData = function (gani_text) {
             ani.frames[last_frame].push(frame);
         }
     }
-
-
     // Convert the resources dict into a list with no repeating elements eg a set:
     ani.__resources = please.get_properties(ani.__resources);
-
     for (var i=0; i<ani.__resources.length; i+=1) {
         var file = ani.__resources[i].toLowerCase();
         if (file.indexOf(".") === -1) {
@@ -1090,21 +941,13 @@ please.media.__AnimationData = function (gani_text) {
             console.warn(err);
         }
     }
-
     return ani;
 };
-
-
-
 // - m.masks.js ------------------------------------------------------------- //
-
-
 please.masks = {
     "__data" : {},
-
     // this is the grid size assumed of tiles
     "grid_period" : 32,
-
     // if your physics data is on a 8x8 grid, and your tile data is on
     // a 32x32 grid, the sample_resolution will be 4.  If your physics
     // data is on a 16x16 grid and your tile data is on a 32x32 grid,
@@ -1112,35 +955,27 @@ please.masks = {
     // must have the same dimensions as the sprite sheet it
     // corresponds to!
     "sample_resolution" : 4,
-
     // The following are search paths, where your resources are
     // assumed to be located.  These are both relative to
     // please.media.search_paths.img, and will be path normalized
     // elsewhere.
     "tile_path" : "map_tiles/",
     "mask_path" : "tile_masks/",
-
     // This defines the order of preference of colors in your tile
     // set.  With the defaults below, when the mask is resized for
     // physics, black will have priority over white in tie breakers.
     "pallet_order" : [
-        [0,   0,   0],
+        [0, 0, 0],
         [255, 255, 255],
     ],
-
     // Default color for the mask if no mask file exists for a given image
     "default_color" : [255, 255, 255],
-
     // Don't use the following functions directly.
     "__find" : function (file_name) {},
     "__fudge_tiles" : function (file_name) {},
     "__fudge_mask" : function (file_name) {},
     "__generate" : function (file_name) {},
 };
-
-
-
-
 please.load_masked = function (file_name) {
     /*
       This function wraps please.load, and is specifically for loading
@@ -1151,11 +986,9 @@ please.load_masked = function (file_name) {
       do not need to worry about adding a trailing slash, that will be
       done automatically.
      */
-
     var paths = please.masks.__find(file_name);
     var mask_status = 0; // -1 == error, 1 == loaded
     var tile_status = 0; // -1 == error, 1 == loaded
-
     var common_callback = function () {
         if (mask_status !== 0 && tile_status !== 0) {
             var common = mask_status + tile_status;
@@ -1179,7 +1012,6 @@ please.load_masked = function (file_name) {
             }
         }
     };
-
     var callbacks = {
         "tile" : function (status, url) {
             if (status == "failed") {
@@ -1200,23 +1032,18 @@ please.load_masked = function (file_name) {
             common_callback();
         },
     };
-
-    for (var prop in paths) {
+    for (var prop in paths) if (paths.hasOwnProperty(prop)) {
         var uri = paths[prop];
         var callback = callbacks[prop];
         please.load("img", uri, callback);
     };
 };
-
-
-
-
 please.masks.__find = function (file_name) {
     /* 
        This function returns two uris, one for the tile sheet and one
        for the mask image, based on your search paths.  Automatically
        adds a trailing slash if none exists on the search paths.
-    */    
+    */
     var normalize = function (path) {
         // I am so, so sorry
         return path.endsWith("/") ? path : path + "/";
@@ -1227,18 +1054,10 @@ please.masks.__find = function (file_name) {
         "mask" : base + normalize(please.masks.mask_path) + file_name,
     };
 };
-
-
-
-
 please.masks.__fudge_tiles = function (file_name) {
     console.warn("Not implemented: please.masks.__fudge_tiles");
     var paths = please.masks.__find(file_name);
 };
-
-
-
-
 please.masks.__fudge_mask = function (file_name) {
     /*
       Is called as a result of please.load_masked(...) when the mask
@@ -1246,25 +1065,18 @@ please.masks.__fudge_mask = function (file_name) {
       image where the mask should have been, and then calls
       please.mask.__generate.
      */
-    
     var paths = please.masks.__find(file_name);
     var tiles = please.access(paths.tile);
     var width = tiles.width, height = tiles.height;
-
     var canvas = document.createElement("canvas");
     var ctx = canvas.getContext("2d");
     canvas.width = width;
-    canvas.height = height;    
+    canvas.height = height;
     ctx.fillStyle = "rgb(" + please.masks.default_color.join(",") + ")";
     ctx.fillRect(0, 0, width, height);
-
     please.media.assets[paths.mask] = canvas;
     please.masks.__generate(file_name);
 };
-
-
-
-
 please.masks.__generate = function (file_name) {
     console.warn("Not implemented: please.masks.__generate");
     var paths = please.masks.__find(file_name);

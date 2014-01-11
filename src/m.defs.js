@@ -39,7 +39,7 @@ please.split_params = function (line, delim) {
     }
     var parts = line.split(delim);
     var params = [];
-    for (var i=0; i<parts.length; i+=1) {
+    ITER (i, parts) {
         var check = parts[i].trim();
         if (check.length > 0) {
             params.push(check);
@@ -77,30 +77,19 @@ please.is_attr = function (param) {
 
 
 // Returns an object's properties list:
-please.get_properties = function (dict) {
-    return Object.getOwnPropertyNames(dict);
-};
-
-
-// Equivalent to python's "for key, value in dict.items():"
-please.map_props = function (dict, callback) {
-    var keys = Object.getOwnPropertyNames(dict);
-    return keys.map(function (key) {
-        return callback(key, dict[key], dict);
-    });
-};
+please.get_properties = Object.getOwnPropertyNames;
 
 
 // Find the correct vendor prefix version of a css attribute.
 // Expects and returns css notation.
 please.normalize_prefix = function (property) {
     var prefi = ["", "moz-", "webkit-", "o-", "ms-"];
-    var parts, part, check, i, k, found=false;
-    for (i=0; i<prefi.length; i+=1) {
+    var parts, part, check, found=false;
+    ITER (i, prefi) {
         check = prefi[i]+property;
         parts = check.split("-");
         check = parts.shift();
-        for (k=0; k<parts.length; k+=1) {
+        ITER (k, parts) {
             part = parts[0];
             check += part[0].toUpperCase() + part.slice(1);
         }

@@ -132,10 +132,9 @@ please.media.guess_type = function (file_name) {
         "audio" : [".wav", ".mp3", ".ogg"],
     };
 
-    for (var type in type_map) {
-        if (!type_map.hasOwnProperty(type)) {continue;}
+    ITER_PROPS (type, type_map) {
         var extensions = type_map[type];
-        for (var i=0; i<extensions.length; i+=1) {
+        ITER (i, extensions) {
             var test = extensions[i];
             if (file_name.endsWith(test)) {
                 return type;

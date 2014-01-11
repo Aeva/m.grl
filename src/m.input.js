@@ -26,7 +26,7 @@ please.keys.normalize_dvorak = function (str) {
 
     if (str.length > 1) {
         var new_str = "";
-        for (var i=0; i<str.length; i+=1) {
+        ITER (i, str) {
             new_str += normalize_dvorak(str[i]);
         }
         return new_str;
@@ -194,7 +194,7 @@ please.keys.__full_stop = function () {
        pending timeouts.  Usually this happens when the window is
        blurred. */
 
-    for (var key in please.keys.handlers) {
+    ITER_PROPS (key, please.keys.handlers) {
         please.keys.__cancel(key);
     }
 };

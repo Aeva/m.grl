@@ -21,6 +21,14 @@
 
 */
 
+"use strict";
+
+#include "m.macros.js"
+#include "m.defs.js"
+#include "m.media.js"
+#include "m.input.js"
+#include "m.ani.js"
+#include "m.masks.js"
 
 
 
