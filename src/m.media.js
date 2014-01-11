@@ -156,12 +156,12 @@ please.media.handlers.img = function (url, callback) {
         }
         please.media._pop(req);
     };
-    req.onerror = function () {
+    req.onerror = function (event) {
         if (typeof(callback) === "function") {
             please.schedule(function(){callback("fail", url);});
         }
         please.media._pop(req);
-        return false;
+        event.preventDefault();
     };
     req.src = url;
 };
@@ -178,12 +178,12 @@ please.media.handlers.audio = function (url, callback) {
         }
         please.media._pop(req);
     };
-    req.onerror = function () {
+    req.onerror = function (event) {
         if (typeof(callback) === "function") {
             please.schedule(function(){callback("fail", url);});
         }
         please.media._pop(req);
-        return false;
+        event.preventDefault();
     };
     req.src = url;
 };
@@ -200,11 +200,12 @@ please.media.handlers.text = function (url, callback) {
         }
         please.media._pop(req);
     };
-    req.onerror = function () {
+    req.onerror = function (event) {
         if (typeof(callback) === "function") {
             please.schedule(function(){callback("fail", url);});
         }
         please.media._pop(req);
+        event.preventDefault();
     };
     req.open('GET', url, true);
     req.responseType = "text";
