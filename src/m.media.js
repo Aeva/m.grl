@@ -162,7 +162,11 @@ please.media.handlers.img = function (url, callback) {
         }
         please.media._pop(req);
     };
-    req.src = url;
+    try {
+        req.src = url;
+    } catch (err) {
+        req.onerror();
+    }
 };
 
 
