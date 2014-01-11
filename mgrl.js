@@ -211,7 +211,11 @@ please.load = function (type, url, callback) {
         if (!callback) {
             callback = function () {};
         }
-        please.media.handlers[type](url, callback);
+        // Because 404 errors in Chrome don't seem to be catchable...?
+        // At least for images. :/
+        please.schedule(function () {
+            please.media.handlers[type](url, callback);
+        });
     }
 };
 // Returns a uri for relative file names
@@ -316,11 +320,7 @@ please.media.handlers.img = function (url, callback) {
         }
         please.media._pop(req);
     };
-    try {
-        req.src = url;
-    } catch (err) {
-        req.onerror();
-    }
+    req.src = url;
 };
 // "audio" media type handler
 please.media.handlers.audio = function (url, callback) {
