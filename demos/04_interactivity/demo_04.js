@@ -146,7 +146,6 @@ var sprite2html = function (ani_object, sprite_id, x, y) {
         please.load("img", uri, function(state, uri) {
             if (state === "pass") {
 	        ani_object.__set_dirty();
-                notify_download(uri);
             }
         });
     }
