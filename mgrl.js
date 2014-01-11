@@ -556,6 +556,7 @@ please.media.__AnimationInstance = function (animation_data) {
         "change_animation" : function (animation_data) {},
         "play" : function () {},
         "get_current_frame" : function () {},
+        "__set_dirty" : function (regen_cache) {},
         // event handler
         "on_dirty" : function (ani, frame_data) {},
         "on_change_reel" : function (ani, new_ani) {},
@@ -565,7 +566,12 @@ please.media.__AnimationInstance = function (animation_data) {
             return ani.__dir;
         },
         "set" : function (value) {
-            return ani.__dir = value % 4;
+            var old_val = ani.__dir;
+            ani.__dir = value % 4;
+            if (ani.__dir !== old_val) {
+                ani.__set_dirty(true);
+            }
+            return ani.__dir;
         },
     });
     // This is used to bind an object's proprety to an "attribute".
@@ -589,6 +595,8 @@ please.media.__AnimationInstance = function (animation_data) {
         try {
             var frame = ani.__frame_cache = ani.get_current_frame();
         } catch (err) {
+            // rewind so that the frame cache can be regenerated later
+            ani.__frame_pointer -= 1;
             var frame = undefined;
         }
         if (frame === undefined) {
@@ -610,10 +618,9 @@ please.media.__AnimationInstance = function (animation_data) {
                 ani.__frame_pointer = ani.data.setbackto - 1;
             }
             else if (ani.data.setbackto) {
-                // value is a file name
-                // FIXME: implement
-                console.warn("gani linking not yet supported");
-                stopped = true; // wouldn't normally be the case
+                // value is another gani
+                ani.on_change_reel(ani, ani.data.setbackto);
+                stopped = true;
             }
             if (ani.data.continuous) {
                 // not really sure what this is for
@@ -660,7 +667,10 @@ please.media.__AnimationInstance = function (animation_data) {
         return frame;
     };
     // Schedules a repaint
-    ani.__set_dirty = function () {
+    ani.__set_dirty = function (regen_cache) {
+        if (regen_cache) {
+            ani.__frame_cache = ani.get_current_frame();
+        }
         if (ani.on_dirty) {
             window.requestAnimationFrame(function () {
                 ani.on_dirty(ani, ani.__frame_cache);
