@@ -43,6 +43,7 @@ please.media.__AnimationInstance = function (animation_data) {
         // method functions
         "change_animation" : function (animation_data) {},
         "play" : function () {},
+        "stop" : function () {},
         "get_current_frame" : function () {},
         "__set_dirty" : function (regen_cache) {},
 
@@ -148,6 +149,12 @@ please.media.__AnimationInstance = function (animation_data) {
     };
 
 
+    // stop the animation
+    ani.stop = function () {
+        clearTimeout(timer);
+    };
+
+
     // get_current_frame retrieves the frame that currently should be
     // visible
     ani.get_current_frame = function () {
@@ -173,7 +180,9 @@ please.media.__AnimationInstance = function (animation_data) {
         }
         if (ani.on_dirty) {
             window.requestAnimationFrame(function () {
-                ani.on_dirty(ani, ani.__frame_cache);
+                if (ani.on_dirty) {
+                    ani.on_dirty(ani, ani.__frame_cache);
+                }
             });
         }
     };

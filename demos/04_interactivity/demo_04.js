@@ -6,6 +6,9 @@ var demo = {
     "actors" : [],
     "__keys" : {},
 
+    "timer" : -1,
+    "walk_handler" : function () {},
+
     "get_wall" : function (x, y) {},
     "actors_at" : function (x, y) {},
     "setup" : function (){},
@@ -34,13 +37,87 @@ demo.key_handler = function (state, key) {
         new_dir = 2;
         walking = true;
     }
-
-
-    console.info(new_dir);
-    
     if (new_dir !== undefined) {
         demo.player.dir = new_dir;
     }
+    if (walking && demo.player.ani !== "walk.gani") {
+        demo.player.ani = "walk.gani";
+        demo.timer = setInterval(demo.walk_handler, 25);
+    }
+    else {
+        demo.player.ani = "idle.gani";
+        clearTimeout(demo.timer);
+    }
+};
+
+
+demo.walk_handler = function () {
+    var player = demo.player;
+    var rate = .23;
+    
+    if (player.dir == 0) {
+        var test_x = Math.round(player.x);
+        var test_y = Math.floor(player.y-rate);
+        if (!demo.get_wall(test_x, test_y)) {
+            player.y -= rate;
+        }
+    }
+    else if (player.dir == 1) {
+        var test_x = Math.floor(player.x-rate);
+        var test_y = Math.round(player.y);
+        if (!demo.get_wall(test_x, test_y)) {
+            player.x -= rate;
+        }
+    }
+    else if (player.dir == 2) {
+        var test_x = Math.round(player.x);
+        var test_y = Math.ceil(player.y+rate);
+        if (!demo.get_wall(test_x, test_y)) {
+            player.y += rate;
+        }
+    }
+    else if (player.dir == 3) {
+        var test_x = Math.ceil(player.x+rate+1);
+        var test_y = Math.round(player.y);
+        if (!demo.get_wall(test_x, test_y)) {
+            player.x += rate;
+        }
+    }
+    
+
+    var coin_check = function (x, y) {
+        var coins = demo.actors_at(x, y, player);
+        for (var i=0; i<coins.length; i+=1) {
+            var coin = coins[i];
+            coin.destroy();
+            var file = please.access("../lpc_assets/sounds/coin.ogg", true);
+            if (file) {
+                var sound = new Audio();
+                sound.src = file.src;
+                sound.play();
+            }
+        }
+    };
+    var range = .5;
+    
+    coin_check(Math.floor(player.x), Math.floor(player.y));
+    coin_check(Math.ceil(player.x), Math.floor(player.y));
+    coin_check(Math.floor(player.x), Math.ceil(player.y));
+    coin_check(Math.ceil(player.x), Math.ceil(player.y));
+};
+
+
+demo.actors_at = function (x, y, exclude) {
+    var matches = [];
+    for (var i=0; i<demo.actors.length; i+=1) {
+        var actor = demo.actors[i];
+        if (actor !== exclude) {
+            if (x == actor.x && y == actor.y) {
+                matches.push(actor);
+            }
+        }
+    }
+    return matches;
 };
 
 
@@ -114,7 +191,12 @@ demo.Actor = function (initial_animation) {
 
     Object.defineProperty(actor, "dir", {
         "get" : function () {
-            return actor.__ani.dir;
+            if (actor.__ani) {
+                return actor.__ani.dir;
+            }
+            else {
+                return 2;
+            }
         },
         "set" : function (value) {
             if (actor.__ani) {
@@ -133,9 +215,17 @@ demo.Actor = function (initial_animation) {
         "set" : function (value) {
             if (actor.__ani_name !== value) {
                 actor.__ani_name = value;
-                please.relative_load("guess", value, function (status, uri) {
+
+                var uri = please.relative("ani", value);
+                var ani = please.access(uri, true);
+                if (ani === undefined) {
+                    please.relative_load("guess", value, function (status, uri) {
+                        actor.__attach_ani(uri);
+                    });
+                }
+                else {
                     actor.__attach_ani(uri);
-                });
+                }
             }
             return actor.__ani_name;
         },
@@ -181,9 +271,16 @@ demo.Actor = function (initial_animation) {
         var ani = please.access(uri, true);
         if (ani) {
             var old_attrs = actor.attrs;
+            var old_dir = actor.dir;
+            if (actor.__ani) {
+                actor.__ani.stop();
+                delete actor.__ani.on_dirty;
+                delete actor.__ani.on_change_reel;
+            }
             actor.__ani = ani.create();
             actor.__ani.on_change_reel = function (ani, new_ani) { actor.ani = new_ani; };
             actor.__ani.on_dirty = actor.__render;
+            actor.__ani.dir = old_dir;
             actor.__ani.play();
             for (var copy in old_attrs) {
                 if (actor.__ani.attrs.hasOwnProperty(copy)) {
@@ -209,6 +306,13 @@ demo.Actor = function (initial_animation) {
     };
 
     var char_layer = document.getElementById("chars");
+
+    actor.destroy = function () {
+        char_layer.removeChild(actor.__div);
+        actor.__ani.stop();
+        demo.actors.splice(demo.actors.indexOf(actor), 1);
+    }
+
     actor.__div = document.createElement("div");
     actor.__div.className = "actor";
     char_layer.appendChild(actor.__div);
@@ -220,22 +324,29 @@ demo.Actor = function (initial_animation) {
 
 
 demo.spawn_coin = function (x, y) {
-    var coins = [
-        "misc/copper_coin.png",
-        "misc/copper_coin.png",
-        "misc/copper_coin.png",
-        "misc/copper_coin.png",
-        "misc/copper_coin.png",
-        "misc/silver_coin.png",
-        "misc/silver_coin.png",
-        "misc/silver_coin.png",
-        "misc/silver_coin.png",
-        "misc/gold_coin.png",
-    ];
-    var coin = new demo.Actor("coin.gani");
-    coin.x = x;
-    coin.y = y;
-    coin.attrs.coin = please.random_of(coins);
+    if (!(demo.get_wall(x, y) || demo.get_wall(x+1, y))) {
+        if (demo.actors_at(x, y).length === 0) {
+            var coins = [
+                "misc/copper_coin.png",
+                "misc/copper_coin.png",
+                "misc/copper_coin.png",
+                "misc/copper_coin.png",
+                "misc/copper_coin.png",
+                "misc/silver_coin.png",
+                "misc/silver_coin.png",
+                "misc/silver_coin.png",
+                "misc/silver_coin.png",
+                "misc/gold_coin.png",
+            ];
+            
+            var coin = new demo.Actor("coin.gani");
+            coin.x = x;
+            coin.y = y;
+            coin.attrs.coin = please.random_of(coins);
+            return true;
+        }
+    }
+    return false;
 };
 
 
@@ -254,13 +365,18 @@ demo.setup = function () {
     
     // add some characters
     demo.player = new demo.Actor("idle.gani");
-    demo.player.x = 15;
+    demo.player.x = 16;
     demo.player.y = 5;
+
+    var random_coins = function () {
+        var x = Math.floor(Math.random()*28+2);
+        var y = Math.floor(Math.random()*28+2);
+        demo.spawn_coin(x, y);
+    };
 
     var coin_chain = function (x, y) {
         var wait = 0;
-        if (!(demo.get_wall(x, y) && demo.get_wall(x+1, y))) {
-            demo.spawn_coin(x, y);
+        if (demo.spawn_coin(x, y)) {
             wait = 50;
         }
         x += 2;
@@ -271,14 +387,15 @@ demo.setup = function () {
         if (y < 32) {
             setTimeout(function(){coin_chain(x, y)}, wait);
         }
+        else {
+            setInterval(random_coins, 500);
+        }
     };
-    coin_chain(0, 0);
+    coin_chain(1, 1);
 
     // remove loading screen
     var game_el = document.getElementById("game");
     game_el.className = "";
-
-    document.getElementById("page").appendChild(demo.__phys.canvas);
 
 
     // wireup the controls
@@ -309,6 +426,7 @@ addEventListener("load", function () {
         "idle.gani",
         "walk.gani",
         "coin.gani",
+        "coin.ogg",
         "misc/gold_coin.png",
         "misc/copper_coin.png",
         "misc/silver_coin.png",
