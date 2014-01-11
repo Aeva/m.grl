@@ -112,7 +112,7 @@ var randomize = function () {
     
     var hair_styles = [
         "mohawk.png",
-        "messy.png", 
+        "messy.png",
         "princess.png",
     ];
 
@@ -124,22 +124,17 @@ var randomize = function () {
         "ruby",
     ];
 
-    var random_of = function(array) {
-        var selected = Math.floor(Math.random()*array.length);
-        return array[selected];
-    };
-
     for (var i=0; i<animations.length; i+=1) {
         var actor = animations[i];
         actor.dir = Math.floor(Math.random()*4);
 
         if (actor.attrs.coin !== undefined) {
-            actor.attrs.coin = "misc/" + random_of(coins) + "_coin.png";
+            actor.attrs.coin = "misc/" + please.random_of(coins) + "_coin.png";
         }
 
         else {
-            actor.attrs.hair = "hair/" + random_of(hair_styles);
-            actor.attrs.body = random_of(outfits);
+            actor.attrs.hair = "hair/" + please.random_of(hair_styles);
+            actor.attrs.body = please.random_of(outfits);
 
             if (actor.attrs.body === "outfits/hunk.png") {
                 actor.attrs.head = "heads/masculine.png";

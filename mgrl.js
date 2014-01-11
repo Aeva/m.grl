@@ -120,6 +120,11 @@ please.normalize_prefix = function (property) {
         return "-" + prefi[found] + property;
     }
 };
+// Returns a random element from the given list:
+please.random_of = function(array) {
+    var selected = Math.floor(Math.random()*array.length);
+    return array[selected];
+};
 // - m.media.js ------------------------------------------------------------- //
 please.media = {
     // data
