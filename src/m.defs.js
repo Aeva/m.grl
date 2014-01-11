@@ -21,6 +21,23 @@ if (!window.requestAnimationFrame) {
 }
 
 
+// Polyfill String.endsWith, code via mdn:
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/endsWith
+if (!String.prototype.endsWith) {
+    Object.defineProperty(String.prototype, 'endsWith', {
+        enumerable: false,
+        configurable: false,
+        writable: false,
+        value: function (searchString, position) {
+            position = position || this.length;
+            position = position - searchString.length;
+            var lastIndex = this.lastIndexOf(searchString);
+            return lastIndex !== -1 && lastIndex === position;
+        }
+    });
+}
+
+
 // Schedules a callback to executed whenever it is convinient to do
 // so.  This is useful for preventing errors from completely halting
 // the program's execution, and makes some errors easier to find.
