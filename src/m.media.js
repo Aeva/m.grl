@@ -168,24 +168,31 @@ please.media.handlers.img = function (url, callback) {
 
 // "audio" media type handler
 please.media.handlers.audio = function (url, callback) {
+    // FIXME: intelligently support multiple codecs, detecting codecs,
+    // and failing not silently (no pun intendend).
+    // https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement
+    // http://stackoverflow.com/questions/7451635/how-to-detect-supported-video-formats-for-the-html5-video-tag
+    // UNTIL THERE IS AN EVENT that indicates that yes the thing
+    // loaded and no I can't play it, this handler won't influence the
+    // overall media onload stuff.
     var req = new Audio();
-    please.media._push(req);
+    //please.media._push(req);
     var resolved = false;
-    req.onload = req.oncanplaythrough = function() {
+    req.oncanplaythrough = function() {
         if (!resolved) {
             resolved = true;
             please.media.assets[url] = req;
             if (typeof(callback) === "function") {
                 please.schedule(function(){callback("pass", url);});
             }
-            please.media._pop(req);
+            //please.media._pop(req);
         }
     };
     req.onerror = function (event) {
         if (typeof(callback) === "function") {
             please.schedule(function(){callback("fail", url);});
         }
-        please.media._pop(req);
+        //please.media._pop(req);
     };
     req.src = url;
 };
