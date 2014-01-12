@@ -382,11 +382,12 @@ demo.setup = function () {
         }
         x += 2;
         if (x >= 32) {
-            x = 0;
-            y += 2;
+            x = (x%2)+1;
+            y += 1;
         }
         if (y < 32) {
-            setTimeout(function(){coin_chain(x, y)}, wait);
+            coin_chain(x, y);
+            //setTimeout(function(){coin_chain(x, y)}, wait);
         }
         else {
             setInterval(random_coins, 500);
