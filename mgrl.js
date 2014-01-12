@@ -299,24 +299,35 @@ please.media.guess_type = function (file_name) {
     }
     return undefined;
 };
+// 
+please.media.__xhr_helper = function (req_type, url, media_callback, user_callback) {
+    var req = new XMLHttpRequest();
+    please.media._push(req);
+    req.onload = function () {
+        please.media._pop(req);
+        media_callback(req);
+        if (typeof(user_callback) === "function") {
+            user_callback("pass", url);
+        }
+    };
+    req.onerror = function () {
+        please.media._pop(req);
+        if (typeof(user_callback) === "function") {
+            user_callback("pass", url);
+        }
+    };
+    req.open('GET', url, true);
+    req.responseType = req_type;
+    req.send();
+};
 // "img" media type handler
 please.media.handlers.img = function (url, callback) {
-    var req = new Image();
-    please.media._push(req);
-    req.onload = function() {
-        please.media.assets[url] = req;
-        if (typeof(callback) === "function") {
-            please.schedule(function(){callback("pass", url);});
-        }
-        please.media._pop(req);
+    var media_callback = function (req) {
+        var img = new Image();
+        img.src = url;
+        please.media.assets[url] = img;
     };
-    req.onerror = function (event) {
-        if (typeof(callback) === "function") {
-            please.schedule(function(){callback("fail", url);});
-        }
-        please.media._pop(req);
-    };
-    req.src = url;
+    please.media.__xhr_helper("blob", url, media_callback, callback);
 };
 // "audio" media type handler
 please.media.handlers.audio = function (url, callback) {
@@ -324,50 +335,19 @@ please.media.handlers.audio = function (url, callback) {
     // and failing not silently (no pun intendend).
     // https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement
     // http://stackoverflow.com/questions/7451635/how-to-detect-supported-video-formats-for-the-html5-video-tag
-    // UNTIL THERE IS AN EVENT that indicates that yes the thing
-    // loaded and no I can't play it, this handler won't influence the
-    // overall media onload stuff.
-    var req = new Audio();
-    //please.media._push(req);
-    var resolved = false;
-    req.oncanplaythrough = function() {
-        if (!resolved) {
-            resolved = true;
-            please.media.assets[url] = req;
-            if (typeof(callback) === "function") {
-                please.schedule(function(){callback("pass", url);});
-            }
-            //please.media._pop(req);
-        }
+    var media_callback = function (req) {
+        var audio = new Audio();
+        audio.src = url;
+        please.media.assets[url] = audio;
     };
-    req.onerror = function (event) {
-        if (typeof(callback) === "function") {
-            please.schedule(function(){callback("fail", url);});
-        }
-        //please.media._pop(req);
-    };
-    req.src = url;
+    please.media.__xhr_helper("blob", url, media_callback, callback);
 };
 // "text" media type handler
 please.media.handlers.text = function (url, callback) {
-    var req = new XMLHttpRequest();
-    please.media._push(req);
-    req.onload = function () {
+    var media_callback = function (req) {
         please.media.assets[url] = req.response;
-        if (typeof(callback) === "function") {
-            please.schedule(function(){callback("pass", url);});
-        }
-        please.media._pop(req);
     };
-    req.onerror = function (event) {
-        if (typeof(callback) === "function") {
-            please.schedule(function(){callback("fail", url);});
-        }
-        please.media._pop(req);
-    };
-    req.open('GET', url, true);
-    req.responseType = "text";
-    req.send();
+    please.media.__xhr_helper("text", url, media_callback, callback);
 };
 // - m.input.js ------------------------------------------------------------- //
 please.keys = {
