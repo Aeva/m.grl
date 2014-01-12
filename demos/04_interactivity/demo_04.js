@@ -10,7 +10,7 @@ var demo = {
     "walk_handler" : function () {},
 
     "get_wall" : function (x, y) {},
-    "actors_at" : function (x, y) {},
+    "actors_at" : function (coord_list, exclude) {},
     "setup" : function (){},
 };
 
@@ -84,36 +84,38 @@ demo.walk_handler = function () {
         }
     }
     
-
-    var coin_check = function (x, y) {
-        var coins = demo.actors_at(x, y, player);
-        for (var i=0; i<coins.length; i+=1) {
-            var coin = coins[i];
-            coin.destroy();
-            var file = please.access("../lpc_assets/sounds/coin.ogg", true);
-            if (file) {
-                var sound = new Audio();
-                sound.src = file.src;
-                sound.play();
-            }
-        }
-    };
     var range = .5;
-    
-    coin_check(Math.floor(player.x), Math.floor(player.y));
-    coin_check(Math.ceil(player.x), Math.floor(player.y));
-    coin_check(Math.floor(player.x), Math.ceil(player.y));
-    coin_check(Math.ceil(player.x), Math.ceil(player.y));
+    var check_coords = [
+        [Math.floor(player.x), Math.floor(player.y)],
+        [Math.ceil(player.x), Math.floor(player.y)],
+        [Math.floor(player.x), Math.ceil(player.y)],
+        [Math.ceil(player.x), Math.ceil(player.y)],
+    ];
+    var coins = demo.actors_at(check_coords, player);
+    for (var i=0; i<coins.length; i+=1) {
+        var coin = coins[i];
+        coin.destroy();
+        var file = please.access("../lpc_assets/sounds/coin.ogg", true);
+        if (file) {
+            var sound = new Audio();
+            sound.src = file.src;
+            sound.play();
+        }
+    }
 };
 
 
-demo.actors_at = function (x, y, exclude) {
+demo.actors_at = function (coords, exclude) {
     var matches = [];
     for (var i=0; i<demo.actors.length; i+=1) {
         var actor = demo.actors[i];
         if (actor !== exclude) {
-            if (x == actor.x && y == actor.y) {
-                matches.push(actor);
+            for (var c=0; c<coords.length; c+=1) {
+                var x = coords[c][0];
+                var y = coords[c][1];
+                if (actor.x === x && actor.y === y) {
+                    matches.push(actor);
+                }
             }
         }
     }
@@ -324,7 +326,7 @@ demo.Actor = function (initial_animation) {
 
 demo.spawn_coin = function (x, y) {
     if (!(demo.get_wall(x, y) || demo.get_wall(x+1, y))) {
-        if (demo.actors_at(x, y).length === 0) {
+        if (demo.actors_at([[x, y],[x+1, y]]).length === 0) {
             var coins = [
                 "misc/copper_coin.png",
                 "misc/copper_coin.png",
