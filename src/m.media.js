@@ -145,7 +145,7 @@ please.media.guess_type = function (file_name) {
 };
 
 
-// 
+// xhr wrapper to provide common machinery to media types.
 please.media.__xhr_helper = function (req_type, url, media_callback, user_callback) {
     var req = new XMLHttpRequest();
     please.media._push(req);
@@ -185,7 +185,6 @@ please.media.handlers.audio = function (url, callback) {
     // and failing not silently (no pun intendend).
     // https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement
     // http://stackoverflow.com/questions/7451635/how-to-detect-supported-video-formats-for-the-html5-video-tag
-
     var media_callback = function (req) {
         var audio = new Audio();
         audio.src = url;

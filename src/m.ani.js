@@ -4,25 +4,11 @@
 // "gani" media type handler
 please.media.search_paths.ani = "";
 please.media.handlers.ani = function (url, callback) {
-    var req = new XMLHttpRequest();
-    please.media._push(req);
-    req.onload = function () {
+    var media_callback = function (req) {
         //please.media.assets[url] = new please.media.__Animation(req.response);
         please.media.assets[url] = new please.media.__AnimationData(req.response);
-        if (typeof(callback) === "function") {
-            please.schedule(function(){callback("pass", url);});
-        }
-        please.media._pop(req);
     };
-    req.onerror = function () {
-        if (typeof(callback) === "function") {
-            please.schedule(function(){callback("fail", url);});
-        }
-        please.media._pop(req);
-    };
-    req.open('GET', url, true);
-    req.responseType = "text";
-    req.send();
+    please.media.__xhr_helper("text", url, media_callback, callback);
 };
 
 
