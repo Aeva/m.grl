@@ -149,24 +149,15 @@ please.media.guess_type = function (file_name) {
 please.media.__xhr_helper = function (req_type, url, media_callback, user_callback) {
     var req = new XMLHttpRequest();
     please.media._push(req);
-    var handled = false;
     req.onload = function () {
-        if (!handled) {
-            handled = true;
-            please.media._pop(req);
+        please.media._pop(req);
+        var state = "fail";
+        if (req.statusText === "OK") {
+            state = "pass";
             media_callback(req);
-            if (typeof(user_callback) === "function") {
-                user_callback("pass", url);
-            }
         }
-    };
-    req.onerror = function () {
-        if (!handled) {
-            handled = true;
-            please.media._pop(req);
-            if (typeof(user_callback) === "function") {
-                user_callback("fail", url);
-            }
+        if (typeof(user_callback) === "function") {
+            user_callback(state, url);
         }
     };
     req.open('GET', url, true);
