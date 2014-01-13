@@ -803,13 +803,6 @@ please.media.__AnimationData = function (gani_text) {
         "__raw_data" : gani_text,
         "__resources" : {}, // files that this gani would load, using dict as a set
         "sprites" : {},
-        "attrs" : {},
-        // FIXME:
-        //
-        // The following is dummied out because doing image requests
-        // that will 404 will halt script execution in chrome, and
-        // I've yet to find a suitable workaround. 
-        /*
         "attrs" : {
             "SPRITES" : "sprites.png",
             "HEAD" : "head19.png",
@@ -817,7 +810,6 @@ please.media.__AnimationData = function (gani_text) {
             "SWORD" : "sword1.png",
             "SHIELD" : "shield1.png",
         },
-        */
         "frames" : [],
         "base_speed" : 50,
         "single_dir" : false,
