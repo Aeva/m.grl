@@ -21,6 +21,7 @@ please.media.__AnimationInstance = function (animation_data) {
         "attrs" : {},
         "sprites" : {},
         "frames" : [],
+        "__start_time" : 0,
         "__frame_pointer" : 0,
         "__frame_cache" : undefined,
         "__dir" : 2, // index of "north" "east" "south" "west"
@@ -72,39 +73,18 @@ please.media.__AnimationInstance = function (animation_data) {
     var timer = -1;
     var advance = function (stop_animation/*=false*/) {
         clearTimeout(timer);
-        ani.__frame_pointer += 1;
-        var frame = ani.get_current_frame();
-        if (frame === undefined) {
-            // rewind so that the frame cache can be regenerated later
-            ani.__frame_pointer -= 1;
-
-            var stopped = true;
-            var pointer_changed = false;
-            if (ani.data.looping) {
-                // looping
-                ani.__frame_pointer = -1;
-                pointer_changed = true;
-                stopped = false;
-            }
-            if (ani.data.setbackto === false) {
-                pointer_changed = false;
-                stopped = true;
-            }
-            else if (typeof(ani.data.setbackto) === "number") {
+        var progress = Date.now() - ani.__start_time;
+        var frame = ani.get_current_frame(progress);
+        if (frame === -1) {
+            // This means we tried to seek past the end of the animation.
+            if (typeof(ani.data.setbackto) === "number") {
                 // set back to frame
-                pointer_changed = true;
-                ani.__frame_pointer = ani.data.setbackto - 1;
+                ani.reset(ani.data.setbackto);
             }
             else if (ani.data.setbackto) {
                 // value is another gani
                 ani.on_change_reel(ani, ani.data.setbackto);
                 stopped = true;
-            }
-            if (ani.data.continuous) {
-                // not really sure what this is for
-            }
-            if (pointer_changed) {
-                advance(stopped);
             }
         }
         else {
@@ -119,7 +99,7 @@ please.media.__AnimationInstance = function (animation_data) {
             }
             ani.__set_dirty();
             if (!stop_animation) {
-                timer = setTimeout(advance, frame.durration);
+                timer = setTimeout(advance, frame.wait);
             }
         }
     };
@@ -127,7 +107,22 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // play function starts the animation sequence
     ani.play = function () {
-        ani.__frame_pointer = -1;
+        ani.__start_time = Date.now();
+        ani.__frame_pointer = 0;
+        advance();
+    };
+
+
+    // reset the animation 
+    ani.reset = function (start_frame) {
+        ani.__start_time = Date.now();
+        ani.__frame_pointer = 0;
+        if (start_frame) {
+            ani.__frame_pointer = start_frame;
+            for (var i=0; i<start_frame; i+=1) {
+                ani.__start_time -= ani.frames[i].wait;
+            }
+        };
         advance();
     };
 
@@ -140,12 +135,29 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // get_current_frame retrieves the frame that currently should be
     // visible
-    ani.get_current_frame = function () {
+    ani.get_current_frame = function (progress) {
+        if (progress > ani.data.durration) {
+            if (ani.data.looping && !typeof(ani.data.setbackto) === "number") {
+                progress = progress % ani.data.durration;
+            }
+            else {
+                return -1;
+            }
+        }
+        var offset = 0;
+        ani.__frame_pointer = ani.frames.length -1;
+        ITER(i, ani.frames) {
+            offset += ani.frames[i].wait;
+            if (offset > progress) {
+                ani.__frame_pointer = i;
+                break;
+            }
+        }
         var block = ani.frames[ani.__frame_pointer]
         var frame;
         if (block) {
             frame = block.data[ani.data.single_dir ? 0 : ani.dir];
-            frame.durration = block.wait;
+            frame.wait = block.wait;
             frame.sound = block.sound;
         }
         if (frame) {
@@ -158,10 +170,19 @@ please.media.__AnimationInstance = function (animation_data) {
     // Schedules a repaint
     ani.__set_dirty = function (regen_cache) {
         if (regen_cache) {
-            ani.__frame_cache = ani.get_current_frame();
+            var block = ani.frames[ani.__frame_pointer]
+            var frame;
+            if (block) {
+                frame = block.data[ani.data.single_dir ? 0 : ani.dir];
+                frame.wait = block.wait;
+                frame.sound = block.sound;
+            }
+            if (frame) {
+                ani.__frame_cache = frame;
+            }
         }
         if (ani.on_dirty) {
-            window.requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
                 if (ani.on_dirty) {
                     ani.on_dirty(ani, ani.__frame_cache);
                 }
@@ -267,6 +288,7 @@ please.media.__AnimationData = function (gani_text) {
         "frames" : [],
 
         "base_speed" : 50,
+        "durration" : 0,
         
         "single_dir" : false,
         "looping" : false,
@@ -456,6 +478,11 @@ please.media.__AnimationData = function (gani_text) {
             pending_lines = [];
         }
     }
+
+    // calculate animation durration
+    ITER(i, ani.frames) {
+        ani.durration += ani.frames[i].wait;
+    };
 
 
     // Convert the resources dict into a list with no repeating elements eg a set:
