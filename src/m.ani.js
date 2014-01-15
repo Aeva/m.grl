@@ -12,6 +12,98 @@ please.media.handlers.ani = function (url, callback) {
 };
 
 
+// The batch object is used for animations to schedule their updates.
+// Closure generates singleton.
+please.media.batch = (function () {
+    var batch = {
+        "__pending" : [],
+        "__times" : [],
+        "__samples" : [],
+        "now" : Date.now(),
+
+        "schedule" : function (callback, when) {},
+        "remove" : function (callback) {},
+        "get_fps" : function () {},
+    };
+    var dirty = false;
+
+
+    // This function works like setTimeout, but syncs up with
+    // animation frames.
+    batch.schedule = function (callback, when) {
+        when = batch.now + when;
+        var i = batch.__pending.indexOf(callback);
+        if (i > -1) {
+            batch.__times[i] = when;
+        }
+        else {
+            batch.__pending.push(callback);
+            batch.__times.push(when);
+            if (!dirty) {
+                dirty = true;
+                requestAnimationFrame(frame_handler);
+            }
+        }
+    };
+
+
+    // This function unschedules a pending callback.
+    batch.remove = function (callback) {
+        var i = batch.__pending.indexOf(callback);
+        if (i > -1) {
+            batch.__pending.splice(i, 1);
+            batch.__times.splice(i, 1);
+        }
+    };
+
+    
+    // This function returns an approximation of the frame rate.
+    batch.get_fps = function () {
+        var average, sum = 0;
+        ITER(i, batch.__samples) {
+            sum += batch.__samples[i];
+        }
+        average = sum/batch.__samples.length;
+        return Math.round(1000/average);
+    };
+
+
+    var frame_handler= function () {
+        var stamp = Date.now();
+        batch.__samples.push(stamp-batch.now);
+        batch.now = stamp;
+        if (batch.__samples.length > 50) {
+            batch.__samples = batch.__samples.slice(-50);
+        }
+
+        var pending = batch.__pending;
+        var times = batch.__times;
+        batch.__pending = [];
+        batch.__times = [];
+        var updates = 0;
+        ITER(i, pending) {
+            var callback = pending[i];
+            var when = times[i];
+            if (when <= stamp) {
+                updates += 1;                
+                callback(stamp);
+            }
+            else {
+                batch.__pending.push(callback);
+                batch.__times.push(when);
+            }
+        };
+        if (batch.__pending.length > 0) {
+            requestAnimationFrame(frame_handler);
+        }
+    };
+
+
+    return batch;
+})();
+
+
+
 // Function returns Animation Instance object.  AnimationData.create()
 // wraps this function, so you don't need to use it directly.
 please.media.__AnimationInstance = function (animation_data) {
@@ -70,10 +162,11 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // advance animaiton sets up events to flag when the animation has
     // updated
-    var timer = -1;
-    var advance = function (stop_animation/*=false*/) {
-        clearTimeout(timer);
-        var progress = Date.now() - ani.__start_time;
+    var advance = function (time_stamp) {
+        if (!time_stamp) {
+            time_stamp = please.media.batch.now;
+        }
+        var progress = time_stamp - ani.__start_time;
         var frame = ani.get_current_frame(progress);
         if (frame === -1) {
             // This means we tried to seek past the end of the animation.
@@ -98,24 +191,22 @@ please.media.__AnimationInstance = function (animation_data) {
                 }
             }
             ani.__set_dirty();
-            if (!stop_animation) {
-                timer = setTimeout(advance, frame.wait);
-            }
+            please.media.batch.schedule(advance, frame.wait);
         }
     };
 
 
     // play function starts the animation sequence
     ani.play = function () {
-        ani.__start_time = Date.now();
+        ani.__start_time = please.media.batch.now;
         ani.__frame_pointer = 0;
-        advance();
+        advance(ani.__start_time);
     };
 
 
     // reset the animation 
     ani.reset = function (start_frame) {
-        ani.__start_time = Date.now();
+        ani.__start_time = please.media.batch.now;
         ani.__frame_pointer = 0;
         if (start_frame) {
             ani.__frame_pointer = start_frame;
@@ -123,13 +214,13 @@ please.media.__AnimationInstance = function (animation_data) {
                 ani.__start_time -= ani.frames[i].wait;
             }
         };
-        advance();
+        advance(ani.__start_time);
     };
 
 
     // stop the animation
     ani.stop = function () {
-        clearTimeout(timer);
+        please.media.batch.remove(advance);
     };
 
 
@@ -145,10 +236,13 @@ please.media.__AnimationInstance = function (animation_data) {
             }
         }
         var offset = 0;
+        var start, late = 0;
         ani.__frame_pointer = ani.frames.length -1;
         ITER(i, ani.frames) {
             offset += ani.frames[i].wait;
-            if (offset > progress) {
+            if (offset >= progress) {
+                start = offset - ani.frames[i].wait;
+                late = progress - start;
                 ani.__frame_pointer = i;
                 break;
             }
@@ -157,7 +251,7 @@ please.media.__AnimationInstance = function (animation_data) {
         var frame;
         if (block) {
             frame = block.data[ani.data.single_dir ? 0 : ani.dir];
-            frame.wait = block.wait;
+            frame.wait = block.wait - late;
             frame.sound = block.sound;
         }
         if (frame) {
@@ -182,11 +276,7 @@ please.media.__AnimationInstance = function (animation_data) {
             }
         }
         if (ani.on_dirty) {
-            requestAnimationFrame(function () {
-                if (ani.on_dirty) {
-                    ani.on_dirty(ani, ani.__frame_cache);
-                }
-            });
+            ani.on_dirty(ani, ani.__frame_cache);
         }
     };
 

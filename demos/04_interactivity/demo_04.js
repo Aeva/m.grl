@@ -351,6 +351,11 @@ demo.spawn_coin = function (x, y) {
 };
 
 
+demo.update_fps = function () {
+    document.getElementById("fps").innerHTML = please.media.batch.get_fps();
+};
+
+
 demo.setup = function () {
     // setup physics info
     var canvas = document.createElement("canvas");
@@ -406,6 +411,9 @@ demo.setup = function () {
     please.keys.connect("a", demo.key_handler);
     please.keys.connect("s", demo.key_handler);
     please.keys.connect("d", demo.key_handler);
+
+    // misc
+    setInterval(demo.update_fps, 500);
 };
 
 

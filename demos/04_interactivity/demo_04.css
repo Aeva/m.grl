@@ -23,6 +23,18 @@
     transform: rotateZ(-10deg);
 }
 
+#fps_counter {
+    position: absolute;
+    right: 10px;
+    top: -1em;
+    color: black;
+    text-align: right;
+}
+
+#fps {
+    font-weight: bold;
+}
+
 
 #overhang {
     background-image: url('cave_overhangs.png');
