@@ -628,14 +628,10 @@ please.media.__AnimationInstance = function (animation_data) {
     var advance = function (stop_animation/*=false*/) {
         clearTimeout(timer);
         ani.__frame_pointer += 1;
-        try {
-            var frame = ani.__frame_cache = ani.get_current_frame();
-        } catch (err) {
+        var frame = ani.get_current_frame();
+        if (frame === undefined) {
             // rewind so that the frame cache can be regenerated later
             ani.__frame_pointer -= 1;
-            var frame = undefined;
-        }
-        if (frame === undefined) {
             var stopped = true;
             var pointer_changed = false;
             if (ani.data.looping) {
@@ -693,16 +689,15 @@ please.media.__AnimationInstance = function (animation_data) {
     // get_current_frame retrieves the frame that currently should be
     // visible
     ani.get_current_frame = function () {
-        var block_i = ani.__frame_pointer;
-        var dir = ani.dir;
-        if (ani.data.single_dir) {
-            dir = ani.__frame_pointer % 4;
-            block_i = Math.floor(ani.__frame_pointer / 4);
+        var block = ani.frames[ani.__frame_pointer]
+        var frame;
+        if (block) {
+            frame = block.data[ani.data.single_dir ? 0 : ani.dir];
+            frame.durration = block.wait;
+            frame.sound = block.sound;
         }
-        var frame = ani.frames[block_i][dir];
-        frame.durration = ani.frames[block_i].durration;
-        if (!ani.data.single_dir || dir === 0) {
-            frame.sound = ani.frames[block_i].sound;
+        if (frame) {
+            ani.__frame_cache = frame;
         }
         return frame;
     };
@@ -760,32 +755,29 @@ please.media.__AnimationInstance = function (animation_data) {
         ani.frames = [];
         for (var i=0; i<ani.data.frames.length; i+=1) {
             var target_block = ani.data.frames[i];
-            var block = [];
-            if (target_block.wait !== undefined) {
-                bind_or_copy(block, "wait", target_block.wait);
+            var block = {
+                "data" : [],
+                "wait" : target_block.wait,
+                "sound" : false,
             }
-            block.durration = ani.data.base_speed;
-            if (block.wait) {
-                block.durration = ani.data.base_speed*(block.wait+1);
-            }
-            if (target_block.sound !== undefined) {
+            if (target_block.sound) {
                 block.sound = {};
                 for (var sound_prop in target_block.sound) if (target_block.sound.hasOwnProperty(sound_prop)) {
                     var value = target_block.sound[sound_prop];
                     bind_or_copy(block.sound, sound_prop, value);
                 }
             }
-            for (var k=0; k<target_block.length; k+=1) {
-                var keyframe = target_block[k];
-                block.push([]); // add keyframe to new block
-                for (var s=0; s<keyframe.length; s+=1) {
-                    var target_key = keyframe[s];
+            for (var k=0; k<target_block.data.length; k+=1) {
+                var dir = target_block.data[k];
+                block.data.push([]);
+                for (var n=0; n<dir.length; n+=1) {
+                    var target_key = dir[n];
                     var key = {};
                     for (var key_prop in target_key) if (target_key.hasOwnProperty(key_prop)) {
                         var value = target_key[key_prop];
                         bind_or_copy(key, key_prop, value);
                     }
-                    block[k].push(key);
+                    block.data[k].push(key);
                 }
             }
             ani.frames.push(block);
@@ -918,59 +910,65 @@ please.media.__AnimationData = function (gani_text) {
         }
     }
     // next up is to parse out the frame data
-    var last_frame = -1;
-    var new_block = function () {
-        last_frame += 1;
-        ani.frames.push([]);
+    var pending_lines = [];
+    var frame_size = ani.single_dir ? 1 : 4;
+    var parse_frame_defs = function (line) {
+        // parses a single direction's data from a frame line in the
+        // gani file
+        var defs = please.split_params(line, ",");
+        var frame = [];
+        for (var k=0; k<defs.length; k+=1) {
+            var chunks = please.split_params(defs[k], " ");
+            var names = ["sprite", "x", "y"];
+            var sprite = {};
+            for (var n=0; n<names.length; n+=1) {
+                var name = names[n];
+                var datum = chunks[n];
+                if (please.is_attr(datum)) {
+                    sprite[name] = datum;
+                }
+                else {
+                    sprite[name] = Number(datum);
+                }
+            }
+            frame.push(sprite);
+        }
+        return frame;
     };
-    new_block();
-    // pdq just to do something interesting with the data - almost
-    // certainly implemented wrong
     for (var i=frames_start; i<=frames_end; i+=1) {
         var line = lines[i].trim();
-        if (line.length === 0) {
-            // whitespace might actually be important
-            continue;
-        }
-        var params = please.split_params(line);
-        if (params[0] === "WAIT") {
-            ani.frames[last_frame].wait = Number(params[1]);
-        }
-        else if (params[0] === "PLAYSOUND") {
-            var sound_file = params[1];
-            if (!please.is_attr(sound_file)) {
-                ani.__resources[sound_file] = true;
+        pending_lines.push(line);
+        if (pending_lines.length > frame_size && line.length === 0) {
+            // blank line indicates that the pending data should be
+            // processed as a new frame.            
+            var frame = {
+                "data" : [],
+                "wait" : ani.base_speed,
+                "sound" : false,
             }
-            ani.frames[last_frame].sound = {
-                "file" : sound_file,
-                "x" : Number(params[2]),
-                "y" : Number(params[3]),
-            };
-        }
-        else if (please.is_number(params[0]) || please.is_attr(params[1])) {
-            // line is a frame definition
-            if (ani.frames[last_frame].length === 4) {
-                new_block();
+            for (var dir=0; dir<frame_size; dir+=1) {
+                // frame.data.length === 1 for singledir and 4 for multidir
+                frame.data.push(parse_frame_defs(pending_lines[dir]));
             }
-            var defs = please.split_params(line, ",");
-            var frame = [];
-            for (var k=0; k<defs.length; k+=1) {
-                var chunks = please.split_params(defs[k], " ");
-                var names = ["sprite", "x", "y"];
-                var sprite = {};
-                for (var n=0; n<names.length; n+=1) {
-                    var name = names[n];
-                    var datum = chunks[n];
-                    if (please.is_attr(datum)) {
-                        sprite[name] = datum;
-                    }
-                    else {
-                        sprite[name] = Number(datum);
-                    }
+            for (var k=frame_size; k<pending_lines.length; k+=1) {
+                var params = please.split_params(pending_lines[k]);
+                if (params[0] === "WAIT") {
+                    frame.wait = ani.base_speed*(Number(params[1])+1);
                 }
-                frame.push(sprite);
+                else if (params[0] === "PLAYSOUND") {
+                    var sound_file = params[1];
+                    if (!please.is_attr(sound_file)) {
+                        ani.__resources[sound_file] = true;
+                    }
+                    frame.sound = {
+                        "file" : sound_file,
+                        "x" : Number(params[2]),
+                        "y" : Number(params[3]),
+                    };
+                }
             }
-            ani.frames[last_frame].push(frame);
+            ani.frames.push(frame);
+            pending_lines = [];
         }
     }
     // Convert the resources dict into a list with no repeating elements eg a set:
