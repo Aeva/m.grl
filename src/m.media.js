@@ -6,6 +6,7 @@ please.media = {
     "assets" : {},
     "handlers" : {},
     "pending" : [],
+    "__load_callbacks" : {},
     "onload_events" : [],
     "search_paths" : {
         "img" : "",
@@ -35,10 +36,18 @@ please.load = function (type, url, callback) {
         throw("Unknown media type '"+type+"'");
     }
     else {
-        if (!callback) {
-            callback = function () {};
+        var asset_exists = !!please.access(url, true);
+        if (asset_exists && typeof(callback) === "function") {
+            please.schedule(function () {
+                callback("pass", url);
+            });
         }
-        please.media.handlers[type](url, callback);
+        else {
+            if (typeof(callback) !== "function") {
+                callback = undefined;
+            }
+            please.media.handlers[type](url, callback);
+        }
     }
 };
 
@@ -101,10 +110,20 @@ please.media.connect_onload = function (callback) {
 
 
 // add a request to the 'pending' queue
-please.media._push = function (req_key) {
+please.media._push = function (req_key, callback) {
+    var no_pending;
     if (please.media.pending.indexOf(req_key) === -1) {
         please.media.pending.push(req_key);
+        please.media.__load_callbacks[req_key] = [];
+        no_pending = true;
     }
+    else {
+        no_pending = false;
+    }
+    if (typeof(callback) === "function") {
+        please.media.__load_callbacks[req_key].push(callback);
+    }
+    return no_pending;
 };
 
 
@@ -112,8 +131,11 @@ please.media._push = function (req_key) {
 // triggers any pending onload_events if the queue is completely emptied.
 please.media._pop = function (req_key) {
     var i = please.media.pending.indexOf(req_key);
+    var callbacks;
     if (i >= 0) {
         please.media.pending.splice(i, 1);
+        callbacks = please.media.__load_callbacks[req_key];
+        please.media.__load_callbacks[req_key] = undefined;
     }
     if (please.media.pending.length === 0) {
         please.media.onload_events.map(function (callback) {
@@ -121,6 +143,7 @@ please.media._pop = function (req_key) {
         });
         please.media.onload_events = [];
     }
+    return callbacks;
 };
 
 
@@ -147,22 +170,27 @@ please.media.guess_type = function (file_name) {
 
 // xhr wrapper to provide common machinery to media types.
 please.media.__xhr_helper = function (req_type, url, media_callback, user_callback) {
-    var req = new XMLHttpRequest();
-    please.media._push(req);
-    req.onload = function () {
-        please.media._pop(req);
-        var state = "fail";
-        if (req.statusText === "OK") {
-            state = "pass";
-            media_callback(req);
-        }
-        if (typeof(user_callback) === "function") {
-            user_callback(state, url);
-        }
-    };
-    req.open('GET', url, true);
-    req.responseType = req_type;
-    req.send();
+    var req_ok = please.media._push(url, user_callback);
+    if (req_ok) {
+        var req = new XMLHttpRequest();
+        req.onload = function () {
+            var callbacks = please.media._pop(url);
+            var state = "fail";
+            if (req.statusText === "OK") {
+                state = "pass";
+                media_callback(req);
+            }
+            ITER(c, callbacks) {
+                var callback = callbacks[c];
+                if (typeof(callback) === "function") {
+                    callback(state, url);
+                }
+            }
+        };
+        req.open('GET', url, true);
+        req.responseType = req_type;
+        req.send();
+    }
 };
 
 
