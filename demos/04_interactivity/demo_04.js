@@ -352,7 +352,7 @@ demo.spawn_coin = function (x, y) {
 
 
 demo.update_fps = function () {
-    document.getElementById("fps").innerHTML = please.media.batch.get_fps();
+    document.getElementById("fps").innerHTML = please.ani.batch.get_fps();
 };
 
 

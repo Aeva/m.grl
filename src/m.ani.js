@@ -6,15 +6,39 @@ please.media.search_paths.ani = "";
 please.media.handlers.ani = function (url, callback) {
     var media_callback = function (req) {
         //please.media.assets[url] = new please.media.__Animation(req.response);
-        please.media.assets[url] = new please.media.__AnimationData(req.response);
+        please.media.assets[url] = new please.media.__AnimationData(req.response, url);
     };
     please.media.__xhr_helper("text", url, media_callback, callback);
 };
 
 
+// Namespace for m.ani guts
+please.ani = {
+    "__frame_cache" : {},
+
+    "get_cache_name" : function (uri, attrs) {
+        var cache_id = uri;
+        var props = Object.getOwnPropertyNames(attrs);
+        props.sort(); // lexicographic sort
+        ITER(p, props) {
+            cache_id += ";" + props[p] + ":" + attrs[props[p]];
+        }
+        return cache_id;
+    },
+    "on_bake_ani_frameset" : function (uri, frames, attrs) {
+        // bs frame bake handler
+        var cache_id = please.ani.get_cache_name(uri, attrs);
+        if (!please.ani.__frame_cache[cache_id]) {
+            please.ani.__frame_cache[cache_id] = true;
+            console.info("req_bake: " + cache_id);
+        }
+    },
+};
+
+
 // The batch object is used for animations to schedule their updates.
 // Closure generates singleton.
-please.media.batch = (function () {
+please.ani.batch = (function () {
     var batch = {
         "__pending" : [],
         "__times" : [],
@@ -164,7 +188,7 @@ please.media.__AnimationInstance = function (animation_data) {
     // updated
     var advance = function (time_stamp) {
         if (!time_stamp) {
-            time_stamp = please.media.batch.now;
+            time_stamp = please.ani.batch.now;
         }
         var progress = time_stamp - ani.__start_time;
         var frame = ani.get_current_frame(progress);
@@ -191,14 +215,14 @@ please.media.__AnimationInstance = function (animation_data) {
                 }
             }
             ani.__set_dirty();
-            please.media.batch.schedule(advance, frame.wait);
+            please.ani.batch.schedule(advance, frame.wait);
         }
     };
 
 
     // play function starts the animation sequence
     ani.play = function () {
-        ani.__start_time = please.media.batch.now;
+        ani.__start_time = please.ani.batch.now;
         ani.__frame_pointer = 0;
         advance(ani.__start_time);
     };
@@ -206,7 +230,7 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // reset the animation 
     ani.reset = function (start_frame) {
-        ani.__start_time = please.media.batch.now;
+        ani.__start_time = please.ani.batch.now;
         ani.__frame_pointer = 0;
         if (start_frame) {
             ani.__frame_pointer = start_frame;
@@ -220,7 +244,7 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // stop the animation
     ani.stop = function () {
-        please.media.batch.remove(advance);
+        please.ani.batch.remove(advance);
     };
 
 
@@ -261,6 +285,19 @@ please.media.__AnimationInstance = function (animation_data) {
     };
 
 
+    // Event for baking frame sets
+    var pending_rebuild = false;
+    ani.__cue_rebuild = function () {
+        if (!pending_rebuild) {
+            pending_rebuild = true;
+            please.schedule(function () {
+                please.ani.on_bake_ani_frameset(ani.data.__uri, ani.frames, ani.__attrs);
+                pending_rebuild = false;
+            });
+        }
+    };
+
+
     // Schedules a repaint
     ani.__set_dirty = function (regen_cache) {
         if (regen_cache) {
@@ -291,6 +328,7 @@ please.media.__AnimationInstance = function (animation_data) {
             "set" : function (value) {
                 if (value !== ani.__attrs[property] && ani.__frame_cache) {
                     ani.__set_dirty();
+                    ani.__cue_rebuild();
                 }
                 return ani.__attrs[property] = value;
             },
@@ -361,18 +399,21 @@ please.media.__AnimationInstance = function (animation_data) {
 
 
 // Constructor function, parses gani files
-please.media.__AnimationData = function (gani_text) {
+please.media.__AnimationData = function (gani_text, uri) {
     var ani = {
         "__raw_data" : gani_text,
         "__resources" : {}, // files that this gani would load, using dict as a set
+        "__uri" : uri,
 
         "sprites" : {},
         "attrs" : {
+            /*
             "SPRITES" : "sprites.png",
             "HEAD" : "head19.png",
             "BODY" : "body.png",
             "SWORD" : "sword1.png",
             "SHIELD" : "shield1.png",
+            */
         },
         
         "frames" : [],
@@ -595,6 +636,12 @@ please.media.__AnimationData = function (gani_text) {
         } catch (err) {
             console.warn(err);
         }
+    }
+
+    if (typeof(please.ani.on_bake_ani_frameset) === "function") {
+        please.media.connect_onload(function () {
+            please.ani.on_bake_ani_frameset(ani.__uri, ani.frames, ani.attrs);
+        });
     }
 
     return ani;
