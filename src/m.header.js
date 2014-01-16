@@ -30,5 +30,10 @@
 #include "m.ani.js"
 #include "m.masks.js"
 
-
-
+#ifdef BSIDES
+// -------------------------------------------------------------------------- //
+// What follows are optional components, and may be safely removed.
+// Please tear at the perforated line.
+//
+#include "m.ani.ext.js"
+#endif

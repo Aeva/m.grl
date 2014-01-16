@@ -1309,3 +1309,12 @@ please.masks.__generate = function (file_name) {
     var canvas = document.createElement("canvas");
     var ctx = canvas.getContext("2d");
 };
+// -------------------------------------------------------------------------- //
+// What follows are optional components, and may be safely removed.
+// Please tear at the perforated line.
+//
+// - m.ani.ext.js ----------------------------------------------------------- //
+please.ani.on_bake_ani_frameset = function (uri, frames, attrs) {
+};
+please.ani.__cache_frame = function (frame, attrs) {
+};

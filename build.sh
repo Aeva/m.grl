@@ -1,1 +1,1 @@
-sh jspp.sh src/m.header.js mgrl.js
+sh jspp.sh src/m.header.js mgrl.js -DBSIDES
