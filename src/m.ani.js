@@ -43,7 +43,7 @@ please.ani.batch = (function () {
         "__pending" : [],
         "__times" : [],
         "__samples" : [],
-        "now" : Date.now(),
+        "now" : performance.now(),
 
         "schedule" : function (callback, when) {},
         "remove" : function (callback) {},
@@ -93,7 +93,7 @@ please.ani.batch = (function () {
 
 
     var frame_handler= function () {
-        var stamp = Date.now();
+        var stamp = performance.now();
         batch.__samples.push(stamp-batch.now);
         batch.now = stamp;
         if (batch.__samples.length > 50) {

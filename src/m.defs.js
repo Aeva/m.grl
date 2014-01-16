@@ -21,6 +21,15 @@ if (!window.requestAnimationFrame) {
 }
 
 
+// Ensure some timing mechanism is present:
+if (!window.performance) {
+    window.performance = {};
+}
+if (!window.performance.now) {
+    window.performance = window.performance.webkitNow || Date.now;
+}
+
+
 // Polyfill String.endsWith, code via MDN:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/endsWith
 if (!String.prototype.endsWith) {

@@ -43,6 +43,13 @@ if (!window.requestAnimationFrame) {
             setTimeout(callback, 1000 / 60);
         };
 }
+// Ensure some timing mechanism is present:
+if (!window.performance) {
+    window.performance = {};
+}
+if (!window.performance.now) {
+    window.performance = window.performance.webkitNow || Date.now;
+}
 // Polyfill String.endsWith, code via MDN:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/endsWith
 if (!String.prototype.endsWith) {
@@ -630,7 +637,7 @@ please.ani.batch = (function () {
         "__pending" : [],
         "__times" : [],
         "__samples" : [],
-        "now" : Date.now(),
+        "now" : performance.now(),
         "schedule" : function (callback, when) {},
         "remove" : function (callback) {},
         "get_fps" : function () {},
@@ -671,7 +678,7 @@ please.ani.batch = (function () {
         return Math.round(1000/average);
     };
     var frame_handler= function () {
-        var stamp = Date.now();
+        var stamp = performance.now();
         batch.__samples.push(stamp-batch.now);
         batch.now = stamp;
         if (batch.__samples.length > 50) {
