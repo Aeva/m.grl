@@ -621,9 +621,9 @@ please.ani = {
         }
         return cache_id;
     },
-    "on_bake_ani_frameset" : function (uri, frames, attrs) {
+    "on_bake_ani_frameset" : function (uri, ani) {
         // bs frame bake handler
-        var cache_id = please.ani.get_cache_name(uri, attrs);
+        var cache_id = please.ani.get_cache_name(uri, ani.attrs);
         if (!please.ani.__frame_cache[cache_id]) {
             please.ani.__frame_cache[cache_id] = true;
             console.info("req_bake: " + cache_id);
@@ -853,7 +853,7 @@ please.media.__AnimationInstance = function (animation_data) {
         if (!pending_rebuild) {
             pending_rebuild = true;
             please.schedule(function () {
-                please.ani.on_bake_ani_frameset(ani.data.__uri, ani.frames, ani.__attrs);
+                please.ani.on_bake_ani_frameset(ani.data.__uri, ani);
                 pending_rebuild = false;
             });
         }
@@ -1164,7 +1164,7 @@ please.media.__AnimationData = function (gani_text, uri) {
     }
     if (typeof(please.ani.on_bake_ani_frameset) === "function") {
         please.media.connect_onload(function () {
-            please.ani.on_bake_ani_frameset(ani.__uri, ani.frames, ani.attrs);
+            please.ani.on_bake_ani_frameset(ani.__uri, ani);
         });
     }
     return ani;
@@ -1314,7 +1314,52 @@ please.masks.__generate = function (file_name) {
 // Please tear at the perforated line.
 //
 // - m.ani.ext.js ----------------------------------------------------------- //
-please.ani.on_bake_ani_frameset = function (uri, frames, attrs) {
+please.ani.on_bake_ani_frameset = function (uri, ani) {
+    var attrs = ani.__attrs || ani.attrs;
+    var frames = ani.frames;
+    var sprites = ani.sprites;
+    var cache_id = please.ani.get_cache_name(uri, attrs);
+    var single_dir = ani.data === undefined ? ani.single_dir : ani.data.single_dir;
+    var cache = [];
+    var ani = please.access(uri, true);
+    for (var i=0; i<frames.length; i+=1) {
+        var _frame = frames[i];
+        if (single_dir) {
+            var result = please.ani.__cache_frame(ani, _frame.data[0]);
+            cache.push(result);
+        }
+        else {
+            var dirs = [];
+            for (var d=0; d<4; d+=1) {
+                var result = please.ani.__cache_frame(ani, _frame.data[d]);
+                dirs.push(result);
+            }
+            cache.push(dirs);
+        }
+    };
 };
-please.ani.__cache_frame = function (frame, attrs) {
+please.ani.__cache_frame = function (ani, frame) {
+    var xs = [];
+    var ys = [];
+    for (var i=0; i<frame.length; i+=1) {
+        var sprite = ani.sprites[frame[i].sprite];
+        var x = frame[i].x;
+        var y = frame[i].y;
+        var w = sprite.w
+        var h = sprite.h
+        xs.push(x);
+        ys.push(y);
+        xs.push(x+w);
+        ys.push(y+h);
+    };
+    var canvas = document.createElement("canvas");
+    var ctx = canvas.getContext("2d");
+    var offset_x = Math.min.apply(null, xs);
+    var offset_y = Math.min.apply(null, ys);
+    canvas.width = Math.max.apply(null, xs) - offset_x;
+    canvas.height = Math.max.apply(null, ys) - offset_y;
+    for (var i=0; i<frame.length; i+=1) {
+        var sprite = ani.sprites[frame[i].sprite];
+    };
+    console.info("" + canvas.width + ", " + canvas.height);
 };

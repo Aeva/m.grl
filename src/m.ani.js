@@ -25,9 +25,9 @@ please.ani = {
         }
         return cache_id;
     },
-    "on_bake_ani_frameset" : function (uri, frames, attrs) {
+    "on_bake_ani_frameset" : function (uri, ani) {
         // bs frame bake handler
-        var cache_id = please.ani.get_cache_name(uri, attrs);
+        var cache_id = please.ani.get_cache_name(uri, ani.attrs);
         if (!please.ani.__frame_cache[cache_id]) {
             please.ani.__frame_cache[cache_id] = true;
             console.info("req_bake: " + cache_id);
@@ -291,7 +291,7 @@ please.media.__AnimationInstance = function (animation_data) {
         if (!pending_rebuild) {
             pending_rebuild = true;
             please.schedule(function () {
-                please.ani.on_bake_ani_frameset(ani.data.__uri, ani.frames, ani.__attrs);
+                please.ani.on_bake_ani_frameset(ani.data.__uri, ani);
                 pending_rebuild = false;
             });
         }
@@ -640,7 +640,7 @@ please.media.__AnimationData = function (gani_text, uri) {
 
     if (typeof(please.ani.on_bake_ani_frameset) === "function") {
         please.media.connect_onload(function () {
-            please.ani.on_bake_ani_frameset(ani.__uri, ani.frames, ani.attrs);
+            please.ani.on_bake_ani_frameset(ani.__uri, ani);
         });
     }
 
