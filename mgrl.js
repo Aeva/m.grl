@@ -1463,19 +1463,31 @@ please.gl.sl = function (name /*, shader_a, shader_b,... */) {
         // vectors and matricies are expressed in their type
         // vars with a size >1 are arrays.
         var pointer = gl.getUniformLocation(prog.id, data.name);
-        var u_func_name = "uniform" + u_map[data.type];
-        var u_func = gl[u_func_name];
+        var uni = "uniform" + u_map[data.type];
         prog.vars.__defineSetter__(data.name, function (type_array) {
             // FIXME we could do some sanity checking here, eg, making
             // sure the array length is appropriate for the expected
             // call type
-            return u_func(pointer, type_array);
+            if (typeof(type_array) === "number") {
+                if (data.type === gl.FLOAT) {
+                    return gl[uni](pointer, new Float32Array([type_array]));
+                }
+                else if (data.type === gl.INT || data.type === gl.BOOL) {
+                    return gl[uni](pointer, new Int32Array([type_array]));
+                }
+            }
+            else if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT3) {
+                // the 'transpose' arg is assumed to be false :P
+                return gl[uni](pointer, false, type_array);
+            }
+            return gl[uni](pointer, type_array);
         });
     };
     var uni_count = gl.getProgramParameter(prog.id, gl.ACTIVE_UNIFORMS);
     for (var i=0; i<uni_count; i+=1) {
         bind_uniform(gl.getActiveUniform(prog.id, i));
     }
+    prog.ready = true;
     return prog;
 };
 // -------------------------------------------------------------------------- //
