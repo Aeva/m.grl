@@ -29,6 +29,7 @@
 #include "m.input.js"
 #include "m.ani.js"
 #include "m.masks.js"
+#include "m.gl.js"
 
 #ifdef BSIDES
 // -------------------------------------------------------------------------- //
