@@ -1359,9 +1359,6 @@ please.gl.__build_shader = function (src, uri) {
         "ready" : false,
         "error" : false,
     };
-    if (window.gl === undefined) {
-        throw("No webgl context found.  Did you call please.gl.set_context?");
-    }
     // determine shader's type from file name
     if (uri.endsWith(".vert")) {
         glsl.type = gl.VERTEX_SHADER;
@@ -1393,15 +1390,92 @@ please.gl.__build_shader = function (src, uri) {
     return glsl;
 };
 // Constructor function for building a shader program.  Give the
-// program a name (for caching), and pass any number of shader URIs to
-// the function.  Will automagically download, build, and provide
-// automatic access to uniform vars.
+// program a name (for caching), and pass any number of shader objects
+// to the function.
 please.gl.sl = function (name /*, shader_a, shader_b,... */) {
+    var build_fail = "Shader could not be activated..?";
     var prog = {
+        "name" : name,
+        "id" : null,
+        "vars" : {},
         "vert" : null,
         "frag" : null,
-        "ready" : null,
+        "ready" : false,
+        "error" : false,
+        "activate" : function () {
+            if (this.ready && !this.error) {
+                gl.useProgram(this.id);
+            }
+            else {
+                throw(build_fail);
+            }
+        },
     };
+    if (window.gl === undefined) {
+        throw("No webgl context found.  Did you call please.gl.set_context?");
+    }
+    // sort through the shaders passed to this function
+    var errors = [];
+    for (var i=1; i< arguments.length; i+=1) {
+        var shader = arguments[i];
+        if (shader.type == gl.VERTEX_SHADER) {
+            prog.vert = shader;
+        }
+        if (shader.type == gl.FRAGMENT_SHADER) {
+            prog.frag = shader;
+        }
+        if (shader.error) {
+            errors.push(shader.error);
+            build_fail += "\n\n" + shader.error;
+        }
+    }
+    if (errors.length > 0) {
+        prog.error = errors;
+        throw(build_fail);
+    }
+    // link the shader program
+    prog.id = gl.createProgram();
+    gl.attachShader(prog.id, prog.vert.id)
+    gl.attachShader(prog.id, prog.frag.id)
+    gl.linkProgram(prog.id);
+    // uniform type map
+    var u_map = {};
+    u_map[gl.FLOAT] = "1fv";
+    u_map[gl.FLOAT_VEC2] = "2fv";
+    u_map[gl.FLOAT_VEC3] = "3fv";
+    u_map[gl.FLOAT_VEC4] = "4fv";
+    u_map[gl.FLOAT_MAT2] = "Matrix2fv";
+    u_map[gl.FLOAT_MAT3] = "Matrix3fv";
+    u_map[gl.FLOAT_MAT4] = "Matrix4fv";
+    u_map[gl.INT] = "1iv";
+    u_map[gl.INT_VEC2] = "2iv";
+    u_map[gl.INT_VEC3] = "3iv";
+    u_map[gl.INT_VEC4] = "4iv";
+    u_map[gl.BOOL] = "1iv";
+    u_map[gl.BOOL_VEC2] = "2iv";
+    u_map[gl.BOOL_VEC3] = "3iv";
+    u_map[gl.BOOL_VEC4] = "4iv";
+    // create helper functions for uniform vars
+    var bind_uniform = function(data) {
+        // data.name -> variable name
+        // data.type -> built in gl type enum
+        // data.size -> array size
+        // vectors and matricies are expressed in their type
+        // vars with a size >1 are arrays.
+        var pointer = gl.getUniformLocation(prog.id, data.name);
+        var u_func_name = "uniform" + u_map[data.type];
+        var u_func = gl[u_func_name];
+        prog.vars.__defineSetter__(data.name, function (type_array) {
+            // FIXME we could do some sanity checking here, eg, making
+            // sure the array length is appropriate for the expected
+            // call type
+            return u_func(pointer, type_array);
+        });
+    };
+    var uni_count = gl.getProgramParameter(prog.id, gl.ACTIVE_UNIFORMS);
+    for (var i=0; i<uni_count; i+=1) {
+        bind_uniform(gl.getActiveUniform(prog.id, i));
+    }
     return prog;
 };
 // -------------------------------------------------------------------------- //
