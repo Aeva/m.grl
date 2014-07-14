@@ -153,6 +153,7 @@ please.media.guess_type = function (file_name) {
         "img" : [".png", ".gif"],
         "ani" : [".gani"],
         "audio" : [".wav", ".mp3", ".ogg"],
+        "glsl" : [".vert", ".frag"],
     };
 
     ITER_PROPS (type, type_map) {

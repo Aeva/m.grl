@@ -317,6 +317,7 @@ please.media.guess_type = function (file_name) {
         "img" : [".png", ".gif"],
         "ani" : [".gani"],
         "audio" : [".wav", ".mp3", ".ogg"],
+        "glsl" : [".vert", ".frag"],
     };
     for (var type in type_map) if (type_map.hasOwnProperty(type)) {
         var extensions = type_map[type];
