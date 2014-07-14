@@ -5,7 +5,7 @@
 please.media.search_paths.glsl = "",
 please.media.handlers.glsl = function (url, callback) {
     var media_callback = function (req) {
-        please.media.assets[url] = new please.gl.sl(req.response, url);
+        please.media.assets[url] = please.gl.__build_shader(req.response, url);
     };
     please.media.__xhr_helper("text", url, media_callback, callback);
 };
@@ -46,12 +46,14 @@ please.gl = {
 
 
 // Constructor function for GLSL Shaders
-please.gl.sl = function (src, uri) {
+please.gl.__build_shader = function (src, uri) {
     var glsl = {
         "id" : null,
         "type" : null,
         "src" : src,
         "uri" : uri,
+        "ready" : false,
+        "error" : false,
     };
 
     if (window.gl === undefined) {
@@ -67,21 +69,24 @@ please.gl.sl = function (src, uri) {
     }
 
     // build the shader
-    if (glsl.type) {
-        glsl.id == gl.createShader(glsl.type);
+    if (glsl.type !== null) {
+        glsl.id = gl.createShader(glsl.type);
         gl.shaderSource(glsl.id, glsl.src);
         gl.compileShader(glsl.id);
         // check compiler output
         if (!gl.getShaderParameter(glsl.id, gl.COMPILE_STATUS)) {
-            var err = gl.getShaderInfoLog(glsl.id);
-            console.error("Shader compilation error: \n" + error);
+            glsl.error = gl.getShaderInfoLog(glsl.id);
+            console.error(
+                "Shader compilation error for: " + uri + " \n" + glsl.error);
             alert("" + glsl.uri + " failed to build.  See javascript console for details.");
         }
         else {
             console.info("Shader compiled: " + uri);
+            glsl.ready = true;
         }
     }
     else {
+        glsl.error = "unknown type for: " + uri;
         throw("Cannot create shader - unknown type for: " + uri);
     }
 
@@ -93,7 +98,7 @@ please.gl.sl = function (src, uri) {
 // program a name (for caching), and pass any number of shader URIs to
 // the function.  Will automagically download, build, and provide
 // automatic access to uniform vars.
-please.gl.sl.pair = function (name /*, shader_a, shader_b,... */) {
+please.gl.sl = function (name /*, shader_a, shader_b,... */) {
     var prog = {
         "vert" : null,
         "frag" : null,
