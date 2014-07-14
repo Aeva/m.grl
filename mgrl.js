@@ -1392,7 +1392,7 @@ please.gl.__build_shader = function (src, uri) {
 // Constructor function for building a shader program.  Give the
 // program a name (for caching), and pass any number of shader objects
 // to the function.
-please.gl.sl = function (name /*, shader_a, shader_b,... */) {
+please.glsl = function (name /*, shader_a, shader_b,... */) {
     var build_fail = "Shader could not be activated..?";
     var prog = {
         "name" : name,
@@ -1476,7 +1476,7 @@ please.gl.sl = function (name /*, shader_a, shader_b,... */) {
                     return gl[uni](pointer, new Int32Array([type_array]));
                 }
             }
-            else if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT3) {
+            else if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
                 // the 'transpose' arg is assumed to be false :P
                 return gl[uni](pointer, false, type_array);
             }
