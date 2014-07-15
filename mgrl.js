@@ -1326,6 +1326,7 @@ please.gl = {
     "__cache" : {
         "programs" : {},
     },
+    // binds the rendering context
     "set_context" : function (canvas_id) {
         if (this.canvas !== null) {
             throw("This library is not presently designed to work with multiple contexts.");
@@ -1347,6 +1348,10 @@ please.gl = {
         else {
             window.gl = this.ctx;
         }
+    },
+    // returns an object for a built shader program
+    "get_program" : function (name) {
+        return this.__cache.programs[name];
     },
 };
 // Constructor function for GLSL Shaders
@@ -1433,6 +1438,16 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         prog.error = errors;
         throw(build_fail);
     }
+    // check for redundant build
+    var another = please.gl.get_program(prog.name);
+    if (another !== undefined) {
+        if (another.vert.uri === prog.vert.uri && another.frag.uri === prog.frag.uri) {
+            return another;
+        }
+        else {
+            // FIXME: delete previous shader program
+        }
+    }
     // link the shader program
     prog.id = gl.createProgram();
     gl.attachShader(prog.id, prog.vert.id)
@@ -1488,6 +1503,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         bind_uniform(gl.getActiveUniform(prog.id, i));
     }
     prog.ready = true;
+    please.gl.__cache.programs[prog.name] = prog;
     return prog;
 };
 // -------------------------------------------------------------------------- //
