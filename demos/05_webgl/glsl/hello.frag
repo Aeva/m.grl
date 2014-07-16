@@ -1,57 +1,58 @@
 
-uniform lowp float width;
-uniform lowp float height;
-uniform lowp float time;
+precision mediump float;
+
+uniform float width;
+uniform float height;
+uniform float time;
+
+varying vec3 local_position;
+varying vec4 adjusted_position;
 
 
-highp float rand(highp vec2 co){
+float rand(vec2 co) {
   return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
 }
 
 
 void main(void) {
-  lowp float period = 32.0;
+  float period = 32.0;
 
   // distance from the center of the screen
-  lowp float dist = distance(gl_FragCoord.xy, vec2(width/10.0, height/2.0));
+  float dist = distance(gl_FragCoord.xy, vec2(width/10.0, height/2.0));
+  float cycle = mod(time, 10.0);
 
-  lowp float cutx = gl_FragCoord.x/period;
-  lowp float cuty = gl_FragCoord.y/period;
-  lowp float x = (floor(cutx) + fract(cuty))*period / width;
-  lowp float y = (floor(cuty) + fract(cutx))*period / height;
+  // create horizontal streaks of noise:
+  float divisions = 50.0;
+  float stagger = sin(gl_FragCoord.y)*(width/divisions);
+  float streaks = floor(((gl_FragCoord.x + stagger)/width)*divisions)/divisions;
+  float random = rand(vec2(streaks/cycle, gl_FragCoord.y/height*cycle));
 
-  lowp float cycle = mod(time, 10.0);
+  float probability = dist/128.0;
+  float offset = sin(gl_FragCoord.y) * 100.0;
 
+  if (random*probability > .6) {
+    discard;
+  }
+  else if (dist > 300.0+offset && random*probability > 0.4) {
+    discard;
+  }
+  else if (dist > 350.0+offset && random*probability > 0.35) {
+    discard;
+  }
+  else if (dist > 400.0+offset && random*probability > 0.3) {
+    discard;
+  }
+  else if (dist > 450.0+offset && random*probability > 0.25) {
+    discard;
+  }
+  else if (dist > 500.0+offset && random*probability > 0.1) {
+    discard;
+  }
 
-  highp float random = rand(vec2(gl_FragCoord.x/width/cycle, gl_FragCoord.y/height*cycle));
-  lowp float probability = dist/128.0;
-  if (random*probability > .7) {
-    discard;
-  }
-  
-  if (dist > 300.0 && random*probability > 0.5) {
-    discard;
-  }
-  if (dist > 350.0 && random*probability > 0.4) {
-    discard;
-  }
-  if (dist > 400.0 && random*probability > 0.3) {
-    discard;
-  }
-  if (dist > 450.0 && random*probability > 0.2) {
-    discard;
-  }
-  if (dist > 500.0 && random*probability > 0.1) {
-    discard;
-  }
-  
-  if (mod(gl_FragCoord.x, 16.0) < 2.0) {
-    gl_FragColor = vec4(0, 0, 0, 1.0);
-  }
-  else if (mod(gl_FragCoord.y, 12.0) < 1.0) {
-    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
-  }
-  else {
-    gl_FragColor = vec4(x, y, 0.0, 1.0);
-  }
+  float depth = clamp(adjusted_position.z/4.0, 0.0, 1.0)*-1.0+1.0;
+
+  float r = (local_position.x+1.0)/2.0;
+  float g = (local_position.y+1.0)/2.0;
+  float b = (local_position.z+1.0)/2.0;
+  gl_FragColor = vec4(r*depth, g*depth, b*depth, 1.0);
 }

@@ -75,6 +75,7 @@ function main () {
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
     /*
       Next up is some basic geometry - later on I will add some tools
@@ -83,15 +84,7 @@ function main () {
       functionality will be demonstrated in a later demo.
      */
 
-    // create sophisticated geometry:
-    var square = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, square);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-        1.0,  1.0,  0.0,
-        -1.0, 1.0,  0.0,
-        1.0,  -1.0, 0.0,
-        -1.0, -1.0, 0.0
-    ]), gl.STATIC_DRAW);
+    var cube = create_cube();
 
     /*
       Last is to register a render pass with the scheduler, and start
@@ -104,9 +97,10 @@ function main () {
         var rotation = mark/8; // every 8ms = 1degree
 
         // -- generate the modelview matrix
-        var modelview = mat4.translate(mat4.create(), identity, vec3.fromValues(0, 0, -3.0));
-        mat4.rotateZ(modelview, modelview, deg2rad(rotation));
-        mat4.rotateX(modelview, modelview, deg2rad(rotation/9));
+        var modelview = mat4.translate(mat4.create(), identity, vec3.fromValues(0, 0, -3.5));
+        mat4.rotateZ(modelview, modelview, please.radians(rotation));
+        mat4.rotateX(modelview, modelview, please.radians(rotation*.4));
+        mat4.rotateY(modelview, modelview, please.radians(rotation*-.9));
 
         // -- update uniforms
         prog.vars.time = mark;
@@ -119,21 +113,89 @@ function main () {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // -- DRAW GEOMETRY:
-        // 1. bind a VBO to draw from
-        gl.bindBuffer(gl.ARRAY_BUFFER, square);
-        // 2. set the pointer for position data
-        // (attrib index, data period/size, type, "normalized", stride, array_pointer)
+        gl.bindBuffer(gl.ARRAY_BUFFER, cube.coords);
         gl.vertexAttribPointer(prog.attrs["vert_position"], 3, gl.FLOAT, false, 0, 0);
-        // 3. draw the VBO
-        // (draw mode, start index, array length)
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); 
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cube.elements);
+        gl.drawElements(gl.TRIANGLES, cube.count, gl.UNSIGNED_SHORT, 0);
+
+        // -- parameter reference:
+        // gl.bindBuffer(buffer_type, vbo);
+        // gl.vertexAttribPointer(
+        //     attribute_var, data period/size, type, "normalized", stride, start_index)
+        // gl.drawElements(draw_type, element_count, data_type, start_index)
     });
 
     please.pipeline.start();
 };
 
 
-// helper function to convert degrees to radians
-var deg2rad = function (degrees) {
-    return degrees*(Math.PI/180);
-};
+var create_cube = function () {
+    // Cube model array data referenced from http://learningwebgl.com
+
+    var coord_data = [
+        -1.0, -1.0,  1.0,
+        1.0, -1.0,  1.0,
+        1.0,  1.0,  1.0,
+        -1.0,  1.0,  1.0,
+
+        // Back Face
+        -1.0, -1.0, -1.0,
+        -1.0,  1.0, -1.0,
+        1.0,  1.0, -1.0,
+        1.0, -1.0, -1.0,
+
+        // Top Face
+        -1.0,  1.0, -1.0,
+        -1.0,  1.0,  1.0,
+        1.0,  1.0,  1.0,
+        1.0,  1.0, -1.0,
+
+        // Bottom Face
+        -1.0, -1.0, -1.0,
+        1.0, -1.0, -1.0,
+        1.0, -1.0,  1.0,
+        -1.0, -1.0,  1.0,
+
+        // Right Face
+        1.0, -1.0, -1.0,
+        1.0,  1.0, -1.0,
+        1.0,  1.0,  1.0,
+        1.0, -1.0,  1.0,
+        
+        // Left Face
+       -1.0, -1.0, -1.0,
+       -1.0, -1.0,  1.0,
+       -1.0,  1.0,  1.0,
+       -1.0,  1.0, -1.0,
+    ];
+
+    var index_data = [
+        // Front Face
+        0, 1, 2, 0, 2, 3,
+        // Back Face
+        4, 5, 6, 4, 6, 7,
+        // Top Face
+        8, 9, 10, 8, 10, 11,
+        // Bottom Face
+        12, 13, 14, 12, 14, 15,
+        // Right Face
+        16, 17, 18, 16, 18, 19,
+        // Left Face
+        20, 21, 22, 20, 22, 23,
+    ];
+
+    var coords = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, coords);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(coord_data), gl.STATIC_DRAW);
+
+    var elements = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, elements);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(index_data), gl.STATIC_DRAW);
+
+    return {
+        "coords" : coords,
+        "elements" : elements,
+        "count" : index_data.length,
+    };
+}
