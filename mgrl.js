@@ -1403,6 +1403,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "name" : name,
         "id" : null,
         "vars" : {},
+        "attrs" : {},
         "vert" : null,
         "frag" : null,
         "ready" : false,
@@ -1498,9 +1499,16 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             return gl[uni](pointer, type_array);
         });
     };
+    // fetch info on available uniform vars from shader:
     var uni_count = gl.getProgramParameter(prog.id, gl.ACTIVE_UNIFORMS);
     for (var i=0; i<uni_count; i+=1) {
         bind_uniform(gl.getActiveUniform(prog.id, i));
+    }
+    // fetching info on available attribute vars from shader:
+    var attr_count = gl.getProgramParameter(prog.id, gl.ACTIVE_ATTRIBUTES);
+    for (var i=0; i<attr_count; i+=1) {
+        var attr = gl.getActiveAttrib(prog.id, i);
+        prog.attrs[attr.name] = attr;
     }
     prog.ready = true;
     please.gl.__cache.programs[prog.name] = prog;
