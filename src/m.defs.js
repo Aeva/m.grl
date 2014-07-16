@@ -199,3 +199,9 @@ please.random_of = function(array) {
     var selected = Math.floor(Math.random()*array.length);
     return array[selected];
 };
+
+
+// Converts from degrees to radians:
+please.radians = function (degrees) {
+    return degrees*(Math.PI/180);
+};
