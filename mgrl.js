@@ -196,6 +196,10 @@ please.random_of = function(array) {
     var selected = Math.floor(Math.random()*array.length);
     return array[selected];
 };
+// Converts from degrees to radians:
+please.radians = function (degrees) {
+    return degrees*(Math.PI/180);
+};
 // - m.media.js ------------------------------------------------------------- //
 please.media = {
     // data
@@ -1460,7 +1464,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     u_map[gl.BOOL_VEC3] = "3iv";
     u_map[gl.BOOL_VEC4] = "4iv";
     // create helper functions for uniform vars
-    var bind_uniform = function(data) {
+    var bind_uniform = function (data) {
         // data.name -> variable name
         // data.type -> built in gl type enum
         // data.size -> array size
@@ -1487,6 +1491,13 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             return gl[uni](pointer, type_array);
         });
     };
+    // store data about attributes
+    var bind_attribute = function (attr) {
+        prog.attrs[attr.name] = attr;
+        // FIXME: this should probably be done on activate instead,
+        // and old vertex attribs need to be disabled.
+        gl.enableVertexAttribArray(attr);
+    };
     // fetch info on available uniform vars from shader:
     var uni_count = gl.getProgramParameter(prog.id, gl.ACTIVE_UNIFORMS);
     for (var i=0; i<uni_count; i+=1) {
@@ -1495,10 +1506,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     // fetching info on available attribute vars from shader:
     var attr_count = gl.getProgramParameter(prog.id, gl.ACTIVE_ATTRIBUTES);
     for (var i=0; i<attr_count; i+=1) {
-        var attr = gl.getActiveAttrib(prog.id, i);
-        prog.attrs[attr.name] = attr;
-        // FIXME: is there any reason to not do this automatically?
-        gl.enableVertexAttribArray(attr);
+        bind_attribute(gl.getActiveAttrib(prog.id, i));
     }
     prog.ready = true;
     please.gl.__cache.programs[prog.name] = prog;
