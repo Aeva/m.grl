@@ -98,9 +98,9 @@ function main () {
 
         // -- generate the modelview matrix
         var modelview = mat4.translate(mat4.create(), identity, vec3.fromValues(0, 0, -3.5));
+        mat4.rotateX(modelview, modelview, please.radians(rotation*.1));
         mat4.rotateZ(modelview, modelview, please.radians(rotation));
-        mat4.rotateX(modelview, modelview, please.radians(rotation*.4));
-        mat4.rotateY(modelview, modelview, please.radians(rotation*-.9));
+        mat4.rotateY(modelview, modelview, please.radians(rotation*-.01));
 
         // -- update uniforms
         prog.vars.time = mark;
