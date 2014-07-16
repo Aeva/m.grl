@@ -9,14 +9,24 @@
 if (window.please === undefined) { window.please = {} };
 
 
-// Ensure window.RequestAnimationFrame is implemented:
+// Ensure window.requestAnimationFrame is implemented:
 if (!window.requestAnimationFrame) {
-    // why did we ever think vendor extensions were ever a good idea :/?
+    // why did we ever think vendor extensions were ever a good idea??
     window.requestAnimationFrame = window.mozRequestAnimationFrame ||
         window.webkitRequestAnimationFrame ||
         window.msRequestAnimationFrame ||
         function (callback) { 
-            setTimeout(callback, 1000 / 60);
+            return window.setTimeout(callback, 1000 / 60);
+        };
+}
+
+// Ensure window.cancelAnimationFrame is implemented:
+if (!window.cancelAnimationFrame) {
+    window.cancelAnimationFrame = window.mozCancelAnimationFrame ||
+        window.webkitCancelAnimationFrame ||
+        window.msCancelAnimationFrame ||
+        function (timeoutID) { 
+            window.clearTimeout(timeoutID);
         };
 }
 

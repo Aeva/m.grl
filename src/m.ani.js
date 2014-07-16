@@ -50,6 +50,7 @@ please.ani.batch = (function () {
         "get_fps" : function () {},
     };
     var dirty = false;
+    var pipe_id = "m.ani.js/batch";
 
 
     // This function works like setTimeout, but syncs up with
@@ -65,7 +66,11 @@ please.ani.batch = (function () {
             batch.__times.push(when);
             if (!dirty) {
                 dirty = true;
-                requestAnimationFrame(frame_handler);
+                
+                // register a pipeline stage if it doesn't exist
+                if (please.pipeline.__callbacks[pipe_id] === undefined) {
+                    please.pipeline.add(-1, pipe_id, frame_handler);
+                }
             }
         }
     };
@@ -93,32 +98,31 @@ please.ani.batch = (function () {
 
 
     var frame_handler= function () {
-        var stamp = performance.now();
-        batch.__samples.push(stamp-batch.now);
-        batch.now = stamp;
-        if (batch.__samples.length > 50) {
-            batch.__samples = batch.__samples.slice(-50);
-        }
-
-        var pending = batch.__pending;
-        var times = batch.__times;
-        batch.__pending = [];
-        batch.__times = [];
-        var updates = 0;
-        ITER(i, pending) {
-            var callback = pending[i];
-            var when = times[i];
-            if (when <= stamp) {
-                updates += 1;                
-                callback(stamp);
-            }
-            else {
-                batch.__pending.push(callback);
-                batch.__times.push(when);
-            }
-        };
         if (batch.__pending.length > 0) {
-            requestAnimationFrame(frame_handler);
+            var stamp = performance.now();
+            batch.__samples.push(stamp-batch.now);
+            batch.now = stamp;
+            if (batch.__samples.length > 50) {
+                batch.__samples = batch.__samples.slice(-50);
+            }
+
+            var pending = batch.__pending;
+            var times = batch.__times;
+            batch.__pending = [];
+            batch.__times = [];
+            var updates = 0;
+            ITER(i, pending) {
+                var callback = pending[i];
+                var when = times[i];
+                if (when <= stamp) {
+                    updates += 1;                
+                    callback(stamp);
+                }
+                else {
+                    batch.__pending.push(callback);
+                    batch.__times.push(when);
+                }
+            };
         }
     };
 

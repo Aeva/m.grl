@@ -27,6 +27,7 @@
 #include "m.defs.js"
 #include "m.media.js"
 #include "m.input.js"
+#include "m.multipass.js"
 #include "m.ani.js"
 #include "m.gl.js"
 

@@ -94,11 +94,11 @@ function main () {
     ]), gl.STATIC_DRAW);
 
     /*
-      Last is the draw function, which when called will create a
-      scheduling loop.
-     */
+      Last is to register a render pass with the scheduler, and start
+      the scheduler.
+    */
   
-    var draw = function () {
+    please.pipeline.add(1, "demo_05/draw", function () {
         // -- calculate a rotation value based on the elapsed time:
         var mark = performance.now();
         var rotation = mark/8; // every 8ms = 1degree
@@ -127,11 +127,9 @@ function main () {
         // 3. draw the VBO
         // (draw mode, start index, array length)
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); 
+    });
 
-        // -- reschedule this function
-        requestAnimationFrame(draw);
-    };
-    draw();
+    please.pipeline.start();
 };
 
 
