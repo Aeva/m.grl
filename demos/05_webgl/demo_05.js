@@ -74,8 +74,7 @@ function main () {
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
-    gl.enableVertexAttribArray(
-        gl.getAttribLocation(prog.id, "vert_position"));
+    gl.enableVertexAttribArray(prog.attrs["vert_position"]);
 
     /*
       Next up is some basic geometry - later on I will add some tools
@@ -100,32 +99,36 @@ function main () {
      */
   
     var draw = function () {
-        // calculate a rotation value based on the elapsed time:
+        // -- calculate a rotation value based on the elapsed time:
         var mark = performance.now();
         var rotation = mark/8; // every 8ms = 1degree
 
-        // generate the modelview matrix
+        // -- generate the modelview matrix
         var modelview = mat4.translate(mat4.create(), identity, vec3.fromValues(0, 0, -3.0));
         mat4.rotateZ(modelview, modelview, deg2rad(rotation));
         mat4.rotateX(modelview, modelview, deg2rad(rotation/9));
 
-        // update uniforms
+        // -- update uniforms
         prog.vars.time = mark;
         prog.vars.width = canvas.width;
         prog.vars.height = canvas.height;
         prog.vars.mv_matrix = modelview;
         prog.vars.p_matrix = projection;
 
-        // clear the screen
+        // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        // draw geometry
+        // -- DRAW GEOMETRY:
+        // 1. bind a VBO to draw from
         gl.bindBuffer(gl.ARRAY_BUFFER, square);
-        // (attrib position, period, gl.FLOAT, ???, ???, ???)
-        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // again, cheating :P
+        // 2. set the pointer for position data
+        // (attrib index, data period/size, type, "normalized", stride, array_pointer)
+        gl.vertexAttribPointer(prog.attrs["vert_position"], 3, gl.FLOAT, false, 0, 0);
+        // 3. draw the VBO
+        // (draw mode, start index, array length)
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); 
 
-        // schedule another draw
+        // -- reschedule this function
         requestAnimationFrame(draw);
     };
     draw();
