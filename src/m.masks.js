@@ -1,6 +1,17 @@
 // - m.masks.js ------------------------------------------------------------- //
 
 
+/*
+This file defines functionality so as to associate physics information
+with map tiles.  Eg, an area of a sprite or tileset could be defined
+to be "water" or "wall" or such based on a bitmap in a coresponding
+file.
+
+It is currently not used by any of the demos and is currently
+incomplete, and may be scrapped at a later date.
+ */
+
+
 please.masks = {
     "__data" : {},
 

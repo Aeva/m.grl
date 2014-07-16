@@ -28,7 +28,6 @@
 #include "m.media.js"
 #include "m.input.js"
 #include "m.ani.js"
-#include "m.masks.js"
 #include "m.gl.js"
 
 #ifdef BSIDES
@@ -36,5 +35,14 @@
 // What follows are optional components, and may be safely removed.
 // Please tear at the perforated line.
 //
-#include "m.ani.ext.js"
+
+#ifdef EXPERIMENTAL
+// -------------------------------------------------------------------------- //
+// What follows are experimental components, and may be safely removed.
+// Please tear at the perforated line.
+//
+
+#include "m.masks.js"
+
+#endif
 #endif
