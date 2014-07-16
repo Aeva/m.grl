@@ -1369,6 +1369,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     for (var i=0; i<attr_count; i+=1) {
         var attr = gl.getActiveAttrib(prog.id, i);
         prog.attrs[attr.name] = attr;
+        // FIXME: is there any reason to not do this automatically?
+        gl.enableVertexAttribArray(attr);
     }
     prog.ready = true;
     please.gl.__cache.programs[prog.name] = prog;

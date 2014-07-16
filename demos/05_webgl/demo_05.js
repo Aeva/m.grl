@@ -69,12 +69,12 @@ function main () {
 
     // setup matricies & uniforms
     var identity = mat4.identity(mat4.create());
-    var projection = mat4.perspective(mat4.create(), 45, 640.0/480.0, 0.1, 100.0);
+    var projection = mat4.perspective(
+        mat4.create(), 45, canvas.width/canvas.height, 0.1, 100.0);
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
-    gl.enableVertexAttribArray(prog.attrs["vert_position"]);
 
     /*
       Next up is some basic geometry - later on I will add some tools
