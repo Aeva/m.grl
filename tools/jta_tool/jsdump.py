@@ -3,6 +3,7 @@ import os
 import json
 import base64
 
+
 def combine_and_save(parsers, out_path):
     model = {
         "vars" : {
