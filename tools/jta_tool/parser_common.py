@@ -13,5 +13,5 @@ class ModelParser(object):
 
         self.parse(open(self.path, "r"))
 
-    def parse(self, path):
+    def parse(self, raw_data):
         raise NotImplementedError("Model Parsing")
