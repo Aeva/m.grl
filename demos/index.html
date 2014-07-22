@@ -2,23 +2,51 @@
 <html><head>
   <link rel="stylesheet" type="text/css" href="demo_common.css" />
   <style type="text/css">
-   #links {
-     font-size: 32px;
-     text-align: center;
-     margin-top: 64px;
+   #headline {
+     background-color: #fd4f4f!important;
    }
-   #links > div {
+   #linkset {
+     font-size: 32px;
+     display: table;
+     width: 100%;
+   }
+   .links {
+     display: table-cell;
+     width: 50%;
+   }
+   .links .header {
+     font-size: 24px;
+     text-align: center;
+     margin-top: -8px;
+     margin-bottom: 16px;
+   }
+   .links > div {
+     display: block;
+     width: 100%;
      position: relative;
      margin-bottom: 1em;
    }
    .num {
      position: absolute;
      left: 0px;
+     bottom: 9px;
      color: #aaa;
+     font-size: 16px;
+     line-height: 1em;
    }
-
-   #headline {
-     background-color: #fd4f4f!important;
+   .links > div > a {
+     margin-left: 32px;
+   }
+   .links:last-of-type {
+     text-align: right;
+   }
+   .links:last-of-type .num {
+     right: 0px;
+     left: auto;
+   }
+   .links:last-of-type > div > a {
+     margin-left: auto;
+     margin-right: 32px;
    }
   </style>
 </head><body>
@@ -26,30 +54,52 @@
     <h1>Mondaux Graphics & Recreation Library</h1>
     <h1 id="headline">demo index</h1>
 
-
-    <div id="links">
-      <div>
-        <span class="num">01</span>
-        <a href="01_asset_management/">Asset Management</a>
+    <div id="linkset">
+      <div class="links">
+        <div class="header">
+          General Demos
+        </div>
+        <div>
+          <span class="num">01</span>
+          <a href="01_asset_management/">Asset Management</a>
+        </div>
+        <div>
+          <span class="num">02</span>
+          <a href="02_keyboard_controls/">Keyboard Control</a>
+        </div>
+        <div>
+          <span class="num">03</span>
+          <a href="03_animations/">Sprite Animation</a>
+        </div>
+        <div>
+          <span class="num">04</span>
+          <a href="04_interactivity/">Walk-Around Demo</a>
+        </div>
       </div>
-      <div>
-        <span class="num">02</span>
-        <a href="02_keyboard_controls/">Keyboard Control</a>
-      </div>
-      <div>
-        <span class="num">03</span>
-        <a href="03_animations/">Sprite Animation</a>
-      </div>
-      <div>
-        <span class="num">04</span>
-        <a href="04_interactivity/">Walk-Around Demo</a>
-      </div>
-      <div>
-        <span class="num">05</span>
-        <a href="05_webgl/">GLSL Abstraction</a>
+      <div class="links">
+        <div class="header">
+          WebGL Demos
+        </div>
+        <div>
+          <span class="num">05</span>
+          <a href="05_webgl/">GLSL Abstraction</a>
+        </div>
+        <div>
+          <span class="num">06</span>
+          <a>3D Assets</a>
+        </div>
+        <div>
+          <span class="num">07</span>
+          <a>Postprocessing</a>
+        </div>
+        <!--
+        <div>
+          <span class="num">08</span>
+          <a></a>
+        </div>
+        -->
       </div>
     </div>
-    
 
     <div id="fine_print">
       <p>

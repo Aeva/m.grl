@@ -67,3 +67,7 @@ a {
 a:hover {
     color: #ff0036;
 }
+
+a:not([href]) {
+    color: #ccc;
+}
