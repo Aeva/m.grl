@@ -3,6 +3,10 @@ import os
 import argparse
 import json
 
+from parser_common import ParserError
+from stl_parser import STLParser, BinarySTLParser
+from obj_parser import OBJParser, MTLParser
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -32,7 +36,30 @@ def main():
         else:
             print "!!! ignoring non-existant file:", filename
 
-    for path in paths:
-        print " -", path
+    request = {
+    }
 
-    print "nothing here yet, sorry"
+    for path in paths:
+        ext = path.split(".")[-1]
+        if not request.has_key(ext):
+            request[ext] = []
+        request[ext].append(path)
+
+
+    parsers = []
+    try:
+        if request.has_key("stl"):
+            for path in request["stl"]:
+                try:
+                    parsers.append(STLParser(path))
+                except ParserError:
+                    parsers.append(BinarySTLParser(path))
+
+        if request.has_key("obj"):
+            parsers.append(map(OBJParser, requests["obj"]))
+
+        if request.has_key("mtl"):
+            parsers.append(map(OBJParser, requests["mtl"]))
+
+    except ParserError:
+        print "Unable to parse:", path

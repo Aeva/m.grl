@@ -1,5 +1,5 @@
 
-from parser_common import ModelParser, ParsingError
+from parser_common import ModelParser, ParserError
 
 
 class BinarySTLParser(ModelParser):
