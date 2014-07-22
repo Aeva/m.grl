@@ -25,8 +25,11 @@
 
 addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
+    please.media.search_paths.img = "assets/";
+    
     please.load("glsl", "glsl/simple.vert");
     please.load("glsl", "glsl/simple.frag");
+
     please.media.connect_onload(main);
 });
 
@@ -51,7 +54,8 @@ function main () {
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_06/draw", function () {
         var mark = performance.now();
-        var modelview = mat4.translate(mat4.create(), identity, vec3.fromValues(0, 0, -3.5));
+        var modelview = mat4.translate(
+            mat4.create(), identity, vec3.fromValues(0, 0, -3.5));
 
         // -- update uniforms
         prog.vars.time = mark;
