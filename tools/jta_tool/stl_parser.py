@@ -3,10 +3,10 @@ from parser_common import ModelParser, ParserError
 
 
 class BinarySTLParser(ModelParser):
-    pass
+    def parse(self):
+        pass
 
 
 class STLParser(ModelParser):
-    pass
-
-
+    def parse(self):
+        pass

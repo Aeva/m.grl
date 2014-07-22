@@ -1,11 +1,12 @@
 
 import os
 import argparse
-import json
 
-from parser_common import ParserError
-from stl_parser import STLParser, BinarySTLParser
-from obj_parser import OBJParser, MTLParser
+from .parser_common import ParserError
+from .stl_parser import STLParser, BinarySTLParser
+from .obj_parser import OBJParser, MTLParser
+
+from .jsdump import combine_and_save
 
 
 def main():
@@ -26,8 +27,14 @@ def main():
 
     args = parser.parse_args()
     in_files = args.input_file
-    out_file = args.outfile
 
+    out_file = None
+    if not args.outfile:
+        if len(in_files) == 1:
+            out_file = ".".join(in_files[0].split(".")[:-1] + ["jta"])
+    else:
+        out_file = args.outfile[0]
+    
     paths = []
     for filename in in_files:
         path = os.path.abspath(filename)
@@ -44,7 +51,6 @@ def main():
         if not request.has_key(ext):
             request[ext] = []
         request[ext].append(path)
-
 
     parsers = []
     try:
@@ -63,3 +69,5 @@ def main():
 
     except ParserError:
         print "Unable to parse:", path
+
+    combine_and_save(parsers, out_file)
