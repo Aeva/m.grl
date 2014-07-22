@@ -1,3 +1,6 @@
 *~
 *#
 .#*
+*.pyc
+/tools/dist/
+/tools/*.egg-info
