@@ -11,7 +11,7 @@ class ModelParser(object):
         self.normals = []
         self.tcoords = []
 
-        self.parse()
+        self.parse(open(self.path, "r"))
 
-    def parse(self):
+    def parse(self, path):
         raise NotImplementedError("Model Parsing")

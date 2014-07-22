@@ -23,6 +23,8 @@ def combine_and_save(parsers, out_path):
         },
     }
 
+    import pdb; pdb.set_trace()
+
     with open(out_path, 'w') as out_file:
         json.dump(model, out_file)
 
