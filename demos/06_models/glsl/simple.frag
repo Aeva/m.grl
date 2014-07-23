@@ -30,7 +30,6 @@ float random() {
 void main(void) {
   vec4 color_sample = texture2D(texture_map, local_tcoord);
 
-
-  gl_FragColor = color_sample;
-
+  //gl_FragColor = color_sample;
+  gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
 }

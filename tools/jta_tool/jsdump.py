@@ -47,16 +47,16 @@ def combine_and_save(results, out_path):
         "vertex_groups" : {
             # vertex groups
             "default" : {
-                "positions" : vertex_data,
+                "position" : vertex_data,
             },
         },
     }
     if normal_data:
         assert len(parser.verts)/3 == len(parser.normals)/3
-        model["vertex_groups"]["default"]["normals"] = normal_data
+        model["vertex_groups"]["default"]["normal"] = normal_data
     if tcoord_data:
         assert len(parser.verts)/3 == len(parser.tcoords)/2
-        model["vertex_groups"]["default"]["tcoords"] = normal_data
+        model["vertex_groups"]["default"]["tcoord"] = normal_data
 
     with open(out_path, 'w') as out_file:
         json.dump(model, out_file)
