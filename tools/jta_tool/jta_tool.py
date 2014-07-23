@@ -1,5 +1,6 @@
 
 import os
+import traceback
 import argparse
 
 from .parser_common import ParserError
@@ -12,10 +13,23 @@ from .jsdump import combine_and_save
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "input_file",
-        nargs="+",
+        "model",
+        nargs=1,
         type=str,
-        help="Input files supplying geometry and texture info.",
+        help="Input file supplying geometry and texture info.",
+    )
+    parser.add_argument(
+        "-t", "--texture",
+        nargs=1,
+        type=str,
+        required=False,
+        help="Mtl file or image file providing a texture map.",
+    )
+    parser.add_argument(
+        "-b", "--bake",
+        required=False,
+        action="store_true",
+        help="Embed the texture map instead of referencing.",
     )
     parser.add_argument(
         "-o", "--outfile",
@@ -26,48 +40,60 @@ def main():
     )
 
     args = parser.parse_args()
-    in_files = args.input_file
 
-    out_file = None
-    if not args.outfile:
-        if len(in_files) == 1:
-            out_file = ".".join(in_files[0].split(".")[:-1] + ["jta"])
-    else:
-        out_file = args.outfile[0]
-    
-    paths = []
-    for filename in in_files:
-        path = os.path.abspath(filename)
+
+    # parse out paths and interpret options
+
+    def path_scrub(input_path):
+        path = os.path.abspath(input_path)
         if os.path.exists(path) and os.path.isfile(path):
-            paths.append(path)
+            ext = path.split(".")[-1]
+            return (path, ext)
         else:
-            print "!!! ignoring non-existant file:", filename
+            raise IOError("No such file.")
 
-    request = {
+    model_path, model_ext = path_scrub(args.model[0])
+    tex_path, tex_ext = None, None
+    out_file = None
+
+    if args.texture is not None:
+        texture_path = path_scrub(args.texture[0])
+    if args.outfile is not None:
+        out_file = os.path.abspath(args.outfile[0])
+    else:
+        out_file = ".".join(model_path.split(".")[:-1] + ["jta"])
+
+    
+    # results dict will contain model and texture info, and whatever else
+    results = {
+        "parser" : None,
+        "texture" : None,
+        "bake" : args.bake,
     }
 
-    for path in paths:
-        ext = path.split(".")[-1]
-        if not request.has_key(ext):
-            request[ext] = []
-        request[ext].append(path)
+    
+    # select the correct model parser
+    parsers = {
+        "stl" : [STLParser, BinarySTLParser],
+        "obj" : [OBJParser],
+    }[model_ext]
+    last = parsers[-1]
 
-    parsers = []
-    try:
-        if request.has_key("stl"):
-            for path in request["stl"]:
-                try:
-                    parsers.append(STLParser(path))
-                except ParserError:
-                    parsers.append(BinarySTLParser(path))
+    for parser in parsers:
+        try:
+            results["parser"] = parser(model_path)
+        except ParserError:
+            # This should only be thrown to indicate that another
+            # parser should be tried.  If there is an actual bug,
+            # another exception type will be thrown instead.
+            results["parser"] = None
+            continue
 
-        if request.has_key("obj"):
-            parsers.append(map(OBJParser, requests["obj"]))
+    if results["parser"] is None:
+        print "Unable to parse:", model_file
+        exit()
 
-        if request.has_key("mtl"):
-            parsers.append(map(OBJParser, requests["mtl"]))
 
-    except ParserError:
-        print "Unable to parse:", path
+    # FIXME store texture info / parse mtl files
 
-    combine_and_save(parsers, out_file)
+    combine_and_save(results, out_file)
