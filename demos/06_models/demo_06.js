@@ -45,7 +45,6 @@ function main () {
     prog.activate();
 
     // setup matricies & uniforms
-    var identity = mat4.identity(mat4.create());
     var projection = mat4.perspective(
         mat4.create(), 45, canvas.width/canvas.height, 0.1, 100.0);
 
@@ -53,13 +52,24 @@ function main () {
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.clearColor(.93, .93, .93, 1.0);
+    var scale_factor = .325;
 
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_06/draw", function () {
         var mark = performance.now();
-        var modelview = mat4.translate(
-            mat4.create(), identity, vec3.fromValues(0, 0, -10));
-        mat4.scale(modelview, modelview, 3000000);
+        var modelview = mat4.create();
+        //modelview = mat4.translate(modelview, modelview, vec3.fromValues(0, 0, -3));
+        mat4.lookAt(
+            modelview,
+            vec3.fromValues(20, 20, 20),
+            vec3.fromValues(0, 0, 13),
+            vec3.fromValues(0, 0, 1));
+            
+
+        modelview = mat4.rotateZ(modelview, modelview, please.radians(90*mark/800));
+        modelview = mat4.scale(
+            modelview, modelview, 
+            vec3.fromValues(scale_factor, scale_factor, scale_factor));
 
         // -- update uniforms
         prog.vars.time = mark;
@@ -78,7 +88,7 @@ function main () {
                     gl.vertexAttribPointer(prog.attrs[attr], 3, gl.FLOAT, false, 0, 0);
                 }
             }
-            gl.drawArrays(gl.TRIANGLES, 0, model["position"].data.length/3);
+            gl.drawArrays(gl.TRIANGLES, 0, model["position"].data.length/3);            
         }
     });
     please.pipeline.start();
@@ -96,7 +106,7 @@ function array_buffer(blob) {
     for (var i=0; i<raw.length; i+=1) {
         // fixme - charCodeAt might think something is unicode and
         // produce garbage
-        data.setUint8(i, raw.charCodeAt(0));
+        data.setUint8(i, raw.charCodeAt(i));
     }
     return buffer;
 };
@@ -128,14 +138,4 @@ function pdq_loader(status, url) {
         "attrs": model,
         "faces" : model["position"].data.length/3,
     };
-
-    var ref_verts = model["position"].data;
-    var verts = [];
-    for (var i=0; i<ref_verts.length; i+=1) {
-        verts.push(Math.abs(ref_verts[i]));
-    }
-
-    var maximum = Math.max.apply(null, verts);
-    console.info("verts length: " + verts.length);
-    console.info("verts max: " + maximum);
 };

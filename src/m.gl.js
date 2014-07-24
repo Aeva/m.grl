@@ -112,8 +112,23 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "ready" : false,
         "error" : false,
         "activate" : function () {
-            if (this.ready && !this.error) {
-                gl.useProgram(this.id);
+            var prog = this;
+            if (prog.ready && !prog.error) {
+                gl.useProgram(prog.id);
+
+                // store data about attributes
+                var bind_attribute = function (attr) {
+                    prog.attrs[attr.name] = attr;
+
+                    // FIXME: old attributes need to be disabled if applicable
+                    gl.enableVertexAttribArray(attr);
+                };
+
+                // fetching info on available attribute vars from shader:
+                var attr_count = gl.getProgramParameter(prog.id, gl.ACTIVE_ATTRIBUTES);
+                for (var i=0; i<attr_count; i+=1) {
+                    bind_attribute(gl.getActiveAttrib(prog.id, i));
+                }
             }
             else {
                 throw(build_fail);
@@ -212,25 +227,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         });
     };
 
-    // store data about attributes
-    var bind_attribute = function (attr) {
-        prog.attrs[attr.name] = attr;
-
-        // FIXME: this should probably be done on activate instead,
-        // and old vertex attribs need to be disabled.
-        gl.enableVertexAttribArray(attr);
-    };
-
     // fetch info on available uniform vars from shader:
     var uni_count = gl.getProgramParameter(prog.id, gl.ACTIVE_UNIFORMS);
     for (var i=0; i<uni_count; i+=1) {
         bind_uniform(gl.getActiveUniform(prog.id, i));
-    }
-
-    // fetching info on available attribute vars from shader:
-    var attr_count = gl.getProgramParameter(prog.id, gl.ACTIVE_ATTRIBUTES);
-    for (var i=0; i<attr_count; i+=1) {
-        bind_attribute(gl.getActiveAttrib(prog.id, i));
     }
 
     prog.ready = true;

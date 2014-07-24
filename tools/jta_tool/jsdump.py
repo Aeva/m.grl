@@ -19,7 +19,7 @@ def list_to_blob(data):
         ar = array.array("f")
         hint = "Float32Array"
     if ar is not None:
-        ar.extend(data)
+        ar.fromlist(data)
         return [hint, base64.b64encode(ar.tostring())]
     else:
         raise ValueError("Cannot determine output array type.")

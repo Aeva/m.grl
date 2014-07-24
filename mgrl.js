@@ -114,37 +114,6 @@ if (!Array.prototype.map) {
     return res;
   };
 }
-// Array of bytes to base64 string decoding
-function b64ToUint6 (nChr) {
-  return nChr > 64 && nChr < 91 ?
-      nChr - 65
-    : nChr > 96 && nChr < 123 ?
-      nChr - 71
-    : nChr > 47 && nChr < 58 ?
-      nChr + 4
-    : nChr === 43 ?
-      62
-    : nChr === 47 ?
-      63
-    :
-      0;
-}
-function base64DecToArr (sBase64, nBlocksSize) {
-  var
-    sB64Enc = sBase64.replace(/[^A-Za-z0-9\+\/]/g, ""), nInLen = sB64Enc.length,
-    nOutLen = nBlocksSize ? Math.ceil((nInLen * 3 + 1 >> 2) / nBlocksSize) * nBlocksSize : nInLen * 3 + 1 >> 2, taBytes = new Uint8Array(nOutLen);
-  for (var nMod3, nMod4, nUint24 = 0, nOutIdx = 0, nInIdx = 0; nInIdx < nInLen; nInIdx++) {
-    nMod4 = nInIdx & 3;
-    nUint24 |= b64ToUint6(sB64Enc.charCodeAt(nInIdx)) << 18 - 6 * nMod4;
-    if (nMod4 === 3 || nInLen - nInIdx === 1) {
-      for (nMod3 = 0; nMod3 < 3 && nOutIdx < nOutLen; nMod3++, nOutIdx++) {
-        taBytes[nOutIdx] = nUint24 >>> (16 >>> nMod3 & 24) & 255;
-      }
-      nUint24 = 0;
-    }
-  }
-  return taBytes;
-}
 // Schedules a callback to executed whenever it is convinient to do
 // so.  This is useful for preventing errors from completely halting
 // the program's execution, and makes some errors easier to find.
@@ -1432,8 +1401,20 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "ready" : false,
         "error" : false,
         "activate" : function () {
-            if (this.ready && !this.error) {
-                gl.useProgram(this.id);
+            var prog = this;
+            if (prog.ready && !prog.error) {
+                gl.useProgram(prog.id);
+                // store data about attributes
+                var bind_attribute = function (attr) {
+                    prog.attrs[attr.name] = attr;
+                    // FIXME: old attributes need to be disabled if applicable
+                    gl.enableVertexAttribArray(attr);
+                };
+                // fetching info on available attribute vars from shader:
+                var attr_count = gl.getProgramParameter(prog.id, gl.ACTIVE_ATTRIBUTES);
+                for (var i=0; i<attr_count; i+=1) {
+                    bind_attribute(gl.getActiveAttrib(prog.id, i));
+                }
             }
             else {
                 throw(build_fail);
@@ -1522,22 +1503,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             return gl[uni](pointer, type_array);
         });
     };
-    // store data about attributes
-    var bind_attribute = function (attr) {
-        prog.attrs[attr.name] = attr;
-        // FIXME: this should probably be done on activate instead,
-        // and old vertex attribs need to be disabled.
-        gl.enableVertexAttribArray(attr);
-    };
     // fetch info on available uniform vars from shader:
     var uni_count = gl.getProgramParameter(prog.id, gl.ACTIVE_UNIFORMS);
     for (var i=0; i<uni_count; i+=1) {
         bind_uniform(gl.getActiveUniform(prog.id, i));
-    }
-    // fetching info on available attribute vars from shader:
-    var attr_count = gl.getProgramParameter(prog.id, gl.ACTIVE_ATTRIBUTES);
-    for (var i=0; i<attr_count; i+=1) {
-        bind_attribute(gl.getActiveAttrib(prog.id, i));
     }
     prog.ready = true;
     please.gl.__cache.programs[prog.name] = prog;
