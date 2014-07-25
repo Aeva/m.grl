@@ -45,20 +45,17 @@ def combine_and_save(results, out_path):
         },
     }
     for group in parser.groups:
-        data = {
-            "name" : group.name,
-            "count" : len(group.position)/3,
-        }
-
-        assert len(group.normal) == 0 or len(group.normal)/3 == data["count"]
-        assert len(group.tcoord) == 0 or len(group.tcoord)/2 == data["count"]
+        count = len(group.position)/3
+        assert len(group.normal) == 0 or len(group.normal)/3 == count
+        assert len(group.tcoord) == 0 or len(group.tcoord)/2 == count
         
         position = list_to_blob(group.position)
         normal = list_to_blob(group.normal)
         tcoord = list_to_blob(group.tcoord)
 
-        data["position"] = position
-        data["count"] = len(position)
+        data = {
+            "position" : position,
+        }
         if normal:
             data["normal"] = normal
         if tcoord:
