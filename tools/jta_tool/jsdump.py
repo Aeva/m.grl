@@ -27,10 +27,6 @@ def list_to_blob(data):
 
 def combine_and_save(results, out_path):
     parser = results["parser"]
-
-    vertex_data = list_to_blob(parser.verts)
-    normal_data = list_to_blob(parser.normals)
-    tcoord_data = list_to_blob(parser.tcoords)
     model = {
         "vars" : {
             # uniform variables
@@ -46,18 +42,30 @@ def combine_and_save(results, out_path):
         },
         "vertex_groups" : {
             # vertex groups
-            "default" : {
-                "position" : vertex_data,
-            },
         },
     }
-    if normal_data:
-        assert len(parser.verts)/3 == len(parser.normals)/3
-        model["vertex_groups"]["default"]["normal"] = normal_data
-    if tcoord_data:
-        assert len(parser.verts)/3 == len(parser.tcoords)/2
-        model["vertex_groups"]["default"]["tcoord"] = normal_data
+    for group in parser.groups:
+        data = {
+            "name" : group.name,
+            "count" : len(group.position)/3,
+        }
 
+        assert len(group.normal) == 0 or len(group.normal)/3 == data["count"]
+        assert len(group.tcoord) == 0 or len(group.tcoord)/2 == data["count"]
+        
+        position = list_to_blob(group.position)
+        normal = list_to_blob(group.normal)
+        tcoord = list_to_blob(group.tcoord)
+
+        data["position"] = position
+        data["count"] = len(position)
+        if normal:
+            data["normal"] = normal
+        if tcoord:
+            data["tcoord"] = tcoord
+
+        model["vertex_groups"][group.name] = data
+            
     with open(out_path, 'w') as out_file:
         json.dump(model, out_file)
 
