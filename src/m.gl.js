@@ -16,6 +16,7 @@ please.gl = {
     "canvas" : null,
     "ctx" : null,
     "__cache" : {
+        "current" : null,
         "programs" : {},
     },
     
@@ -116,18 +117,21 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             if (prog.ready && !prog.error) {
                 gl.useProgram(prog.id);
 
-                // store data about attributes
-                var bind_attribute = function (attr) {
-                    prog.attrs[attr.name] = attr;
-
-                    // FIXME: old attributes need to be disabled if applicable
-                    gl.enableVertexAttribArray(attr);
-                };
+                // Update cache + unbind old attrs
+                if (please.gl.__cache.current !== null) {
+                    // FIXME: unbind old attributes
+                }
+                please.gl.__cache.current = this;
 
                 // fetching info on available attribute vars from shader:
-                var attr_count = gl.getProgramParameter(prog.id, gl.ACTIVE_ATTRIBUTES);
+                var attr_count = gl.getProgramParameter(
+                    prog.id, gl.ACTIVE_ATTRIBUTES);
+
+                // store data about attributes
                 for (var i=0; i<attr_count; i+=1) {
-                    bind_attribute(gl.getActiveAttrib(prog.id, i));
+                    var attr = gl.getActiveAttrib(prog.id, i);
+                    prog.attrs[attr.name] = attr;
+                    gl.enableVertexAttribArray(attr);
                 }
             }
             else {

@@ -58,14 +58,13 @@ function main () {
     please.pipeline.add(1, "demo_06/draw", function () {
         var mark = performance.now();
         var modelview = mat4.create();
-        //modelview = mat4.translate(modelview, modelview, vec3.fromValues(0, 0, -3));
+
         mat4.lookAt(
             modelview,
             vec3.fromValues(20, 20, 20),
             vec3.fromValues(0, 0, 13),
             vec3.fromValues(0, 0, 1));
-            
-
+        
         modelview = mat4.rotateZ(modelview, modelview, please.radians(90*mark/800));
         modelview = mat4.scale(
             modelview, modelview, 
@@ -81,14 +80,8 @@ function main () {
         
         // -- draw geometry
         if (window.model.loaded) {
-            var model = window.model.attrs;
-            for (var attr in window.model.attrs) {
-                if (model.hasOwnProperty(attr) && prog.attrs[attr]) {
-                    gl.bindBuffer(gl.ARRAY_BUFFER, model[attr].id);
-                    gl.vertexAttribPointer(prog.attrs[attr], 3, gl.FLOAT, false, 0, 0);
-                }
-            }
-            gl.drawArrays(gl.TRIANGLES, 0, model["position"].data.length/3);            
+            window.model.bind();
+            window.model.draw();
         }
     });
     please.pipeline.start();
@@ -119,23 +112,60 @@ function pdq_loader(status, url) {
     var raw = JSON.parse(please.access(url))
     var data = raw["vertex_groups"]["default"];
     var model = {};
+
+    var size = 0;
     for (var attr in data) if (data.hasOwnProperty(attr)) {
-        // parse attrs from model
         var hint = data[attr][0];
         var raw = data[attr][1];
         model[attr] = {
-            "id" : gl.createBuffer(),
             "data" : new Float32Array(array_buffer(raw)),
         };
-        // create buffer objects
-        gl.bindBuffer(gl.ARRAY_BUFFER, model[attr].id);
-        gl.bufferData(gl.ARRAY_BUFFER, model[attr].data, gl.STATIC_DRAW);
-        console.info("Created '"+attr+"' array buffer for: " + url);
-    };
+        size += model[attr].data.length;
+    }
+
+    var vert_array = new Float32Array(size);
+    var bind_order = [];
+    var bind_offsets = [];
+    var offset = 0;
+    for (var attr in model) if (model.hasOwnProperty(attr)) {
+        var subset = model[attr].data;
+        vert_array.set(subset, offset);
+        bind_offsets.push(offset);
+        bind_order.push(attr);
+        offset += subset.length;
+    }
+
+    var vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, vert_array, gl.STATIC_DRAW);
+    console.info("Created VBO for: " + url);
 
     window.model = {
         "loaded" : true,
-        "attrs": model,
+        "vbo" : vbo,
+        "__bind_order" : bind_order,
+        "__bind_offsets" : bind_offsets,
+        "__prog" : false,
+        "attrs" : model,
         "faces" : model["position"].data.length/3,
+        
+        "bind" : function () {
+            if (!this.__prog) {
+                this.__prog = please.gl.get_program('default');
+            }
+            var prog = this.__prog;
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+            for (var i=this.__bind_order.length-1; i>=0; i-=1) {
+                var attr = this.__bind_order[i];
+                var offset = this.__bind_offsets[i];
+                if (prog.attrs[attr]) {
+                    gl.vertexAttribPointer(
+                        prog.attrs[attr], 3, gl.FLOAT, false, 0, offset*12);
+                }
+            }
+        },
+        "draw" : function () {
+            gl.drawArrays(gl.TRIANGLES, 0, this.faces);            
+        },
     };
 };

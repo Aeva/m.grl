@@ -34,6 +34,6 @@ void main(void) {
   float y = fract(local_position.y/scale);
   float z = fract(local_position.z/scale);
 
-  //gl_FragColor = vec4(local_normal.x, y, local_normal.z, 1.0);
-  gl_FragColor = vec4(x, y, z, 1.0);
+  gl_FragColor = vec4(local_normal.x, local_normal.y, local_normal.z, 1.0);
+  //gl_FragColor = vec4(x, y, z, 1.0);
 }
