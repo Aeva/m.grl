@@ -114,12 +114,13 @@ function main () {
 
         // -- DRAW GEOMETRY:
         gl.bindBuffer(gl.ARRAY_BUFFER, cube.coords);
-        gl.vertexAttribPointer(prog.attrs["vert_position"], 3, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(
+            prog.attrs["vert_position"].loc, 3, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cube.elements);
         gl.drawElements(gl.TRIANGLES, cube.count, gl.UNSIGNED_SHORT, 0);
 
-        // -- parameter reference:
+        // - parameter reference:
         // gl.bindBuffer(buffer_type, vbo);
         // gl.vertexAttribPointer(
         //     attribute_var, data period/size, type, "normalized", stride, start_index)

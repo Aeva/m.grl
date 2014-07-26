@@ -26,14 +26,23 @@ float random() {
 }
 
 
+float invert(float val) {
+  return (val-1.0)*-1.0;
+}
+
+
+
 void main(void) {
   //vec4 color_sample = texture2D(texture_map, local_tcoord);
   float scale = 4.5;
-  float r = random();
-  float x = fract(local_position.x/scale);
-  float y = fract(local_position.y/scale);
-  float z = fract(local_position.z/scale);
+  float rand = random();
+  float x = mix(fract(local_position.x/scale), 0.0, rand);
+  float y = mix(fract(local_position.y/scale), 0.0, rand);
+  float z = mix(fract(local_position.z/scale), 0.0, rand);
 
-  gl_FragColor = vec4(local_normal.x, local_normal.y, local_normal.z, 1.0);
-  //gl_FragColor = vec4(x, y, z, 1.0);
+  
+  gl_FragColor = vec4(mix(rand, 1.0, local_normal.x),
+                      mix(rand, 1.0, local_normal.y),
+                      mix(rand, 1.0, local_normal.z),
+                      1.0);
 }

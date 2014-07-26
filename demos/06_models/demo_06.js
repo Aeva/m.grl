@@ -160,7 +160,7 @@ function pdq_loader(status, url) {
                 var offset = this.__bind_offsets[i];
                 if (prog.attrs[attr]) {
                     gl.vertexAttribPointer(
-                        prog.attrs[attr], 3, gl.FLOAT, false, 0, offset*12);
+                        prog.attrs[attr].loc, 3, gl.FLOAT, false, 0, offset*4);
                 }
             }
         },

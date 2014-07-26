@@ -130,8 +130,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 // store data about attributes
                 for (var i=0; i<attr_count; i+=1) {
                     var attr = gl.getActiveAttrib(prog.id, i);
+                    attr.loc = gl.getAttribLocation(prog.id, attr.name);
                     prog.attrs[attr.name] = attr;
-                    gl.enableVertexAttribArray(attr);
+                    gl.enableVertexAttribArray(attr.loc);
                 }
             }
             else {
