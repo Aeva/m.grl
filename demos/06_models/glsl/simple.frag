@@ -33,16 +33,20 @@ float invert(float val) {
 
 
 void main(void) {
-  //vec4 color_sample = texture2D(texture_map, local_tcoord);
+  vec4 color_sample = texture2D(texture_map, local_tcoord);
   float scale = 4.5;
   float rand = random();
   float x = mix(fract(local_position.x/scale), 0.0, rand);
   float y = mix(fract(local_position.y/scale), 0.0, rand);
   float z = mix(fract(local_position.z/scale), 0.0, rand);
 
-  
-  gl_FragColor = vec4(mix(rand, 1.0, local_normal.x),
-                      mix(rand, 1.0, local_normal.y),
-                      mix(rand, 1.0, local_normal.z),
-                      1.0);
+  vec4 weird = vec4(mix(rand, 1.0, local_normal.x),
+                    mix(rand, 1.0, local_normal.y),
+                    mix(rand, 1.0, local_normal.z),
+                    1.0);
+
+  float factor = (clamp(
+                        local_position.x+sin(local_position.z/2.5)*5.0, 
+                        -5.0, 5.0) + 5.0)/10.0;
+  gl_FragColor = mix(color_sample, weird, factor);
 }

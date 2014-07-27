@@ -199,6 +199,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     u_map[gl.BOOL_VEC2] = "2iv";
     u_map[gl.BOOL_VEC3] = "3iv";
     u_map[gl.BOOL_VEC4] = "4iv";
+    u_map[gl.SAMPLER_2D] = "1i";
 
     // create helper functions for uniform vars
     var bind_uniform = function (data) {
@@ -212,16 +213,23 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         var pointer = gl.getUniformLocation(prog.id, data.name);
 
         var uni = "uniform" + u_map[data.type];
+        var is_array = uni.endsWith("v");
         prog.vars.__defineSetter__(data.name, function (type_array) {
             // FIXME we could do some sanity checking here, eg, making
             // sure the array length is appropriate for the expected
             // call type
             if (typeof(type_array) === "number") {
-                if (data.type === gl.FLOAT) {
-                    return gl[uni](pointer, new Float32Array([type_array]));
+                if (is_array) {
+                    if (data.type === gl.FLOAT) {
+                        return gl[uni](pointer, new Float32Array([type_array]));
+                    }
+                    else if (data.type === gl.INT || data.type === gl.BOOL) {
+                        return gl[uni](pointer, new Int32Array([type_array]));
+                    }
                 }
-                else if (data.type === gl.INT || data.type === gl.BOOL) {
-                    return gl[uni](pointer, new Int32Array([type_array]));
+                else {
+                    // note, "type_array" is not an array, just a number
+                    gl[uni](pointer, type_array);
                 }
             }
             else if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {

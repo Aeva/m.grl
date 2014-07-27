@@ -109,20 +109,34 @@ function array_buffer(blob) {
 
 function pdq_loader(status, url) {
     // parse data out of a jta file
-    var raw = JSON.parse(please.access(url))
-    var data = raw["vertex_groups"]["default"];
+    var directory = JSON.parse(please.access(url))
+    var vertex_data = directory["vertex_groups"]["default"];
+    var uniforms = directory["vars"];
     var model = {};
 
+    // first create our attribute lists:
     var size = 0;
-    for (var attr in data) if (data.hasOwnProperty(attr)) {
-        var hint = data[attr][0];
-        var raw = data[attr][1];
+    for (var attr in vertex_data) if (vertex_data.hasOwnProperty(attr)) {
+        var hint = vertex_data[attr].hint;
+        var raw = vertex_data[attr].data;
         model[attr] = {
             "data" : new Float32Array(array_buffer(raw)),
+            "size" : vertex_data[attr].size,
+            /*
+              The size attribute means this:
+              1 = float,
+              2 = vec2,
+              3 = vec3,
+              9 = mat3,
+              12 = mat4.
+
+              The array length and item count are otherwise inferred.
+             */
         };
         size += model[attr].data.length;
     }
 
+    // combine the attribute lists into a single array
     var vert_array = new Float32Array(size);
     var bind_order = [];
     var bind_offsets = [];
@@ -135,19 +149,22 @@ function pdq_loader(status, url) {
         offset += subset.length;
     }
 
+    // create the vertex buffer object for our attributes
     var vbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, vert_array, gl.STATIC_DRAW);
     console.info("Created VBO for: " + url);
 
+    // create our model object:
     window.model = {
-        "loaded" : true,
+        "loaded" : false,
         "vbo" : vbo,
         "__bind_order" : bind_order,
         "__bind_offsets" : bind_offsets,
         "__prog" : false,
         "attrs" : model,
         "faces" : model["position"].data.length/3,
+        "texture" : null,
         
         "bind" : function () {
             if (!this.__prog) {
@@ -163,9 +180,81 @@ function pdq_loader(status, url) {
                         prog.attrs[attr].loc, 3, gl.FLOAT, false, 0, offset*4);
                 }
             }
+
+            /// pdq texture stuff
+            if (this.texture && prog.vars.hasOwnProperty("texture_map")) {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, this.texture.id);
+                prog.vars["texture_map"] = 0;
+            }
         },
         "draw" : function () {
             gl.drawArrays(gl.TRIANGLES, 0, this.faces);            
         },
     };
+
+    // call when the model is ready to draw:
+    var on_model_ready = function () {
+        window.model.loaded = true;
+    };
+
+    // texture prep stuff:
+    var wait_for_texture = false;
+    var texture = null;
+    if (uniforms["texture"]) {
+        texture = {
+            "img" : null,
+            "id" : gl.createTexture(),
+        };
+        var t_hint = uniforms["texture"].hint;
+        var t_mode = uniforms["texture"].mode;
+        var t_uri = uniforms["texture"].uri;
+        var t_md5 = uniforms["texture"].md5;
+
+        var bind_texture = function (uri) {
+            console.info("binding texture for: " + uri);
+            texture.img = please.access(uri);
+            
+            // do some pdq texture stuff here
+            gl.bindTexture(gl.TEXTURE_2D, texture.id);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
+                          gl.UNSIGNED_BYTE, texture.img);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+
+            window.model.texture = texture;
+            on_model_ready();
+        };
+
+        if (t_mode === "linked") {
+            wait_for_texture = true;
+            please.relative_load("img", t_uri, function (status, url) {
+                bind_texture(url);
+            });
+        }
+
+        else if (t_mode === "packed") {
+            // FIXME the purpose of the md5 thing is to avoid
+            // redundant image files and texture objects.
+            var img = new Image();
+            img.onload = function () {
+                bind_texture(t_md5);
+            };
+            img.src = t_uri;
+            please.media.assets[t_md5] = img;
+        }
+
+        else {
+            texture = null;
+            console.error("Cannot load texture uniform.");
+        }
+    }
+
+    // if we're waiting for a texture, on_model_ready will be a
+    // callback, and will be called elsewhere instead.  Otherwise:
+    if (!wait_for_texture) {
+        on_model_ready();
+    }
 };
