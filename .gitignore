@@ -4,4 +4,4 @@
 *.pyc
 /tools/dist/
 /tools/*.egg-info
-.blend?
+*.blend?
