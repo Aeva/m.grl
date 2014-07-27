@@ -93,7 +93,15 @@ def main():
         print "Unable to parse:", model_file
         exit()
 
+    if args.texture is not None:
+        texture, texture_ext = path_scrub(args.texture[0])
+        if texture_ext == "mtl":
+            # FIXME
+            raise NotImplementedError("Parsing texture data from mtl files.")
 
-    # FIXME store texture info / parse mtl files
-
+        elif texture_ext in ["png", "jpg"]:
+            results["texture"] = (texture, texture_ext)
+        else:
+            raise NotImplementedError("Support for .%s files" % texture_ext)
+        
     combine_and_save(results, out_file)
