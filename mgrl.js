@@ -1318,7 +1318,9 @@ please.gl = {
     "__cache" : {
         "current" : null,
         "programs" : {},
+        "textures" : {},
     },
+    "relative_lookup" : false, // used by please.gl.get_texture(...) below
     // binds the rendering context
     "set_context" : function (canvas_id) {
         if (this.canvas !== null) {
@@ -1342,10 +1344,77 @@ please.gl = {
             window.gl = this.ctx;
         }
     },
-    // returns an object for a built shader program
+    // Returns an object for a built shader program.  If a name is not
+    // given, the active program is returned, if applicable.
     "get_program" : function (name) {
-        return this.__cache.programs[name];
+        if (name) {
+            return this.__cache.programs[name];
+        }
+        else {
+            return this.__cache.current;
+        }
     },
+};
+// Helper function for creating texture objects from the asset cache.
+// Implies please.load etc:
+please.gl.get_texture = function (uri, use_placeholder, no_error) {
+    // Check to see if we're doing relative lookups, and adjust the
+    // uri if necessary:
+    if (please.gl.relative_lookup && uri !=="error") {
+        uri = please.relative("img", uri);
+    }
+    // See if we already have a texture object for the uri:
+    var texture = please.gl.__cache.textures[uri];
+    if (texture) {
+        return texture;
+    }
+    // No texture, now we check to see if the asset is present:
+    var asset = please.access(uri, true);
+    if (asset) {
+        return please.gl.__build_texture(uri, asset);
+    }
+    else {
+        // Queue up the asset for download, and then either return a place
+        // holder, or null
+        please.load("img", uri, function (state, uri) {
+            if (!please.gl.__cache.textures[uri]) {
+                if (state === "pass") {
+                    var asset = please.access(uri, false);
+                    please.gl.__build_texture(uri, asset);
+                }
+                else if (fail_target) {
+                    var tid = please.gl.get_texture("error", null, true);
+                    please.gl.__cache.textures[uri] = tid;
+                }
+            }
+            else {
+                console.info("wtf, why is this being scheduled a bunch?")
+            }
+        });
+        if (use_placeholder) {
+            return please.gl.get_texture(use_placeholder, null, no_error);
+        }
+        else {
+            return null;
+        }
+    }
+};
+// Used by please.gl.get_texture
+please.gl.__build_texture = function (uri, image_object) {
+    // bind and load the texture, cache and return the id:
+    console.info("Loading texture: " + uri);
+    var tid = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tid);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    // FIXME: should we not assume gl.RGBA?
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
+                  gl.UNSIGNED_BYTE, image_object);
+    // FIXME: or any of this?
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    please.gl.__cache.textures[uri] = tid;
+    return tid;
 };
 // Constructor function for GLSL Shaders
 please.gl.__build_shader = function (src, uri) {
@@ -1395,8 +1464,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     var prog = {
         "name" : name,
         "id" : null,
-        "vars" : {},
-        "attrs" : {},
+        "vars" : {}, // uniform variables
+        "attrs" : {}, // attribute variables
+        "samplers" : {}, // sampler variables
         "vert" : null,
         "frag" : null,
         "ready" : false,
@@ -1481,6 +1551,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     u_map[gl.BOOL_VEC3] = "3iv";
     u_map[gl.BOOL_VEC4] = "4iv";
     u_map[gl.SAMPLER_2D] = "1i";
+    // 
+    var sampler_uniforms = [];
     // create helper functions for uniform vars
     var bind_uniform = function (data) {
         // data.name -> variable name
@@ -1515,6 +1587,24 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
             return gl[uni](pointer, type_array);
         });
+        if (data.type === gl.SAMPLER_2D) {
+            data.t_unit = sampler_uniforms.length;
+            sampler_uniforms.push(data.name);
+            data.t_symbol = gl["TEXTURE"+data.t_unit];
+            if (!data.t_symbol) {
+                console.error("Exceeded number of available texture units.  Doing nothing.");
+                return;
+            }
+            prog.samplers.__defineSetter__(data.name, function (uri) {
+                // FIXME: allow an option for a placeholder texture somehow.
+                var t_id = please.gl.get_texture(uri);
+                if (t_id !== null) {
+                    gl.activeTexture(data.t_symbol);
+                    gl.bindTexture(gl.TEXTURE_2D, t_id);
+                    prog.vars[data.name] = data.t_unit;
+                }
+            });
+        }
     };
     // fetch info on available uniform vars from shader:
     var uni_count = gl.getProgramParameter(prog.id, gl.ACTIVE_UNIFORMS);

@@ -26,6 +26,8 @@
 addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
     please.media.search_paths.img = "assets/";
+    please.gl.relative_lookup = true;
+
     please.load("glsl", "glsl/simple.vert");
     please.load("glsl", "glsl/simple.frag");
     window.model = {
@@ -53,6 +55,7 @@ function main () {
     gl.depthFunc(gl.LEQUAL);
     gl.clearColor(.93, .93, .93, 1.0);
     var scale_factor = .325;
+    scale_factor *= 10; // for old models
 
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_06/draw", function () {
@@ -64,8 +67,13 @@ function main () {
             vec3.fromValues(20, 20, 20),
             vec3.fromValues(0, 0, 13),
             vec3.fromValues(0, 0, 1));
-        
+
         modelview = mat4.rotateZ(modelview, modelview, please.radians(90*mark/800));
+
+        // rotate X for old models
+        modelview = mat4.rotateX(modelview, modelview, please.radians(90));
+
+
         modelview = mat4.scale(
             modelview, modelview, 
             vec3.fromValues(scale_factor, scale_factor, scale_factor));
@@ -182,10 +190,8 @@ function pdq_loader(status, url) {
             }
 
             /// pdq texture stuff
-            if (this.texture && prog.vars.hasOwnProperty("texture_map")) {
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, this.texture.id);
-                prog.vars["texture_map"] = 0;
+            if (this.texture && prog.samplers.hasOwnProperty("texture_map")) {
+                prog.samplers["texture_map"] = this.texture;
             }
         },
         "draw" : function () {
@@ -193,68 +199,30 @@ function pdq_loader(status, url) {
         },
     };
 
-    // call when the model is ready to draw:
-    var on_model_ready = function () {
-        window.model.loaded = true;
-    };
-
     // texture prep stuff:
-    var wait_for_texture = false;
-    var texture = null;
-    if (uniforms["texture"]) {
-        texture = {
-            "img" : null,
-            "id" : gl.createTexture(),
-        };
-        var t_hint = uniforms["texture"].hint;
-        var t_mode = uniforms["texture"].mode;
-        var t_uri = uniforms["texture"].uri;
-        var t_md5 = uniforms["texture"].md5;
+    var t_hint = uniforms["texture"].hint;
+    var t_mode = uniforms["texture"].mode;
+    var t_uri = uniforms["texture"].uri;
+    var t_md5 = uniforms["texture"].md5;
 
-        var bind_texture = function (uri) {
-            console.info("binding texture for: " + uri);
-            texture.img = please.access(uri);
-            
-            // do some pdq texture stuff here
-            gl.bindTexture(gl.TEXTURE_2D, texture.id);
-            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
-                          gl.UNSIGNED_BYTE, texture.img);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-            gl.bindTexture(gl.TEXTURE_2D, null);
+    if (t_mode === "linked") {
+        window.model.texture = t_uri;
+    }
 
-            window.model.texture = texture;
-            on_model_ready();
-        };
-
-        if (t_mode === "linked") {
-            wait_for_texture = true;
-            please.relative_load("img", t_uri, function (status, url) {
-                bind_texture(url);
-            });
-        }
-
-        else if (t_mode === "packed") {
-            // FIXME the purpose of the md5 thing is to avoid
-            // redundant image files and texture objects.
+    else if (t_mode === "packed") {
+        if (!please.access(t_md5)) {
             var img = new Image();
-            img.onload = function () {
-                bind_texture(t_md5);
-            };
             img.src = t_uri;
             please.media.assets[t_md5] = img;
         }
-
-        else {
-            texture = null;
-            console.error("Cannot load texture uniform.");
-        }
+        window.model.texture = t_uri;
     }
 
-    // if we're waiting for a texture, on_model_ready will be a
-    // callback, and will be called elsewhere instead.  Otherwise:
-    if (!wait_for_texture) {
-        on_model_ready();
+    else {
+        texture = null;
+        console.error("Cannot load texture uniform.");
     }
+
+    // Indicate the model is ready for use:
+    window.model.loaded = true;
 };
