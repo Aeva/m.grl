@@ -38,8 +38,15 @@ def main():
         required=False,
         help="Output filename",
     )
+    parser.add_argument(
+        "--no_transpose",
+        required=False,
+        action="store_true",
+        help="Don't flip or invert coordinates.")
+        
 
     args = parser.parse_args()
+    transpose = not args.no_transpose;
 
 
     # parse out paths and interpret options
@@ -63,7 +70,7 @@ def main():
     else:
         out_file = ".".join(model_path.split(".")[:-1] + ["jta"])
 
-    
+
     # results dict will contain model and texture info, and whatever else
     results = {
         "parser" : None,
@@ -71,7 +78,6 @@ def main():
         "bake" : args.bake,
     }
 
-    
     # select the correct model parser
     parsers = {
         "stl" : [STLParser, BinarySTLParser],
@@ -81,7 +87,7 @@ def main():
 
     for parser in parsers:
         try:
-            results["parser"] = parser(model_path)
+            results["parser"] = parser(model_path, transpose)
         except ParserError:
             # This should only be thrown to indicate that another
             # parser should be tried.  If there is an actual bug,

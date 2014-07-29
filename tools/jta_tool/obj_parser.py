@@ -48,7 +48,11 @@ class OBJParser(ModelParser):
 
             if command == "v":
                 # store vertex position
-                groups[-1].verts.append(map(float, parts))
+                vert_tmp = map(float, parts)
+                if self.transpose:
+                    groups[-1].verts.append([vert_tmp[0], vert_tmp[2], vert_tmp[1]])
+                else:
+                    groups[-1].verts.append(vert_tmp)
                 continue
 
             if command == "vt":

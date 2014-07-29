@@ -13,8 +13,9 @@ class VertexGroup(object):
 
 
 class ModelParser(object):
-    def __init__(self, model_path):
+    def __init__(self, model_path, transpose=True):
         self.path = model_path
+        self.transpose = transpose
 
         self.groups = []
         self.generate_normals = True
