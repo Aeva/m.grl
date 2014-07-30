@@ -11,6 +11,16 @@ please.media.handlers.glsl = function (url, callback) {
 };
 
 
+// "jta" media type handler
+please.media.search_paths.jta = "";
+please.media.handlers.jta = function (url, callback) {
+    var media_callback = function (req) {
+        please.media.assets[url] = please.gl.__jta_model(req.response, url);
+    };
+    please.media.__xhr_helper("text", url, media_callback, callback);
+};
+
+
 // Namespace for m.gl guts
 please.gl = {
     "canvas" : null,
@@ -57,6 +67,20 @@ please.gl = {
             return this.__cache.current;
         }
     },
+
+    // Take a base64 encoded array of binary data and return something
+    // that can be cast into a typed array eg Float32Array:
+    "array_buffer" : function (blob) {
+        var raw = atob(blob);
+        var buffer = new ArrayBuffer(raw.length);
+        var data = new DataView(buffer);
+        for (var i=0; i<raw.length; i+=1) {
+            // fixme - charCodeAt might think something is unicode and
+            // produce garbage....?
+            data.setUint8(i, raw.charCodeAt(i));
+        }
+        return buffer;
+    },
 };
 
 
@@ -65,8 +89,8 @@ please.gl = {
 please.gl.get_texture = function (uri, use_placeholder, no_error) {
     
     // Check to see if we're doing relative lookups, and adjust the
-    // uri if necessary:
-    if (please.gl.relative_lookup && uri !=="error") {
+    // uri if necessary.  Accounts for manually added assets.
+    if (!please.media.assets[uri] && please.gl.relative_lookup && uri !=="error") {
         uri = please.relative("img", uri);
     }
 
@@ -87,18 +111,14 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
         // Queue up the asset for download, and then either return a place
         // holder, or null
         please.load("img", uri, function (state, uri) {
-            if (!please.gl.__cache.textures[uri]) {
-                if (state === "pass") {
-                    var asset = please.access(uri, false);
-                    please.gl.__build_texture(uri, asset);
-                }
-                else if (fail_target) {
-                    var tid = please.gl.get_texture("error", null, true);
-                    please.gl.__cache.textures[uri] = tid;
-                }
+            if (state === "pass") {
+                var asset = please.access(uri, false);
+                please.gl.__build_texture(uri, asset);
             }
-            else {
-                console.info("wtf, why is this being scheduled a bunch?")
+            else if (!no_error) {
+                // FIXME: separate failure target for gl models?
+                var tid = please.gl.get_texture("error", null, true);
+                please.gl.__cache.textures[uri] = tid;
             }
         });
         if (use_placeholder) {
@@ -114,20 +134,25 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
 // Used by please.gl.get_texture
 please.gl.__build_texture = function (uri, image_object) {
     // bind and load the texture, cache and return the id:
-    console.info("Loading texture: " + uri);
-    var tid = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, tid);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    // FIXME: should we not assume gl.RGBA?
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, 
-                  gl.UNSIGNED_BYTE, image_object);
-    // FIXME: or any of this?
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.bindTexture(gl.TEXTURE_2D, null);
+    if (!please.gl.__cache.textures[uri]) {
+        console.info("Loading texture: " + uri);
+        var tid = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tid);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        // FIXME: should we not assume gl.RGBA?
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, 
+                      gl.UNSIGNED_BYTE, image_object);
+        // FIXME: or any of this?
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.bindTexture(gl.TEXTURE_2D, null);
 
-    please.gl.__cache.textures[uri] = tid;
-    return tid;
+        please.gl.__cache.textures[uri] = tid;
+        return tid;
+    }
+    else {
+        return please.gl.__cache.textures[uri];
+    }
 };
 
 
@@ -352,4 +377,172 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     prog.ready = true;
     please.gl.__cache.programs[prog.name] = prog;    
     return prog;
+};
+
+
+// JTA model loader.  This is just a quick-and-dirty implementation.
+please.gl.__jta_model = function (src, uri) {
+    // The structure of a JTA file is json.  Large blocks of agregate
+    // data are base64 encoded binary data.
+
+    var directory = JSON.parse(src);
+    var groups = directory["vertex_groups"];
+    var uniforms = directory["vars"];
+    var model = {
+        "__groups" : [],
+        "uniforms" : {},
+
+        "bind" : function () {
+            for (var i=0; i<this.__groups.length; i+=1) {
+                this.__groups[i].bind();
+            }
+        },
+
+        "draw" : function () {
+            for (var i=0; i<this.__groups.length; i+=1) {
+                this.__groups[i].draw();
+            }
+        },
+    };
+
+    // Note suggested uniform values, unpack data, and possibly queue
+    // up additional image downloads:
+    please.get_properties(uniforms).map(function(name) {
+        var meta = uniforms[name];
+        if (meta.hint === "Sampler2D") {
+            var uri;
+            if (meta.mode === "linked") {
+                uri = meta.uri;
+                if (please.gl.relative_lookup) {
+                    please.relative_load("img", uri);
+
+                }
+                else {
+                    please.load("img", uri);                    
+                }
+            }
+            else if (meta.mode === "packed") {
+                uri = meta.md5;
+                if (!please.access(uri, true)) {
+                    var img = new Image();
+                    img.src = meta.uri;
+                    please.media.assets[uri] = img;
+                }
+            }
+            else {
+                console.error("Cannot load texture of type: " + meta.mode);
+            }
+            if (uri) {
+                model.uniforms[name] = uri;
+            }
+        }
+        else {
+            console.warn("Not implemented: " + meta.hint);
+        }
+    });
+
+    // Create our attribute lists.  Closure to avoid scope polution.
+    please.get_properties(groups).map(function(name) {
+        var group = {
+            "vbo" : null,
+            "faces" : 0,
+        };
+
+        var tmp = {};
+        var offset = 0;
+        var buffer_size = 0;
+        var bind_order = [];
+        var bind_offset = [];
+        var vertices = groups[name];
+
+        if (!vertices.position) {
+            throw("JTA model " + uri + " is missing the 'position' attribute!!");            
+        }
+
+        // FIXME: item_size 4 attrs should be first, followed by the
+        // size 2 attrs, the 3 and 1 sized attrs.  Some kind of snake
+        // oil optimization for OpenGL ES that I see a lot, but
+        // haven't found a practical explanation for yet.
+        for (var attr in vertices) {
+            var hint = vertices[attr].hint;
+            var raw = vertices[attr].data;
+            tmp[attr] = {
+                "data" : new Float32Array(please.gl.array_buffer(raw)),
+                "item_size" : vertices[attr].size,
+                /*
+                  The size attribute means this:
+                  1 = float,
+                  2 = vec2,
+                  3 = vec3,
+                  9 = mat3,
+                  12 = mat4.
+
+                  The array length and item count are otherwise inferred.
+                */
+            };
+            buffer_size += tmp[attr].data.length;
+
+            bind_order.push(attr);
+            bind_offset.push(offset);
+            offset += tmp[attr].item_size;
+        }
+
+        // Determine the face count for this vertex group:
+        group.faces = tmp.position.data.length / tmp.position.item_size;
+
+        // Calculate the packing stride:
+        var stride = offset;
+        // FIXME: See above snake oil optimization: the stride can be
+        // padded to make the indices line up to 4 or 8 or something
+        // :P
+
+
+        // build the interlaced vertex array:
+        var builder = new Float32Array(buffer_size);
+        for (var i=0; i<bind_order.length; i+=1) {
+            var attr = tmp[bind_order[i]];
+            for (var k=0; k<attr.data.length/attr.item_size; k+=1) {
+                for (var n=0; n<attr.item_size; n+=1) {
+                    var attr_offset = bind_offset[i] + (stride*k);
+                    builder[attr_offset+n] = attr.data[(k*attr.item_size)+n];
+                }
+            }
+
+            // free up now unused memory:
+            delete tmp[bind_order[i]].data;
+        }
+
+        // Create the VBO
+        group.vbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, group.vbo);
+        gl.bufferData(gl.ARRAY_BUFFER, builder, gl.STATIC_DRAW);
+        console.info("Created VBO for: " + uri + ":" + name);
+
+        // Bind function to set up the array for drawing:
+        group.bind = function () {
+            var prog = please.gl.__cache.current;
+            if (prog) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+                for (var i=0; i<bind_order.length; i+=1) {
+                    var attr = bind_order[i];
+                    var offset = bind_offset[i];
+                    var item_size = tmp[attr].item_size;
+                    if (prog.attrs[attr]) {
+                        gl.vertexAttribPointer(
+                            prog.attrs[attr].loc, item_size, 
+                            gl.FLOAT, false, stride*4, offset*4);
+                    }
+                }
+            }
+        };
+
+        // Draw function:
+        group.draw = function () {
+            gl.drawArrays(gl.TRIANGLES, 0, this.faces);
+        };
+        
+        model.__groups.push(group);
+    });
+
+    return model;
 };
