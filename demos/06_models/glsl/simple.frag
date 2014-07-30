@@ -12,6 +12,8 @@ varying vec3 local_position;
 varying vec3 local_normal;
 varying vec2 local_tcoord;
 
+varying vec3 global_position;
+
 
 float random_seed(vec3 co) {
   // Handy function for producing pseudo-randomness.  Returns a value
@@ -41,9 +43,12 @@ void main(void) {
                     mix(rand, 1.0, local_normal.z),
                     1.0);
 
-  float factor = (clamp(
-                        local_position.x+sin(local_position.x*2.0)*0.5, 
-                        -5.0, 5.0) + 5.0)/10.0;
-  //gl_FragColor = mix(color_sample, weird, factor);
-  gl_FragColor = color_sample;
+  float frequency = 4.0;
+  float amplitude = 1.0;
+  float threshold = 0.5;
+
+  float factor = (clamp(global_position.x + sin(global_position.z*frequency)*amplitude,
+                        -1.0*threshold, threshold) + threshold)/(threshold*2.0);
+
+  gl_FragColor = mix(color_sample, weird, factor);
 }

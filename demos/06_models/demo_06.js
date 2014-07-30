@@ -64,26 +64,29 @@ function main () {
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_06/draw", function () {
         var mark = performance.now();
-        var modelview = mat4.create();
+        var camera = mat4.create();
+        var offset = mat4.create();
 
         mat4.lookAt(
-            modelview,
-            vec3.fromValues(20, 20, 20),
-            vec3.fromValues(0, 0, 13),
+            camera,
+            vec3.fromValues(-10, 25, 20),
+            vec3.fromValues(0, 0, 5),
             vec3.fromValues(0, 0, 1));
 
-        modelview = mat4.rotateZ(modelview, modelview, please.radians(90*mark/10000));
+        var slowdown = 5000;
+        offset = mat4.rotateZ(offset, offset, please.radians((90*mark/slowdown)-90));
 
         // rotate X for old models
-        //modelview = mat4.rotateX(modelview, modelview, please.radians(90));
+        //offset = mat4.rotateX(offset, offset, please.radians(90));
 
-        modelview = mat4.scale(
-            modelview, modelview, 
+        offset = mat4.scale(
+            offset, offset, 
             vec3.fromValues(scale_factor, scale_factor, scale_factor));
 
         // -- update uniforms
         prog.vars.time = mark;
-        prog.vars.modelview = modelview;
+        prog.vars.camera = camera;
+        prog.vars.offset = offset;
         prog.vars.projection = projection;
 
         // -- clear the screen
@@ -95,6 +98,30 @@ function main () {
             if (model.uniforms.texture) {
                 prog.samplers.texture_map = model.uniforms.texture;
             }
+
+            model.bind();
+            model.draw();
+
+            offset = mat4.translate(offset, offset, [3, 0, 0]);
+            prog.vars.offset = offset;
+
+            model.bind();
+            model.draw();
+
+            offset = mat4.translate(offset, offset, [-6, 0, 0]);
+            prog.vars.offset = offset;
+
+            model.bind();
+            model.draw();
+
+            offset = mat4.translate(offset, offset, [3, -3, 0]);
+            prog.vars.offset = offset;
+
+            model.bind();
+            model.draw();
+
+            offset = mat4.translate(offset, offset, [0, 6, 0]);
+            prog.vars.offset = offset;
 
             model.bind();
             model.draw();
