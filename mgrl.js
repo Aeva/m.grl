@@ -371,6 +371,8 @@ please.media.__xhr_helper = function (req_type, url, media_callback, user_callba
 please.media.handlers.img = function (url, callback) {
     var media_callback = function (req) {
         var img = new Image();
+        img.loaded = false;
+        img.addEventListener("load", function() {img.loaded = true});
         img.src = url;
         please.media.assets[url] = img;
     };
@@ -1419,6 +1421,12 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
 // Used by please.gl.get_texture
 please.gl.__build_texture = function (uri, image_object) {
     // bind and load the texture, cache and return the id:
+    if (image_object.loaded === false) {
+        image_object.addEventListener("load", function () {
+            please.gl.__build_texture(uri, image_object);
+        });
+        return null;
+    }
     if (!please.gl.__cache.textures[uri]) {
         console.info("Loading texture: " + uri);
         var tid = gl.createTexture();

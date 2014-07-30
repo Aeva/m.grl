@@ -134,6 +134,14 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
 // Used by please.gl.get_texture
 please.gl.__build_texture = function (uri, image_object) {
     // bind and load the texture, cache and return the id:
+
+    if (image_object.loaded === false) {
+        image_object.addEventListener("load", function () {
+            please.gl.__build_texture(uri, image_object);            
+        });
+        return null;
+    }
+
     if (!please.gl.__cache.textures[uri]) {
         console.info("Loading texture: " + uri);
         var tid = gl.createTexture();

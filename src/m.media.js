@@ -199,6 +199,8 @@ please.media.__xhr_helper = function (req_type, url, media_callback, user_callba
 please.media.handlers.img = function (url, callback) {
     var media_callback = function (req) {
         var img = new Image();
+        img.loaded = false;
+        img.addEventListener("load", function() {img.loaded = true});
         img.src = url;
         please.media.assets[url] = img;
     };
