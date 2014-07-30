@@ -13,6 +13,7 @@ varying vec3 local_normal;
 varying vec2 local_tcoord;
 
 varying vec3 global_position;
+varying vec3 camera_position;
 
 
 float random_seed(vec3 co) {
@@ -43,12 +44,17 @@ void main(void) {
                     mix(rand, 1.0, local_normal.z),
                     1.0);
 
-  float frequency = 4.0;
-  float amplitude = 1.0;
-  float threshold = 0.5;
+  float frequency = 8.0;
+  float amplitude = 0.4;
+  float threshold = 0.25;
 
   float factor = (clamp(global_position.x + sin(global_position.z*frequency)*amplitude,
                         -1.0*threshold, threshold) + threshold)/(threshold*2.0);
 
-  gl_FragColor = mix(color_sample, weird, factor);
+  vec4 mixed_color = mix(color_sample, weird, factor);
+  vec4 haze = vec4(.93, .93, .93, 1.0);
+  float falloff = camera_position.z-5.0;
+  float range = 30.0;
+
+  gl_FragColor = mix(mixed_color, haze, clamp(falloff, 0.0, range)/range);
 }

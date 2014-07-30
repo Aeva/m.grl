@@ -12,11 +12,14 @@ varying vec3 local_normal;
 varying vec2 local_tcoord;
 
 varying vec3 global_position;
+varying vec3 camera_position;
 
 void main(void) {
   local_position = position;
   local_normal = normal;
   local_tcoord = tcoord;
   global_position = (offset * vec4(position, 1.0)).xyz;
-  gl_Position = projection * camera * offset * vec4(position, 1.0);
+  vec4 tmp = projection * camera * offset * vec4(position, 1.0);
+  camera_position = tmp.xyz;
+  gl_Position = tmp;
 }
