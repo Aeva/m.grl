@@ -37,6 +37,8 @@
 // Please tear at the perforated line.
 //
 
+#include "m.sprites.js"
+
 #ifdef EXPERIMENTAL
 // -------------------------------------------------------------------------- //
 // What follows are experimental components, and may be safely removed.
