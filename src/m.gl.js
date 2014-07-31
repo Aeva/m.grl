@@ -27,6 +27,7 @@ please.gl = {
     "ctx" : null,
     "__cache" : {
         "current" : null,
+        "quad" : null,
         "programs" : {},
         "textures" : {},
     },
@@ -464,7 +465,7 @@ please.gl.__jta_model = function (src, uri) {
         var vertices = groups[name];
 
         if (!vertices.position) {
-            throw("JTA model " + uri + " is missing the 'position' attribute!!");            
+            throw("JTA model " + uri + " is missing the 'position' attribute!!");
         }
 
         // FIXME: item_size 4 attrs should be first, followed by the
@@ -553,4 +554,19 @@ please.gl.__jta_model = function (src, uri) {
     });
 
     return model;
+};
+
+
+// Draws a quad with the given coordinates.
+please.gl.draw_quad = function (x1, y2, x2, y2, z) {
+    if (please.gl.__cache.quad === null) {
+        please.gl.__cache.quad = gl.createBuffer();
+    }
+    var vbo_id = please.gl.__cache.quad;
+    var prog = please.gl.get_program();
+    var data = new Float32Array([x2, y2, z, x1, y2, z, x2, y1, z, x1, y1, z]);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo_id);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+    gl.vertexAttribPointer(prog.attrs.position.loc, 3, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 };
