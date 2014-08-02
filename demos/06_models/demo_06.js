@@ -49,10 +49,10 @@ function main () {
     prog.activate();
 
     // setup matricies & uniforms
-    var projection = mat4.perspective(
+    var projection_matrix = mat4.perspective(
         mat4.create(), 45, canvas.width/canvas.height, 0.1, 100.0);
-    var camera = mat4.create();
-    var offset = mat4.create();
+    var view_matrix = mat4.create();
+    var model_matrix = mat4.create();
 
 
     // setup default state stuff    
@@ -66,7 +66,7 @@ function main () {
 
     // store the models we're going to display
     var models = [
-        model_instance("floor_lamp.jta", offset),
+        model_instance("floor_lamp.jta", model_matrix),
     ];
 
     var coords = [
@@ -77,7 +77,7 @@ function main () {
     ];
 
     for (var i=0; i<coords.length; i+=1) {
-        var gav = model_instance("gavroche.jta", offset);
+        var gav = model_instance("gavroche.jta", model_matrix);
         gav.x = coords[i][0];
         gav.y = coords[i][1];
         gav.z = coords[i][2];
@@ -98,38 +98,29 @@ function main () {
         models.push(lamp);
     }
 
-    var camera_x = -3;
-    var camera_y = 10;
-    var camera_z = 6;
-
-    var lookat_x = 0;
-    var lookat_y = 0;
-    var lookat_z = 1;
+    var camera_coords = vec3.fromValues(-3, 10, 6);
+    var lookat_coords = vec3.fromValues(0, 0, 1);
     
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_06/draw", function () {
         var mark = performance.now();
-        mat4.identity(offset);
+        mat4.identity(model_matrix);
         mat4.lookAt(
-            camera,
-            vec3.fromValues(camera_x, camera_y, camera_z), // camera coords
-            vec3.fromValues(lookat_x, lookat_y, lookat_z),   // focal point
-            vec3.fromValues(0, 0, 1)    // up vector
+            view_matrix,
+            camera_coords,
+            lookat_coords,
+            vec3.fromValues(0, 0, 1) // up vector
         );
 
         var slowdown = 5000;
-        offset = mat4.rotateZ(offset, offset, please.radians((-90*mark/slowdown)-90));
+        model_matrix = mat4.rotateZ(
+            model_matrix, model_matrix, please.radians((-90*mark/slowdown)-90));
 
         // -- update uniforms
         prog.vars.time = mark;
-        prog.vars.view_matrix = camera;
-        prog.vars.model_matrix = offset;
-        prog.vars.projection_matrix = projection;
-
-        // -- update uniforms for lighting
-        prog.vars.nega_camera_matrix = mat4.invert(mat4.create(), camera);
-        prog.vars.camera_coords = vec3.fromValues(camera_x, camera_y, camera_z);
-        prog.vars.light_coords = vec3.fromValues(0, 0, 4);
+        prog.vars.view_matrix = view_matrix;
+        prog.vars.model_matrix = model_matrix;
+        prog.vars.projection_matrix = projection_matrix;
 
         // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);

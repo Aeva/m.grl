@@ -11,9 +11,8 @@ uniform sampler2D texture_map;
 varying vec3 local_position;
 varying vec3 local_normal;
 varying vec2 local_tcoord;
-
-varying vec3 global_position;
-varying vec3 camera_position;
+varying vec3 world_position;
+varying vec3 view_position;
 
 
 float random_seed(vec3 co) {
@@ -34,9 +33,13 @@ float invert(float val) {
 }
 
 
+vec4 phong(vec4 base_color) {
+  return base_color;
+}
+
 
 void main(void) {
-  vec4 color_sample = texture2D(texture_map, local_tcoord);
+  vec4 color_sample = phong(texture2D(texture_map, local_tcoord));
   float rand = random();
 
   vec4 weird = vec4(mix(rand, 1.0, local_normal.x),
@@ -48,12 +51,12 @@ void main(void) {
   float amplitude = 0.4;
   float threshold = 0.25;
 
-  float factor = (clamp(global_position.x + sin(global_position.z*frequency)*amplitude,
+  float factor = (clamp(world_position.x + sin(world_position.z*frequency)*amplitude,
                         -1.0*threshold, threshold) + threshold)/(threshold*2.0);
 
   vec4 mixed_color = mix(color_sample, weird, factor);
   vec4 haze = vec4(.93, .93, .93, 1.0);
-  float falloff = camera_position.z-5.0;
+  float falloff = view_position.z-5.0;
   float range = 30.0;
 
   gl_FragColor = mix(mixed_color, haze, clamp(falloff, 0.0, range)/range);
