@@ -16,9 +16,9 @@ varying vec3 world_normal;
 varying vec3 view_position;
 
 // lighting stuff
+uniform vec3 light_direction;
 varying vec3 light_weight;
 varying float directional_weight;
-
 
 
 float random_seed(vec3 co) {
@@ -52,6 +52,15 @@ void main(void) {
   vec4 color_sample = pdq_phong(texture2D(texture_map, local_tcoord));
   float rand = random();
 
+  // stuff for specular lighting:
+  // eye vector
+  vec3 eye_vector = normalize(-view_position);
+  vec3 reflection = reflect(-light_direction, normalize(world_normal));
+  float shiny = 10.0;
+  float specular_weight = pow(max(dot(reflection, eye_vector), 0.0), shiny);
+  //float specular_weight = 1.0;
+
+
   /*
   vec4 weird = vec4(mix(rand, 1.0, world_normal.x),
                     mix(rand, 1.0, world_normal.y),
@@ -72,5 +81,7 @@ void main(void) {
   float falloff = view_position.z-5.0;
   float range = 30.0;
 
-  gl_FragColor = mix(mixed_color, haze, clamp(falloff, 0.0, range)/range);
+
+  vec4 specularized = mixed_color + specular_weight;
+  gl_FragColor = mix(specularized, haze, clamp(falloff, 0.0, range)/range);
 }

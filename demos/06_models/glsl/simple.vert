@@ -37,7 +37,7 @@ void main(void) {
   view_position = tmp.xyz;
 
   // pdq lighting
-  vec3 k_ambient = vec3(0.5, 0.5, 0.5);
+  vec3 k_ambient = vec3(0.25, 0.25, 0.25);
   vec3 k_diffuse = vec3(1.0, 1.0, 1.0);
   directional_weight = max(dot(world_normal, light_direction), 0.0);
   light_weight = k_ambient + k_diffuse * directional_weight;
