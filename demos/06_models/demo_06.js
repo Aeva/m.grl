@@ -100,7 +100,7 @@ function main () {
 
     var camera_coords = vec3.fromValues(-3, 10, 6);
     var lookat_coords = vec3.fromValues(0, 0, 1);
-    var light_direction = vec3.fromValues(.4, -1.0, -0.4);
+    var light_direction = vec3.fromValues(.25, -1.0, -0.4);
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
     
