@@ -43,6 +43,12 @@ def main():
         required=False,
         action="store_true",
         help="Don't flip or invert coordinates.")
+    parser.add_argument(
+        "-s", "--smooth",
+        required=False,
+        action="store_true",
+        help="Calculate smooth normals.",
+    )
         
 
     args = parser.parse_args()
@@ -76,6 +82,7 @@ def main():
         "parser" : None,
         "texture" : None,
         "bake" : args.bake,
+        "smooth" : args.smooth,
     }
 
     # select the correct model parser

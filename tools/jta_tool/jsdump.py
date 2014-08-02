@@ -92,6 +92,40 @@ def combine_and_save(results, out_path):
         model["vars"]["texture"] = data
 
 
+    # calculate smooth normals
+    if results["smooth"]:
+        for group in parser.groups:
+            # group the normals by vertex position
+            builder = {}
+            for n in range(len(group.position)/3):
+                start = n*3
+                end = start+3
+                vertex = tuple(group.position[start:end])
+                normal = tuple(group.normal[start:end])
+                if not builder.has_key(vertex):
+                    builder[vertex] = []
+                builder[vertex].append(normal)
+
+            # average normals sharing a vertex
+            for vertex, normal_set in builder.items():
+                average = [0.0, 0.0, 0.0]
+                for normal in normal_set:
+                    for i in range(3):
+                        average[i] += normal[i]
+                for i in range(3):
+                    average[i] /= len(normal_set)
+                builder[vertex] = average
+
+            # write out averaged normals
+            for n in range(len(group.position)/3):
+                start = n*3
+                end = start+3
+                vertex = tuple(group.position[start:end])
+                normal = builder[vertex]
+                for i in range(3):
+                    group.normal[start+i] = normal[i]
+
+
     # store vertex group info
     for group in parser.groups:
         count = len(group.position)/3
@@ -111,6 +145,7 @@ def combine_and_save(results, out_path):
             data["tcoord"] = tcoord
 
         model["vertex_groups"][group.name] = data
+                
             
     with open(out_path, 'w') as out_file:
         json.dump(model, out_file)
