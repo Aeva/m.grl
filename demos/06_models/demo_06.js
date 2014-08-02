@@ -97,16 +97,23 @@ function main () {
         lamp.rz = Math.random()*20-10;
         models.push(lamp);
     }
-   
 
+    var camera_x = -3;
+    var camera_y = 10;
+    var camera_z = 6;
+
+    var lookat_x = 0;
+    var lookat_y = 0;
+    var lookat_z = 1;
+    
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_06/draw", function () {
         var mark = performance.now();
         mat4.identity(offset);
         mat4.lookAt(
             camera,
-            vec3.fromValues(-3, 10, 6), // camera coords
-            vec3.fromValues(0, 0, 1),   // focal point
+            vec3.fromValues(camera_x, camera_y, camera_z), // camera coords
+            vec3.fromValues(lookat_x, lookat_y, lookat_z),   // focal point
             vec3.fromValues(0, 0, 1)    // up vector
         );
 
@@ -115,9 +122,14 @@ function main () {
 
         // -- update uniforms
         prog.vars.time = mark;
-        prog.vars.camera = camera;
-        prog.vars.offset = offset;
-        prog.vars.projection = projection;
+        prog.vars.view_matrix = camera;
+        prog.vars.model_matrix = offset;
+        prog.vars.projection_matrix = projection;
+
+        // -- update uniforms for lighting
+        prog.vars.nega_camera_matrix = mat4.invert(mat4.create(), camera);
+        prog.vars.camera_coords = vec3.fromValues(camera_x, camera_y, camera_z);
+        prog.vars.light_coords = vec3.fromValues(0, 0, 4);
 
         // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -160,10 +172,10 @@ function model_instance (uri, global_position) {
                     mat4.rotateZ(position, position, please.radians(this.rz));
                 }
                 if (global_position) {
-                    prog.vars.offset = mat4.multiply(mat4.create(), global_position, position);
+                    prog.vars.model_matrix = mat4.multiply(mat4.create(), global_position, position);
                 }
                 else {
-                    prog.vars.offset = position;
+                    prog.vars.model_matrix = position;
                 }
 
                 if (model.uniforms.texture && prog.samplers.hasOwnProperty("texture_map")) {
