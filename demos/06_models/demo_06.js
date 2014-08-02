@@ -60,8 +60,6 @@ function main () {
     gl.depthFunc(gl.LEQUAL);
     //gl.clearColor(.93, .93, .93, 1.0);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
-    var scale_factor = .325;
-    scale_factor *= 10; // for old models
 
 
     // store the models we're going to display
@@ -76,6 +74,7 @@ function main () {
         [0, 5, 0],
     ];
 
+    // add a bunch of gavroches
     for (var i=0; i<coords.length; i+=1) {
         var gav = model_instance("gavroche.jta", model_matrix);
         gav.x = coords[i][0];
@@ -85,6 +84,7 @@ function main () {
         models.push(gav);
     }
 
+    // add row of lamps in the background
     var spacing = 5;
     var count = 10;
     var end = count*spacing;
@@ -100,6 +100,9 @@ function main () {
 
     var camera_coords = vec3.fromValues(-3, 10, 6);
     var lookat_coords = vec3.fromValues(0, 0, 1);
+    var light_direction = vec3.fromValues(0.4, -1.0, -0.4);
+    vec3.normalize(light_direction, light_direction);
+    vec3.scale(light_direction, light_direction, -1);
     
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_06/draw", function () {
@@ -118,9 +121,12 @@ function main () {
 
         // -- update uniforms
         prog.vars.time = mark;
+        prog.vars.light_direction = light_direction;
         prog.vars.view_matrix = view_matrix;
         prog.vars.model_matrix = model_matrix;
         prog.vars.projection_matrix = projection_matrix;
+        prog.vars.normal_matrix = normal_matrix(model_matrix, view_matrix);
+
 
         // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -135,7 +141,18 @@ function main () {
 };
 
 
-function model_instance (uri, global_position) {
+// This function creates a matrix for transforming normals from model
+// space to world space.
+function normal_matrix (model_matrix) {
+    var normal = mat3.create();
+    mat3.fromMat4(normal, model_matrix);
+    mat3.invert(normal, normal);
+    mat3.transpose(normal, normal);
+    return normal;
+};
+
+
+function model_instance (uri, model_matrix) {
     return {
         "x" : 0,
         "y" : 0,
@@ -162,11 +179,14 @@ function model_instance (uri, global_position) {
                 if (this.rz) {
                     mat4.rotateZ(position, position, please.radians(this.rz));
                 }
-                if (global_position) {
-                    prog.vars.model_matrix = mat4.multiply(mat4.create(), global_position, position);
+                if (model_matrix) {
+                    var new_mvmatrix = mat4.multiply(mat4.create(), model_matrix, position);
+                    prog.vars.model_matrix = new_mvmatrix;
+                    prog.vars.normal_matrix = normal_matrix(new_mvmatrix);
                 }
                 else {
                     prog.vars.model_matrix = position;
+                    prog.vars.normal_matrix = normal_matrix(position);
                 }
 
                 if (model.uniforms.texture && prog.samplers.hasOwnProperty("texture_map")) {

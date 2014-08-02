@@ -12,7 +12,13 @@ varying vec3 local_position;
 varying vec3 local_normal;
 varying vec2 local_tcoord;
 varying vec3 world_position;
+varying vec3 world_normal;
 varying vec3 view_position;
+
+// lighting stuff
+varying vec3 light_weight;
+varying float directional_weight;
+
 
 
 float random_seed(vec3 co) {
@@ -33,19 +39,26 @@ float invert(float val) {
 }
 
 
-vec4 phong(vec4 base_color) {
-  return base_color;
+vec4 pdq_phong(vec4 base_color) {
+  return vec4(vec3(base_color.rgb*light_weight), base_color.a);
+}
+vec4 pdq_anti_phong(vec4 base_color) {
+  // has nothing to do with phong
+  return mix(vec4(0.0, 0.0, 0.0, 1.0), base_color, directional_weight);
 }
 
 
 void main(void) {
-  vec4 color_sample = phong(texture2D(texture_map, local_tcoord));
+  vec4 color_sample = pdq_phong(texture2D(texture_map, local_tcoord));
   float rand = random();
 
-  vec4 weird = vec4(mix(rand, 1.0, local_normal.x),
-                    mix(rand, 1.0, local_normal.y),
-                    mix(rand, 1.0, local_normal.z),
+  /*
+  vec4 weird = vec4(mix(rand, 1.0, world_normal.x),
+                    mix(rand, 1.0, world_normal.y),
+                    mix(rand, 1.0, world_normal.z),
                     1.0);
+  */
+  vec4 weird = pdq_anti_phong(vec4(rand, rand, rand, 1.0));
 
   float frequency = 8.0;
   float amplitude = 0.4;
