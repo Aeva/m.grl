@@ -87,6 +87,11 @@ please.gl = {
 // Helper function for creating texture objects from the asset cache.
 // Implies please.load etc:
 please.gl.get_texture = function (uri, use_placeholder, no_error) {
+
+    // Check for textures that were not created from image assets:
+    if (please.gl.__cache.textures[uri]) {
+        return please.gl.__cache.textures[uri];
+    }
     
     // Check to see if we're doing relative lookups, and adjust the
     // uri if necessary.  Accounts for manually added assets.
