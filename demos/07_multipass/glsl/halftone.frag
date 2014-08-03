@@ -25,8 +25,6 @@ varying vec3 light_weight;
 varying float directional_weight;
 
 
-
-
 void main(void) {
 
   vec4 frag_color = vec4(1.0, 1.0, 1.0, 1.0);
@@ -53,8 +51,19 @@ void main(void) {
   else if(render_pass == 2) {
     // HALFTONE PASS
 
-    vec2 point = vec2(gl_FragCoord.x / width, gl_FragCoord.y / height);
-    vec4 color_sample = texture2D(draw_pass, point);
+    /*
+      Ok, this isn't actually halftone, just a cheap effect to show
+      that this is working.  Either actual halftone or a file rename
+      will come later.
+     */
+
+    float frequency = 5.0;
+    float amplitude = 10.0;
+
+    float pick_x = (gl_FragCoord.x + sin(gl_FragCoord.y/frequency)*amplitude) / width;
+    float pick_y = gl_FragCoord.y / height;
+
+    vec4 color_sample = texture2D(draw_pass, vec2(pick_x, pick_y));
 
     frag_color = color_sample;
   }

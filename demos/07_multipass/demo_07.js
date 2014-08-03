@@ -66,7 +66,7 @@ function main() {
     vec3.scale(light_direction, light_direction, -1);
 
     // frame buffer for our first render pass
-    var buffer_size = 64;
+    var buffer_size = 1024;
     register_framebuffer("demo_07/draw", buffer_size);
 
 
@@ -74,11 +74,11 @@ function main() {
     please.pipeline.add(1, "demo_07/draw", function () {
         var mark = performance.now();
 
-        // set render target:
+        // set render target
         set_framebuffer("demo_07/draw");
         gl.viewport(0, 0, buffer_size, buffer_size);
 
-        // 
+        // setup the projection matrix
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         mat4.perspective(projection_matrix, 45, canvas.width/canvas.height, 0.1, 100.0);
 
@@ -108,28 +108,34 @@ function main() {
     // add post processing pass
     please.pipeline.add(2, "demo_07/post", function () {
 
-        // set render target:
+        // set render target
         set_framebuffer(null);
         prog.samplers.draw_pass = "demo_07/draw";
         gl.viewport(0, 0, canvas.width, canvas.height);
 
-        //
+        // setup the projection matrix
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         mat4.perspective(projection_matrix, 45, canvas.width/canvas.height, 0.1, 100.0);
 
+        /*
+          A quick note / FIXME:
 
+          I'm using the suzanne head again and zooming the camera way
+          in to fill the screen with fragments.
 
-        // TMP setup the camera
+          This really should just be a quad and orthographic
+          projection to avoid confusion, but also to make the post
+          processing phase a little faster, as well as *actually* fill
+          the screen with fragments.
+         */
+
+        // setup the camera
         mat4.lookAt(
             view_matrix,
             vec3.fromValues(0, .1, .1), // camera
             vec3.fromValues(0, 0, 1),   // look at
             vec3.fromValues(0, 0, 1)    // up vector
         );
-
-
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // update vars
         prog.vars.render_pass = 2;
