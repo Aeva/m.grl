@@ -55,7 +55,7 @@ void main(void) {
   // stuff for specular lighting:
   // eye vector
   vec3 eye_vector = normalize(-view_position);
-  vec3 reflection = reflect(-light_direction, normalize(world_normal));
+  vec3 reflection = reflect(light_direction, normalize(world_normal));
   float shiny = 10.0;
   float specular_weight = pow(max(dot(reflection, eye_vector), 0.0), shiny);
   //float specular_weight = 1.0;

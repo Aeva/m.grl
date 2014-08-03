@@ -25,7 +25,8 @@
 
 addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
-    please.media.search_paths.img = "assets/";
+    please.media.search_paths.img = "../gl_assets/img/";
+    please.media.search_paths.jta = "../gl_assets/models/";
     please.gl.relative_lookup = true;
 
     please.load("glsl", "glsl/simple.vert");
@@ -34,8 +35,9 @@ addEventListener("load", function() {
         "loaded" : false,
     };
     //please.load("text", "gavroche.jta", pdq_loader);
-    please.load("jta", "gavroche.jta");
-    please.load("jta", "floor_lamp.jta");
+    please.relative_load("jta", "gavroche.jta");
+    please.relative_load("jta", "floor_lamp.jta");
+    please.relative_load("jta", "suzanne.jta");
     please.media.connect_onload(main);
 });
 
@@ -100,7 +102,7 @@ function main () {
 
     var camera_coords = vec3.fromValues(-3, 10, 6);
     var lookat_coords = vec3.fromValues(0, 0, 1);
-    var light_direction = vec3.fromValues(.25, -1.0, -0.4);
+    var light_direction = vec3.fromValues(.25, -1.0, -.4);
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
     
@@ -160,7 +162,7 @@ function model_instance (uri, model_matrix) {
         "rx" : 0,
         "ry" : 0,
         "rz" : 0,
-        "name" : uri,
+        "name" : please.relative("jta", uri),
         "__stamp" : performance.now(),
 
         "bind" : function () {
