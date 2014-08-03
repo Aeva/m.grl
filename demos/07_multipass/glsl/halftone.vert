@@ -1,6 +1,6 @@
 
 // render pass
-uniform int render_pass;
+uniform lowp int render_pass;
 
 // matrices
 uniform mat4 model_matrix;

@@ -7,7 +7,7 @@ precision mediump float;
 
 
 // render pass
-uniform int render_pass;
+uniform lowp int render_pass;
 uniform sampler2D draw_pass;
 uniform float width;
 uniform float height;
