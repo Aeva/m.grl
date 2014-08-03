@@ -57,11 +57,14 @@ void main(void) {
       will come later.
      */
 
-    float frequency = 5.0;
-    float amplitude = 10.0;
+    float freq = 2.0;
+    float amp = 10.0;
 
-    float pick_x = (gl_FragCoord.x + sin(gl_FragCoord.y/frequency)*amplitude) / width;
-    float pick_y = gl_FragCoord.y / height;
+    // used to crop & upscale
+    float margin = 100.0;
+
+    float pick_x = (gl_FragCoord.x + sin(gl_FragCoord.y/freq)*amp + margin) / (width+margin*2.0);
+    float pick_y = (gl_FragCoord.y + sin(gl_FragCoord.x/freq)*amp + margin) / (height+margin*2.0);
 
     vec4 color_sample = texture2D(draw_pass, vec2(pick_x, pick_y));
 
