@@ -300,6 +300,12 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     gl.attachShader(prog.id, prog.frag.id)
     gl.linkProgram(prog.id);
 
+    // check for erros while linking
+    var program_info_log = gl.getProgramInfoLog(prog.id);
+    if (program_info_log) {
+        console.warn(program_info_log);
+    }
+
     // uniform type map
     var u_map = {};
     u_map[gl.FLOAT] = "1fv";
