@@ -66,7 +66,7 @@ function main() {
     vec3.scale(light_direction, light_direction, -1);
 
     // frame buffer for our first render pass
-    var buffer_size = 1024;
+    var buffer_size = 512;
     register_framebuffer("demo_07/draw", buffer_size);
 
 
