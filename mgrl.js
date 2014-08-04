@@ -1709,13 +1709,11 @@ please.gl.__jta_model = function (src, uri) {
     });
     var FloatArray = function (raw, hint) {
         if (hint == "Float32Array") {
-            console.info("32bit Floats");
             return new Float32Array(please.gl.array_buffer(raw));
         }
         else if (hint == "Float16Array") {
-            // some fancy footwork to cast half Float16s to Float32s
-            // because there is no Float16Array type in javascript.
-            console.info("16bit Floats");
+            // Some fancy footwork to cast half Float16s to Float32s.
+            // Javascript, however, lacks a Float16Array type.
             var data = new Uint16Array(please.gl.array_buffer(raw));
             var out = new Float32Array(data.length);
             var sign_mask = 32768; // parseInt("1000000000000000", 2)

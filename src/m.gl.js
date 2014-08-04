@@ -460,14 +460,11 @@ please.gl.__jta_model = function (src, uri) {
 
     var FloatArray = function (raw, hint) {
         if (hint == "Float32Array") {
-            console.info("32bit Floats");
             return new Float32Array(please.gl.array_buffer(raw));
         }
         else if (hint == "Float16Array") {
             // Some fancy footwork to cast half Float16s to Float32s.
             // Javascript, however, lacks a Float16Array type.
-
-            console.info("16bit Floats");
             var data = new Uint16Array(please.gl.array_buffer(raw));
             var out = new Float32Array(data.length);
 
@@ -499,7 +496,6 @@ please.gl.__jta_model = function (src, uri) {
             return out;
         }
     };
-
 
     // Create our attribute lists.  Closure to avoid scope polution.
     please.get_properties(groups).map(function(name) {
