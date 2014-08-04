@@ -90,7 +90,7 @@ def main():
         "texture" : None,
         "bake" : args.bake,
         "smooth" : args.smooth,
-        "bloated" : args.bloat,
+        "bloat" : args.bloat,
     }
 
     # select the correct model parser

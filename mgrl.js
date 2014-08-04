@@ -1371,8 +1371,6 @@ please.gl = {
         var buffer = new ArrayBuffer(raw.length);
         var data = new DataView(buffer);
         for (var i=0; i<raw.length; i+=1) {
-            // fixme - charCodeAt might think something is unicode and
-            // produce garbage....?
             data.setUint8(i, raw.charCodeAt(i));
         }
         return buffer;
@@ -1709,6 +1707,42 @@ please.gl.__jta_model = function (src, uri) {
             console.warn("Not implemented: " + meta.hint);
         }
     });
+    var FloatArray = function (raw, hint) {
+        if (hint == "Float32Array") {
+            console.info("32bit Floats");
+            return new Float32Array(please.gl.array_buffer(raw));
+        }
+        else if (hint == "Float16Array") {
+            // some fancy footwork to cast half Float16s to Float32s
+            // because there is no Float16Array type in javascript.
+            console.info("16bit Floats");
+            var data = new Uint16Array(please.gl.array_buffer(raw));
+            var out = new Float32Array(data.length);
+            var sign_mask = 32768; // parseInt("1000000000000000", 2)
+            var expo_mask = 31744; // parseInt("0111110000000000", 2)
+            var frac_mask = 1023; // parseInt("0000001111111111", 2)
+            for (var i=0; i<data.length; i+=1) {
+                var sign = (data[i] & sign_mask) >> 15;
+                var expo = (data[i] & expo_mask) >> 10;
+                var frac = (data[i] & frac_mask);
+                if (expo === 0 && frac === 0) {
+                    out[i] = 0.0;
+                }
+                else if (expo >= 1 && expo <= 30) {
+                    out[i] = Math.pow(-1, sign) * Math.pow(2, expo-15) * (1+frac/1024);
+                }
+                else if (expo === 31) {
+                    if (frac === 0) {
+                        out[i] = Infinity * Math.pow(-1, sign);
+                    }
+                    else {
+                        out[i] = NaN;
+                    }
+                }
+            }
+            return out;
+        }
+    };
     // Create our attribute lists.  Closure to avoid scope polution.
     please.get_properties(groups).map(function(name) {
         var group = {
@@ -1732,7 +1766,7 @@ please.gl.__jta_model = function (src, uri) {
             var hint = vertices[attr].hint;
             var raw = vertices[attr].data;
             tmp[attr] = {
-                "data" : new Float32Array(please.gl.array_buffer(raw)),
+                "data" : new FloatArray(raw, hint),
                 "item_size" : vertices[attr].size,
                 /*
                   The size attribute means this:
