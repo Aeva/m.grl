@@ -1,39 +1,49 @@
 
 import os
 import json
-import array
+import numpy
 import base64
 import hashlib
 
 
-def list_to_blob(data, size=3):
+def list_to_blob(data, size=3, precision=16):
     if not data:
         return None
     typed = type(data[0])
-    assert typed in [int, long, float]
+    assert typed in [int, float]
     assert size in [1, 2, 3, 9, 16]
+    assert precision in [16, 32]
     # 1 = float
     # 2 = vec2
     # 3 = vec3
     # 9 = mat3
     # 12 = mat4
-    ar = None
     hint = None
+    dtype = None
     if typed == int:
-        ar = array.array("I")
-        hint = "Uint32Array"
+        if precision == 16:
+            dtype = numpy.int16
+            hint = "Int16Array"
+        else:
+            dtype = numpy.int32
+            hint = "Int32Array"
     elif typed == float:
-        ar = array.array("f")
-        hint = "Float32Array"
-    if ar is not None:
-        ar.fromlist(data)
-        return {
-            "hint" : hint,
-            "size" : size,
-            "data" : base64.b64encode(ar.tostring()),
-        }
-    else:
-        raise ValueError("Cannot determine output array type.")
+        if precision == 16:
+            dtype = numpy.float16
+            hint = "Float16Array"
+        else:
+            dtype = numpy.float32
+            hint = "Float32Array"
+
+    ar = numpy.ndarray(shape=(len(data)), buffer=None, dtype=dtype)
+    for i in range(len(data)):
+        ar[i] = data[i]
+    
+    return {
+        "hint" : hint,
+        "size" : size,
+        "data" : base64.b64encode(ar.tostring()),
+    }
 
 
 def combine_and_save(results, out_path):
@@ -126,15 +136,21 @@ def combine_and_save(results, out_path):
                     group.normal[start+i] = normal[i]
 
 
+    # determine storage precision for vertices
+    precision = 16
+    if results["bloat"]:
+        precision = 32
+    
+
     # store vertex group info
     for group in parser.groups:
         count = len(group.position)/3
         assert len(group.normal) == 0 or len(group.normal)/3 == count
         assert len(group.tcoord) == 0 or len(group.tcoord)/2 == count
         
-        position = list_to_blob(group.position)
-        normal = list_to_blob(group.normal)
-        tcoord = list_to_blob(group.tcoord, size=2)
+        position = list_to_blob(group.position, precision=precision)
+        normal = list_to_blob(group.normal, precision=precision)
+        tcoord = list_to_blob(group.tcoord, size=2, precision=precision)
 
         data = {
             "position" : position,
