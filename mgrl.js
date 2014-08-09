@@ -1376,6 +1376,7 @@ please.media.handlers.jta = function (url, callback) {
 please.gl = {
     "canvas" : null,
     "ctx" : null,
+    "ext" : {},
     "__cache" : {
         "current" : null,
         "programs" : {},
@@ -1403,6 +1404,17 @@ please.gl = {
         }
         else {
             window.gl = this.ctx;
+            // look for common extensions
+            var search = [
+                'EXT_texture_filter_anisotropic',
+            ];
+            for (var i=0; i<search.length; i+=1) {
+                var name = search[i];
+                var found = gl.getExtension(name);
+                if (found) {
+                    this.ext[name] = found;
+                }
+            }
         }
     },
     // Returns an object for a built shader program.  If a name is not
@@ -1461,8 +1473,11 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
     }
 };
 // Used by please.gl.get_texture
-please.gl.__build_texture = function (uri, image_object) {
+please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
     // bind and load the texture, cache and return the id:
+    if (use_mipmaps === undefined) {
+        use_mipmaps = true;
+    }
     if (image_object.loaded === false) {
         image_object.addEventListener("load", function () {
             please.gl.__build_texture(uri, image_object);
@@ -1477,9 +1492,21 @@ please.gl.__build_texture = function (uri, image_object) {
         // FIXME: should we not assume gl.RGBA?
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
                       gl.UNSIGNED_BYTE, image_object);
-        // FIXME: or any of this?
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        if (use_mipmaps) {
+            var aniso = please.gl.ext['EXT_texture_filter_anisotropic'];
+            if (aniso) {
+                gl.texParameterf(
+                    gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT,
+                    gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT));
+            }
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+            gl.generateMipmap(gl.TEXTURE_2D);
+        }
+        else {
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        }
         gl.bindTexture(gl.TEXTURE_2D, null);
         please.gl.__cache.textures[uri] = tid;
         return tid;
