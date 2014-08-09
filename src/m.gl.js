@@ -224,6 +224,11 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "vars" : {}, // uniform variables
         "attrs" : {}, // attribute variables
         "samplers" : {}, // sampler variables
+        "__cache" : {
+            // the cache records the last value set,
+            "vars" : {},
+            "samplers" : {},
+        },
         "vert" : null,
         "frag" : null,
         "ready" : false,
@@ -339,29 +344,39 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         var uni = "uniform" + u_map[data.type];
         var is_array = uni.endsWith("v");
 
+        // FIXME - set defaults per data type
+        prog.__cache.vars[data.name] = null;
+
         prog.vars.__defineSetter__(data.name, function (type_array) {
             // FIXME we could do some sanity checking here, eg, making
             // sure the array length is appropriate for the expected
             // call type
+
+            if (type_array === prog.__cache.vars[data.name]) {
+                // redundant state change, do nothing
+                return;
+            }
+            var value = type_array;
             if (typeof(type_array) === "number") {
                 if (is_array) {
                     if (data.type === gl.FLOAT) {
-                        return gl[uni](pointer, new Float32Array([type_array]));
+                        value = new Float32Array([type_array]);
                     }
                     else if (data.type === gl.INT || data.type === gl.BOOL) {
-                        return gl[uni](pointer, new Int32Array([type_array]));
+                        value = new Int32Array([type_array]);
                     }
                 }
-                else {
-                    // note, "type_array" is not an array, just a number
-                    gl[uni](pointer, type_array);
-                }
             }
-            else if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
+            prog.__cache.vars[data.name] = value;
+            if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
                 // the 'transpose' arg is assumed to be false :P
-                return gl[uni](pointer, false, type_array);
+                return gl[uni](pointer, false, value);
             }
-            return gl[uni](pointer, type_array);
+            return gl[uni](pointer, value);
+        });
+
+        prog.vars.__defineGetter__(data.name, function () {
+            return prog.__cache.vars[data.name] = null;
         });
 
         if (data.type === gl.SAMPLER_2D) {
@@ -373,14 +388,27 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 return;
             }
 
+            prog.__cache.samplers[data.name] = null;
+
             prog.samplers.__defineSetter__(data.name, function (uri) {
                 // FIXME: allow an option for a placeholder texture somehow.
+
+                if (uri === prog.__cache.samplers[data.name]) {
+                    // redundant state change, do nothing
+                    return;
+                }
+
                 var t_id = please.gl.get_texture(uri);
                 if (t_id !== null) {
                     gl.activeTexture(data.t_symbol);
                     gl.bindTexture(gl.TEXTURE_2D, t_id);
                     prog.vars[data.name] = data.t_unit;
+                    prog.__cache.samplers[data.name] = uri;
                 }
+            });
+
+            prog.samplers.__defineGetter__(data.name, function () {
+                return rog.__cache.samplers[data.name];
             });
         }
     };
