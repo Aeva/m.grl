@@ -416,6 +416,127 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 };
 
 
+// Create a VBO from attribute array data.
+please.gl.vbo = function (faces, attr_map, options) {
+    var opt = {
+        "type" : gl.FLOAT,
+        "mode" : gl.TRIANGLES,
+        "hint" : gl.STATIC_DRAW,
+    }
+    if (options) {
+        please.get_properties(opt).map(function (name) {
+            if (options.hasOwnProperty(name)) {
+                opt[name] = options[name];
+            }
+        });
+    }
+
+    var vbo = {
+        "id" : null,
+        "faces" : faces,
+        "bind" : function () {},
+        "draw" : function () {
+            gl.drawArrays(opt.mode, 0, this.faces);
+        },
+    };
+
+    var attr_names = please.get_properties(attr_map);
+    if (attr_names.length === 1) {
+        // ---- create a monolithic VBO
+
+        var attr = attr_names[0];
+        var data = attr_map(attr);
+        var item_size = data.length / vbo.faces;
+        
+        // copy the data to the buffer
+        vbo.id = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo.id);
+        gl.bufferData(gl.ARRAY_BUFFER, data, opt.hint);
+        
+        vbo.bind = function () {
+            var prog = please.gl.__cache.current;
+            if (prog && prog.hasOwnProperty(prog.attrs[attr])) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
+                gl.vertexAttribPointer(
+                    prog.attrs[attr].loc, item_size, opt.type, false, 0, 0);
+            }
+        };
+
+    }
+    else {
+        // ---- create an interlaced VBO
+
+        var offset = 0;
+        var buffer_size = 0;
+        var bind_order = [];
+        var bind_offset = [];
+        var item_sizes = {};
+
+        // FIXME: item_size 4 attrs should be first, followed by the
+        // size 2 attrs, the 3 and 1 sized attrs.  Some kind of snake
+        // oil optimization for OpenGL ES that I see a lot, but
+        // haven't found a practical explanation for yet, so not
+        // worrying about it for now.
+
+        // determine item sizes and bind offsets
+        for (var i=0; i<attr_names.length; i+=1) {
+            var attr = attr_names[i];
+            item_sizes[attr] = attr_map[attr].length / vbo.faces;
+            buffer_size += attr_map[attr].length;
+            bind_order.push(attr);
+            bind_offset.push(offset);
+            offset += item_sizes[attr];
+        };
+
+        // calculate the packing stride
+        var stride = offset;
+
+        // build the interlaced vertex array:
+        var builder = new Float32Array(buffer_size);
+        for (var i=0; i<bind_order.length; i+=1) {
+            var attr = bind_order[i];
+            var data = attr_map[attr];
+            var item_size = item_sizes[attr];
+            for (var k=0; k<data.length/item_size; k+=1) {
+                for (var n=0; n<item_sizes[attr]; n+=1) {
+                    var attr_offset = bind_offset[i] + (stride*k);
+                    builder[attr_offset+n] = data[(k*item_sizes[attr])+n];
+                }
+            }
+        }
+
+        // copy the new data to the buffer
+        vbo.id = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo.id);
+        gl.bufferData(gl.ARRAY_BUFFER, builder, opt.hint);
+
+        vbo.bind = function () {
+            var prog = please.gl.__cache.current;
+            if (prog) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
+                for (var i=0; i<bind_order.length; i+=1) {
+                    var attr = bind_order[i];
+                    var offset = bind_offset[i];
+                    var item_size = item_sizes[attr];
+                    if (prog.attrs[attr]) {
+                        gl.vertexAttribPointer(
+                            prog.attrs[attr].loc, item_size, 
+                            opt.type, false, stride*4, offset*4);
+                    }
+                }
+            }
+        }
+    }
+    return vbo;
+};
+
+
+// Create a IBO.
+please.gl.ibo = function (faces) {
+    return null;
+};
+
+
 // JTA model loader.  This is just a quick-and-dirty implementation.
 please.gl.__jta_model = function (src, uri) {
     // The structure of a JTA file is json.  Large blocks of agregate
@@ -480,105 +601,26 @@ please.gl.__jta_model = function (src, uri) {
 
     // Create our attribute lists.  Closure to avoid scope polution.
     please.get_properties(groups).map(function(name) {
-        var group = {
-            "vbo" : null,
-            "faces" : 0,
-        };
-
-        var tmp = {};
-        var offset = 0;
-        var buffer_size = 0;
-        var bind_order = [];
-        var bind_offset = [];
         var vertices = groups[name];
-
         if (!vertices.position) {
             throw("JTA model " + uri + " is missing the 'position' attribute!!");            
         }
 
-        // FIXME: item_size 4 attrs should be first, followed by the
-        // size 2 attrs, the 3 and 1 sized attrs.  Some kind of snake
-        // oil optimization for OpenGL ES that I see a lot, but
-        // haven't found a practical explanation for yet.
+        var attr_map = {};
+
         for (var attr in vertices) {
             var hint = vertices[attr].hint;
             var raw = vertices[attr].data;
-            tmp[attr] = {
-                "data" : please.typed_array(raw, hint),
-                "item_size" : vertices[attr].size,
-                /*
-                  The size attribute means this:
-                  1 = float,
-                  2 = vec2,
-                  3 = vec3,
-                  9 = mat3,
-                  12 = mat4.
-
-                  The array length and item count are otherwise inferred.
-                */
-            };
-            buffer_size += tmp[attr].data.length;
-
-            bind_order.push(attr);
-            bind_offset.push(offset);
-            offset += tmp[attr].item_size;
+            attr_map[attr] = please.typed_array(raw, hint);
         }
 
-        // Determine the face count for this vertex group:
-        group.faces = tmp.position.data.length / tmp.position.item_size;
+        var faces = attr_map.position.length / 3;
+        var vbo = please.gl.vbo(faces, attr_map);
 
-        // Calculate the packing stride:
-        var stride = offset;
-        // FIXME: See above snake oil optimization: the stride can be
-        // padded to make the indices line up to 4 or 8 or something
-        // :P
-
-
-        // build the interlaced vertex array:
-        var builder = new Float32Array(buffer_size);
-        for (var i=0; i<bind_order.length; i+=1) {
-            var attr = tmp[bind_order[i]];
-            for (var k=0; k<attr.data.length/attr.item_size; k+=1) {
-                for (var n=0; n<attr.item_size; n+=1) {
-                    var attr_offset = bind_offset[i] + (stride*k);
-                    builder[attr_offset+n] = attr.data[(k*attr.item_size)+n];
-                }
-            }
-
-            // free up now unused memory:
-            delete tmp[bind_order[i]].data;
+        if (vbo) {
+            console.info("Created vbo for: " + uri + " / " + name);
+            model.__groups.push(vbo);
         }
-
-        // Create the VBO
-        group.vbo = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, group.vbo);
-        gl.bufferData(gl.ARRAY_BUFFER, builder, gl.STATIC_DRAW);
-        console.info("Created VBO for: " + uri + ":" + name);
-
-        // Bind function to set up the array for drawing:
-        group.bind = function () {
-            var prog = please.gl.__cache.current;
-            if (prog) {
-                gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
-                for (var i=0; i<bind_order.length; i+=1) {
-                    var attr = bind_order[i];
-                    var offset = bind_offset[i];
-                    var item_size = tmp[attr].item_size;
-                    if (prog.attrs[attr]) {
-                        gl.vertexAttribPointer(
-                            prog.attrs[attr].loc, item_size, 
-                            gl.FLOAT, false, stride*4, offset*4);
-                    }
-                }
-            }
-        };
-
-        // Draw function:
-        group.draw = function () {
-            gl.drawArrays(gl.TRIANGLES, 0, this.faces);
-        };
-        
-        model.__groups.push(group);
     });
 
     return model;
