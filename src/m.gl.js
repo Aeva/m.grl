@@ -392,11 +392,12 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 }
             }
             else {
+                // FIXME:
                 // The typed array object is a pointer - if we just
                 // stored that in cache, it could be modified later,
                 // thus making it impossibleto tell if anything has
-                // changed.  Remarkably, casting like this does not
-                // seem to introduce any significant overhead.
+                // changed.  Unfortunately this adds up pretty fast
+                // when there are a lot of state changes in a frame.
                 prog.__cache.vars[data.name] = Array.apply([], value)
             }
             if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
