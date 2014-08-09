@@ -1651,12 +1651,16 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             // FIXME we could do some sanity checking here, eg, making
             // sure the array length is appropriate for the expected
             // call type
-            if (type_array === prog.__cache.vars[data.name]) {
-                // redundant state change, do nothing
+            var cmp = type_array;
+            if (typeof(type_array) !== "number") {
+                cmp = Array.apply([], type_array);
+            }
+            if (cmp === prog.__cache.vars[data.name]) {
                 return;
             }
             var value = type_array;
             if (typeof(type_array) === "number") {
+                prog.__cache.vars[data.name] = value;
                 if (is_array) {
                     if (data.type === gl.FLOAT) {
                         value = new Float32Array([type_array]);
@@ -1666,7 +1670,13 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     }
                 }
             }
-            prog.__cache.vars[data.name] = value;
+            else {
+                // the typed array object is a pointer - if we just
+                // stored that in cache, it could be modified later,
+                // thus making it impossibleto tell if anything has
+                // changed.
+                prog.__cache.vars[data.name] = Array.apply([], value)
+            }
             if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
                 // the 'transpose' arg is assumed to be false :P
                 return gl[uni](pointer, false, value);
@@ -1674,7 +1684,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             return gl[uni](pointer, value);
         });
         prog.vars.__defineGetter__(data.name, function () {
-            return prog.__cache.vars[data.name] = null;
+            return prog.__cache.vars[data.name];
         });
         if (data.type === gl.SAMPLER_2D) {
             data.t_unit = sampler_uniforms.length;
@@ -1709,8 +1719,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     for (var i=0; i<uni_count; i+=1) {
         bind_uniform(gl.getActiveUniform(prog.id, i));
     }
-    Object.freeze(prog.vars);
-    Object.freeze(prog.samplers);
+    //Object.freeze(prog.vars);
+    //Object.freeze(prog.samplers);
     prog.ready = true;
     please.gl.__cache.programs[prog.name] = prog;
     return prog;
