@@ -419,6 +419,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         bind_uniform(gl.getActiveUniform(prog.id, i));
     }
 
+    Object.freeze(prog.vars);
+    Object.freeze(prog.samplers);
+
     prog.ready = true;
     please.gl.__cache.programs[prog.name] = prog;    
     return prog;
