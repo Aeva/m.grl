@@ -86,9 +86,13 @@ function main() {
         mat4.lookAt(
             view_matrix,
             vec3.fromValues(0, -3, 2), // camera
-            vec3.fromValues(0, 0, 1),   // look at
-            vec3.fromValues(0, 0, 1)    // up vector
+            vec3.fromValues(0, 0, 1),  // look at
+            vec3.fromValues(0, 0, 1)   // up vector
         );
+
+        // force cache expiration
+        view_matrix.dirty = true;
+        projection_matrix.dirty = true;
 
         // rotate suzanne
         suzanne.rz = (-90*mark*rotation_speed)-90;
@@ -136,6 +140,10 @@ function main() {
             vec3.fromValues(0, 0, 1),   // look at
             vec3.fromValues(0, 0, 1)    // up vector
         );
+
+        // force cache expiration
+        view_matrix.dirty = true;
+        projection_matrix.dirty = true;
 
         // update vars
         prog.vars.render_pass = 2;

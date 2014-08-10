@@ -1678,16 +1678,11 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             // FIXME we could do some sanity checking here, eg, making
             // sure the array length is appropriate for the expected
             // call type
-            var cmp = type_array;
-            if (typeof(type_array) !== "number") {
-                cmp = Array.apply([], type_array);
-            }
-            if (cmp === prog.__cache.vars[data.name]) {
+            if (type_array === prog.__cache.vars[data.name] && type_array.dirty === false) {
                 return;
             }
             var value = type_array;
             if (typeof(type_array) === "number") {
-                prog.__cache.vars[data.name] = value;
                 if (is_array) {
                     if (data.type === gl.FLOAT) {
                         value = new Float32Array([type_array]);
@@ -1697,14 +1692,13 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     }
                 }
             }
-            else {
-                // The typed array object is a pointer - if we just
-                // stored that in cache, it could be modified later,
-                // thus making it impossibleto tell if anything has
-                // changed.  Remarkably, casting like this does not
-                // seem to introduce any significant overhead.
-                prog.__cache.vars[data.name] = Array.apply([], value)
-            }
+            // Cache the value to be saved.  Note that type arrays are
+            // compared as pointers, so changing the type array will
+            // also change this value.  Setting value.dirty is sort of
+            // a work around to allow the end user to flag that the
+            // cached value has expired.
+            value.dirty = false;
+            prog.__cache.vars[data.name] = value;
             if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
                 // the 'transpose' arg is assumed to be false :P
                 return gl[uni](pointer, false, value);
