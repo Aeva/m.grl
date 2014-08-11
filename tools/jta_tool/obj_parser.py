@@ -25,6 +25,12 @@ class OBJParser(ModelParser):
     def calculate_normals(self):
         raise NotImplementedError("Calculating Normals")
 
+    def __transpose(self, data):
+        if self.transpose:
+            return [data[0], data[2], data[1]]
+        else:
+            return data
+
     def parse(self, raw_data):
         groups = []
         groups.append(GroupBuilder())
@@ -48,11 +54,7 @@ class OBJParser(ModelParser):
 
             if command == "v":
                 # store vertex position
-                vert_tmp = map(float, parts)
-                if self.transpose:
-                    groups[-1].verts.append([vert_tmp[0], vert_tmp[2], vert_tmp[1]])
-                else:
-                    groups[-1].verts.append(vert_tmp)
+                groups[-1].verts.append(self.__transpose(map(float, parts)))
                 continue
 
             if command == "vt":
@@ -62,7 +64,7 @@ class OBJParser(ModelParser):
 
             if command == "vn":
                 # store optional surface normal
-                groups[-1].normals.append(map(float, parts))
+                groups[-1].normals.append(self.__transpose(map(float, parts)))
                 self.generate_normals = False
                 continue
 

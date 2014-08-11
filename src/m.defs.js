@@ -205,3 +205,62 @@ please.random_of = function(array) {
 please.radians = function (degrees) {
     return degrees*(Math.PI/180);
 };
+
+
+// Take a base64 encoded array of binary data and return something
+// that can be cast into a typed array eg Float32Array.
+please.decode_buffer = function(blob) {
+    // FIXME, correct for local endianness
+
+    var raw = atob(blob);
+    var buffer = new ArrayBuffer(raw.length);
+    var data = new DataView(buffer);
+    for (var i=0; i<raw.length; i+=1) {
+        data.setUint8(i, raw.charCodeAt(i));
+    }
+    return buffer;
+};
+
+
+// Intelligently create a typed array from a type hint.  Includes
+// normalizing Float16 arrays into Float32 arrays.
+please.typed_array = function (raw, hint) {
+    if (hint == "Float32Array") {
+        return new Float32Array(please.decode_buffer(raw));
+    }
+    else if (hint == "Float16Array") {
+        // Some fancy footwork to cast half Float16s to Float32s.
+        // Javascript, however, lacks a Float16Array type.
+        var data = new Uint16Array(please.decode_buffer(raw));
+        var out = new Float32Array(data.length);
+
+        var sign_mask = 32768; // parseInt("1000000000000000", 2)
+        var expo_mask = 31744; // parseInt("0111110000000000", 2)
+        var frac_mask = 1023;  // parseInt("0000001111111111", 2)
+
+        for (var i=0; i<data.length; i+=1) {
+            var sign = (data[i] & sign_mask) >> 15;
+            var expo = (data[i] & expo_mask) >> 10;
+            var frac = (data[i] & frac_mask);
+
+            if (expo === 0 && frac === 0) {
+                out[i] = 0.0;
+            }
+            else if (expo >= 1 && expo <= 30) {
+                out[i] = Math.pow(-1, sign) * Math.pow(2, expo-15) * (1+frac/1024);
+            }
+            else if (expo === 31) {
+                if (frac === 0) {
+                    out[i] = Infinity * Math.pow(-1, sign);
+                }
+                else {
+                    out[i] = NaN;
+                }
+            }
+        }
+        return out;
+    }
+    else {
+        throw ("Not implemented: non-float array type hints.");
+    }
+};

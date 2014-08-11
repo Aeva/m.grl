@@ -11,9 +11,14 @@ uniform sampler2D texture_map;
 varying vec3 local_position;
 varying vec3 local_normal;
 varying vec2 local_tcoord;
+varying vec3 world_position;
+varying vec3 world_normal;
+varying vec3 view_position;
 
-varying vec3 global_position;
-varying vec3 camera_position;
+// lighting stuff
+uniform vec3 light_direction;
+varying vec3 light_weight;
+varying float directional_weight;
 
 
 float random_seed(vec3 co) {
@@ -34,27 +39,49 @@ float invert(float val) {
 }
 
 
+vec4 pdq_phong(vec4 base_color) {
+  return vec4(vec3(base_color.rgb*light_weight), base_color.a);
+}
+vec4 pdq_anti_phong(vec4 base_color) {
+  // has nothing to do with phong
+  return mix(vec4(0.0, 0.0, 0.0, 1.0), base_color, directional_weight);
+}
+
 
 void main(void) {
-  vec4 color_sample = texture2D(texture_map, local_tcoord);
+  vec4 color_sample = pdq_phong(texture2D(texture_map, local_tcoord));
   float rand = random();
 
-  vec4 weird = vec4(mix(rand, 1.0, local_normal.x),
-                    mix(rand, 1.0, local_normal.y),
-                    mix(rand, 1.0, local_normal.z),
+  // stuff for specular lighting:
+  // eye vector
+  vec3 eye_vector = normalize(-view_position);
+  vec3 reflection = reflect(light_direction, normalize(world_normal));
+  float shiny = 10.0;
+  float specular_weight = pow(max(dot(reflection, eye_vector), 0.0), shiny);
+  //float specular_weight = 1.0;
+
+
+  /*
+  vec4 weird = vec4(mix(rand, 1.0, world_normal.x),
+                    mix(rand, 1.0, world_normal.y),
+                    mix(rand, 1.0, world_normal.z),
                     1.0);
+  */
+  vec4 weird = pdq_anti_phong(vec4(rand, rand, rand, 1.0));
 
   float frequency = 8.0;
   float amplitude = 0.4;
   float threshold = 0.25;
 
-  float factor = (clamp(global_position.x + sin(global_position.z*frequency)*amplitude,
+  float factor = (clamp(world_position.x + sin(world_position.z*frequency)*amplitude,
                         -1.0*threshold, threshold) + threshold)/(threshold*2.0);
 
   vec4 mixed_color = mix(color_sample, weird, factor);
   vec4 haze = vec4(.93, .93, .93, 1.0);
-  float falloff = camera_position.z-5.0;
+  float falloff = view_position.z-5.0;
   float range = 30.0;
 
-  gl_FragColor = mix(mixed_color, haze, clamp(falloff, 0.0, range)/range);
+
+  vec4 specularized = mixed_color + specular_weight;
+  gl_FragColor = mix(specularized, haze, clamp(falloff, 0.0, range)/range);
 }

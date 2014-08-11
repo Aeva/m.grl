@@ -25,7 +25,8 @@
 
 addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
-    please.media.search_paths.img = "assets/";
+    please.media.search_paths.img = "../gl_assets/img/";
+    please.media.search_paths.jta = "../gl_assets/models/";
     please.gl.relative_lookup = true;
 
     please.load("glsl", "glsl/simple.vert");
@@ -34,8 +35,9 @@ addEventListener("load", function() {
         "loaded" : false,
     };
     //please.load("text", "gavroche.jta", pdq_loader);
-    please.load("jta", "gavroche.jta");
-    please.load("jta", "floor_lamp.jta");
+    please.relative_load("jta", "gavroche.jta");
+    please.relative_load("jta", "floor_lamp.jta");
+    please.relative_load("jta", "suzanne.jta");
     please.media.connect_onload(main);
 });
 
@@ -49,10 +51,10 @@ function main () {
     prog.activate();
 
     // setup matricies & uniforms
-    var projection = mat4.perspective(
+    var projection_matrix = mat4.perspective(
         mat4.create(), 45, canvas.width/canvas.height, 0.1, 100.0);
-    var camera = mat4.create();
-    var offset = mat4.create();
+    var view_matrix = mat4.create();
+    var model_matrix = mat4.create();
 
 
     // setup default state stuff    
@@ -60,13 +62,11 @@ function main () {
     gl.depthFunc(gl.LEQUAL);
     //gl.clearColor(.93, .93, .93, 1.0);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
-    var scale_factor = .325;
-    scale_factor *= 10; // for old models
 
 
     // store the models we're going to display
     var models = [
-        model_instance("floor_lamp.jta", offset),
+        model_instance("floor_lamp.jta", model_matrix),
     ];
 
     var coords = [
@@ -76,8 +76,9 @@ function main () {
         [0, 5, 0],
     ];
 
+    // add a bunch of gavroches
     for (var i=0; i<coords.length; i+=1) {
-        var gav = model_instance("gavroche.jta", offset);
+        var gav = model_instance("gavroche.jta", model_matrix);
         gav.x = coords[i][0];
         gav.y = coords[i][1];
         gav.z = coords[i][2];
@@ -85,6 +86,7 @@ function main () {
         models.push(gav);
     }
 
+    // add row of lamps in the background
     var spacing = 5;
     var count = 10;
     var end = count*spacing;
@@ -97,27 +99,36 @@ function main () {
         lamp.rz = Math.random()*20-10;
         models.push(lamp);
     }
-   
 
+    var camera_coords = vec3.fromValues(-3, 10, 6);
+    var lookat_coords = vec3.fromValues(0, 0, 1);
+    var light_direction = vec3.fromValues(.25, -1.0, -.4);
+    vec3.normalize(light_direction, light_direction);
+    vec3.scale(light_direction, light_direction, -1);
+    
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_06/draw", function () {
         var mark = performance.now();
-        mat4.identity(offset);
+        mat4.identity(model_matrix);
         mat4.lookAt(
-            camera,
-            vec3.fromValues(-3, 10, 6), // camera coords
-            vec3.fromValues(0, 0, 1),   // focal point
-            vec3.fromValues(0, 0, 1)    // up vector
+            view_matrix,
+            camera_coords,
+            lookat_coords,
+            vec3.fromValues(0, 0, 1) // up vector
         );
 
         var slowdown = 5000;
-        offset = mat4.rotateZ(offset, offset, please.radians((-90*mark/slowdown)-90));
+        model_matrix = mat4.rotateZ(
+            model_matrix, model_matrix, please.radians((-90*mark/slowdown)-90));
 
         // -- update uniforms
         prog.vars.time = mark;
-        prog.vars.camera = camera;
-        prog.vars.offset = offset;
-        prog.vars.projection = projection;
+        prog.vars.light_direction = light_direction;
+        prog.vars.view_matrix = view_matrix;
+        prog.vars.model_matrix = model_matrix;
+        prog.vars.projection_matrix = projection_matrix;
+        prog.vars.normal_matrix = normal_matrix(model_matrix, view_matrix);
+
 
         // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -132,7 +143,18 @@ function main () {
 };
 
 
-function model_instance (uri, global_position) {
+// This function creates a matrix for transforming normals from model
+// space to world space.
+function normal_matrix (model_matrix) {
+    var normal = mat3.create();
+    mat3.fromMat4(normal, model_matrix);
+    mat3.invert(normal, normal);
+    mat3.transpose(normal, normal);
+    return normal;
+};
+
+
+function model_instance (uri, model_matrix) {
     return {
         "x" : 0,
         "y" : 0,
@@ -140,7 +162,7 @@ function model_instance (uri, global_position) {
         "rx" : 0,
         "ry" : 0,
         "rz" : 0,
-        "name" : uri,
+        "name" : please.relative("jta", uri),
         "__stamp" : performance.now(),
 
         "bind" : function () {
@@ -159,11 +181,14 @@ function model_instance (uri, global_position) {
                 if (this.rz) {
                     mat4.rotateZ(position, position, please.radians(this.rz));
                 }
-                if (global_position) {
-                    prog.vars.offset = mat4.multiply(mat4.create(), global_position, position);
+                if (model_matrix) {
+                    var new_mvmatrix = mat4.multiply(mat4.create(), model_matrix, position);
+                    prog.vars.model_matrix = new_mvmatrix;
+                    prog.vars.normal_matrix = normal_matrix(new_mvmatrix);
                 }
                 else {
-                    prog.vars.offset = position;
+                    prog.vars.model_matrix = position;
+                    prog.vars.normal_matrix = normal_matrix(position);
                 }
 
                 if (model.uniforms.texture && prog.samplers.hasOwnProperty("texture_map")) {

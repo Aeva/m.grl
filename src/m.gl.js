@@ -25,6 +25,7 @@ please.media.handlers.jta = function (url, callback) {
 please.gl = {
     "canvas" : null,
     "ctx" : null,
+    "ext" : {},
     "__cache" : {
         "current" : null,
         "quad" : null,
@@ -55,6 +56,18 @@ please.gl = {
         }
         else {
             window.gl = this.ctx;
+            
+            // look for common extensions
+            var search = [
+                'EXT_texture_filter_anisotropic',
+            ];
+            for (var i=0; i<search.length; i+=1) {
+                var name = search[i];
+                var found = gl.getExtension(name);
+                if (found) {
+                    this.ext[name] = found;
+                }
+            }
         }
     },
 
@@ -68,26 +81,17 @@ please.gl = {
             return this.__cache.current;
         }
     },
-
-    // Take a base64 encoded array of binary data and return something
-    // that can be cast into a typed array eg Float32Array:
-    "array_buffer" : function (blob) {
-        var raw = atob(blob);
-        var buffer = new ArrayBuffer(raw.length);
-        var data = new DataView(buffer);
-        for (var i=0; i<raw.length; i+=1) {
-            // fixme - charCodeAt might think something is unicode and
-            // produce garbage....?
-            data.setUint8(i, raw.charCodeAt(i));
-        }
-        return buffer;
-    },
 };
 
 
 // Helper function for creating texture objects from the asset cache.
 // Implies please.load etc:
 please.gl.get_texture = function (uri, use_placeholder, no_error) {
+
+    // Check for textures that were not created from image assets:
+    if (please.gl.__cache.textures[uri]) {
+        return please.gl.__cache.textures[uri];
+    }
     
     // Check to see if we're doing relative lookups, and adjust the
     // uri if necessary.  Accounts for manually added assets.
@@ -133,8 +137,12 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
 
 
 // Used by please.gl.get_texture
-please.gl.__build_texture = function (uri, image_object) {
+please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
     // bind and load the texture, cache and return the id:
+
+    if (use_mipmaps === undefined) {
+        use_mipmaps = true;
+    }
 
     if (image_object.loaded === false) {
         image_object.addEventListener("load", function () {
@@ -151,9 +159,23 @@ please.gl.__build_texture = function (uri, image_object) {
         // FIXME: should we not assume gl.RGBA?
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, 
                       gl.UNSIGNED_BYTE, image_object);
-        // FIXME: or any of this?
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+
+        if (use_mipmaps) {
+            var aniso = please.gl.ext['EXT_texture_filter_anisotropic'];
+            if (aniso) {
+                gl.texParameterf(
+                    gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT,
+                    gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT));
+            }
+
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+            gl.generateMipmap(gl.TEXTURE_2D);
+        }
+        else {
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        }
         gl.bindTexture(gl.TEXTURE_2D, null);
 
         please.gl.__cache.textures[uri] = tid;
@@ -222,6 +244,11 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "vars" : {}, // uniform variables
         "attrs" : {}, // attribute variables
         "samplers" : {}, // sampler variables
+        "__cache" : {
+            // the cache records the last value set,
+            "vars" : {},
+            "samplers" : {},
+        },
         "vert" : null,
         "frag" : null,
         "ready" : false,
@@ -296,6 +323,12 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     gl.attachShader(prog.id, prog.frag.id)
     gl.linkProgram(prog.id);
 
+    // check for erros while linking
+    var program_info_log = gl.getProgramInfoLog(prog.id);
+    if (program_info_log) {
+        console.warn(program_info_log);
+    }
+
     // uniform type map
     var u_map = {};
     u_map[gl.FLOAT] = "1fv";
@@ -331,29 +364,47 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         var uni = "uniform" + u_map[data.type];
         var is_array = uni.endsWith("v");
 
+        // FIXME - set defaults per data type
+        prog.__cache.vars[data.name] = null;
+
         prog.vars.__defineSetter__(data.name, function (type_array) {
             // FIXME we could do some sanity checking here, eg, making
             // sure the array length is appropriate for the expected
             // call type
+
+            if (type_array === prog.__cache.vars[data.name] && type_array.dirty === false) {
+                return;
+            }
+
+            var value = type_array;
             if (typeof(type_array) === "number") {
                 if (is_array) {
                     if (data.type === gl.FLOAT) {
-                        return gl[uni](pointer, new Float32Array([type_array]));
+                        value = new Float32Array([type_array]);
                     }
                     else if (data.type === gl.INT || data.type === gl.BOOL) {
-                        return gl[uni](pointer, new Int32Array([type_array]));
+                        value = new Int32Array([type_array]);
                     }
                 }
-                else {
-                    // note, "type_array" is not an array, just a number
-                    gl[uni](pointer, type_array);
-                }
             }
-            else if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
+
+            // Cache the value to be saved.  Note that type arrays are
+            // compared as pointers, so changing the type array will
+            // also change this value.  Setting value.dirty is sort of
+            // a work around to allow the end user to flag that the
+            // cached value has expired.
+            value.dirty = false;
+            prog.__cache.vars[data.name] = value;
+
+            if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
                 // the 'transpose' arg is assumed to be false :P
-                return gl[uni](pointer, false, type_array);
+                return gl[uni](pointer, false, value);
             }
-            return gl[uni](pointer, type_array);
+            return gl[uni](pointer, value);
+        });
+
+        prog.vars.__defineGetter__(data.name, function () {
+            return prog.__cache.vars[data.name];
         });
 
         if (data.type === gl.SAMPLER_2D) {
@@ -365,14 +416,27 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 return;
             }
 
+            prog.__cache.samplers[data.name] = null;
+
             prog.samplers.__defineSetter__(data.name, function (uri) {
                 // FIXME: allow an option for a placeholder texture somehow.
+
+                if (uri === prog.__cache.samplers[data.name]) {
+                    // redundant state change, do nothing
+                    return;
+                }
+
                 var t_id = please.gl.get_texture(uri);
                 if (t_id !== null) {
                     gl.activeTexture(data.t_symbol);
                     gl.bindTexture(gl.TEXTURE_2D, t_id);
                     prog.vars[data.name] = data.t_unit;
+                    prog.__cache.samplers[data.name] = uri;
                 }
+            });
+
+            prog.samplers.__defineGetter__(data.name, function () {
+                return rog.__cache.samplers[data.name];
             });
         }
     };
@@ -383,9 +447,133 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         bind_uniform(gl.getActiveUniform(prog.id, i));
     }
 
+    //Object.freeze(prog.vars);
+    //Object.freeze(prog.samplers);
+
     prog.ready = true;
     please.gl.__cache.programs[prog.name] = prog;    
     return prog;
+};
+
+
+// Create a VBO from attribute array data.
+please.gl.vbo = function (faces, attr_map, options) {
+    var opt = {
+        "type" : gl.FLOAT,
+        "mode" : gl.TRIANGLES,
+        "hint" : gl.STATIC_DRAW,
+    }
+    if (options) {
+        please.get_properties(opt).map(function (name) {
+            if (options.hasOwnProperty(name)) {
+                opt[name] = options[name];
+            }
+        });
+    }
+
+    var vbo = {
+        "id" : null,
+        "faces" : faces,
+        "bind" : function () {},
+        "draw" : function () {
+            gl.drawArrays(opt.mode, 0, this.faces);
+        },
+    };
+
+    var attr_names = please.get_properties(attr_map);
+    if (attr_names.length === 1) {
+        // ---- create a monolithic VBO
+
+        var attr = attr_names[0];
+        var data = attr_map(attr);
+        var item_size = data.length / vbo.faces;
+        
+        // copy the data to the buffer
+        vbo.id = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo.id);
+        gl.bufferData(gl.ARRAY_BUFFER, data, opt.hint);
+        
+        vbo.bind = function () {
+            var prog = please.gl.__cache.current;
+            if (prog && prog.hasOwnProperty(prog.attrs[attr])) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
+                gl.vertexAttribPointer(
+                    prog.attrs[attr].loc, item_size, opt.type, false, 0, 0);
+            }
+        };
+
+    }
+    else {
+        // ---- create an interlaced VBO
+
+        var offset = 0;
+        var buffer_size = 0;
+        var bind_order = [];
+        var bind_offset = [];
+        var item_sizes = {};
+
+        // FIXME: item_size 4 attrs should be first, followed by the
+        // size 2 attrs, the 3 and 1 sized attrs.  Some kind of snake
+        // oil optimization for OpenGL ES that I see a lot, but
+        // haven't found a practical explanation for yet, so not
+        // worrying about it for now.
+
+        // determine item sizes and bind offsets
+        for (var i=0; i<attr_names.length; i+=1) {
+            var attr = attr_names[i];
+            item_sizes[attr] = attr_map[attr].length / vbo.faces;
+            buffer_size += attr_map[attr].length;
+            bind_order.push(attr);
+            bind_offset.push(offset);
+            offset += item_sizes[attr];
+        };
+
+        // calculate the packing stride
+        var stride = offset;
+
+        // build the interlaced vertex array:
+        var builder = new Float32Array(buffer_size);
+        for (var i=0; i<bind_order.length; i+=1) {
+            var attr = bind_order[i];
+            var data = attr_map[attr];
+            var item_size = item_sizes[attr];
+            for (var k=0; k<data.length/item_size; k+=1) {
+                for (var n=0; n<item_sizes[attr]; n+=1) {
+                    var attr_offset = bind_offset[i] + (stride*k);
+                    builder[attr_offset+n] = data[(k*item_sizes[attr])+n];
+                }
+            }
+        }
+
+        // copy the new data to the buffer
+        vbo.id = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo.id);
+        gl.bufferData(gl.ARRAY_BUFFER, builder, opt.hint);
+
+        vbo.bind = function () {
+            var prog = please.gl.__cache.current;
+            if (prog) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
+                for (var i=0; i<bind_order.length; i+=1) {
+                    var attr = bind_order[i];
+                    var offset = bind_offset[i];
+                    var item_size = item_sizes[attr];
+                    if (prog.attrs[attr]) {
+                        gl.vertexAttribPointer(
+                            prog.attrs[attr].loc, item_size, 
+                            opt.type, false, stride*4, offset*4);
+                    }
+                }
+            }
+        }
+    }
+    return vbo;
+};
+
+
+// Create a IBO.
+please.gl.ibo = function (faces) {
+    return null;
 };
 
 
@@ -450,107 +638,29 @@ please.gl.__jta_model = function (src, uri) {
         }
     });
 
+
     // Create our attribute lists.  Closure to avoid scope polution.
     please.get_properties(groups).map(function(name) {
-        var group = {
-            "vbo" : null,
-            "faces" : 0,
-        };
-
-        var tmp = {};
-        var offset = 0;
-        var buffer_size = 0;
-        var bind_order = [];
-        var bind_offset = [];
         var vertices = groups[name];
-
         if (!vertices.position) {
             throw("JTA model " + uri + " is missing the 'position' attribute!!");
         }
 
-        // FIXME: item_size 4 attrs should be first, followed by the
-        // size 2 attrs, the 3 and 1 sized attrs.  Some kind of snake
-        // oil optimization for OpenGL ES that I see a lot, but
-        // haven't found a practical explanation for yet.
+        var attr_map = {};
+
         for (var attr in vertices) {
             var hint = vertices[attr].hint;
             var raw = vertices[attr].data;
-            tmp[attr] = {
-                "data" : new Float32Array(please.gl.array_buffer(raw)),
-                "item_size" : vertices[attr].size,
-                /*
-                  The size attribute means this:
-                  1 = float,
-                  2 = vec2,
-                  3 = vec3,
-                  9 = mat3,
-                  12 = mat4.
-
-                  The array length and item count are otherwise inferred.
-                */
-            };
-            buffer_size += tmp[attr].data.length;
-
-            bind_order.push(attr);
-            bind_offset.push(offset);
-            offset += tmp[attr].item_size;
+            attr_map[attr] = please.typed_array(raw, hint);
         }
 
-        // Determine the face count for this vertex group:
-        group.faces = tmp.position.data.length / tmp.position.item_size;
+        var faces = attr_map.position.length / 3;
+        var vbo = please.gl.vbo(faces, attr_map);
 
-        // Calculate the packing stride:
-        var stride = offset;
-        // FIXME: See above snake oil optimization: the stride can be
-        // padded to make the indices line up to 4 or 8 or something
-        // :P
-
-
-        // build the interlaced vertex array:
-        var builder = new Float32Array(buffer_size);
-        for (var i=0; i<bind_order.length; i+=1) {
-            var attr = tmp[bind_order[i]];
-            for (var k=0; k<attr.data.length/attr.item_size; k+=1) {
-                for (var n=0; n<attr.item_size; n+=1) {
-                    var attr_offset = bind_offset[i] + (stride*k);
-                    builder[attr_offset+n] = attr.data[(k*attr.item_size)+n];
-                }
-            }
-
-            // free up now unused memory:
-            delete tmp[bind_order[i]].data;
+        if (vbo) {
+            console.info("Created vbo for: " + uri + " / " + name);
+            model.__groups.push(vbo);
         }
-
-        // Create the VBO
-        group.vbo = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, group.vbo);
-        gl.bufferData(gl.ARRAY_BUFFER, builder, gl.STATIC_DRAW);
-        console.info("Created VBO for: " + uri + ":" + name);
-
-        // Bind function to set up the array for drawing:
-        group.bind = function () {
-            var prog = please.gl.__cache.current;
-            if (prog) {
-                gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
-                for (var i=0; i<bind_order.length; i+=1) {
-                    var attr = bind_order[i];
-                    var offset = bind_offset[i];
-                    var item_size = tmp[attr].item_size;
-                    if (prog.attrs[attr]) {
-                        gl.vertexAttribPointer(
-                            prog.attrs[attr].loc, item_size, 
-                            gl.FLOAT, false, stride*4, offset*4);
-                    }
-                }
-            }
-        };
-
-        // Draw function:
-        group.draw = function () {
-            gl.drawArrays(gl.TRIANGLES, 0, this.faces);
-        };
-        
-        model.__groups.push(group);
     });
 
     return model;
