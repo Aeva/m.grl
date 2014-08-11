@@ -28,7 +28,6 @@ please.gl = {
     "ext" : {},
     "__cache" : {
         "current" : null,
-        "quad" : null,
         "programs" : {},
         "textures" : {},
     },
@@ -457,7 +456,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 
 
 // Create a VBO from attribute array data.
-please.gl.vbo = function (faces, attr_map, options) {
+please.gl.vbo = function (vertex_count, attr_map, options) {
     var opt = {
         "type" : gl.FLOAT,
         "mode" : gl.TRIANGLES,
@@ -473,10 +472,10 @@ please.gl.vbo = function (faces, attr_map, options) {
 
     var vbo = {
         "id" : null,
-        "faces" : faces,
+        "count" : vertex_count,
         "bind" : function () {},
         "draw" : function () {
-            gl.drawArrays(opt.mode, 0, this.faces);
+            gl.drawArrays(opt.mode, 0, this.count);
         },
     };
 
@@ -486,7 +485,7 @@ please.gl.vbo = function (faces, attr_map, options) {
 
         var attr = attr_names[0];
         var data = attr_map(attr);
-        var item_size = data.length / vbo.faces;
+        var item_size = data.length / vbo.count;
         
         // copy the data to the buffer
         vbo.id = gl.createBuffer();
@@ -521,7 +520,7 @@ please.gl.vbo = function (faces, attr_map, options) {
         // determine item sizes and bind offsets
         for (var i=0; i<attr_names.length; i+=1) {
             var attr = attr_names[i];
-            item_sizes[attr] = attr_map[attr].length / vbo.faces;
+            item_sizes[attr] = attr_map[attr].length / vbo.count;
             buffer_size += attr_map[attr].length;
             bind_order.push(attr);
             bind_offset.push(offset);
@@ -574,6 +573,51 @@ please.gl.vbo = function (faces, attr_map, options) {
 // Create a IBO.
 please.gl.ibo = function (faces) {
     return null;
+};
+
+
+// Create and return a vertex buffer object containing a square.
+please.gl.make_quad = function (width, height, origin, draw_hint) {
+
+    if (!origin) {
+        origin = [0, 0, 0];
+    }
+    console.assert(origin.length === 3, "Origin must be in the form [0, 0, 0].");
+    if (!width) {
+        width = 2;
+    }
+    if (!height) {
+        height = 2;
+    }
+    if (!draw_hint) {
+        draw_hint = gl.STATIC_DRAW;
+    }
+    
+    var x1 = origin[0] + (width/2);
+    var x2 = origin[0] - (width/2);
+    var y1 = origin[1] + (height/2);
+    var y2 = origin[1] - (height/2);
+    var z = origin[2];
+
+    var attr_map = {};
+    attr_map.position = new Float32Array([
+        x1, y1, z, 
+        x2, y1, z, 
+        x2, y2, z, 
+        x1, y1, z, 
+        x1, y2, z, 
+        x2, y2, z,
+    ]);
+    attr_map.normal = new Float32Array([
+        0, 0, 1,
+        0, 0, 1,
+        0, 0, 1,
+        0, 0, 1,
+        0, 0, 1,
+        0, 0, 1,
+    ]);
+
+    return please.gl.vbo(6, attr_map, {"hint" : draw_hint});
 };
 
 
@@ -664,19 +708,4 @@ please.gl.__jta_model = function (src, uri) {
     });
 
     return model;
-};
-
-
-// Draws a quad with the given coordinates.
-please.gl.draw_quad = function (x1, y2, x2, y2, z) {
-    if (please.gl.__cache.quad === null) {
-        please.gl.__cache.quad = gl.createBuffer();
-    }
-    var vbo_id = please.gl.__cache.quad;
-    var prog = please.gl.get_program();
-    var data = new Float32Array([x2, y2, z, x1, y2, z, x2, y1, z, x1, y1, z]);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo_id);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
-    gl.vertexAttribPointer(prog.attrs.position.loc, 3, gl.FLOAT, false, 0, 0);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 };
