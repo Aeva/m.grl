@@ -6,6 +6,7 @@ precision mediump float;
 #endif
 
 uniform float time;
+uniform float mode;
 uniform sampler2D texture_map;
 
 varying vec3 local_position;
@@ -49,8 +50,49 @@ vec4 pdq_anti_phong(vec4 base_color) {
 
 
 void main(void) {
-  vec4 color_sample = pdq_phong(texture2D(texture_map, local_tcoord));
+
+  // determine the cut between -x and x axis for "weird" coloring
+  float frequency = 8.0;
+  float amplitude = 0.4;
+  float threshold = 0.25;
+  float axis;
+  if (mode == 1.0) {
+    axis = world_position.y;
+    frequency = 1.0;
+    threshold = 1.0;
+    amplitude = 0.8;
+  }
+  else {
+    axis = world_position.z;
+  }
+  float factor = (clamp(world_position.x + sin(axis*frequency)*amplitude,
+                        -1.0*threshold, threshold) + threshold)/(threshold*2.0);
+
   float rand = random();
+  vec4 weird;
+  vec4 color_sample;
+  if (mode == 1.0) {
+    float dither = rand / 3.0;
+    float checker_scale = 3.0;
+
+    float wobble_x = world_position.x + sin((world_position.y+(time/5000.0))*3.0) / 2.0;
+    float wobble_y = world_position.y + sin((world_position.x+(time/5000.0))*3.0) / 2.0;
+    bool check_x = fract(mix(world_position.x, wobble_x, factor) / checker_scale) < 0.5;
+    bool check_y = fract(mix(world_position.y, wobble_y, factor) / checker_scale) < 0.5;
+    if ((check_x && check_y) || (!check_x && !check_y)) {
+      color_sample = vec4(0.8, 0.8, 0.8, 1.0);
+      weird = vec4(0.6, 0.4, 0.4, 1.0);
+    }
+    else {
+      color_sample = vec4(0.37, 0.6, 0.14, 1.0);
+      weird = vec4(0.3, 0.3, 0.3, 1.0);
+    }
+    weird = vec4(weird.r + dither, weird.g + dither, weird.b + dither, 1.0);
+  }
+  else {
+    color_sample = pdq_phong(texture2D(texture_map, local_tcoord));
+    weird = pdq_anti_phong(vec4(rand, rand, rand, 1.0));
+  }
 
   // stuff for specular lighting:
   // eye vector
@@ -58,23 +100,6 @@ void main(void) {
   vec3 reflection = reflect(light_direction, normalize(world_normal));
   float shiny = 10.0;
   float specular_weight = pow(max(dot(reflection, eye_vector), 0.0), shiny);
-  //float specular_weight = 1.0;
-
-
-  /*
-  vec4 weird = vec4(mix(rand, 1.0, world_normal.x),
-                    mix(rand, 1.0, world_normal.y),
-                    mix(rand, 1.0, world_normal.z),
-                    1.0);
-  */
-  vec4 weird = pdq_anti_phong(vec4(rand, rand, rand, 1.0));
-
-  float frequency = 8.0;
-  float amplitude = 0.4;
-  float threshold = 0.25;
-
-  float factor = (clamp(world_position.x + sin(world_position.z*frequency)*amplitude,
-                        -1.0*threshold, threshold) + threshold)/(threshold*2.0);
 
   vec4 mixed_color = mix(color_sample, weird, factor);
   vec4 haze = vec4(.93, .93, .93, 1.0);

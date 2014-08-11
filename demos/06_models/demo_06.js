@@ -50,12 +50,12 @@ function main () {
     var prog = please.glsl("default", vert, frag);
     prog.activate();
 
+
     // setup matricies & uniforms
     var projection_matrix = mat4.perspective(
         mat4.create(), 45, canvas.width/canvas.height, 0.1, 100.0);
     var view_matrix = mat4.create();
     var model_matrix = mat4.create();
-
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
@@ -66,6 +66,7 @@ function main () {
 
     // store the models we're going to display
     var models = [
+        floor_quad(),
         model_instance("floor_lamp.jta", model_matrix),
     ];
 
@@ -154,6 +155,26 @@ function normal_matrix (model_matrix) {
 };
 
 
+function floor_quad () {
+    var vbo = please.gl.make_quad(100, 100);
+    var world_matrix = mat4.create();
+
+    return {
+        "bind" : function () {
+            var prog = please.gl.get_program();
+            prog.vars.mode = 1; // floor mode
+            prog.vars.model_matrix = world_matrix;
+            prog.vars.normal_matrix = normal_matrix(world_matrix);
+            vbo.bind();
+        },
+
+        "draw" : function () {
+            vbo.draw();
+        },
+    };
+};
+
+
 function model_instance (uri, model_matrix) {
     return {
         "x" : 0,
@@ -194,6 +215,7 @@ function model_instance (uri, model_matrix) {
                 if (model.uniforms.texture && prog.samplers.hasOwnProperty("texture_map")) {
                     prog.samplers.texture_map = model.uniforms.texture;
                 }
+                prog.vars.mode = 2; // not-floor mode
                 model.bind();
             }
         },
