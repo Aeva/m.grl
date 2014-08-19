@@ -1740,7 +1740,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             // also change this value.  Setting value.dirty is sort of
             // a work around to allow the end user to flag that the
             // cached value has expired.
-            value.dirty = false;
+            try {
+                value.dirty = false;
+            }
+            catch (err) {}
             prog.__cache.vars[data.name] = value;
             if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
                 // the 'transpose' arg is assumed to be false :P
