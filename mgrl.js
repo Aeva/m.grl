@@ -258,6 +258,7 @@ please.media = {
     "handlers" : {},
     "pending" : [],
     "__load_callbacks" : {},
+    "__load_status" : {},
     "onload_events" : [],
     "search_paths" : {
         "img" : "",
@@ -341,6 +342,32 @@ please.media.connect_onload = function (callback) {
         }
     }
 }
+// Get progress on pending downloads:
+please.media.get_progress = function () {
+    var loaded = 0;
+    var total = 0;
+    var unknown = 0;
+    var progress = {
+        "all" : -1,
+        "files" : {},
+    };
+    for (var uri in please.media.__load_status) if (please.media.__load_status.hasOwnProperty(uri)) {
+        var pending = please.media.__load_status[uri];
+        if (pending.total === -1) {
+            unknown +=1;
+            progress.files[uri] = -1;
+        }
+        else {
+            loaded += pending.loaded;
+            total += pending.total;
+            progress.files[uri] = pending.loaded / pending.total * 100;
+        }
+    }
+    if (total > 0) {
+        progress.all = loaded / total * 100;
+    }
+    return progress;
+};
 // add a request to the 'pending' queue
 please.media._push = function (req_key, callback) {
     var no_pending;
@@ -372,6 +399,7 @@ please.media._pop = function (req_key) {
             please.schedule(callback);
         });
         please.media.onload_events = [];
+        please.media.__load_status = {};
     }
     return callbacks;
 };
@@ -398,8 +426,23 @@ please.media.guess_type = function (file_name) {
 please.media.__xhr_helper = function (req_type, url, media_callback, user_callback) {
     var req_ok = please.media._push(url, user_callback);
     if (req_ok) {
+        var load_status = please.media.__load_status[url] = {
+            "total" : -1,
+            "loaded" : 0,
+            "percent" : 0,
+        };
         var req = new XMLHttpRequest();
-        req.onload = function () {
+        req.addEventListener("progress", function (event) {
+            // update progress status
+            if (event.lengthComputable) {
+                load_status.total = event.total;
+                load_status.loaded = event.loaded;
+                var percent = event.loaded / event.total * 100;
+                load_status.percent = Math.round(percent*100)/100;
+            }
+        });
+        req.addEventListener("loadend", function (event) {
+            // remove progress entry, call pending callbacks
             var callbacks = please.media._pop(url);
             var state = "fail";
             if (req.statusText === "OK") {
@@ -412,7 +455,7 @@ please.media.__xhr_helper = function (req_type, url, media_callback, user_callba
                     callback(state, url);
                 }
             }
-        };
+        });
         req.open('GET', url, true);
         req.responseType = req_type;
         req.send();
