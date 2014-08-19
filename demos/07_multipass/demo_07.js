@@ -55,10 +55,96 @@ function show_progress() {
 };
 
 
+var key_times = {
+    "up" : false,
+    "left" : false,
+    "down" : false,
+    "right" : false,
+};
+
+var position_mod = [0, 0, 0];
+
+
+function key_handler(state, key) {
+    // arrow key handler
+    if (state === "cancel") {
+        key_times[key] = false;
+    }
+    else if (state === "press" && key_times[key] === false) {
+        key_times[key] = performance.now();
+    }
+};
+
+
+function get_key_times(cap) {
+    // returns how long a key has been pressed
+    var times = {};
+    var mark = performance.now();
+
+    var names = please.get_properties(key_times);
+    for (var i=0; i<names.length; i+=1) {
+        var name = names[i];
+        times[name] = 0;
+        if (key_times[name] !== false) {
+            var dt = (mark - key_times[name]);
+            if (cap && cap < dt) {
+                times[name] = cap;
+            }
+            else {
+                times[name] = dt;
+            }
+        }
+    }
+    return times;
+};
+
+
+function get_camera_position() {
+    var rest = vec3.fromValues(0, -3, 2);
+    var times = get_key_times(10000.0);
+
+    // determine X mod
+    if (times.left) {
+        position_mod[0] = times.left * -1;
+    }
+    else if (times.right) {
+        position_mod[0] = times.right;
+    }
+    else {
+        position_mod[0] /= 2.0;
+    }
+
+    // determine Z mod
+    if (times.up) {
+        position_mod[2] = times.up;
+    }
+    else if (times.down) {
+        position_mod[2] = times.down * -1;
+    }
+    else {
+        position_mod[2] /= 1.1;
+    }
+
+    for (var i=0; i<3; i+=1) {
+        rest[i] += position_mod[i]/100;
+    }
+
+    return rest;
+};
+
+
 function main() {
     // Clear loading screen, show canvas
     document.getElementById("loading_screen").style.display = "none";
     document.getElementById("gl_canvas").style.display = "block";
+
+    // connect keyboard stuff
+
+    please.keys.enable();
+    please.keys.connect("up", key_handler);
+    please.keys.connect("left", key_handler);
+    please.keys.connect("down", key_handler);
+    please.keys.connect("right", key_handler);
 
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
@@ -107,7 +193,7 @@ function main() {
         // setup the camera
         mat4.lookAt(
             view_matrix,
-            vec3.fromValues(0, -3, 2), // camera
+            get_camera_position(), // camera
             vec3.fromValues(0, 0, 1),  // look at
             vec3.fromValues(0, 0, 1)   // up vector
         );
