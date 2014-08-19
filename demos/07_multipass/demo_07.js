@@ -46,6 +46,9 @@ function show_progress() {
             var label = document.getElementById("percent");
             bar.style.width = "" + progress.all + "%";
             label.innerHTML = "" + Math.round(progress.all) + "%";
+            var files = please.get_properties(progress.files);
+            var info = document.getElementById("progress_info");
+            info.innerHTML = "" + files.length + " file(s)";
         }
         setTimeout(show_progress, 100);
     }

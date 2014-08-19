@@ -57,6 +57,9 @@ function show_progress() {
             var label = document.getElementById("percent");
             bar.style.width = "" + progress.all + "%";
             label.innerHTML = "" + Math.round(progress.all) + "%";
+            var files = please.get_properties(progress.files);
+            var info = document.getElementById("progress_info");
+            info.innerHTML = "" + files.length + " file(s)";
         }
         setTimeout(show_progress, 100);
     }
@@ -64,9 +67,11 @@ function show_progress() {
 
 
 function main () {
+    // Clear loading screen, show canvas
     document.getElementById("loading_screen").style.display = "none";
     document.getElementById("gl_canvas").style.display = "block";
-    console.info("starting the demo");
+
+    // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
     var vert = please.access("glsl/simple.vert");
     var frag = please.access("glsl/simple.frag");
