@@ -34,10 +34,29 @@ addEventListener("load", function() {
 
     please.relative_load("jta", "suzanne.jta");
     please.media.connect_onload(main);
+    show_progress();
 });
 
 
+function show_progress() {
+    if (please.media.pending.length > 0) {
+        var progress = please.media.get_progress();
+        if (progress.all > -1) {
+            var bar = document.getElementById("progress_bar");
+            var label = document.getElementById("percent");
+            bar.style.width = "" + progress.all + "%";
+            label.innerHTML = "" + Math.round(progress.all) + "%";
+        }
+        setTimeout(show_progress, 100);
+    }
+};
+
+
 function main() {
+    // Clear loading screen, show canvas
+    document.getElementById("loading_screen").style.display = "none";
+    document.getElementById("gl_canvas").style.display = "block";
+
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
 

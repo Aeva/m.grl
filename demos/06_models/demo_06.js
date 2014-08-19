@@ -27,22 +27,45 @@ addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
     please.media.search_paths.img = "../gl_assets/img/";
     please.media.search_paths.jta = "../gl_assets/models/";
+    
+    // files that load files will use relative file paths
     please.gl.relative_lookup = true;
 
+    // load shader sources
     please.load("glsl", "glsl/simple.vert");
     please.load("glsl", "glsl/simple.frag");
-    window.model = {
-        "loaded" : false,
-    };
-    //please.load("text", "gavroche.jta", pdq_loader);
+
+    // load our model files
     please.relative_load("jta", "gavroche.jta");
     please.relative_load("jta", "floor_lamp.jta");
-    please.relative_load("jta", "suzanne.jta");
+
+    // while not strictly necessary, the progress bar will make more
+    // sense if we manually queue up textures here:
+    please.relative_load("img", "uvmap.png");
+    please.relative_load("img", "floar_lamp.png");
+
     please.media.connect_onload(main);
+    show_progress();
 });
 
 
+function show_progress() {
+    if (please.media.pending.length > 0) {
+        var progress = please.media.get_progress();
+        if (progress.all > -1) {
+            var bar = document.getElementById("progress_bar");
+            var label = document.getElementById("percent");
+            bar.style.width = "" + progress.all + "%";
+            label.innerHTML = "" + Math.round(progress.all) + "%";
+        }
+        setTimeout(show_progress, 100);
+    }
+};
+
+
 function main () {
+    document.getElementById("loading_screen").style.display = "none";
+    document.getElementById("gl_canvas").style.display = "block";
     console.info("starting the demo");
     var canvas = document.getElementById("gl_canvas");
     var vert = please.access("glsl/simple.vert");
