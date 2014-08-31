@@ -42,7 +42,7 @@ addEventListener("load", function() {
     // while not strictly necessary, the progress bar will make more
     // sense if we manually queue up textures here:
     please.relative_load("img", "uvmap.png");
-    please.relative_load("img", "floar_lamp.png");
+    please.relative_load("img", "floor_lamp.png");
 
     please.media.connect_onload(main);
     show_progress();
