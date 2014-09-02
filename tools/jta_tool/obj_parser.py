@@ -85,6 +85,7 @@ class OBJParser(ModelParser):
                 # parse out the indicies and write them to the actual
                 # vertex group object:
                 for tri in tris:
+                    tri.reverse() ## reverse winding order
                     for chunk in tri:
                         indices = [int(n)-1 if n!="" else None \
                                    for n in chunk.split("/")]

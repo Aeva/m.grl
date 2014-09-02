@@ -162,6 +162,7 @@ function main() {
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
+    gl.enable(gl.CULL_FACE);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
     // add model

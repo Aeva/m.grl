@@ -606,12 +606,12 @@ please.gl.make_quad = function (width, height, origin, draw_hint) {
 
     var attr_map = {};
     attr_map.position = new Float32Array([
-        x1, y1, z, 
-        x2, y1, z, 
-        x2, y2, z, 
-        x1, y1, z, 
-        x1, y2, z, 
+        x1, y1, z,
+        x2, y1, z,
         x2, y2, z,
+        x2, y2, z,
+        x1, y2, z,
+        x1, y1, z,
     ]);
     attr_map.normal = new Float32Array([
         0, 0, 1,

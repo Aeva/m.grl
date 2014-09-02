@@ -1741,6 +1741,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             // a work around to allow the end user to flag that the
             // cached value has expired.
             try {
+                // catch statement is a fix for when running this in a
+                // pywebkit shell
                 value.dirty = false;
             }
             catch (err) {}
@@ -1922,9 +1924,9 @@ please.gl.make_quad = function (width, height, origin, draw_hint) {
         x1, y1, z,
         x2, y1, z,
         x2, y2, z,
-        x1, y1, z,
-        x1, y2, z,
         x2, y2, z,
+        x1, y2, z,
+        x1, y1, z,
     ]);
     attr_map.normal = new Float32Array([
         0, 0, 1,
