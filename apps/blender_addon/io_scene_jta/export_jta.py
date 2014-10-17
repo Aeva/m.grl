@@ -17,6 +17,8 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
+import time
+import json
 
 import bpy
 import mathutils
@@ -32,26 +34,41 @@ def mesh_triangulate(me):
     bm.free()
 
 
-def save(operator, context, filepath="",
-         use_selection=False,
-         use_mesh_modifiers=True,
-         use_smooth=False,
-         global_scale=None,
-         path_mode='AUTO'):
-    
-    scene = context.scene
+def save(operator, context, options={}):
+    """Implement the actual exporter for JTA files."""
 
+    scene = context.scene
     # Exit edit mode before exporting, so current object states are exported properly.
     if bpy.ops.object.mode_set.poll():
         bpy.ops.object.mode_set(mode='OBJECT')
 
-    if use_selection:
+    print("JTA Export path: {0}".format(options["filepath"]))
+    start_time = time.time()
+
+    if options["use_selection"]:
         objects = context.selected_objects
     else:
         objects = scene.objects
 
+    container = {}
+    if not options["meta_license"] == "none":
+        try:
+            license_uri = {
+                "CC0" : "http://creativecommons.org/publicdomain/zero/1.0/",
+                "CC-BY" : "https://creativecommons.org/licenses/by/4.0/",
+                "CC-BY-SA" : "https://creativecommons.org/licenses/by-sa/4.0/",
+            }[options["meta_license"]]
+        except:
+            license_uri = ""
 
-    print("FIXME: actually do something")
+        container["meta"] = {
+            "author" : options["meta_author"],
+            "url" : options["meta_url"],
+            "license" : license_uri,
+        }
 
-
+    with open(options["filepath"], "w", encoding="utf8", newline="\n") as out_file:
+        json.dump(container, out_file)
+    
+    print("JTA Export time: %.2f" % (time.time() - start_time))
     return {"FINISHED"}

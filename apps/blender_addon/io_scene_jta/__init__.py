@@ -62,6 +62,40 @@ class ExportJTA(bpy.types.Operator, ExportHelper):
         options={"HIDDEN"},
     )
 
+    # metadata
+    meta_author = StringProperty(
+        name="Author",
+        description="Name or names to which this file should be attributed to.",
+        default="",
+    )
+
+    meta_url = StringProperty(
+        name="URL",
+        description="URL to which this file should be attributed to.",
+        default="",
+    )
+
+    meta_license = EnumProperty(
+        name="License",
+        description="Copyright license for this work.",
+        items=[
+            ("none", "Apply no license", "No attribution metadata will be stored."),
+
+            ("CC-BY-SA", "CC-BY-SA", 
+            "Others may share this work so long as they attribute the original author and"
+             " release it under the same license.  See creativecommons.org for more details."),
+
+            ("CC-BY", "CC-BY",
+             "Others may share this work so long as they attribute the original author."
+             "  See creativecommons.org for more details."),
+
+            ("CC0", "Public Domain", 
+             "Public domain, via CC0.  See creativecommons.org for more details."),
+
+        ],
+        default="none",
+    )
+
     # context group
     use_selection = BoolProperty(
         name="Selection Only",
@@ -97,8 +131,8 @@ class ExportJTA(bpy.types.Operator, ExportHelper):
     def execute(self, context):
         from . import export_jta
         
-        keywords = self.as_keywords()
-        return export_jta.save(self, context, **keywords)
+        options = self.as_keywords()
+        return export_jta.save(self, context, options)
 
 
 
