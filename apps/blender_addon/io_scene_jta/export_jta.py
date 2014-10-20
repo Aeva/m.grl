@@ -35,7 +35,7 @@ class Base64Array(object):
     binary data.
     """
     def __init__(self, period=3, typed=float, precision=16):
-        assert period in [1, 2, 3, 9, 16]
+        assert period in [1, 2, 3, 4, 9, 16]
         assert typed in [int, float]
         assert precision in [16]
         self.hint = None
@@ -107,6 +107,7 @@ class Model(object):
         self.vertices = self.mesh.vertices[:]
         self.face_indices = [(face, index) for index, face in enumerate(self.mesh.polygons)]
         self.__determine_vertex_groups()
+        self.use_weights = len(self.obj.vertex_groups) > 0
 
         self.attr_struct = None
         self.offset = None
@@ -123,25 +124,32 @@ class Model(object):
         bm.to_mesh(self.mesh)
         bm.free()
 
+    def get_meta_group_name(self, vertex):
+        name = "default"
+        if vertex.groups:
+            name = "+" + ",".join(
+                [self.obj.vertex_groups[g.group].name for g in vertex.groups])
+        return name
+
     def __determine_vertex_groups(self):
-        """Sort the vertices into groups for determining weights etc."""
-        # determine vertex groups
-        self.vertex_groups = {}
-
-        def add_to_group(name, vertex):
-            if not self.vertex_groups.get(name):
-                self.vertex_groups[name] = []
-            self.vertex_groups[name].append(vertex)
-
+        """
+        Determine meta groups.  A meta group is zero or more vertex groups,
+        determined by what vertex groups individual vertices are in.
+        """
+        # determine meta vertex groups
+        self.meta_groups = {}
         for vertex in self.vertices:
-            if not vertex.groups:
-                add_to_group(None, vertex)
-            else:
-                for group in vertex.groups:
-                    name = self.obj.vertex_groups[group.group].name
-                    assert name != ""
-                    add_to_group(name, vertex)
-
+            groups = []
+            meta_name = self.get_meta_group_name(vertex)
+            if vertex.groups:
+                groups = vertex.groups
+                assert len(groups) <= 4
+            if not self.meta_groups.get(meta_name):
+                self.meta_groups[meta_name] = {
+                    "data" : [],
+                    "groups" : groups,
+                }
+            self.meta_groups[meta_name]["data"].append(vertex)
 
     def attach(self, attr):
         """
@@ -161,14 +169,22 @@ class Model(object):
         self.offset = data["position"].count
 
         for vertex_index in range(len(self.vertices)):
-            data["position"].add_vector(*self.vertices[vertex_index].co[:])
+            vertex = self.vertices[vertex_index]
+            data["position"].add_vector(*vertex.co[:])
                     
             # add this model's uv coordinates to the pool
             for uv_layer, tcoord_set in zip(self.mesh.uv_layers, data["tcoords"]):
                 tcoord_set.add_vector(*uv_layer.data[vertex_index].uv[:])
 
-            # FIXME determine vertex group weights
-            pass
+            # determine vertex group weights
+            if self.use_weights:
+                meta_group = self.get_meta_group_name(vertex)
+                weights = []
+                if meta_group != "default":
+                    weights = [group.weight for group in vertex.groups]
+                while len(weights) < 4:
+                    weights.append(0.0)
+                data["weights"].add_vector(*weights)
 
         # flag the model as being ready for export
         self.export_ready = True
@@ -181,19 +197,17 @@ class Model(object):
         assert self.export_ready
 
         group_cache = {}
+        for meta_name, meta_group in self.meta_groups.items():
+            builder = Int16Array(period=1)
+            for vertex in meta_group["data"]:
+                builder.add_vector(self.offset + vertex.index)
 
-        default_group = self.vertex_groups.get(None)
-        if default_group:
-            group_cache[""] = {
-                "faces" : Int16Array(period=1),
+            group_cache[meta_name] = {
+                "faces" : builder.export(),
                 "bones" : [],
             }
 
-            for vertex in default_group:
-                group_cache[""]["faces"].add_vector(self.offset + vertex.index)
-
-        for name, group in group_cache.items():
-            group["faces"] = group["faces"].export()
+            # FIXME determine influencing bones
 
         return {
             "struct" : self.attr_struct.index,
@@ -306,13 +320,13 @@ def save(operator, context, options={}):
     attr_sets = []
     for model in export_objects:
         for attr in attr_sets:
-            if attr.textures == model.texture_count:
+            if attr.textures == model.texture_count and attr.weights == model.use_weights:
                 model.attach(attr)
         if not model.attr_struct:
             attr = Attribute(
                 len(attr_sets), 
                 textures = model.texture_count,
-                weights = 0)
+                weights = model.use_weights)
             attr_sets.append(attr)
             model.attach(attr)
 
