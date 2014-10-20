@@ -29,16 +29,32 @@ import bpy_extras.io_utils
 import numpy
 
 
-class Float16Array(object):
+class Base64Array(object):
     """
-    This class represents a Float16Array and implements machinery
-    needed to encode it for export in base64.
+    Implements the machinery needed to encode arrays to base64 encoded
+    binary data.
     """
-    def __init__(self, period=3):
+    def __init__(self, period=3, typed=float, precision=16):
         assert period in [1, 2, 3, 9, 16]
+        assert typed in [int, float]
+        assert precision in [16]
+        self.hint = None
+        self.dtype = None
         self.period = period
         self.data = []
         self.count = 0
+        if typed == int:
+            if precision == 16:
+                self.dtype = numpy.int16
+            elif precision == 32:
+                self.dtype = numpy.int32
+            self.hint = "Int{0}Array".format(precision)
+        elif typed == float:
+            if precision == 16:
+                self.dtype = numpy.float16
+            elif precision == 32:
+                self.dtype = numpy.float32
+            self.hint = "Float{0}Array".format(precision)
 
     def add_vector(self, *data):
         assert len(data) == self.period
@@ -46,18 +62,32 @@ class Float16Array(object):
         self.count += 1
 
     def export(self):
-        dtype = numpy.float16
-        ar = numpy.ndarray(shape=(len(self.data)), buffer=None, dtype=dtype)
+        ar = numpy.ndarray(shape=(len(self.data)), buffer=None, dtype=self.dtype)
         for i in range(len(self.data)):
             ar[i] = self.data[i]
-
         return {
             "type" : "Array",
-            "hint" : "Float16Array",
+            "hint" : self.hint,
             "item" : self.period,
             "data" : base64.b64encode(ar.tostring()).decode(),
         }
 
+
+class Float16Array(Base64Array):
+    """
+    Type for floating point data arrays.
+    """
+    def __init__(self, period=3):
+        Base64Array.__init__(self, period, typed=float, precision=16)
+
+
+class Int16Array(Base64Array):
+    """
+    Type for integer data arrays.
+    """
+    def __init__(self, period):
+        Base64Array.__init__(self, period, typed=int, precision=16)
+    
 
 class Model(object):
     """
@@ -76,6 +106,7 @@ class Model(object):
         self.texture_count = len(self.mesh.uv_textures)
         self.vertices = self.mesh.vertices[:]
         self.face_indices = [(face, index) for index, face in enumerate(self.mesh.polygons)]
+        self.__determine_vertex_groups()
 
         self.attr_struct = None
         self.offset = None
@@ -91,6 +122,26 @@ class Model(object):
         bmesh.ops.triangulate(bm, faces=bm.faces)
         bm.to_mesh(self.mesh)
         bm.free()
+
+    def __determine_vertex_groups(self):
+        """Sort the vertices into groups for determining weights etc."""
+        # determine vertex groups
+        self.vertex_groups = {}
+
+        def add_to_group(name, vertex):
+            if not self.vertex_groups.get(name):
+                self.vertex_groups[name] = []
+            self.vertex_groups[name].append(vertex)
+
+        for vertex in self.vertices:
+            if not vertex.groups:
+                add_to_group(None, vertex)
+            else:
+                for group in vertex.groups:
+                    name = self.obj.vertex_groups[group.group].name
+                    assert name != ""
+                    add_to_group(name, vertex)
+
 
     def attach(self, attr):
         """
@@ -128,14 +179,29 @@ class Model(object):
         json.
         """
         assert self.export_ready
-        blob = {
+
+        group_cache = {}
+
+        default_group = self.vertex_groups.get(None)
+        if default_group:
+            group_cache[""] = {
+                "faces" : Int16Array(period=1),
+                "bones" : [],
+            }
+
+            for vertex in default_group:
+                group_cache[""]["faces"].add_vector(self.offset + vertex.index)
+
+        for name, group in group_cache.items():
+            group["faces"] = group["faces"].export()
+
+        return {
             "struct" : self.attr_struct.index,
-            "groups" : [],
+            "groups" : group_cache,
             "parent" : None,
             "state" : {},
             "extra" : {},
         }
-        return blob
 
 
 class Attribute(object):
@@ -225,14 +291,13 @@ def save(operator, context, options={}):
     export_objects = []
     for selection in selections:
         model = None
-        if selection.dupli_type == "NONE":
-            try:
-                model = Model(selection, scene, options)
-            except RuntimeError:
-                print("Skipping object {0} because of a runtime error...?".format(selection))
+        if selection.dupli_type == "NONE" and selection.type == "MESH":
+            model = Model(selection, scene, options)
         else:
-            print("Skipping object {0} of dupli_type {1}".format(selection, selection.dupli_type))
-
+            if selection.dupli_type != "NONE":
+                print("Skipping object {0} of dupli_type {1}".format(selection, selection.dupli_type))
+            if selection.type != "MESH":
+                print("Skipping non-mesh object {0}".format(selection))
         if model:
             print("Adding object {0}".format(selection.name))
             export_objects.append(model)
