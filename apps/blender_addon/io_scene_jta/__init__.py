@@ -117,6 +117,14 @@ class ExportJTA(bpy.types.Operator, ExportHelper):
         default=False,
     )
 
+    # pack image data
+    pack_images = BoolProperty(
+        name="Pack Images",
+        description="Embeds images in the exported file instead of storing only referencs."
+        "  Use sparingly.",
+        default=False,
+    )
+
     global_scale = FloatProperty(
         name="Scale",
         min=0.001, max=1000.0,

@@ -20,6 +20,8 @@
 import time
 import json
 import base64
+import hashlib
+from io import BytesIO
 
 import bpy
 import bmesh
@@ -94,10 +96,11 @@ class Model(object):
     This class used to build the "model" entries in the exported JTA
     file, and to organize references to bpy data relevant to the item.
     """
-    def __init__(self, selection, scene, options):
+    def __init__(self, selection, scene, options, texture_store):
         self.obj = selection
         self.scene = scene
         self.options = options
+        self.texture_store = texture_store
         self.mesh = self.obj.to_mesh(
             scene, options["use_mesh_modifiers"], "PREVIEW", calc_tessface=False)
         self.mesh.transform(mathutils.Matrix.Scale(options["global_scale"], 4))
@@ -209,12 +212,48 @@ class Model(object):
 
             # FIXME determine influencing bones
 
+        # note the name of the object's parent
+        parent = None
+        if self.obj.parent is not None:
+            parent = self.obj.parent.name
+
+        # Note other state information such as position info, texture
+        # maps, etc.  State values coorespond directly to uniform
+        # variables and textures.
+        state = {}
+
+        # Save the world matrix as used for rendering.
+        world_matrix = Float16Array(period=4)
+        for vector in self.obj.matrix_world.to_4x4():
+            world_matrix.add_vector(*vector[:])
+        state["world_matrix"] = world_matrix.export()
+
+        # Save the active texture:
+        if self.texture_count > 0:
+            # FIXME look for image textures flagged as various
+            # material types eg diffuse, normal map etc first before
+            # falling back on what the display texture probably is
+            refcode = self.texture_store.refcode_for_model(self)
+            if refcode:
+                state["texture"] = {
+                    "type" : "Sampler2D",
+                    "uri" : refcode,
+                }
+
+        # Extra values are not used in rendering, but may be used to
+        # store other useful information.
+        extras = {}
+
+        # Note the object's coordinates and postion values in Extras.
+        extras["position"] = dict(zip("xyz", self.obj.matrix_local.to_translation()))
+        extras["rotation"] = dict(zip("xyz", self.obj.matrix_local.to_euler()))
+
         return {
             "struct" : self.attr_struct.index,
             "groups" : group_cache,
-            "parent" : None,
-            "state" : {},
-            "extra" : {},
+            "parent" : parent,
+            "state" : state,
+            "extra" : extras,
         }
 
 
@@ -237,7 +276,6 @@ class Attribute(object):
         }
         for model in self.models:
             model.report(data)
-
         blob = {
             "position" : data["position"].export(),
         }
@@ -246,6 +284,95 @@ class Attribute(object):
         if self.weights > 0:
             blob["weights"] = data["weights"].export()
         return blob
+
+
+class TextureStore(object):
+    """
+    This class is used for optionally baking the textures within the
+    file.
+    """
+    def __init__(self, options):
+        self.force_pack = options["pack_images"]
+        self.packed = {}
+
+    def pack_image(self, img_file, ext):
+        raw = img_file.read()
+        tag = hashlib.md5(raw).hexdigest()
+        if not self.packed.get(tag):
+            uri = "data:image/{0};base64,{1}"
+            mimetype = {
+                "JPG" : "jpeg",
+                "PNG" : "png",
+            }[ext]
+            self.packed[tag] = uri.format(mimetype, base64.b64encode(raw))
+        return "packed:{0}".format(tag)
+
+    def refcode_for_model(self, model):
+        """
+        Finds the diffuse texture for a given model, and returns a
+        reference code based on if it is a relative path (to an
+        external file) or an md5 hash for a packed image.  If the
+        image is to be packed and has not yet been referenced, this
+        will also pack the image.
+        """
+        renderer = bpy.context.scene.render.engine
+        if renderer == "CYCLES":
+            image = self.__cycles_refcode_target(model)
+        elif renderer == "BLENDER_RENDER":
+            image = self.__blender_refcode_target(model)
+        else:
+            raise NotImplementedError(
+                "Finding image maps with {0} as the current renderer.".format(renderer))
+        if image:
+            #import pdb; pdb.set_trace()
+            assert image.file_format in ["PNG", "JPG"]
+            if image.filepath == "" or self.force_pack:
+                if image.filepath == "":
+                    return self.pack_image(BytesIO(image.packed_file.data), image.file_format)
+                else:
+                    return self.pack_image(open(image.filepath, "r"), image.file_format)
+            else:
+                # FIXME give an option to have paths relative to blend
+                # file, or just take the file name without a path name
+                return "ref:{0}".format(image.filepath)
+        else:
+            return None
+
+    def __cycles_refcode_target(self, model):
+        """
+        'refcode_for_model' behavior if the current rendering engine is
+        cycles.
+        """
+        # HACK - assume there is only one material for this object
+        assert len(model.mesh.materials) == 1
+        nodes = model.mesh.materials[0].node_tree.nodes
+        tex_nodes = [n for n in nodes if n.type=='TEX_IMAGE']
+
+        if len(tex_nodes) == 1:
+            # FIXME: not sure if this is correct
+            return tex_nodes[0].image
+        elif len(tex_nodes) > 1:
+            for node in tex_nodes:
+                if node.select:
+                    # FIXME: not sure if this is correct
+                    return node.image
+
+        print("No diffuse map found for {0}".format(model.obj.name))
+        return None
+        
+    def __blender_refcode_target(self, model):
+        """
+        'refcode_for_model' behavior if the current rendering engine is
+        blender internal.
+        """
+        raise NotImplementedError(
+            "Searching for diffuse maps used by Blender internal.")
+        
+    def export(self):
+        """
+        Create the value for "packed data".
+        """
+        return self.packed
 
 
 def save(operator, context, options={}):
@@ -301,12 +428,15 @@ def save(operator, context, options={}):
     container["attributes"] = []
     container["models"] = {}
 
+    # create a texture store if we're packing textures
+    texture_store = TextureStore(options)
+    
     # cache the objects we're exporting
     export_objects = []
     for selection in selections:
         model = None
         if selection.dupli_type == "NONE" and selection.type == "MESH":
-            model = Model(selection, scene, options)
+            model = Model(selection, scene, options, texture_store)
         else:
             if selection.dupli_type != "NONE":
                 print("Skipping object {0} of dupli_type {1}".format(selection, selection.dupli_type))
@@ -335,6 +465,9 @@ def save(operator, context, options={}):
         container["attributes"].append(attr.export())
     for model in export_objects:
         container["models"][model.obj.name] = model.export()
+
+    # add packed data if applicable
+    container["packed_data"] = texture_store.export()
 
     with open(options["filepath"], "w", encoding="utf8", newline="\n") as out_file:
         json.dump(container, out_file)
