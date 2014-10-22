@@ -300,10 +300,7 @@ class TextureStore(object):
         tag = hashlib.md5(raw).hexdigest()
         if not self.packed.get(tag):
             uri = "data:image/{0};base64,{1}"
-            mimetype = {
-                "JPG" : "jpeg",
-                "PNG" : "png",
-            }[ext]
+            mimetype = ext.lower()
             self.packed[tag] = uri.format(mimetype, base64.b64encode(raw))
         return "packed:{0}".format(tag)
 
@@ -325,7 +322,7 @@ class TextureStore(object):
                 "Finding image maps with {0} as the current renderer.".format(renderer))
         if image:
             #import pdb; pdb.set_trace()
-            assert image.file_format in ["PNG", "JPG"]
+            assert image.file_format in ["PNG", "JPEG"]
             if image.filepath == "" or self.force_pack:
                 if image.filepath == "":
                     return self.pack_image(BytesIO(image.packed_file.data), image.file_format)
