@@ -30,6 +30,7 @@
 #include "m.multipass.js"
 #include "m.ani.js"
 #include "m.gl.js"
+#include "m.jta.js"
 
 #ifdef BSIDES
 // -------------------------------------------------------------------------- //

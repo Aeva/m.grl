@@ -1407,14 +1407,6 @@ please.media.handlers.glsl = function (url, callback) {
     };
     please.media.__xhr_helper("text", url, media_callback, callback);
 };
-// "jta" media type handler
-please.media.search_paths.jta = "";
-please.media.handlers.jta = function (url, callback) {
-    var media_callback = function (req) {
-        please.media.assets[url] = please.gl.__jta_model(req.response, url);
-    };
-    please.media.__xhr_helper("text", url, media_callback, callback);
-};
 // Namespace for m.gl guts
 please.gl = {
     "canvas" : null,
@@ -1937,6 +1929,15 @@ please.gl.make_quad = function (width, height, origin, draw_hint) {
         0, 0, 1,
     ]);
     return please.gl.vbo(6, attr_map, {"hint" : draw_hint});
+};
+// - m.jta.js ------------------------------------------------------------- //
+// "jta" media type handler
+please.media.search_paths.jta = "";
+please.media.handlers.jta = function (url, callback) {
+    var media_callback = function (req) {
+        please.media.assets[url] = please.gl.__jta_model(req.response, url);
+    };
+    please.media.__xhr_helper("text", url, media_callback, callback);
 };
 // JTA model loader.  This is just a quick-and-dirty implementation.
 please.gl.__jta_model = function (src, uri) {
