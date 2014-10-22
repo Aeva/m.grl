@@ -467,6 +467,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
 
     var vbo = {
         "id" : null,
+        "opt" : opt,
         "count" : vertex_count,
         "bind" : function () {},
         "draw" : function () {
@@ -566,8 +567,33 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
 
 
 // Create a IBO.
-please.gl.ibo = function (faces) {
-    return null;
+please.gl.ibo = function (data, options) {
+    var opt = {
+        "type" : gl.UNSIGNED_SHORT,
+        "mode" : gl.TRIANGLES,
+        "hint" : gl.STATIC_DRAW,
+    }
+    if (options) {
+        please.get_properties(opt).map(function (name) {
+            if (options.hasOwnProperty(name)) {
+                opt[name] = options[name];
+            }
+        });
+    }
+    var poly_size = 3; // fixme this should be determined by opt.mode
+    var face_count = data/poly_size;
+    var ibo = {
+        "id" : gl.createBuffer(),
+        "bind" : function () {
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.id);
+        },
+        "draw" : function () {
+            gl.drawElements(opt.mode, face_count, opt.type, 0);
+        }
+    };
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.id);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
+    return ibo;
 };
 
 
