@@ -34,12 +34,13 @@ import numpy
 class Base64Array(object):
     """
     Implements the machinery needed to encode arrays to base64 encoded
-    binary data.
+    binary data.  The signed parameter is only applicable when the
+    type is 'int'.
     """
-    def __init__(self, period=3, typed=float, precision=16):
+    def __init__(self, period=3, typed=float, precision=16, signed=True):
         assert period in [1, 2, 3, 4, 9, 16]
         assert typed in [int, float]
-        assert precision in [16]
+        assert precision in [16, 32]
         self.hint = None
         self.dtype = None
         self.period = period
@@ -47,10 +48,19 @@ class Base64Array(object):
         self.count = 0
         if typed == int:
             if precision == 16:
-                self.dtype = numpy.int16
+                if signed:
+                    self.dtype = numpy.int16
+                else:
+                    self.dtype = numpy.uint16
             elif precision == 32:
-                self.dtype = numpy.int32
-            self.hint = "Int{0}Array".format(precision)
+                if signed:
+                    self.dtype = numpy.int32
+                else:
+                    self.dtype = numpy.uint32
+            if signed:
+                self.hint = "Int{0}Array".format(precision)
+            else:
+                self.hint = "Uint{0}Array".format(precision)
         elif typed == float:
             if precision == 16:
                 self.dtype = numpy.float16
@@ -87,8 +97,8 @@ class Int16Array(Base64Array):
     """
     Type for integer data arrays.
     """
-    def __init__(self, period):
-        Base64Array.__init__(self, period, typed=int, precision=16)
+    def __init__(self, period, signed=True):
+        Base64Array.__init__(self, period, typed=int, precision=16, signed=signed)
     
 
 class Model(object):
@@ -201,7 +211,7 @@ class Model(object):
 
         group_cache = {}
         for meta_name, meta_group in self.meta_groups.items():
-            builder = Int16Array(period=1)
+            builder = Int16Array(period=1, signed=False)
             for vertex in meta_group["data"]:
                 builder.add_vector(self.offset + vertex.index)
 
@@ -301,7 +311,7 @@ class TextureStore(object):
         if not self.packed.get(tag):
             uri = "data:image/{0};base64,{1}"
             mimetype = ext.lower()
-            self.packed[tag] = uri.format(mimetype, base64.b64encode(raw))
+            self.packed[tag] = uri.format(mimetype, str(base64.b64encode(raw))[2:-1])
         return "packed:{0}".format(tag)
 
     def refcode_for_model(self, model):
