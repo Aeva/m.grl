@@ -1,0 +1,93 @@
+<!doctype html>
+<html><head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" type="text/css" href="../demo_common.css" />
+  <script type="text/javascript" src="../gl-matrix.js"></script>
+  <script type="text/javascript" src="../../mgrl.js"></script>
+  <script type="text/javascript" src="gavroche_hall.js"></script>
+  <style type="text/css">
+   #headline {
+     background-color: #550b67!important;
+   }
+
+   .demo_area {
+     width: 840px;
+     height: 630px;
+     margin-left: -20px;
+     margin-right: -20px;
+     margin-bottom: -25px;
+     border-radius: 3px;
+   }
+
+   #loading_screen {
+     position: relative;
+   }
+
+   #loading_box {
+     position: absolute;
+     top: 220px;
+     left: 0px;
+     right: 0px;
+     text-align: center;
+     font-size: 20px;
+   }
+
+   #progress {
+     display: block;
+     position: relative;
+     margin: auto;
+     margin-top: 10px;
+     width: 500px;
+     height: 25px;
+     line-height: 25px;
+     border: 1px dashed #444;
+   }
+
+   #progress_bar {
+     position: absolute;
+     left: -1px;
+     top: -1px;
+     bottom: -1px;
+     background-color: #d8d8d8;
+     border: 1px solid #444;
+     border-right: 1px dotted #444;
+   }
+
+   #progress_info {
+     margin-top: 1em;
+     font-size: 18px;
+   }
+
+   #percent {
+     position: absolute;
+     top: 0px;
+     left: 0px;
+     right: 0px;
+     text-align: center;
+   }
+   
+   canvas#gl_canvas {
+     display: none;
+   }
+  </style>
+</head><body>
+  <div id="page">
+    <h1>Mondaux Graphics & Recreation Library</h1>
+    <h1 id="headline">Gavroche Hall</h1>
+    <div id="back_button">[ <a href="../">back to demo index</a> ]</div>
+
+    <div id="loading_screen" class="demo_area">
+      <div id="loading_box">
+        <div id="progress">
+          <div id="progress_bar" style="width:0%;"></div>
+          <div id="percent">unknown %</div>
+        </div>
+        <div id="progress_info"></div>
+      </div>
+    </div>
+    
+    <canvas id="gl_canvas" class="demo_area" width=840 height=630>
+      Your browser does not appear to support HTML5 canvas and/or webgl.
+    </canvas>
+  </div>
+</body></html>
