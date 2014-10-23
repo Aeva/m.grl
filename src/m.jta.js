@@ -11,12 +11,139 @@ please.media.handlers.jta = function (url, callback) {
 };
 
 
-// JTA model loader.  This is just a quick-and-dirty implementation.
+// JTA model loader.  This will replace the old one once it works.
+please.gl.new_jta = function (src, uri) {
+    // The structure of a JTA file is json.  Large blocks of agregate
+    // data are base64 encoded binary data.
+
+    var directory = JSON.parse(src);
+    var scene = {
+        "meta" : directory.meta,
+        "models" : {},
+    };
+
+    // assert a minimum and maximum version number
+    console.assert(directory.meta.jta_version >= 0.1);
+    console.assert(directory.meta.jta_version < 1.0);
+
+    // unpack textures
+    please.gl.__jta_unpack_textures(directory.packed_data);
+    directory.packed_data=null;// free up a potentially large amount of memory.
+
+    // stash bones data FIXME: there is no spec yet for this...
+    if (directory.bones) {
+        scene.bones = bones;
+    }
+
+    // stash optional data
+    if (directory.extras) {
+        scene.extras = extras;
+    }
+
+    // extract model data
+    var vbos = please.gl.__jta_extract_vbos(directory.attributes);
+    var models = please.gl.__jta_extract_models(directory.models, vbos);
+
+    ITER_PROPS(name, models) {
+        scene.models[name] = models[name];
+    }
+
+    console.info("Done loading " + uri +" ...?");
+    return scene;
+};
+
+
+// This function extracts a stored typed array.
+please.gl.__jta_array = function (array) {
+    console.assert(array.type === "Array");
+    console.assert(array.hint !== undefined);
+    console.assert(array.data !== undefined);
+    var blob = array.data;
+    var hint = array.hint;
+    return please.typed_array(blob, hint);
+};
+
+
+// Extract the model objects defined in the jta file.
+please.gl.__jta_extract_models = function (model_defs, vbos) {
+    var models = please.prop_map(model_defs, function(name, model_def) {
+        // The model object contains all the data needed to render a
+        // singular model within a scene. All of the models in a scene
+        // with similar propreties will share the same vbo (within
+        // reason).
+        var model = {
+            "parent" : model_def.parent,
+            "vbo" : vbos[model_def.struct],
+            "state" : model_defs.state,
+            "extra" : model_defs.extra,
+            "groups" : [],
+        };
+        please.prop_map(model_def.groups, function(group_name, group) {
+            // groups coorespond to IBOs, but also store the name of
+            // relevant bone matrices.
+            // FIXME - these should all use the same IBO, but make use of ranges!
+            var group = {
+                "bones" : group.bones,
+                "ibo" : please.gl.ibo(please.gl.__jta_array(group.faces)),
+            };
+            model.groups.push(group);
+        });
+        return model;
+    });
+    return models;
+};
+
+
+// Extract the vertex buffer objects defined in the jta file.
+please.gl.__jta_extract_vbos = function (attributes) {
+    return attributes.map(function(attr_data) {
+        var attr_map = {
+            "position" : please.gl.__jta_array(attr_data["position"]),
+        };
+        
+        // extract UV coordinates
+        if (attr_data.tcoords !== undefined && attr_data.tcoords.length >= 1) {
+            // FIXME: use all UV layers, not just the first one
+            attr_map["tcoord"] = please.gl.__jta_array(attr_data["tcoords"][0]);
+        }
+
+        // extract bone weights
+        if (attr_data.weights !== undefined) {
+            attr_map["weights"] = please.gl.__jta_array(attr_data["weights"]);
+        }
+
+        var vertex_count = attr_map.position.length / attr_data["position"].item;
+        return please.gl.vbo(vertex_count, attr_map);
+    });
+}
+
+
+// This function creates image objects for any textures packed in the
+// jta file.
+please.gl.__jta_unpack_textures = function (packed_data) {
+    ITER_PROPS(checksum, packed_data) {
+        if (!please.access(checksum, true)) {
+            var img = new Image();
+            img.src = packed_data[checksum];
+            please.media.assets[checksum] = img;
+        }
+    }
+};
+
+
+
+// the old JTA model loader.  This is just a quick-and-dirty
+// implementation, and is deprecated.
 please.gl.__jta_model = function (src, uri) {
     // The structure of a JTA file is json.  Large blocks of agregate
     // data are base64 encoded binary data.
 
     var directory = JSON.parse(src);
+    if (directory.meta.jta_version !== undefined) {
+        // call the new jta loader instead
+        return please.gl.new_jta(src, uri);
+    }
+
     var groups = directory["vertex_groups"];
     var uniforms = directory["vars"];
     var model = {

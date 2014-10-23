@@ -105,6 +105,16 @@ if (!Array.prototype.map) {
 }
 
 
+// Variation of array.map for non-array objects:
+please.prop_map = function (dict, callback) {
+    var results = {};
+    ITER_PROPS(key, dict) {
+        results[key] = callback(key, dict[key], dict);
+    };
+    return results;
+};
+
+
 // Schedules a callback to executed whenever it is convinient to do
 // so.  This is useful for preventing errors from completely halting
 // the program's execution, and makes some errors easier to find.
@@ -260,7 +270,20 @@ please.typed_array = function (raw, hint) {
         }
         return out;
     }
-    else {
-        throw ("Not implemented: non-float array type hints.");
+    else if (hint == "Int16Array") {
+        // FIXME Javascript does not have a Int16Array type, so this
+        // should load it as a Uint16Array, attempt to determine the
+        // sign for each value and then dump the correct values into a
+        // Int32Array.
+        throw("Not implemented - unpacking base64 encoded Int16Arrays");
+    }
+    else if (hint == "Int32Array") {
+        return new Int32Array(please.decode_buffer(raw));
+    }
+    else if (hint == "Uint16Array") {
+        return new Uint16Array(please.decode_buffer(raw));
+    }
+    else if (hint == "Uint32Array") {
+        return new Uint32Array(please.decode_buffer(raw));
     }
 };
