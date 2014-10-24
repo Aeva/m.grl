@@ -152,18 +152,20 @@ class Model(object):
         """
         # determine meta vertex groups
         self.meta_groups = {}
-        for vertex in self.vertices:
-            groups = []
-            meta_name = self.get_meta_group_name(vertex)
-            if vertex.groups:
-                groups = vertex.groups
-                assert len(groups) <= 4
-            if not self.meta_groups.get(meta_name):
-                self.meta_groups[meta_name] = {
-                    "data" : [],
-                    "groups" : groups,
-                }
-            self.meta_groups[meta_name]["data"].append(vertex)
+        for polygon in self.mesh.polygons:
+            for vertex_index in polygon.vertices:
+                vertex = self.vertices[vertex_index]
+                groups = []
+                meta_name = self.get_meta_group_name(vertex)
+                if vertex.groups:
+                    groups = vertex.groups
+                    assert len(groups) <= 4
+                if not self.meta_groups.get(meta_name):
+                    self.meta_groups[meta_name] = {
+                        "data" : [],
+                        "groups" : groups,
+                    }
+                self.meta_groups[meta_name]["data"].append(vertex_index)
 
     def attach(self, attr):
         """
@@ -214,7 +216,7 @@ class Model(object):
         for meta_name, meta_group in self.meta_groups.items():
             builder = Int16Array(period=1, signed=False)
             for vertex in meta_group["data"]:
-                builder.add_vector(self.offset + vertex.index)
+                builder.add_vector(self.offset + vertex)
 
             group_cache[meta_name] = {
                 "faces" : builder.export(),
