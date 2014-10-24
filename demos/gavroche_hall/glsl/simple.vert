@@ -1,6 +1,6 @@
 
 // matrices
-uniform mat4 model_matrix;
+uniform mat4 world_matrix;
 uniform mat4 view_matrix;
 uniform mat4 projection_matrix;
 
@@ -22,8 +22,8 @@ void main(void) {
   local_tcoord = tcoord;
 
   // various coordinate transforms
-  local_position = (model_matrix * vec4(position, 1.0)).xyz;
-  vec4 final_position = projection_matrix * view_matrix * model_matrix * vec4(position, 1.0);
+  local_position = (world_matrix * vec4(position, 1.0)).xyz;
+  vec4 final_position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);
   screen_position = final_position.xyz;
   gl_Position = final_position;
 }

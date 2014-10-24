@@ -76,7 +76,7 @@ function main () {
     var projection_matrix = mat4.perspective(
         mat4.create(), 45, canvas.width/canvas.height, 0.1, 100.0);
     var view_matrix = mat4.create();
-    var model_matrix = mat4.create();
+    var world_matrix = mat4.create();
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
@@ -88,8 +88,8 @@ function main () {
     var scene = window.scene = please.access(please.relative("jta", "gavroche_hall.jta"));
 
     //
-    var camera_coords = vec3.fromValues(11.584, -19.953, 12.076);
-    var lookat_coords = vec3.fromValues(0, 0, 1);
+    var camera_coords = vec3.fromValues(4, -15.5, 12);
+    var lookat_coords = vec3.fromValues(0, 10, 2.5);
     var light_direction = vec3.fromValues(.25, -1.0, -.4);
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
@@ -97,7 +97,7 @@ function main () {
     // register a render pass with the scheduler
     please.pipeline.add(1, "gavroche_hall/draw", function () {
         var mark = performance.now();
-        mat4.identity(model_matrix);
+        mat4.identity(world_matrix);
         mat4.lookAt(
             view_matrix,
             camera_coords,
@@ -106,13 +106,13 @@ function main () {
         );
 
         var slowdown = 5000;
-        //model_matrix = mat4.rotateZ(
-        //    model_matrix, model_matrix, please.radians((-90*mark/slowdown)-90));
+        //world_matrix = mat4.rotateZ(
+        //    world_matrix, world_matrix, please.radians((-90*mark/slowdown)-90));
 
         // -- update uniforms
         prog.vars.time = mark;
         prog.vars.view_matrix = view_matrix;
-        prog.vars.model_matrix = model_matrix;
+        prog.vars.world_matrix = world_matrix;
         prog.vars.projection_matrix = projection_matrix;
 
         // -- clear the screen
