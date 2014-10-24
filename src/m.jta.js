@@ -46,8 +46,20 @@ please.gl.new_jta = function (src, uri) {
 
     scene.test_draw = function () {
         vbos[0].bind();
-        //vbos[0].draw();
         please.prop_map(scene.models, function(name, model) {
+
+            // load up state stuff
+            var prog = please.gl.get_program();
+            please.prop_map(model.samplers, function(name, uri) {
+                if (prog.samplers.hasOwnProperty(name)) {
+                    prog.samplers[name] = uri;
+                }
+            });
+            please.prop_map(model.uniforms, function(name, value) {
+                if (prog.vars.hasOwnProperty(name)) {
+                    prog.vars[name] = value;
+                }
+            });
             please.prop_map(model.groups, function(group_name, group) {
                 group.ibo.bind();
                 group.ibo.draw();
@@ -81,8 +93,9 @@ please.gl.__jta_extract_models = function (model_defs, vbos) {
         var model = {
             "parent" : model_def.parent,
             "vbo" : vbos[model_def.struct],
-            "state" : model_defs.state,
-            "extra" : model_defs.extra,
+            "uniforms" : {},
+            "samplers" : {},
+            "extra" : model_def.extra,
             "groups" : [],
         };
         please.prop_map(model_def.groups, function(group_name, group) {
@@ -90,23 +103,33 @@ please.gl.__jta_extract_models = function (model_defs, vbos) {
             // relevant bone matrices.
             // FIXME - these should all use the same IBO, but make use of ranges!
             var element_array = please.gl.__jta_array(group.faces);
-            /*
-            if (element_array) {
-                console.info("Element array for: " + name + ": " + group_name);
-                for (var i=0; i<element_array.length && i<4; i+=1) {
-                    console.info(element_array[i]);
-                }
-                console.info("...");
-                console.info(element_array[element_array.length-3]);
-                console.info(element_array[element_array.length-2]);
-                console.info(element_array[element_array.length-1]);
-            }
-            */
             var group = {
                 "bones" : group.bones,
                 "ibo" : please.gl.ibo(element_array),
             };
             model.groups.push(group);
+        });
+        please.prop_map(model_def.state, function(state_name, state) {
+            if (state.type === "Sampler2D") {
+                var uri = null;
+                if (state.uri.startsWith("ref:")) {
+                    // target is relative loaded
+                    uri = state.uri.slice(4);
+                }
+                else if (state.uri.startsWith("packed:")) {
+                    // target is a packed image
+                    uri = state.uri.slice(7);
+                }
+                if (uri) {
+                    model.samplers[state_name] = uri;
+                }
+            }
+            else if (state.type === "Array") {
+                model.uniforms[state_name] = please.gl.__jta_array(state);
+            }
+            else {
+                throw ("Not implemented: non-array uniforms from jta export");
+            }
         });
         return model;
     });
@@ -118,24 +141,6 @@ please.gl.__jta_extract_models = function (model_defs, vbos) {
 please.gl.__jta_extract_vbos = function (attributes) {
     return attributes.map(function(attr_data) {
         var position_data = please.gl.__jta_array(attr_data["position"])
-        /*
-        console.info("Vertex data: ");
-        for (var i=0; i<position_data.length && i<10; i+=1) {
-            console.info(position_data[i]);
-        }
-        console.info('...');
-        for (var i=position_data.length-6; i<position_data.length; i+=1) {
-            console.info(position_data[i]);
-        }
-        var min = position_data[0];
-        var max = position_data[0];
-        for (var i=1; i < position_data.length; i+=1) {
-            if (position_data[i] > max) max = Math.abs(position_data[i]);
-            if (position_data[i] < min) min = Math.abs(position_data[i]);
-        }
-        console.info("Maximum vertex: " + max);
-        console.info("Minimum vertex: " + min);
-        */
         var attr_map = {
             "position" : position_data,
         };

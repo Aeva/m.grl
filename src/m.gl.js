@@ -430,7 +430,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             });
 
             prog.samplers.__defineGetter__(data.name, function () {
-                return rog.__cache.samplers[data.name];
+                return prog.__cache.samplers[data.name];
             });
         }
     };
