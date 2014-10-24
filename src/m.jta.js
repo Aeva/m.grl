@@ -101,7 +101,6 @@ please.gl.__jta_extract_models = function (model_defs, vbos) {
         please.prop_map(model_def.groups, function(group_name, group) {
             // groups coorespond to IBOs, but also store the name of
             // relevant bone matrices.
-            // FIXME - these should all use the same IBO, but make use of ranges!
             var element_array = please.gl.__jta_array(group.faces);
             var group = {
                 "bones" : group.bones,
