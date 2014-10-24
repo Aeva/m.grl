@@ -14,6 +14,6 @@ varying vec3 screen_position;
 
 
 void main(void) {
-  float gray = screen_position.y/15.0;
+  float gray = screen_position.y+15.0/15.0;
   gl_FragColor = vec4(gray, gray, gray, 1.0);
 }
