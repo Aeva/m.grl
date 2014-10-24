@@ -55,8 +55,6 @@ please.gl.new_jta = function (src, uri) {
         });
     };
 
-
-
     console.info("Done loading " + uri +" ...?");
     return scene;
 };
