@@ -581,7 +581,7 @@ please.gl.ibo = function (data, options) {
         });
     }
     var poly_size = 3; // fixme this should be determined by opt.mode
-    var face_count = data/poly_size;
+    var face_count = data.length;
     var ibo = {
         "id" : gl.createBuffer(),
         "bind" : function () {

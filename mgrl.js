@@ -1924,7 +1924,7 @@ please.gl.ibo = function (data, options) {
         });
     }
     var poly_size = 3; // fixme this should be determined by opt.mode
-    var face_count = data/poly_size;
+    var face_count = data.length;
     var ibo = {
         "id" : gl.createBuffer(),
         "bind" : function () {
@@ -2011,10 +2011,17 @@ please.gl.new_jta = function (src, uri) {
     }
     // extract model data
     var vbos = please.gl.__jta_extract_vbos(directory.attributes);
-    var models = please.gl.__jta_extract_models(directory.models, vbos);
-    for (var name in models) if (models.hasOwnProperty(name)) {
-        scene.models[name] = models[name];
-    }
+    scene.models = please.gl.__jta_extract_models(directory.models, vbos);
+    scene.test_draw = function () {
+        vbos[0].bind();
+        //vbos[0].draw();
+        please.prop_map(scene.models, function(name, model) {
+            please.prop_map(model.groups, function(group_name, group) {
+                group.ibo.bind();
+                group.ibo.draw();
+            });
+        });
+    };
     console.info("Done loading " + uri +" ...?");
     return scene;
 };
@@ -2045,9 +2052,22 @@ please.gl.__jta_extract_models = function (model_defs, vbos) {
             // groups coorespond to IBOs, but also store the name of
             // relevant bone matrices.
             // FIXME - these should all use the same IBO, but make use of ranges!
+            var element_array = please.gl.__jta_array(group.faces);
+            /*
+            if (element_array) {
+                console.info("Element array for: " + name + ": " + group_name);
+                for (var i=0; i<element_array.length && i<4; i+=1) {
+                    console.info(element_array[i]);
+                }
+                console.info("...");
+                console.info(element_array[element_array.length-3]);
+                console.info(element_array[element_array.length-2]);
+                console.info(element_array[element_array.length-1]);
+            }
+            */
             var group = {
                 "bones" : group.bones,
-                "ibo" : please.gl.ibo(please.gl.__jta_array(group.faces)),
+                "ibo" : please.gl.ibo(element_array),
             };
             model.groups.push(group);
         });
@@ -2058,8 +2078,27 @@ please.gl.__jta_extract_models = function (model_defs, vbos) {
 // Extract the vertex buffer objects defined in the jta file.
 please.gl.__jta_extract_vbos = function (attributes) {
     return attributes.map(function(attr_data) {
+        var position_data = please.gl.__jta_array(attr_data["position"])
+        /*
+        console.info("Vertex data: ");
+        for (var i=0; i<position_data.length && i<10; i+=1) {
+            console.info(position_data[i]);
+        }
+        console.info('...');
+        for (var i=position_data.length-6; i<position_data.length; i+=1) {
+            console.info(position_data[i]);
+        }
+        var min = position_data[0];
+        var max = position_data[0];
+        for (var i=1; i < position_data.length; i+=1) {
+            if (position_data[i] > max) max = Math.abs(position_data[i]);
+            if (position_data[i] < min) min = Math.abs(position_data[i]);
+        }
+        console.info("Maximum vertex: " + max);
+        console.info("Minimum vertex: " + min);
+        */
         var attr_map = {
-            "position" : please.gl.__jta_array(attr_data["position"]),
+            "position" : position_data,
         };
         // extract UV coordinates
         if (attr_data.tcoords !== undefined && attr_data.tcoords.length >= 1) {
