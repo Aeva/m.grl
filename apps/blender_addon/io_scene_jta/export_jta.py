@@ -184,13 +184,22 @@ class Model(object):
         # record the current offest *first*
         self.offset = data["position"].count
 
+        # HACK build a map of "loop indices"
+        loop_indices = [0 for i in range(len(self.vertices))]
+        for face in self.mesh.polygons:
+            for vertex, loop in zip(face.vertices, face.loop_indices):
+                loop_indices[vertex] = loop;
+
         for vertex_index in range(len(self.vertices)):
             vertex = self.vertices[vertex_index]
             data["position"].add_vector(*vertex.co[:])
-                    
+            
             # add this model's uv coordinates to the pool
             for uv_layer, tcoord_set in zip(self.mesh.uv_layers, data["tcoords"]):
-                tcoord_set.add_vector(*uv_layer.data[vertex_index].uv[:])
+                # HACK
+                loop_index = loop_indices[vertex_index]
+                uv_coord = uv_layer.data[loop_index].uv[:]
+                tcoord_set.add_vector(*uv_coord)
 
             # determine vertex group weights
             if self.use_weights:
@@ -236,10 +245,12 @@ class Model(object):
         state = {}
 
         # Save the world matrix as used for rendering.
-        world_matrix = Float16Array(period=4)
-        for vector in self.obj.matrix_world.to_4x4():
-            world_matrix.add_vector(*vector[:])
-        state["world_matrix"] = world_matrix.export()
+        target_matrix = self.obj.matrix_world.copy()
+        target_matrix.transpose()
+        matrix_builder = Float16Array(period=4)
+        for vector in target_matrix.to_4x4():
+            matrix_builder.add_vector(*vector[:])
+        state["world_matrix"] = matrix_builder.export()
 
         # Save the active texture:
         if self.texture_count > 0:
@@ -248,7 +259,7 @@ class Model(object):
             # falling back on what the display texture probably is
             refcode = self.texture_store.refcode_for_model(self)
             if refcode:
-                state["texture"] = {
+                state["diffuse_texture"] = {
                     "type" : "Sampler2D",
                     "uri" : refcode,
                 }
