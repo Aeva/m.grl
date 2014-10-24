@@ -21,6 +21,7 @@ import time
 import json
 import base64
 import hashlib
+import os.path
 from io import BytesIO
 
 import bpy
@@ -81,7 +82,7 @@ class Base64Array(object):
             "type" : "Array",
             "hint" : self.hint,
             "item" : self.period,
-            "data" : base64.b64encode(ar.tostring()).decode(),
+            "data" : base64.b64encode(ar.tostring()).decode("ascii"),
         }
 
 
@@ -303,6 +304,7 @@ class TextureStore(object):
     """
     def __init__(self, options):
         self.force_pack = options["pack_images"]
+        self.trim_paths = options["trim_paths"];
         self.packed = {}
 
     def pack_image(self, img_file, ext):
@@ -311,7 +313,7 @@ class TextureStore(object):
         if not self.packed.get(tag):
             uri = "data:image/{0};base64,{1}"
             mimetype = ext.lower()
-            self.packed[tag] = uri.format(mimetype, str(base64.b64encode(raw))[2:-1])
+            self.packed[tag] = uri.format(mimetype, base64.b64encode(raw).decode("ascii"))
         return "packed:{0}".format(tag)
 
     def refcode_for_model(self, model):
@@ -331,7 +333,6 @@ class TextureStore(object):
             raise NotImplementedError(
                 "Finding image maps with {0} as the current renderer.".format(renderer))
         if image:
-            #import pdb; pdb.set_trace()
             assert image.file_format in ["PNG", "JPEG"]
             if image.filepath == "" or self.force_pack:
                 if image.filepath == "":
@@ -339,9 +340,11 @@ class TextureStore(object):
                 else:
                     return self.pack_image(open(image.filepath, "r"), image.file_format)
             else:
-                # FIXME give an option to have paths relative to blend
-                # file, or just take the file name without a path name
-                return "ref:{0}".format(image.filepath)
+                if self.trim_paths:
+                    img_path = os.path.basename(image.filepath)
+                else:
+                    img_path = image.filepath
+                return "ref:{0}".format(img_path)
         else:
             return None
 

@@ -96,32 +96,28 @@ class ExportJTA(bpy.types.Operator, ExportHelper):
         default="none",
     )
 
-    # context group
     use_selection = BoolProperty(
         name="Selection Only",
         description="Export selected objects only",
         default=False,
     )
 
-    # object group
     use_mesh_modifiers = BoolProperty(
         name="Apply Modifiers",
         description="Apply modifiers (preview resolution)",
         default=True,
     )
 
-    # extra data group
-    use_smooth = BoolProperty(
-        name="Smooth Normals",
-        description="Hint that per-vertex normals should be averaged from adjacent face normals.",
-        default=False,
+    trim_paths = BoolProperty(
+        name="Truncate Paths",
+        description="For externally referenced files, only store the file name of the asset.",
+        default = True,
     )
 
-    # pack image data
     pack_images = BoolProperty(
-        name="Pack Images",
+        name="Pack All Images (caution!)",
         description="Embeds images in the exported file instead of storing only referencs."
-        "  Use sparingly.",
+        "  Use sparingly as this will *GREATLY* inflate the size of the exported file!!!",
         default=False,
     )
 
@@ -131,8 +127,7 @@ class ExportJTA(bpy.types.Operator, ExportHelper):
         default=1.0,
     )
 
-    path_mode = path_reference_mode
-
+    path_mode = path_reference_mode #???
     check_extension = True
 
 
