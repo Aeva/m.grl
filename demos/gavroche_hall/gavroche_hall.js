@@ -82,14 +82,13 @@ function main () {
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.CULL_FACE);
-    //gl.clearColor(.93, .93, .93, 1.0);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
     // store our scene:
     var scene = window.scene = please.access(please.relative("jta", "gavroche_hall.jta"));
 
     //
-    var camera_coords = vec3.fromValues(-3, 10, 6);
+    var camera_coords = vec3.fromValues(11.584, -19.953, 12.076);
     var lookat_coords = vec3.fromValues(0, 0, 1);
     var light_direction = vec3.fromValues(.25, -1.0, -.4);
     vec3.normalize(light_direction, light_direction);
@@ -112,108 +111,15 @@ function main () {
 
         // -- update uniforms
         prog.vars.time = mark;
-        prog.vars.light_direction = light_direction;
         prog.vars.view_matrix = view_matrix;
         prog.vars.model_matrix = model_matrix;
         prog.vars.projection_matrix = projection_matrix;
-        prog.vars.normal_matrix = normal_matrix(model_matrix, view_matrix);
 
         // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         
         // -- draw geometry
-        for (var prop in scene.models) if (scene.models.hasOwnProperty(prop)) {
-            var model = scene.models[prop];
-            model.vbo.bind();
-            model.groups[0].ibo.bind();
-            model.groups[0].ibo.draw();
-        }
+        scene.test_draw();
     });
     please.pipeline.start();
-};
-
-
-// This function creates a matrix for transforming normals from model
-// space to world space.
-function normal_matrix (model_matrix) {
-    var normal = mat3.create();
-    mat3.fromMat4(normal, model_matrix);
-    mat3.invert(normal, normal);
-    mat3.transpose(normal, normal);
-    return normal;
-};
-
-
-function floor_quad () {
-    var vbo = please.gl.make_quad(100, 100);
-    var world_matrix = mat4.create();
-
-    return {
-        "bind" : function () {
-            var prog = please.gl.get_program();
-            prog.vars.mode = 1; // floor mode
-            prog.vars.model_matrix = world_matrix;
-            prog.vars.normal_matrix = normal_matrix(world_matrix);
-            vbo.bind();
-        },
-
-        "draw" : function () {
-            vbo.draw();
-        },
-    };
-};
-
-
-function model_instance (uri, model_matrix) {
-    return {
-        "x" : 0,
-        "y" : 0,
-        "z" : 0,
-        "rx" : 0,
-        "ry" : 0,
-        "rz" : 0,
-        "name" : please.relative("jta", uri),
-        "__stamp" : performance.now(),
-
-        "bind" : function () {
-            var dt = performance.now() - this.__stamp;
-            var model = please.access(this.name, true);
-            var prog = please.gl.get_program();
-            if (model && prog) {
-                var position = mat4.create();
-                mat4.translate(position, position, [this.x, this.y, this.z]);
-                if (this.rx) {
-                    mat4.rotateX(position, position, please.radians(this.rx));
-                }
-                if (this.ry) {
-                    mat4.rotateY(position, position, please.radians(this.ry));
-                }
-                if (this.rz) {
-                    mat4.rotateZ(position, position, please.radians(this.rz));
-                }
-                if (model_matrix) {
-                    var new_mvmatrix = mat4.multiply(mat4.create(), model_matrix, position);
-                    prog.vars.model_matrix = new_mvmatrix;
-                    prog.vars.normal_matrix = normal_matrix(new_mvmatrix);
-                }
-                else {
-                    prog.vars.model_matrix = position;
-                    prog.vars.normal_matrix = normal_matrix(position);
-                }
-
-                if (model.uniforms.texture && prog.samplers.hasOwnProperty("texture_map")) {
-                    prog.samplers.texture_map = model.uniforms.texture;
-                }
-                prog.vars.mode = 2; // not-floor mode
-                model.bind();
-            }
-        },
-
-        "draw" : function () {
-            var model = please.access(this.name, true);
-            if (model) {
-                model.draw();
-            }
-        },
-    };
 };
