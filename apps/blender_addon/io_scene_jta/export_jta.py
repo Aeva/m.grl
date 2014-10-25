@@ -117,11 +117,11 @@ class Vertex(object):
         self.weights = tuple(weights) or None
     
     def __hash__(self):
-        return hash((self.postition, self.uvs, self.weights))
+        return hash((self.position, self.uvs, self.weights))
 
     def __eq__(self, another):
-        lhs = (self.postition, self.uvs, self.weights)
-        rhs = (another.postition, another.uvs, another.weights)
+        lhs = (self.position, self.uvs, self.weights)
+        rhs = (another.position, another.uvs, another.weights)
         return lhs == rhs
 
 
@@ -140,15 +140,91 @@ class Model(object):
         self.mesh.transform(mathutils.Matrix.Scale(options["global_scale"], 4))
         self.__triangulate()
 
-        self.texture_count = len(self.mesh.uv_textures)
-        self.vertices = self.mesh.vertices[:]
-        self.face_indices = [(face, index) for index, face in enumerate(self.mesh.polygons)]
-        self.__determine_vertex_groups()
         self.use_weights = len(self.obj.vertex_groups) > 0
+        self.texture_count = len(self.mesh.uv_textures)
+        self.__generate_vertices()
 
         self.attr_struct = None
         self.offset = None
         self.export_ready = False
+
+    def __generate_vertices(self):
+        """
+        Run through the face data and populate a set of Vertex class
+        instances, as well as a dictionary for mapping between the
+        two.  Also determines the vertex metagroups.
+        """
+        vertices = set()
+        mapping = {}
+        group_map = {}
+
+        self.vertices = []
+        self.meta_groups = {}
+        self.face_vertices = {}
+
+        # extract the position, uv coordinates, and weights for
+        # each vertex in the face, generate a Vertex object, save
+        # it in a set and record it in a mapping dict.
+        for face in self.mesh.polygons:
+            face_vertices = []
+            for vertex_index, loop_index in zip(face.vertices, face.loop_indices):
+                vdata = self.mesh.vertices[vertex_index]
+
+                # determine group membership first
+                groups = []
+                meta_name = self.get_meta_group_name(vdata)
+                if vdata.groups:
+                    groups = veretx.groups
+                    assert len(groups) <= 4
+            
+                # extract the vertex attributes
+                position = vdata.co[:]
+                uvs = []
+                weights = []
+                for uv_layer in self.mesh.uv_layers:
+                    uvs.append(uv_layer.data[loop_index].uv[:])
+                
+                if self.use_weights:
+                    meta_group = self.get_meta_group_name(vdata)
+                    if meta_group != "default":
+                        weights = [group.weight for group in vertex.groups]
+                    while len(weights) < 4:
+                        weights.append(0.0)
+                
+                vertex = Vertex(position, uvs, weights)
+                vertices.add(vertex)
+                face_vertices.append(vertex)
+
+                # add the vertex to its meta group
+                if not group_map.get(meta_name):
+                    group_map[meta_name] = []
+                    self.meta_groups[meta_name] = {
+                        "data" : [],
+                        "groups" : groups,
+                    }
+                group_map[meta_name].append(vertex)
+
+            mapping[face.index] = tuple(face_vertices)
+
+        # flatten vertices into a list
+        self.vertices = list(vertices)
+
+        # speedup HACK - store the indices of each vertex, so we don't need to
+        # call self.vertices.index(vert).
+        vert_indices = {}
+        vert_i = 0
+        for vertex in self.vertices:
+            vert_indices[vertex] = vert_i
+            vert_i += 1
+
+        # use the face mapping to produce a set of indices per face
+        for face, vertices in mapping.items():            
+            self.face_vertices[face] = [vert_indices[vert] for vert in mapping[face]]
+
+        # record a mapping of meta vertex groups to the vertex indices
+        for meta_name, verts in group_map.items():
+            for vertex in verts:
+                self.meta_groups[meta_name]["data"].append(vert_indices[vertex])
         
     def __triangulate(self):
         """
@@ -173,11 +249,14 @@ class Model(object):
         Determine meta groups.  A meta group is zero or more vertex groups,
         determined by what vertex groups individual vertices are in.
         """
+
+        ############## DEFUNCT - this behavior is now done by __generate_vertices
+
         # determine meta vertex groups
         self.meta_groups = {}
         for polygon in self.mesh.polygons:
             for vertex_index in polygon.vertices:
-                vertex = self.vertices[vertex_index]
+                vertex = self.mesh.vertices[vertex_index]
                 groups = []
                 meta_name = self.get_meta_group_name(vertex)
                 if vertex.groups:
@@ -207,32 +286,18 @@ class Model(object):
         # record the current offest *first*
         self.offset = data["position"].count
 
-        # HACK build a map of "loop indices"
-        loop_indices = [0 for i in range(len(self.vertices))]
-        for face in self.mesh.polygons:
-            for vertex, loop in zip(face.vertices, face.loop_indices):
-                loop_indices[vertex] = loop;
+        for vertex in self.vertices:
+            # add the position data
+            data["position"].add_vector(*vertex.position)
 
-        for vertex_index in range(len(self.vertices)):
-            vertex = self.vertices[vertex_index]
-            data["position"].add_vector(*vertex.co[:])
-            
-            # add this model's uv coordinates to the pool
-            for uv_layer, tcoord_set in zip(self.mesh.uv_layers, data["tcoords"]):
-                # HACK
-                loop_index = loop_indices[vertex_index]
-                uv_coord = uv_layer.data[loop_index].uv[:]
-                tcoord_set.add_vector(*uv_coord)
+            # add the tcoord data
+            for uv, tcoord_set in zip(vertex.uvs, data["tcoords"]):
+                tcoord_set.add_vector(*uv)
 
-            # determine vertex group weights
+            # add the weight data
             if self.use_weights:
-                meta_group = self.get_meta_group_name(vertex)
-                weights = []
-                if meta_group != "default":
-                    weights = [group.weight for group in vertex.groups]
-                while len(weights) < 4:
-                    weights.append(0.0)
-                data["weights"].add_vector(*weights)
+                assert vertex.weights is not None
+                data["weights"].add_vector(*vertex.weights)
 
         # flag the model as being ready for export
         self.export_ready = True
