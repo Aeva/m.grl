@@ -100,7 +100,30 @@ class Int16Array(Base64Array):
     """
     def __init__(self, period, signed=True):
         Base64Array.__init__(self, period, typed=int, precision=16, signed=signed)
+
+
+class Vertex(object):
+    """
+    In WebGL, a vertex is not defined by its coordinates, but rather it
+    is a grouping of attributes.  Coordinates are attributes.
+    """
+    def __init__(self, position=[], uvs=[], weights=[]):
+        assert len(position) == 3
+        assert len(weights) == 0 or len(weights) == 4
+        for uv_group in uvs:
+            assert len(uv_group) == 2
+        self.position = tuple(position)
+        self.uvs = tuple([tuple(uv) for uv in uvs]) or None
+        self.weights = tuple(weights) or None
     
+    def __hash__(self):
+        return hash((self.postition, self.uvs, self.weights))
+
+    def __eq__(self, another):
+        lhs = (self.postition, self.uvs, self.weights)
+        rhs = (another.postition, another.uvs, another.weights)
+        return lhs == rhs
+
 
 class Model(object):
     """
