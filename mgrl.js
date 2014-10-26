@@ -1463,6 +1463,7 @@ please.gl = {
             // look for common extensions
             var search = [
                 'EXT_texture_filter_anisotropic',
+                'OES_element_index_uint',
             ];
             for (var i=0; i<search.length; i+=1) {
                 var name = search[i];
@@ -1923,6 +1924,12 @@ please.gl.ibo = function (data, options) {
             }
         });
     }
+    if (data.BYTES_PER_ELEMENT == 2) {
+        opt["type"] = gl.UNSIGNED_SHORT;
+    }
+    else if (data.BYTES_PER_ELEMENT == 4) {
+        opt["type"] = gl.UNSIGNED_INT;
+    }
     var poly_size = 3; // fixme this should be determined by opt.mode
     var face_count = data.length;
     var ibo = {
@@ -2063,7 +2070,6 @@ please.gl.__jta_extract_models = function (model_defs, vbos) {
         please.prop_map(model_def.groups, function(group_name, group) {
             // groups coorespond to IBOs, but also store the name of
             // relevant bone matrices.
-            // FIXME - these should all use the same IBO, but make use of ranges!
             var element_array = please.gl.__jta_array(group.faces);
             var group = {
                 "bones" : group.bones,

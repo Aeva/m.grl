@@ -49,6 +49,7 @@ please.gl = {
             // look for common extensions
             var search = [
                 'EXT_texture_filter_anisotropic',
+                'OES_element_index_uint',
             ];
             for (var i=0; i<search.length; i+=1) {
                 var name = search[i];
@@ -579,6 +580,12 @@ please.gl.ibo = function (data, options) {
                 opt[name] = options[name];
             }
         });
+    }
+    if (data.BYTES_PER_ELEMENT == 2) {
+        opt["type"] = gl.UNSIGNED_SHORT;
+    }
+    else if (data.BYTES_PER_ELEMENT == 4) {
+        opt["type"] = gl.UNSIGNED_INT;
     }
     var poly_size = 3; // fixme this should be determined by opt.mode
     var face_count = data.length;
