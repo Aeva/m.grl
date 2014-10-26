@@ -94,12 +94,12 @@ class Float16Array(Base64Array):
         Base64Array.__init__(self, period, typed=float, precision=16)
 
 
-class Int16Array(Base64Array):
+class IntArray(Base64Array):
     """
     Type for integer data arrays.
     """
-    def __init__(self, period, signed=True):
-        Base64Array.__init__(self, period, typed=int, precision=16, signed=signed)
+    def __init__(self, period, signed=True, precision=16):
+        Base64Array.__init__(self, period, typed=int, precision=precision, signed=signed)
 
 
 class Vertex(object):
@@ -154,7 +154,6 @@ class Model(object):
         instances, as well as a dictionary for mapping between the
         two.  Also determines the vertex metagroups.
         """
-        vertices = set()
         mapping = {}
         group_map = {}
 
@@ -174,7 +173,7 @@ class Model(object):
                 groups = []
                 meta_name = self.get_meta_group_name(vdata)
                 if vdata.groups:
-                    groups = veretx.groups
+                    groups = vertex.groups
                     assert len(groups) <= 4
             
                 # extract the vertex attributes
@@ -192,7 +191,7 @@ class Model(object):
                         weights.append(0.0)
                 
                 vertex = Vertex(position, uvs, weights)
-                vertices.add(vertex)
+                self.vertices.append(vertex)
                 face_vertices.append(vertex)
 
                 # add the vertex to its meta group
@@ -206,16 +205,9 @@ class Model(object):
 
             mapping[face.index] = tuple(face_vertices)
 
-        # flatten vertices into a list
-        self.vertices = list(vertices)
-
         # speedup HACK - store the indices of each vertex, so we don't need to
         # call self.vertices.index(vert).
-        vert_indices = {}
-        vert_i = 0
-        for vertex in self.vertices:
-            vert_indices[vertex] = vert_i
-            vert_i += 1
+        vert_indices = dict(zip(self.vertices, range(len(self.vertices))))
 
         # use the face mapping to produce a set of indices per face
         for face, vertices in mapping.items():            
@@ -243,31 +235,6 @@ class Model(object):
             name = "+" + ",".join(
                 [self.obj.vertex_groups[g.group].name for g in vertex.groups])
         return name
-
-    def __determine_vertex_groups(self):
-        """
-        Determine meta groups.  A meta group is zero or more vertex groups,
-        determined by what vertex groups individual vertices are in.
-        """
-
-        ############## DEFUNCT - this behavior is now done by __generate_vertices
-
-        # determine meta vertex groups
-        self.meta_groups = {}
-        for polygon in self.mesh.polygons:
-            for vertex_index in polygon.vertices:
-                vertex = self.mesh.vertices[vertex_index]
-                groups = []
-                meta_name = self.get_meta_group_name(vertex)
-                if vertex.groups:
-                    groups = vertex.groups
-                    assert len(groups) <= 4
-                if not self.meta_groups.get(meta_name):
-                    self.meta_groups[meta_name] = {
-                        "data" : [],
-                        "groups" : groups,
-                    }
-                self.meta_groups[meta_name]["data"].append(vertex_index)
 
     def attach(self, attr):
         """
@@ -310,17 +277,38 @@ class Model(object):
         assert self.export_ready
 
         group_cache = {}
-        for meta_name, meta_group in self.meta_groups.items():
-            builder = Int16Array(period=1, signed=False)
-            for vertex in meta_group["data"]:
-                builder.add_vector(self.offset + vertex)
+        buffer_precision = 16
+        max_index = len(self.vertices)+self.offset
+        if max_index >= 2**16:
+            buffer_precision = 32
+        if max_index >= 2**32:
+            raise BufferError(
+                "Unable to allocate enough precision to store pending export objects.\n"
+                "Consider breaking high poly objects up into smaller objects.")
 
-            group_cache[meta_name] = {
-                "faces" : builder.export(),
-                "bones" : [],
-            }
+        ### HACK - the spec needs to be changed so each model only has
+        ### one IBO, and the scheme we came up with for working with
+        ### bone data isn't going to work without another attribute.
+        builder = IntArray(period=1, signed=False, precision=buffer_precision)
+        for indices in self.face_vertices.values():
+            for vert_index in indices:
+                builder.add_vector(self.offset + vert_index)
+        group_cache["default"] = {
+            "faces" : builder.export(),
+            "bones" : None,
+        }
 
-            # FIXME determine influencing bones
+        #for meta_name, meta_group in self.meta_groups.items():
+        #    builder = Int16Array(period=1, signed=False)
+        #    for vertex in meta_group["data"]:
+        #        builder.add_vector(self.offset + vertex)
+        #
+        #    group_cache[meta_name] = {
+        #        "faces" : builder.export(),
+        #        "bones" : [],
+        #    }
+        #
+        #    # FIXME determine influencing bones
 
         # note the name of the object's parent
         parent = None
