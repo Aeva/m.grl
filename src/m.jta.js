@@ -44,31 +44,8 @@ please.gl.new_jta = function (src, uri) {
     var vbos = please.gl.__jta_extract_vbos(directory.attributes);
     scene.models = please.gl.__jta_extract_models(directory.models, vbos);
 
-    /*
-    scene.test_draw = function () {
-        vbos[0].bind();
-        please.prop_map(scene.models, function(name, model) {
-
-            // load up state stuff
-            var prog = please.gl.get_program();
-            please.prop_map(model.samplers, function(name, uri) {
-                if (prog.samplers.hasOwnProperty(name)) {
-                    prog.samplers[name] = uri;
-                }
-            });
-            please.prop_map(model.uniforms, function(name, value) {
-                if (prog.vars.hasOwnProperty(name)) {
-                    prog.vars[name] = value;
-                }
-            });
-            please.prop_map(model.groups, function(group_name, group) {
-                group.ibo.bind();
-                group.ibo.draw();
-            });
-        });
-    };
-    */
-
+    // add a method for generating a GraphNode (or a small tree
+    // thereof) for this particular model.
     scene.instance = function (model_name) {
         // model_name can be set to null to return an empty group of
         // all object
@@ -92,6 +69,21 @@ please.gl.new_jta = function (src, uri) {
                 please.prop_map(model.uniforms, function(name, value) {
                     node.vars[name] = value;
                 });
+                if (model.extra.position) {
+                    node.x = model.extra.position.x;
+                    node.y = model.extra.position.y;
+                    node.z = model.extra.position.z;
+                }
+                if (model.extra.rotation) {
+                    node.rotate_x = model.extra.rotation.x;
+                    node.rotate_y = model.extra.rotation.y;
+                    node.rotate_z = model.extra.rotation.z;
+                }
+                if (model.extra.scale) {
+                    node.scale_x = model.extra.scale.x;
+                    node.scale_y = model.extra.scale.y;
+                    node.scale_z = model.extra.scale.z;
+                }
                 node.bind = function () {
                     vbos[0].bind();
                     please.prop_map(model.groups, function(group_name, group) {
