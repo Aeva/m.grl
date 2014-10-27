@@ -6,11 +6,19 @@ please.GraphNode = function () {
         return new please.GraphNode();
     }
     this.children = [];
-    this.local_matrix = mat4.create();
     this.visible = true;
     this.ext = {};
     this.vars = {};
     this.samplers = {};
+    this.x = 0;
+    this.y = 0;
+    this.z = 0;
+    this.rotate_x = 0;
+    this.rotate_y = 0;
+    this.rotate_z = 0;
+    this.scale_x = 1;
+    this.scale_y = 1;
+    this.scale_z = 1;
     this.__cache = null;
     this.__asset = null;
     this.__asset_hint = "";
@@ -50,9 +58,15 @@ please.GraphNode.prototype = {
         return found;
     },
     "__update_world_matrix" : function (parent_matrix) {
-        mat4.multiply(this.__cache.world_matrix, 
-                      parent_matrix, 
-                      this.local_matrix);
+        this.__cache.world_matrix = mat4.create();
+        var local_matrix = mat4.create();
+        mat4.translate(local_matrix, local_matrix, this.__cache.xyz);
+        mat4.rotateX(local_matrix, local_matrix, this.__cache.rotate[0]);
+        mat4.rotateY(local_matrix, local_matrix, this.__cache.rotate[1]);
+        mat4.rotateZ(local_matrix, local_matrix, this.__cache.rotate[2]);
+        mat4.scale(local_matrix, local_matrix, this.__cache.scale);
+        mat4.multiply(
+            this.__cache.world_matrix, parent_matrix, local_matrix);
         for (var i=0; i<this.children.length; i+=1) {
             this.children[i].__update_world_matrix(this.__cache.world_matrix);
         }
@@ -63,28 +77,36 @@ please.GraphNode.prototype = {
         this.__cache = {
             "uniforms" : {},
             "samplers" : {},
-            "world_matrix" : mat4.create(),
+            "xyz" : null,
+            "rotate" : null,
+            "scale" : null,
+            "world_matrix" : null,
         };
+
+        this.__cache.xyz = vec3.fromValues(
+            DRIVER(self, this.x),
+            DRIVER(self, this.y),
+            DRIVER(self, this.z)
+        );
+        this.__cache.rotate = vec3.fromValues(
+            DRIVER(self, this.rotate_x),
+            DRIVER(self, this.rotate_y),
+            DRIVER(self, this.rotate_z)
+        );
+        this.__cache.scale = vec3.fromValues(
+            DRIVER(self, this.scale_x),
+            DRIVER(self, this.scale_y),
+            DRIVER(self, this.scale_z)
+        );
+        
         please.prop_map(self.ext, function (name, value) {
-            if (typeof(value) === "function") {
-                value.call(self);
-            }
+            DRIVER(self, value);
         });
         please.prop_map(self.uniforms, function (name, value) {
-            if (typeof(value) === "function") {
-                self.__cache["uniforms"][name] = value.call(self);
-            }
-            else {
-                self.__cache["uniforms"][name] = value;
-            }
+            self.__cache["uniforms"][name] = DRIVER(self, value);
         });
         please.prop_map(self.samplers, function (name, value) {
-            if (typeof(value) === "function") {
-                self.__cache["samplers"][name] = value.call(self);
-            }
-            else {
-                self.__cache["samplers"][name] = value;
-            }
+            self.__cache["samplers"][name] = DRIVER(self, value);
         });
     },
     "__bind" : function (prog) {
@@ -102,12 +124,12 @@ please.GraphNode.prototype = {
         if (this.visible) {
             if (this.__drawable && typeof(this.draw) === "function") {
                 prog.vars["world_matrix"] = self.__cache.world_matrix;
-                please.prop_map(self.__cache.uniforms, function (name, value) {
-                    prog.vars[name] = value;
-                });
-                please.prop_map(self.__cache.samplers, function (name, value) {
-                    prog.samplers[name] = value;
-                });
+                ITER_PROPS(name, self.__cache.uniforms) {
+                    prog.vars[name] = self.__cache.uniforms[name];
+                }
+                ITER_PROPS(name, self.__cache.samplers) {
+                    prog.samplers[name] = self.__cache.samplers[name];
+                }
                 this.draw();
             }
             for (var i=0; i<this.children.length; i+=1) {
@@ -170,13 +192,14 @@ please.SceneGraph = function () {
             var prog = please.gl.get_program();
             prog.vars.view_matrix = this.view_matrix;
 
-            please.prop_map(this.__states, function (hint, children) {
+            ITER_PROPS(hint, this.__states) {
+                var children = this.__states[hint];
                 ITER(i, children) {
                     var child = children[i];
                     child.__bind(prog);
                     child.__draw(prog);
                 }
-            });
+            }
         }
     };
 };

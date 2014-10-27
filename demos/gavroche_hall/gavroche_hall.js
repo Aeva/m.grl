@@ -90,6 +90,13 @@ function main () {
     var level_data = model_data.instance();
     graph.add(level_data);
 
+    // define a simple 'driver' method
+    level_data.rotate_z = function () {
+        var now = performance.now();
+        return (-90*(now/100000))-90;
+    };
+
+
     //
     var camera_coords = vec3.fromValues(4, -15.5, 12);
     var lookat_coords = vec3.fromValues(0, 10, 2.5);
