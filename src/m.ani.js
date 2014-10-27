@@ -42,12 +42,10 @@ please.ani.batch = (function () {
     var batch = {
         "__pending" : [],
         "__times" : [],
-        "__samples" : [],
         "now" : performance.now(),
 
         "schedule" : function (callback, when) {},
         "remove" : function (callback) {},
-        "get_fps" : function () {},
     };
     var dirty = false;
     var pipe_id = "m.ani.js/batch";
@@ -85,26 +83,11 @@ please.ani.batch = (function () {
         }
     };
 
-    
-    // This function returns an approximation of the frame rate.
-    batch.get_fps = function () {
-        var average, sum = 0;
-        ITER(i, batch.__samples) {
-            sum += batch.__samples[i];
-        }
-        average = sum/batch.__samples.length;
-        return Math.round(1000/average);
-    };
-
 
     var frame_handler= function () {
         if (batch.__pending.length > 0) {
             var stamp = performance.now();
-            batch.__samples.push(stamp-batch.now);
             batch.now = stamp;
-            if (batch.__samples.length > 50) {
-                batch.__samples = batch.__samples.slice(-50);
-            }
 
             var pending = batch.__pending;
             var times = batch.__times;

@@ -43,6 +43,11 @@ addEventListener("load", function() {
 });
 
 
+addEventListener("mgrl_fps", function (event) {
+    document.getElementById("fps").innerHTML = event.detail;
+});
+
+
 function show_progress() {
     if (please.media.pending.length > 0) {
         var progress = please.media.get_progress();

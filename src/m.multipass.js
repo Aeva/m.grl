@@ -3,6 +3,10 @@
 
 // Namespace for multipass rendering stuff:
 please.pipeline = {
+    // fps stuff
+    "fps" : 0,
+    "__fps_samples" : [],
+
     // internal vars
     "__cache" : [],
     "__callbacks" : {},
@@ -92,12 +96,18 @@ please.pipeline.stop = function () {
             this.__timer = null;
         }
         this.__stopped = true;
+        this.fps = 0;
+        this.__fps_samples = [];
     }
 };
 
 
 // Step through the pipeline stages.
 please.pipeline.__on_draw = function () {
+    // record frame start time
+    var start_time = performance.now();
+    please.pipeline.__fps_samples.push(start_time);
+
     // if necessary, generate the sorted list of pipeline stages
     if (please.pipeline.__dirty) {
         please.pipeline.__regen_cache();
@@ -110,6 +120,16 @@ please.pipeline.__on_draw = function () {
     
     // reschedule the draw, if applicable
     please.pipeline.__reschedule();
+    
+    // update the fps counter
+    if (please.pipeline.__fps_samples.length > 100) {
+        var samples = please.pipeline.__fps_samples;
+        var displacement = samples[samples.length-1] - samples[0];
+        var fps = samples.length * (1000/displacement); // wrong?
+        window.dispatchEvent(new CustomEvent(
+            "mgrl_fps", {"detail":Math.round(fps)}));
+        please.pipeline.__fps_samples = [];
+    }
 };
 
 
