@@ -84,8 +84,13 @@ function main () {
     gl.enable(gl.CULL_FACE);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
-    // store our scene:
-    var scene = window.scene = please.access(please.relative("jta", "gavroche_hall.jta"));
+    // store our scene & build the graph:
+    var model_data = window.scene = please.access(
+        please.relative("jta", "gavroche_hall.jta"));
+
+    var graph = new please.SceneGraph();
+    var level_data = model_data.instance();
+    graph.add(level_data);
 
     //
     var camera_coords = vec3.fromValues(4, -15.5, 12);
