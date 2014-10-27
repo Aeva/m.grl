@@ -75,8 +75,6 @@ function main () {
     // setup matricies & uniforms
     var projection_matrix = mat4.perspective(
         mat4.create(), 45, canvas.width/canvas.height, 0.1, 100.0);
-    var view_matrix = mat4.create();
-    var world_matrix = mat4.create();
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
@@ -102,9 +100,8 @@ function main () {
     // register a render pass with the scheduler
     please.pipeline.add(1, "gavroche_hall/draw", function () {
         var mark = performance.now();
-        mat4.identity(world_matrix);
         mat4.lookAt(
-            view_matrix,
+            graph.view_matrix,
             camera_coords,
             lookat_coords,
             vec3.fromValues(0, 0, 1) // up vector
@@ -116,15 +113,14 @@ function main () {
 
         // -- update uniforms
         prog.vars.time = mark;
-        prog.vars.view_matrix = view_matrix;
-        prog.vars.world_matrix = world_matrix;
         prog.vars.projection_matrix = projection_matrix;
 
         // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        // -- draw geometry
-        scene.test_draw();
+
+        // -- draw the scene graph
+        graph.tick();
+        graph.draw();
     });
     please.pipeline.start();
 };

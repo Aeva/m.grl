@@ -86,6 +86,12 @@ please.gl.new_jta = function (src, uri) {
                 node.__asset_hint = uri + ":" + model.__vbo_hint;
                 node.__drawable = true;
                 node.__asset = model;
+                please.prop_map(model.samplers, function(name, uri) {
+                    node.samplers[name] = uri;
+                });
+                please.prop_map(model.uniforms, function(name, value) {
+                    node.vars[name] = value;
+                });
                 node.bind = function () {
                     vbos[0].bind();
                     please.prop_map(model.groups, function(group_name, group) {
@@ -97,6 +103,7 @@ please.gl.new_jta = function (src, uri) {
                         group.ibo.draw();
                     });
                 };
+                return node;
             }
             else {
                 throw("no such model in " + uri + ": " + model_name);
