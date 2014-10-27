@@ -44,6 +44,7 @@ please.gl.new_jta = function (src, uri) {
     var vbos = please.gl.__jta_extract_vbos(directory.attributes);
     scene.models = please.gl.__jta_extract_models(directory.models, vbos);
 
+    /*
     scene.test_draw = function () {
         vbos[0].bind();
         please.prop_map(scene.models, function(name, model) {
@@ -66,8 +67,44 @@ please.gl.new_jta = function (src, uri) {
             });
         });
     };
+    */
 
-    console.info("Done loading " + uri +" ...?");
+    scene.instance = function (model_name) {
+        // model_name can be set to null to return an empty group of
+        // all object
+        if (!model_name) {
+            var node = new please.GraphNode();
+            please.prop_map(scene.models, function(name, model) {
+                node.add(scene.instance(name));
+            });
+            return node;
+        }
+        else {
+            var model = scene.models[model_name];
+            if (model) {
+                var node = new please.GraphNode();
+                node.__asset_hint = uri + ":" + model.__vbo_hint;
+                node.__drawable = true;
+                node.__asset = model;
+                node.bind = function () {
+                    vbos[0].bind();
+                    please.prop_map(model.groups, function(group_name, group) {
+                        group.ibo.bind();
+                    });
+                };
+                node.draw = function () {
+                    please.prop_map(model.groups, function(group_name, group) {
+                        group.ibo.draw();
+                    });
+                };
+            }
+            else {
+                throw("no such model in " + uri + ": " + model_name);
+            }
+        }
+    };
+
+    console.info("Done loading " + uri + " ...?");
     return scene;
 };
 
@@ -92,6 +129,7 @@ please.gl.__jta_extract_models = function (model_defs, vbos) {
         // reason).
         var model = {
             "parent" : model_def.parent,
+            "__vbo_hint" : model_def.struct,
             "vbo" : vbos[model_def.struct],
             "uniforms" : {},
             "samplers" : {},
