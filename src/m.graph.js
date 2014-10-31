@@ -22,6 +22,7 @@ please.GraphNode = function () {
     this.__cache = null;
     this.__asset = null;
     this.__asset_hint = "";
+    this.sort_mode = "solid"; // can be set to translucent
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__unlink = false; // set to true to tell parents to remove this child
     this.priority = 100; // lower means the driver functions are called sooner
@@ -156,7 +157,7 @@ please.SceneGraph = function () {
     this.__draw = null;
     this.__flat = [];
     this.__states = {};
-    this.view_matrix = mat4.create();
+    this.camera = null;
     this.local_matrix = mat4.create();
 
     var tick_sort_function = function (lhs, rhs) {
@@ -188,10 +189,13 @@ please.SceneGraph = function () {
     };
 
     this.draw = function () {
+        var prog = please.gl.get_program();
+        if (this.camera) {
+            this.camera.update_camera();
+            prog.vars.projection_matrix = this.camera.projection_matrix;
+            prog.vars.view_matrix = this.camera.view_matrix;
+        }
         if (this.__states) {
-            var prog = please.gl.get_program();
-            prog.vars.view_matrix = this.view_matrix;
-
             ITER_PROPS(hint, this.__states) {
                 var children = this.__states[hint];
                 ITER(i, children) {
@@ -204,3 +208,58 @@ please.SceneGraph = function () {
     };
 };
 please.SceneGraph.prototype = new please.GraphNode();
+
+
+// Camera object for perspective projection
+please.PerspectiveCamera = function (canvas, fov, near, far) {
+    this.__canvas = canvas;
+    this.__width = null;
+    this.__height = null;
+    this.__fov = please.is_number(fov)?fov:45;
+    this.__near = please.is_number(near)?near:0.1;
+    this.__far = please.is_number(far)?far:100.0;
+    this.look_at = vec3.fromValues(0, 0, 0);
+    this.location = vec3.fromValues(0, -10, 10);
+    this.up_vector = vec3.fromValues(0, 0, 1);
+    this.projection_matrix = mat4.create();
+    this.view_matrix = mat4.create();
+
+    this.update_camera = function () {
+        // Recalculate the projection matrix, if necessary
+        if (this.__width !== this.__canvas.width && this.__height !== this.__canvas.height) {
+            this.__width = this.__canvas.width;
+            this.__height = this.__canvas.height;
+            mat4.perspective(
+                this.projection_matrix, this.__fov, 
+                this.__width / this.__height, this.__near, this.__far);
+        }
+
+        // Calculate the look_at vector, if necessary
+        var look_at = null;
+        if (this.look_at.length === 3) {
+            look_at = this.look_at;
+        }
+        else if (this.look_at.__cache && this.look_at.__cache.xyz) {    
+            look_at = this.look_at.__cache.xyz;
+        }
+
+        // Calculate the location vecto, if neccesary
+        var location = null;
+        if (this.location.length === 3) {
+            location = this.location;
+        }
+        if (typeof(this.location) === "function") {
+            location = this.location();
+        }
+
+        mat4.lookAt(
+            this.view_matrix,
+            this.location,
+            look_at,
+            this.up_vector);
+
+        // Mark both matricies as dirty updates
+        this.projection_matrix.dirty = true;
+        this.view_matrix.dirty = true;
+    };
+};

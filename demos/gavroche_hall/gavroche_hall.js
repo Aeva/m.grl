@@ -75,10 +75,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var prog = please.glsl("default", vert, frag);
     prog.activate();
 
-    // setup matricies & uniforms
-    var projection_matrix = mat4.perspective(
-        mat4.create(), 45, canvas.width/canvas.height, 0.1, 100.0);
-
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
@@ -99,31 +95,18 @@ addEventListener("mgrl_media_ready", please.once(function () {
         return (-90*(now/100000))-90;
     };
 
-
-    //
-    var camera_coords = vec3.fromValues(4, -15.5, 12);
-    var lookat_coords = vec3.fromValues(0, 10, 2.5);
-    var light_direction = vec3.fromValues(.25, -1.0, -.4);
-    vec3.normalize(light_direction, light_direction);
-    vec3.scale(light_direction, light_direction, -1);
+    // add a camera object
+    var camera = new please.PerspectiveCamera(canvas);
+    camera.look_at = vec3.fromValues(0, 10, 2.5);
+    camera.location = vec3.fromValues(4, -15.5, 12);
+    
+    // add the camera to the graph
+    graph.camera = camera;
     
     // register a render pass with the scheduler
     please.pipeline.add(1, "gavroche_hall/draw", function () {
-        var mark = performance.now();
-        mat4.lookAt(
-            graph.view_matrix,
-            camera_coords,
-            lookat_coords,
-            vec3.fromValues(0, 0, 1) // up vector
-        );
-
-        var slowdown = 5000;
-        //world_matrix = mat4.rotateZ(
-        //    world_matrix, world_matrix, please.radians((-90*mark/slowdown)-90));
-
         // -- update uniforms
-        prog.vars.time = mark;
-        prog.vars.projection_matrix = projection_matrix;
+        prog.vars.time = performance.now();
 
         // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
