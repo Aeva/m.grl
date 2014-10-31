@@ -243,7 +243,7 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
             look_at = this.look_at.__cache.xyz;
         }
 
-        // Calculate the location vecto, if neccesary
+        // Calculate the location vector, if necessary
         var location = null;
         if (this.location.length === 3) {
             location = this.location;
@@ -252,11 +252,20 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
             location = this.location();
         }
 
+        // Calculate the up vector, if necessary
+        var up_vector = null;
+        if (this.up_vector.length === 3) {
+            up_vector = this.up_vector;
+        }
+        if (typeof(this.up_vector) === "function") {
+            up_vector = this.up_vector();
+        }
+
         mat4.lookAt(
             this.view_matrix,
-            this.location,
+            location,
             look_at,
-            this.up_vector);
+            up_vector);
 
         // Mark both matricies as dirty updates
         this.projection_matrix.dirty = true;
