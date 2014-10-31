@@ -40,6 +40,37 @@ function show_progress() {
 };
 
 
+// keyboard control stuff
+var key_timers = {
+    "left" : null,
+    "right" : null,
+};
+function key_handler(state, key) {
+    // arrow key handler
+    if (state === "cancel") {
+        window.clearInterval(key_timers[key]);
+        key_timers[key] = null;
+    }
+    else if (state === "press" && key_timers[key] === null) {
+        var amount = .15;
+        if (key == "left") {
+            amount *= -1;
+        }
+        key_timers[key] = window.setInterval(function () {
+            if (window.player) {
+                window.player.x += amount;
+                if (window.player.x < -15) {
+                    window.player.x = -15;
+                }
+                if (window.player.x > 15) {
+                    window.player.x = 15;
+                }                
+            }
+        }, 1);
+    }
+};
+
+
 addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
     please.media.search_paths.img = "../gl_assets/img/";
@@ -54,6 +85,7 @@ addEventListener("load", function() {
 
     // load our model files
     please.relative_load("jta", "gavroche_hall.jta");
+    please.relative_load("jta", "psycho.jta");
     show_progress();
 });
 
@@ -66,7 +98,7 @@ addEventListener("mgrl_fps", function (event) {
 addEventListener("mgrl_media_ready", please.once(function () {
     // Clear loading screen, show canvas
     document.getElementById("loading_screen").style.display = "none";
-    document.getElementById("gl_canvas").style.display = "block";
+    document.getElementById("demo_area").style.display = "block";
 
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
@@ -82,26 +114,51 @@ addEventListener("mgrl_media_ready", please.once(function () {
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
     // store our scene & build the graph:
-    var model_data = window.scene = please.access(
+    var level_data = window.scene = please.access(
         please.relative("jta", "gavroche_hall.jta"));
+    var char_data = please.access(
+        please.relative("jta", "psycho.jta"));
 
     var graph = new please.SceneGraph();
-    var level_data = model_data.instance();
-    graph.add(level_data);
+    var level_node = level_data.instance();
+    var char_avatar = char_data.instance();
+    char_avatar.y = -2.5;
+    var char_node = window.player = new please.GraphNode();
+    char_node.x = -1.8;
+    char_node.z = 6;
 
-    // define a simple 'driver' method
-    level_data.rotate_z = function () {
-        var now = performance.now();
-        return (-90*(now/100000))-90;
+    // add some driver methods to animate things
+    char_avatar.rotate_z = function () {
+        return char_node.x;
     };
+    char_avatar.z = function () {
+        var progress = performance.now()/500;
+        return Math.sin(progress)/2.0;
+    };
+
+    // add our models to the graph
+    graph.add(level_node);
+    graph.add(char_node);
+    char_node.add(char_avatar);
 
     // add a camera object
     var camera = new please.PerspectiveCamera(canvas);
-    camera.look_at = vec3.fromValues(0, 10, 2.5);
-    camera.location = vec3.fromValues(4, -15.5, 12);
+    //camera.look_at = vec3.fromValues(0, 10, 2.5);
+    camera.look_at = char_node;
+    camera.location = function () {
+        var x = char_node.x/-2.0;
+        var y = char_node.y - 14;
+        var z = char_node.z + 6;
+        return vec3.fromValues(x,y,z);
+    };
     
     // add the camera to the graph
     graph.camera = camera;
+
+    // connect keyboard handlers
+    please.keys.enable();
+    please.keys.connect("left", key_handler);
+    please.keys.connect("right", key_handler);
     
     // register a render pass with the scheduler
     please.pipeline.add(1, "gavroche_hall/draw", function () {

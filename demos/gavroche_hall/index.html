@@ -10,13 +10,33 @@
      background-color: #550b67!important;
    }
 
-   .demo_area {
+   .game_screen {
      width: 840px;
      height: 630px;
      margin-left: -20px;
      margin-right: -20px;
-     margin-bottom: -25px;
+     margin-bottom: -20px;
      border-radius: 3px;
+   }
+
+   #demo_area {
+     position: relative;
+     display: none;
+   }
+
+   canvas#gl_canvas {
+     position: absolute;
+     top: 0px;
+     left: 0px;
+     z-index: 10;
+   }
+
+   #fps_counter {
+     position: absolute;
+     top: -21px;
+     left: 5px;
+     z-index: 20;
+     color: #888;
    }
 
    #loading_screen {
@@ -65,19 +85,22 @@
      right: 0px;
      text-align: center;
    }
-   
-   canvas#gl_canvas {
-     display: none;
+
+   #halp {
+     font-size: 20px;
+     text-align: center;
    }
+   
   </style>
 </head><body>
   <div id="page">
     <h1>Mondaux Graphics & Recreation Library</h1>
-    <h1 id="headline">Gavroche Hall</h1>
+    <h1 id="headline">Debug Level</h1>
     <div id="back_button">[ <a href="../">back to demo index</a> ]</div>
-    <div id="fps_counter"><span id="fps">???</span> frames per second</div>
 
-    <div id="loading_screen" class="demo_area">
+    <div id="halp">Press the arrow keys to soar magestically through the air!</div>
+
+    <div id="loading_screen" class="game_screen">
       <div id="loading_box">
         <div id="progress">
           <div id="progress_bar" style="width:0%;"></div>
@@ -87,8 +110,11 @@
       </div>
     </div>
     
-    <canvas id="gl_canvas" class="demo_area" width=840 height=630>
-      Your browser does not appear to support HTML5 canvas and/or webgl.
-    </canvas>
+    <div id="demo_area" class="game_screen">
+      <div id="fps_counter">FPS:<span id="fps">???</span></div>
+      <canvas id="gl_canvas" class="demo_area" width=840 height=630>
+        Your browser does not appear to support HTML5 canvas and/or webgl.
+      </canvas>
+    </div>
   </div>
 </body></html>
