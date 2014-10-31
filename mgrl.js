@@ -419,9 +419,13 @@ please.media._pop = function (req_key) {
         please.schedule(function () {
             // please.schedule allows for this to be evaluated
             // after the media handlers.
-            var media_ready = new Event("mgrl_media_ready");
-            window.dispatchEvent(media_ready);
-            please.__wait_for_pending = false;
+            if (please.media.pending.length === 0) {
+                // We still check here to make sure nothing is pending
+                // because some downloads may trigger other downloads.
+                var media_ready = new Event("mgrl_media_ready");
+                window.dispatchEvent(media_ready);
+                please.__wait_for_pending = false;
+            }
         });
         please.media.__load_status = {};
     }
@@ -2024,6 +2028,15 @@ please.gl.new_jta = function (src, uri) {
     // extract model data
     var vbos = please.gl.__jta_extract_vbos(directory.attributes);
     scene.models = please.gl.__jta_extract_models(directory.models, vbos);
+    please.prop_map(scene.models, function(name, model) {
+        please.prop_map(model.samplers, function(name, uri) {
+            // this if-statement is to ignore packed textures, not to
+            // verify that relative ones are actually downloaded.
+            if (!please.media.assets[uri]) {
+                please.relative_load("img", uri);
+            }
+        });
+    });
     // add a method for generating a GraphNode (or a small tree
     // thereof) for this particular model.
     scene.instance = function (model_name) {

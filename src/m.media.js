@@ -159,9 +159,13 @@ please.media._pop = function (req_key) {
         please.schedule(function () {
             // please.schedule allows for this to be evaluated
             // after the media handlers.
-            var media_ready = new Event("mgrl_media_ready");
-            window.dispatchEvent(media_ready);
-            please.__wait_for_pending = false;
+            if (please.media.pending.length === 0) {
+                // We still check here to make sure nothing is pending
+                // because some downloads may trigger other downloads.
+                var media_ready = new Event("mgrl_media_ready");
+                window.dispatchEvent(media_ready);
+                please.__wait_for_pending = false;
+            }
         });
         please.media.__load_status = {};
     }

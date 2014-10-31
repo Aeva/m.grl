@@ -44,6 +44,16 @@ please.gl.new_jta = function (src, uri) {
     var vbos = please.gl.__jta_extract_vbos(directory.attributes);
     scene.models = please.gl.__jta_extract_models(directory.models, vbos);
 
+    please.prop_map(scene.models, function(name, model) {
+        please.prop_map(model.samplers, function(name, uri) {
+            // this if-statement is to ignore packed textures, not to
+            // verify that relative ones are actually downloaded.
+            if (!please.media.assets[uri]) {
+                please.relative_load("img", uri);
+            }
+        });
+    });
+
     // add a method for generating a GraphNode (or a small tree
     // thereof) for this particular model.
     scene.instance = function (model_name) {
