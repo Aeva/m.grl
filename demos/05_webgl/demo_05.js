@@ -34,11 +34,10 @@ addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
     please.load("glsl", "glsl/hello.vert");
     please.load("glsl", "glsl/hello.frag");
-    please.media.connect_onload(main);
 });
 
 
-function main () {
+addEventListener("mgrl_media_ready", function () {
     /*
       First order of business with webgl is to build a shader program.
       The vertex and fragment shaders are built by please.load, so all
@@ -128,7 +127,7 @@ function main () {
     });
 
     please.pipeline.start();
-};
+});
 
 
 var create_cube = function () {

@@ -33,7 +33,6 @@ addEventListener("load", function() {
     please.load("glsl", "glsl/halftone.frag");
 
     please.relative_load("jta", "suzanne.jta");
-    please.media.connect_onload(main);
     show_progress();
 });
 
@@ -133,7 +132,7 @@ function get_camera_position() {
 };
 
 
-function main() {
+addEventListener("mgrl_media_ready", function () {
     // Clear loading screen, show canvas
     document.getElementById("loading_screen").style.display = "none";
     document.getElementById("gl_canvas").style.display = "block";
@@ -269,7 +268,7 @@ function main() {
     
     // start the drawing loop
     please.pipeline.start();
-};
+});
 
 
 

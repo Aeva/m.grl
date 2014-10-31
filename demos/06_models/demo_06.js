@@ -44,7 +44,6 @@ addEventListener("load", function() {
     please.relative_load("img", "uvmap.png");
     please.relative_load("img", "floor_lamp.png");
 
-    please.media.connect_onload(main);
     show_progress();
 });
 
@@ -66,7 +65,7 @@ function show_progress() {
 };
 
 
-function main () {
+addEventListener("mgrl_media_ready", function () {
     // Clear loading screen, show canvas
     document.getElementById("loading_screen").style.display = "none";
     document.getElementById("gl_canvas").style.display = "block";
@@ -170,7 +169,7 @@ function main () {
         }
     });
     please.pipeline.start();
-};
+});
 
 
 // This function creates a matrix for transforming normals from model

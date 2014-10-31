@@ -166,7 +166,7 @@ var notify_download = function (uri) {
 };
 
 
-var resources_loaded = function () {
+addEventListener("mgrl_media_ready", function () {
     write("<br/>");
     for (var prop in please.media.assets) {
         notify_download(prop);
@@ -175,7 +175,7 @@ var resources_loaded = function () {
     for (var i=0; i<animations.length; i+=1) {
         animations[i].play();
     }
-};
+});
 
 
 addEventListener("load", function () {
@@ -191,6 +191,4 @@ addEventListener("load", function () {
         var uri = please.relative("ani", file);
         please.load("ani", uri, ani_callback);
     }
-
-    please.media.connect_onload(resources_loaded);
 });

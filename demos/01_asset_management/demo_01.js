@@ -70,10 +70,6 @@ addEventListener("load", function () {
         please.load("img", url, function(s,r){update_img();handler(s,r);});
     };
 
-    var resources_loaded = function () {
-        write("All active resource downloads have completed.");
-    };
-
     write("Hi there!");
     write("Be sure to take a look at the javascript debugger.");
     write("Starting downloads...<br/>");
@@ -84,6 +80,9 @@ addEventListener("load", function () {
     thumbnail("img/bat.png", "hedgehog");
     thumbnail("bogus_file.png", "bad path");
     write("")
+});
 
-    please.media.connect_onload(resources_loaded);
+
+addEventListener("mgrl_media_ready", function () {
+    write("All active resource downloads have completed.");
 });

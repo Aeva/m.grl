@@ -356,7 +356,7 @@ demo.spawn_coin = function (x, y) {
 };
 
 
-demo.setup = function () {
+addEventListener('mgrl_media_ready', function () {
     // setup physics info
     var canvas = document.createElement("canvas");
     canvas.width = 32;
@@ -411,7 +411,7 @@ demo.setup = function () {
     please.keys.connect("a", demo.key_handler);
     please.keys.connect("s", demo.key_handler);
     please.keys.connect("d", demo.key_handler);
-};
+});
 
 
 addEventListener("load", function () {
@@ -441,6 +441,4 @@ addEventListener("load", function () {
     ].map(function (asset) {
         please.relative_load("guess", asset);
     });
-
-    please.media.connect_onload(demo.setup);
 });
