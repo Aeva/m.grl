@@ -55,9 +55,6 @@ addEventListener("load", function() {
     // load our model files
     please.relative_load("jta", "gavroche_hall.jta");
     show_progress();
-    
-    // wait for media to finish downloading
-    please.wait_for_downloads();
 });
 
 
