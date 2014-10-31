@@ -63,7 +63,7 @@ addEventListener("mgrl_fps", function (event) {
 });
 
 
-addEventListener("mgrl_media_ready", function() {
+addEventListener("mgrl_media_ready", please.once(function () {
     // Clear loading screen, show canvas
     document.getElementById("loading_screen").style.display = "none";
     document.getElementById("gl_canvas").style.display = "block";
@@ -133,4 +133,4 @@ addEventListener("mgrl_media_ready", function() {
         graph.draw();
     });
     please.pipeline.start();
-});
+}));

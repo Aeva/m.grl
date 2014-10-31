@@ -125,6 +125,19 @@ please.schedule = function (callback) {
 };
 
 
+// Returns a function that will call a callback, but only the first
+// time it is called.
+please.once = function (callback) {
+    var called = false;
+    return function () {
+        if (!called) {
+            called = true;
+            callback();
+        }
+    };
+};
+
+
 // Text processing function, splits a line into parameters, and does
 // some cleaning.
 please.split_params = function (line, delim) {

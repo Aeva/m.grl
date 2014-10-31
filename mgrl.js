@@ -130,6 +130,17 @@ please.schedule = function (callback) {
         window.setTimeout(callback, 0);
     }
 };
+// Returns a function that will call a callback, but only the first
+// time it is called.
+please.once = function (callback) {
+    var called = false;
+    return function () {
+        if (!called) {
+            called = true;
+            callback();
+        }
+    };
+};
 // Text processing function, splits a line into parameters, and does
 // some cleaning.
 please.split_params = function (line, delim) {
@@ -2441,7 +2452,7 @@ please.SceneGraph = function () {
     };
 };
 please.SceneGraph.prototype = new please.GraphNode();
-// - m.prefab.js --------------------------------------------------------- //
+// - m.prefab.js ------------------------------------------------------------ //
 // -------------------------------------------------------------------------- //
 // What follows are optional components, and may be safely removed.
 // Please tear at the perforated line.
