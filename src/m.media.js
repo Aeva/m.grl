@@ -6,6 +6,7 @@ please.media = {
     "assets" : {},
     "handlers" : {},
     "pending" : [],
+    "__wait_for_pending" : false,
     "__load_callbacks" : {},
     "__load_status" : {},
     "onload_events" : [],
@@ -97,7 +98,7 @@ please.rename = function (old_uri, new_uri) {
 };
 
 
-// Registers an onload event
+// Registers an onload event -- DEPRICATED
 please.media.connect_onload = function (callback) {
     if (please.media.pending.length === 0) {
         please.schedule(callback);
@@ -108,6 +109,13 @@ please.media.connect_onload = function (callback) {
         }
     }
 }
+
+
+// Indicates that the mgrl_media_ready event should fire once, as soon
+// as the pending downloads list is length zero.
+please.wait_for_downloads = function () {
+    please.__wait_for_pending = true;
+};
 
 
 // Get progress on pending downloads:
@@ -169,6 +177,18 @@ please.media._pop = function (req_key) {
         please.media.__load_callbacks[req_key] = undefined;
     }
     if (please.media.pending.length === 0) {
+        if (please.__wait_for_pending) {
+            // Trigger a global event.
+            please.schedule(function () {
+                // please.schedule allows for this to be evaluated
+                // after the media handlers.
+                var media_ready = new Event("mgrl_media_ready");
+                window.dispatchEvent(media_ready);
+                please.__wait_for_pending = false;
+            });
+        }
+        // Old event dispatching code 
+        // (DEPRICATED with please.media.connect_onload...?)
         please.media.onload_events.map(function (callback) {
             please.schedule(callback);
         });

@@ -23,31 +23,6 @@
  */
 
 
-addEventListener("load", function() {
-    please.gl.set_context("gl_canvas");
-    please.media.search_paths.img = "../gl_assets/img/";
-    please.media.search_paths.jta = "../gl_assets/models/";
-    
-    // files that load files will use relative file paths
-    please.gl.relative_lookup = true;
-
-    // load shader sources
-    please.load("glsl", "glsl/simple.vert");
-    please.load("glsl", "glsl/simple.frag");
-
-    // load our model files
-    please.relative_load("jta", "gavroche_hall.jta");
-
-    please.media.connect_onload(main);
-    show_progress();
-});
-
-
-addEventListener("mgrl_fps", function (event) {
-    document.getElementById("fps").innerHTML = event.detail;
-});
-
-
 function show_progress() {
     if (please.media.pending.length > 0) {
         var progress = please.media.get_progress();
@@ -65,7 +40,33 @@ function show_progress() {
 };
 
 
-function main () {
+addEventListener("load", function() {
+    please.gl.set_context("gl_canvas");
+    please.media.search_paths.img = "../gl_assets/img/";
+    please.media.search_paths.jta = "../gl_assets/models/";
+    
+    // files that load files will use relative file paths
+    please.gl.relative_lookup = true;
+
+    // load shader sources
+    please.load("glsl", "glsl/simple.vert");
+    please.load("glsl", "glsl/simple.frag");
+
+    // load our model files
+    please.relative_load("jta", "gavroche_hall.jta");
+    show_progress();
+    
+    // wait for media to finish downloading
+    please.wait_for_downloads();
+});
+
+
+addEventListener("mgrl_fps", function (event) {
+    document.getElementById("fps").innerHTML = event.detail;
+});
+
+
+addEventListener("mgrl_media_ready", function() {
     // Clear loading screen, show canvas
     document.getElementById("loading_screen").style.display = "none";
     document.getElementById("gl_canvas").style.display = "block";
@@ -135,4 +136,4 @@ function main () {
         graph.draw();
     });
     please.pipeline.start();
-};
+});
