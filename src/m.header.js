@@ -1,23 +1,28 @@
 /*
 
  Mondaux Graphics & Recreation Library
- version zero - stab three
+ version < 1.0
 
 .
 
- Because we're all in this together, I have decided to dedicate M.GRL
- to the public domain by way of CC0.  You are free to do what you will
- with this code - I will pass no judgement upon you.
+ Copyright (c) 2014, Aeva M. Palecek
 
- See http://creativecommons.org/publicdomain/zero/1.0/ for more info.
+ M.GRL is made available to you as free software under the terms of
+ the LGPLv3.  See https://www.gnu.org/licenses/lgpl-3.0.txt for more
+ infomation.
+
+ The code for the examples in the 'demos' folder is dedicated to the
+ public domain by way of CC0.  More information about CC0 is available
+ here: https://creativecommons.org/publicdomain/zero/1.0/
+
+ Art assets included in the demos have their respective license
+ information posted on the demo index or in the individual demo
+ folders.  (Hint: most of them are CC-BY-SA)
+
+ M.GRL makes use of gl-matrix, which you can find out more about here:
+ http://glmatrix.net/ and https://github.com/toji/gl-matrix
 
  Have a nice day!
-
-.
-
- Ugly looking LibreJS metadata:
- @source: https://github.com/Aeva/m.grl
- @license bmagnet:?xt=urn:btih:90dc5c0be029de84e523b9b3922520e79e0e6f08&dn=cc0.txt
 
 */
 

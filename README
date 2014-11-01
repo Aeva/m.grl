@@ -1,34 +1,38 @@
 
 
  Mondaux Graphics & Recreation Library
- version zero - stab three
+ version < 1.0
 .
 
 
- Because we're all in this together, I have decided to dedicate M.GRL
- to the public domain by way of CC0.  You are free to do what you will
- with this code - I will pass no judgement upon you.
+ M.GRL is made available to you as free software under the terms of
+ the LGPLv3.  See https://www.gnu.org/licenses/lgpl-3.0.txt for more
+ infomation.
 
- See http://creativecommons.org/publicdomain/zero/1.0/ for more info.
+ The code for the examples in the 'demos' folder is dedicated to the
+ public domain by way of CC0.  More information about CC0 is available
+ here: https://creativecommons.org/publicdomain/zero/1.0/
+
+ Art assets included in the demos have their respective license
+ information posted on the demo index or in the individual demo
+ folders.  (Hint: most of them are CC-BY-SA)
+
+ M.GRL makes use of gl-matrix, which you can find out more about here:
+ http://glmatrix.net/ and https://github.com/toji/gl-matrix
 
  Have a nice day!
 .
 
 
- The Mondaux Graphics & Recreation Library (m.grl) is a cargo-code
- style javascript "library" for writing simple game demos.
+ The Mondaux Graphics & Recreation Library (m.grl) javascript
+ framework for writing games.
 
  Some basic features:
- - asset management
+ - 2D and 3D rendering via WebGL
+ - export from Blender
+ - skeletal mesh animation (soon!)
  - gani-compatible sprite animation system
  - keyboard input handling that makes sense for games
-
- Things the future might hold:
- - various different types of game engines, 2D and 3D
-
- The kind of games kept in mind for this: 
- - retrotastic rpg short story "art games".  Keep your expectations
- low :)
 .
 
 
