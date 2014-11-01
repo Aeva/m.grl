@@ -1,3 +1,25 @@
+"use strict";
+/*
+
+ Mondaux Graphics & Recreation Library Demos:
+
+ This file demonstrates how to use M.GRL's keyboard handler.
+.
+
+ The javascript source code demos provided with M.GRL have been
+ dedicated to the by way of CC0.  More information about CC0 is
+ available here: https://creativecommons.org/publicdomain/zero/1.0/
+.
+
+ Art assets used are under a Creative Commons Attribution - Share
+ Alike license or similar (this is explained in detail elsewhere).
+ M.GRL itself is made available to you under the LGPL.  M.GRL makes
+ use of the glMatrix library, which is some variety of BSD license.
+.
+
+ Have a nice day! ^_^
+
+ */
 
 
 window.addEventListener("load", function() {
