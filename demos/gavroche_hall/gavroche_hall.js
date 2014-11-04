@@ -119,6 +119,16 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var char_data = please.access(
         please.relative("jta", "psycho.jta"));
 
+    // display licensing meta_data info, where applicable
+    [level_data, char_data].map(function (scene) {
+        var target = document.getElementById("attribution_area");
+        target.style.display = "block";
+        var div = scene.get_license_html();
+        if (div) {
+            target.appendChild(div);
+        }
+    });
+
     var graph = new please.SceneGraph();
     var level_node = level_data.instance();
     var char_avatar = char_data.instance();
