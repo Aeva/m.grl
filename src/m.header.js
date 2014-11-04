@@ -8,8 +8,8 @@
  Copyright (c) 2014, Aeva M. Palecek
 
  M.GRL is made available to you as free software under the terms of
- the LGPLv3.  See https://www.gnu.org/licenses/lgpl-3.0.txt for more
- infomation.
+ the LGPLv3 or later.  See https://www.gnu.org/licenses/lgpl-3.0.txt
+ for more infomation.
 
  The code for the examples in the 'demos' folder is dedicated to the
  public domain by way of CC0.  More information about CC0 is available
