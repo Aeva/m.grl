@@ -70,8 +70,14 @@ class ExportJTA(bpy.types.Operator, ExportHelper):
     )
 
     meta_url = StringProperty(
-        name="URL",
+        name="Attribution URL",
         description="URL to which this file should be attributed to.",
+        default="",
+    )
+
+    meta_src_url = StringProperty(
+        name="Source work URL",
+        description="URL or URLs to works of which this work is based on derived from.",
         default="",
     )
 

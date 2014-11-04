@@ -18,6 +18,7 @@ please.gl.new_jta = function (src, uri) {
 
     var directory = JSON.parse(src);
     var scene = {
+        "uri" : uri,
         "meta" : directory.meta,
         "models" : {},
     };
@@ -113,8 +114,95 @@ please.gl.new_jta = function (src, uri) {
         }
     };
 
+    scene.get_license_html = function () {
+        return please.gl.__jta_metadata_html(scene);
+    };
+
     console.info("Done loading " + uri + " ...?");
     return scene;
+};
+
+
+// Create an html snippet from the licensing metadata, if applicable
+please.gl.__jta_metadata_html = function (scene) {
+    if (scene.meta) {
+        var author = scene.meta["author"].trim();
+        var attrib_url = scene.meta["url"].trim();
+        var src_url = scene.meta["src_url"].trim();
+        var license_url = scene.meta["license"] ? scene.meta["license"] : "Unknown License";
+        var license_name = {
+            "http://creativecommons.org/publicdomain/zero/1.0/" : "Public Domain",
+            "http://creativecommons.org/licenses/by/4.0/" : "Creative Commons Attribution 4.0",
+            "http://creativecommons.org/licenses/by-sa/4.0/" : "Creative Commons Attribution-ShareAlike 4.0",
+        }[license_url];
+        var license_img_key = {
+            "http://creativecommons.org/publicdomain/zero/1.0/" : "p/zero/1.0/80x15.png",
+            "http://creativecommons.org/licenses/by/4.0/" : "l/by/4.0/80x15.png",
+            "http://creativecommons.org/licenses/by-sa/4.0/" : "l/by-sa/4.0/80x15.png",
+        }[license_url];
+        var license_img = license_img_key ? "https://i.creativecommons.org/" + license_img_key : null;
+        if (!license_name) {
+            // If we don't know which license it is, or the work is
+            // all rights reserved, it is better to just not return
+            // anything.
+            return null;
+        }
+        else {
+            var block = null;
+            if (license_name !== "Public Domain") {
+                // cc-by or cc-by-sa
+                var title_part = "<span xmlns:dct='http://purl.org/dc/terms/' " +
+                    "property='dct:title'>" + scene.uri + "</span>";
+                var author_part = "<a xmlns:cc='http://creativecommons.org/ns#' " +
+                    "href='" + attrib_url + "' property='cc:attributionName' " +
+                    "rel='cc:attributionURL'>" + author + "</a>";
+                var license_part = "<a rel='license' href='" + license_url + "'>" +
+                    license_name + "</a>";
+                var block = title_part + " by " + author_part + " is licensed under a " +
+                    license_part + ".";
+
+                if (src_url.length > 0) {
+                    // add the src_url part, if applicable
+                    var src_part = "<a xmlns:dct='http://purl.org/dc/terms/' " +
+                        "href='" + src_url + "' rel='dct:source'>available here</a>.";
+                    block += " Based on a work " + src_part;
+                }
+
+                if (license_img) {
+                    // add an image badge, if applicable
+                    var img_part = "<a rel='license' href='" + license_url + "'>" +
+                        "<img alt='Creative Commons License'" +
+                        "style='border-width:0' src='" + license_img + "' /></a>";
+                    block = img_part + " " + block;
+                }
+            }
+            else {
+                // public domain
+                var block = "To the extent possible under law, " +
+                    "<a xmlns:dct='http://purl.org/dc/terms/' rel='dct:publisher' " + 
+                    "href='" + attrib_url + "'>" +
+                    "<span xmlns:dct='http://purl.org/dc/terms/' property='dct:creator'>" +
+                    author + "</span> " +
+                    "has waived all copyright and related or neighboring rights to " +
+                    "<span xmlns:dct='http://purl.org/dc/terms/' property='dct:title'>" +
+                    scene.uri +" </span>";
+
+                if (license_img) {
+                    // add an image badge, if applicable
+                    var img_part = "<a rel='license' href='" + license_url + "'>" +
+                        "<img alt='CC0'" + "style='border-width:0' src='" + license_img + "' /></a>";
+                    block = img_part + " " + block;
+                }
+            }
+            if (block !== null) {
+                var el = document.createElement("div");
+                el.className = "mgrl_asset_license";
+                el.innerHTML = block;
+                return el;
+            }
+        }
+    }
+    return null;
 };
 
 

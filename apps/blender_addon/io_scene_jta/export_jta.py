@@ -515,6 +515,7 @@ def save(operator, context, options={}):
             container["meta"] = {
                 "author" : options["meta_author"],
                 "url" : options["meta_url"],
+                "src_url" : options["meta_src_url"],
                 "license" : license_uri,
             }
         else:
