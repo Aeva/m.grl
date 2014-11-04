@@ -126,6 +126,7 @@ please.gl.new_jta = function (src, uri) {
 // Create an html snippet from the licensing metadata, if applicable
 please.gl.__jta_metadata_html = function (scene) {
     if (scene.meta) {
+        var work_title = scene.uri.slice(scene.uri.lastIndexOf("/")+1);
         var author = scene.meta["author"].trim();
         var attrib_url = scene.meta["url"].trim();
         var src_url = scene.meta["src_url"].trim();
@@ -152,20 +153,23 @@ please.gl.__jta_metadata_html = function (scene) {
             if (license_name !== "Public Domain") {
                 // cc-by or cc-by-sa
                 var title_part = "<span xmlns:dct='http://purl.org/dc/terms/' " +
-                    "property='dct:title'>" + scene.uri + "</span>";
+                    "property='dct:title'>" + work_title + "</span>";
                 var author_part = "<a xmlns:cc='http://creativecommons.org/ns#' " +
                     "href='" + attrib_url + "' property='cc:attributionName' " +
                     "rel='cc:attributionURL'>" + author + "</a>";
                 var license_part = "<a rel='license' href='" + license_url + "'>" +
                     license_name + "</a>";
-                var block = title_part + " by " + author_part + " is licensed under a " +
-                    license_part + ".";
-
+                var block = "<span class='work_attribution'>" +
+                    title_part + " by " + author_part + "</span> " +
+                    "<span class='work_license'>is licensed under a " +
+                    license_part + ".</span> ";
+                
                 if (src_url.length > 0) {
                     // add the src_url part, if applicable
                     var src_part = "<a xmlns:dct='http://purl.org/dc/terms/' " +
                         "href='" + src_url + "' rel='dct:source'>available here</a>.";
-                    block += " Based on a work " + src_part;
+                    block += "<span class='derived_work'>Based on a work " + src_part +
+                        "</span>";
                 }
 
                 if (license_img) {
@@ -173,7 +177,7 @@ please.gl.__jta_metadata_html = function (scene) {
                     var img_part = "<a rel='license' href='" + license_url + "'>" +
                         "<img alt='Creative Commons License'" +
                         "style='border-width:0' src='" + license_img + "' /></a>";
-                    block = img_part + " " + block;
+                    block = img_part + "<div> " + block + "</div>";
                 }
             }
             else {
@@ -185,13 +189,13 @@ please.gl.__jta_metadata_html = function (scene) {
                     author + "</span> " +
                     "has waived all copyright and related or neighboring rights to " +
                     "<span xmlns:dct='http://purl.org/dc/terms/' property='dct:title'>" +
-                    scene.uri +" </span>";
+                    work_title +" </span>";
 
                 if (license_img) {
                     // add an image badge, if applicable
                     var img_part = "<a rel='license' href='" + license_url + "'>" +
                         "<img alt='CC0'" + "style='border-width:0' src='" + license_img + "' /></a>";
-                    block = img_part + " " + block;
+                    block = img_part + " " + "<div> " + block + "</div>";
                 }
             }
             if (block !== null) {
