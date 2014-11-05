@@ -452,6 +452,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 
 
 // Create a VBO from attribute array data.
+please.gl.__last_vbo = null;
 please.gl.vbo = function (vertex_count, attr_map, options) {
     var opt = {
         "type" : gl.FLOAT,
@@ -490,11 +491,14 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         gl.bufferData(gl.ARRAY_BUFFER, data, opt.hint);
         
         vbo.bind = function () {
-            var prog = please.gl.__cache.current;
-            if (prog && prog.hasOwnProperty(prog.attrs[attr])) {
-                gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
-                gl.vertexAttribPointer(
-                    prog.attrs[attr].loc, item_size, opt.type, false, 0, 0);
+            if (please.gl.__last_vbo !== this) {
+                please.gl.__last_vbo = this
+                var prog = please.gl.__cache.current;
+                if (prog && prog.hasOwnProperty(prog.attrs[attr])) {
+                    gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
+                    gl.vertexAttribPointer(
+                        prog.attrs[attr].loc, item_size, opt.type, false, 0, 0);
+                }
             }
         };
 
@@ -547,17 +551,20 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         gl.bufferData(gl.ARRAY_BUFFER, builder, opt.hint);
 
         vbo.bind = function () {
-            var prog = please.gl.__cache.current;
-            if (prog) {
-                gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
-                for (var i=0; i<bind_order.length; i+=1) {
-                    var attr = bind_order[i];
-                    var offset = bind_offset[i];
-                    var item_size = item_sizes[attr];
-                    if (prog.attrs[attr]) {
-                        gl.vertexAttribPointer(
-                            prog.attrs[attr].loc, item_size, 
-                            opt.type, false, stride*4, offset*4);
+            if (please.gl.__last_vbo !== this) {
+                please.gl.__last_vbo = this
+                var prog = please.gl.__cache.current;
+                if (prog) {
+                    gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
+                    for (var i=0; i<bind_order.length; i+=1) {
+                        var attr = bind_order[i];
+                        var offset = bind_offset[i];
+                        var item_size = item_sizes[attr];
+                        if (prog.attrs[attr]) {
+                            gl.vertexAttribPointer(
+                                prog.attrs[attr].loc, item_size, 
+                                opt.type, false, stride*4, offset*4);
+                        }
                     }
                 }
             }
@@ -568,6 +575,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
 
 
 // Create a IBO.
+please.gl.__last_ibo = null;
 please.gl.ibo = function (data, options) {
     var opt = {
         "type" : gl.UNSIGNED_SHORT,
@@ -592,10 +600,17 @@ please.gl.ibo = function (data, options) {
     var ibo = {
         "id" : gl.createBuffer(),
         "bind" : function () {
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.id);
+            if (please.gl.__last_ibo !== this) {
+                please.gl.__last_ibo = this
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.id);
+            }
         },
-        "draw" : function () {
-            gl.drawElements(opt.mode, face_count, opt.type, 0);
+        "draw" : function (start, total) {
+            if (start === undefined || total === undefined) {
+                start = 0;
+                total = face_count;
+            }
+            gl.drawElements(opt.mode, total, opt.type, start*data.BYTES_PER_ELEMENT);
         }
     };
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.id);

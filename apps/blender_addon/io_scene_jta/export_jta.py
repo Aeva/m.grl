@@ -147,6 +147,7 @@ class Model(object):
         self.attr_struct = None
         self.offset = None
         self.export_ready = False
+        self.group_export = {}
 
     def __generate_vertices(self):
         """
@@ -243,7 +244,7 @@ class Model(object):
         self.attr_struct = attr
         attr.models.append(self)
 
-    def report(self, data):
+    def report_attributes(self, data):
         """
         Adds data pertaining to vertex positions, uv_map coordinates, and
         whatever else to a common pool represented by the parameter
@@ -258,8 +259,9 @@ class Model(object):
             data["position"].add_vector(*vertex.position)
 
             # add the tcoord data
-            for uv, tcoord_set in zip(vertex.uvs, data["tcoords"]):
-                tcoord_set.add_vector(*uv)
+            if self.texture_count:
+                for uv, tcoord_set in zip(vertex.uvs, data["tcoords"]):
+                    tcoord_set.add_vector(*uv)
 
             # add the weight data
             if self.use_weights:
@@ -269,46 +271,38 @@ class Model(object):
         # flag the model as being ready for export
         self.export_ready = True
 
+    def report_polygons(self, data):
+        """
+        Adds this object's polygon data to the Attribute object.
+        """
+        # IMPORTANT NOTE - self.offset is set by self.report_attributes
+
+        start_value = data.count
+
+        for indices in self.face_vertices.values():
+            for vert_index in indices:
+                # again:
+                # self.offset is set by self.report_attributes
+                data.add_vector(self.offset + vert_index)
+
+        total = data.count-start_value
+
+        ### HACK - the spec was changed so each model only has one
+        ### IBO, and so the scheme we came up with for working with
+        ### bone data isn't going to work without another attribute.
+        if total > 0:
+            self.group_export["default"] = {
+                "start" : start_value,
+                "count" : total,
+            }
+
     def export(self):
         """
         This returns the object for export, to be serialized elsewhere in
         json.
         """
         assert self.export_ready
-
-        group_cache = {}
-        buffer_precision = 16
-        max_index = len(self.vertices)+self.offset
-        if max_index >= 2**16:
-            buffer_precision = 32
-        if max_index >= 2**32:
-            raise BufferError(
-                "Unable to allocate enough precision to store pending export objects.\n"
-                "Consider breaking high poly objects up into smaller objects.")
-
-        ### HACK - the spec needs to be changed so each model only has
-        ### one IBO, and the scheme we came up with for working with
-        ### bone data isn't going to work without another attribute.
-        builder = IntArray(period=1, signed=False, precision=buffer_precision)
-        for indices in self.face_vertices.values():
-            for vert_index in indices:
-                builder.add_vector(self.offset + vert_index)
-        group_cache["default"] = {
-            "faces" : builder.export(),
-            "bones" : None,
-        }
-
-        #for meta_name, meta_group in self.meta_groups.items():
-        #    builder = Int16Array(period=1, signed=False)
-        #    for vertex in meta_group["data"]:
-        #        builder.add_vector(self.offset + vertex)
-        #
-        #    group_cache[meta_name] = {
-        #        "faces" : builder.export(),
-        #        "bones" : [],
-        #    }
-        #
-        #    # FIXME determine influencing bones
+        assert len(self.group_export.keys())
 
         # note the name of the object's parent
         parent = None
@@ -350,7 +344,7 @@ class Model(object):
 
         return {
             "struct" : self.attr_struct.index,
-            "groups" : group_cache,
+            "groups" : self.group_export,
             "parent" : parent,
             "state" : state,
             "extra" : extras,
@@ -369,21 +363,38 @@ class Attribute(object):
         self.index = attr_index
 
     def export(self):
-        data = {
+        vertex_data = {
             "position" : Float16Array(3),
             "tcoords" : [Float16Array(2) for i in range(self.textures)],
             "weights" : Float16Array(4) if self.weights else None,
         }
         for model in self.models:
-            model.report(data)
-        blob = {
-            "position" : data["position"].export(),
+            model.report_attributes(vertex_data)
+            
+        max_index = vertex_data["position"].count
+        buffer_precision = 16 if max_index < 2**16 else 32
+        if max_index >= 2**32:
+            raise BufferError(
+                "Unable to allocate enough precision to store pending export objects.\n"
+                "Consider reducing the total vertex count to less than 4,294,967,296.")
+        indices = IntArray(period=1, signed=False, precision=buffer_precision)
+        for model in self.models:
+            model.report_polygons(indices)
+
+        vertices = {
+            "position" : vertex_data["position"].export(),
         }
         if self.textures > 0:
-            blob["tcoords"] = [tcoord.export() for tcoord in data["tcoords"]]
+            vertices["tcoords"] = [tcoord.export() for tcoord in vertex_data["tcoords"]]
         if self.weights > 0:
-            blob["weights"] = data["weights"].export()
-        return blob
+            vertices["weights"] = vertex_data["weights"].export()
+
+        buffer_objects = {
+            "vertices" : vertices,
+            "polygons" : indices.export(),
+        }
+
+        return buffer_objects
 
 
 class TextureStore(object):

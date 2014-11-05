@@ -42,8 +42,8 @@ please.gl.new_jta = function (src, uri) {
     }
 
     // extract model data
-    var vbos = please.gl.__jta_extract_vbos(directory.attributes);
-    scene.models = please.gl.__jta_extract_models(directory.models, vbos);
+    var buffer_objects = please.gl.__jta_extract_buffer_objects(directory.attributes);
+    scene.models = please.gl.__jta_extract_models(directory.models, buffer_objects);
 
     please.prop_map(scene.models, function(name, model) {
         please.prop_map(model.samplers, function(name, uri) {
@@ -96,14 +96,12 @@ please.gl.new_jta = function (src, uri) {
                     node.scale_z = model.extra.scale.z;
                 }
                 node.bind = function () {
-                    vbos[0].bind();
-                    please.prop_map(model.groups, function(group_name, group) {
-                        group.ibo.bind();
-                    });
+                    model.vbo.bind();
+                    model.ibo.bind();
                 };
                 node.draw = function () {
                     please.prop_map(model.groups, function(group_name, group) {
-                        group.ibo.draw();
+                        model.ibo.draw(group.start, group.count);
                     });
                 };
                 return node;
@@ -222,7 +220,7 @@ please.gl.__jta_array = function (array) {
 
 
 // Extract the model objects defined in the jta file.
-please.gl.__jta_extract_models = function (model_defs, vbos) {
+please.gl.__jta_extract_models = function (model_defs, buffer_objects) {
     var models = please.prop_map(model_defs, function(name, model_def) {
         // The model object contains all the data needed to render a
         // singular model within a scene. All of the models in a scene
@@ -231,19 +229,19 @@ please.gl.__jta_extract_models = function (model_defs, vbos) {
         var model = {
             "parent" : model_def.parent,
             "__vbo_hint" : model_def.struct,
-            "vbo" : vbos[model_def.struct],
             "uniforms" : {},
             "samplers" : {},
+            "vbo" : buffer_objects[model_def.struct]['vbo'],
+            "ibo" : buffer_objects[model_def.struct]['ibo'],
             "extra" : model_def.extra,
             "groups" : [],
         };
         please.prop_map(model_def.groups, function(group_name, group) {
             // groups coorespond to IBOs, but also store the name of
             // relevant bone matrices.
-            var element_array = please.gl.__jta_array(group.faces);
             var group = {
-                "bones" : group.bones,
-                "ibo" : please.gl.ibo(element_array),
+                "start" : group["start"],
+                "count" : group["count"],
             };
             model.groups.push(group);
         });
@@ -276,28 +274,33 @@ please.gl.__jta_extract_models = function (model_defs, vbos) {
 
 
 // Extract the vertex buffer objects defined in the jta file.
-please.gl.__jta_extract_vbos = function (attributes) {
-    return attributes.map(function(attr_data) {
+please.gl.__jta_extract_buffer_objects = function (attributes) {
+    return attributes.map(function(buffer_defs) {
+        var attr_data = buffer_defs["vertices"];
+        var poly_data = buffer_defs["polygons"];
         var position_data = please.gl.__jta_array(attr_data["position"])
+
+        // organize data for the VBO creation
         var attr_map = {
             "position" : position_data,
         };
-        
         // extract UV coordinates
         if (attr_data.tcoords !== undefined && attr_data.tcoords.length >= 1) {
             // FIXME: use all UV layers, not just the first one
             attr_map["tcoord"] = please.gl.__jta_array(attr_data["tcoords"][0]);
         }
-
         // extract bone weights
         if (attr_data.weights !== undefined) {
             attr_map["weights"] = please.gl.__jta_array(attr_data["weights"]);
         }
-
         var vertex_count = attr_map.position.length / attr_data["position"].item;
-        return please.gl.vbo(vertex_count, attr_map);
+
+        // create the buffer objects
+        var VBO = please.gl.vbo(vertex_count, attr_map);
+        var IBO = please.gl.ibo(please.gl.__jta_array(poly_data));
+        return {"vbo" : VBO, "ibo" : IBO};
     });
-}
+};
 
 
 // This function creates image objects for any textures packed in the
@@ -312,6 +315,9 @@ please.gl.__jta_unpack_textures = function (packed_data) {
     }
 };
 
+
+
+/////////////////////////////////// deprecated stuff after this point
 
 
 // the old JTA model loader.  This is just a quick-and-dirty

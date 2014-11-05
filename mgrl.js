@@ -1836,6 +1836,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     return prog;
 };
 // Create a VBO from attribute array data.
+please.gl.__last_vbo = null;
 please.gl.vbo = function (vertex_count, attr_map, options) {
     var opt = {
         "type" : gl.FLOAT,
@@ -1869,11 +1870,14 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         gl.bindBuffer(gl.ARRAY_BUFFER, vbo.id);
         gl.bufferData(gl.ARRAY_BUFFER, data, opt.hint);
         vbo.bind = function () {
-            var prog = please.gl.__cache.current;
-            if (prog && prog.hasOwnProperty(prog.attrs[attr])) {
-                gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
-                gl.vertexAttribPointer(
-                    prog.attrs[attr].loc, item_size, opt.type, false, 0, 0);
+            if (please.gl.__last_vbo !== this) {
+                please.gl.__last_vbo = this
+                var prog = please.gl.__cache.current;
+                if (prog && prog.hasOwnProperty(prog.attrs[attr])) {
+                    gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
+                    gl.vertexAttribPointer(
+                        prog.attrs[attr].loc, item_size, opt.type, false, 0, 0);
+                }
             }
         };
     }
@@ -1918,17 +1922,20 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         gl.bindBuffer(gl.ARRAY_BUFFER, vbo.id);
         gl.bufferData(gl.ARRAY_BUFFER, builder, opt.hint);
         vbo.bind = function () {
-            var prog = please.gl.__cache.current;
-            if (prog) {
-                gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
-                for (var i=0; i<bind_order.length; i+=1) {
-                    var attr = bind_order[i];
-                    var offset = bind_offset[i];
-                    var item_size = item_sizes[attr];
-                    if (prog.attrs[attr]) {
-                        gl.vertexAttribPointer(
-                            prog.attrs[attr].loc, item_size,
-                            opt.type, false, stride*4, offset*4);
+            if (please.gl.__last_vbo !== this) {
+                please.gl.__last_vbo = this
+                var prog = please.gl.__cache.current;
+                if (prog) {
+                    gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
+                    for (var i=0; i<bind_order.length; i+=1) {
+                        var attr = bind_order[i];
+                        var offset = bind_offset[i];
+                        var item_size = item_sizes[attr];
+                        if (prog.attrs[attr]) {
+                            gl.vertexAttribPointer(
+                                prog.attrs[attr].loc, item_size,
+                                opt.type, false, stride*4, offset*4);
+                        }
                     }
                 }
             }
@@ -1937,6 +1944,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
     return vbo;
 };
 // Create a IBO.
+please.gl.__last_ibo = null;
 please.gl.ibo = function (data, options) {
     var opt = {
         "type" : gl.UNSIGNED_SHORT,
@@ -1961,10 +1969,17 @@ please.gl.ibo = function (data, options) {
     var ibo = {
         "id" : gl.createBuffer(),
         "bind" : function () {
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.id);
+            if (please.gl.__last_ibo !== this) {
+                please.gl.__last_ibo = this
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.id);
+            }
         },
-        "draw" : function () {
-            gl.drawElements(opt.mode, face_count, opt.type, 0);
+        "draw" : function (start, total) {
+            if (start === undefined || total === undefined) {
+                start = 0;
+                total = face_count;
+            }
+            gl.drawElements(opt.mode, total, opt.type, start*data.BYTES_PER_ELEMENT);
         }
     };
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.id);
@@ -2044,8 +2059,8 @@ please.gl.new_jta = function (src, uri) {
         scene.extras = extras;
     }
     // extract model data
-    var vbos = please.gl.__jta_extract_vbos(directory.attributes);
-    scene.models = please.gl.__jta_extract_models(directory.models, vbos);
+    var buffer_objects = please.gl.__jta_extract_buffer_objects(directory.attributes);
+    scene.models = please.gl.__jta_extract_models(directory.models, buffer_objects);
     please.prop_map(scene.models, function(name, model) {
         please.prop_map(model.samplers, function(name, uri) {
             // this if-statement is to ignore packed textures, not to
@@ -2096,14 +2111,12 @@ please.gl.new_jta = function (src, uri) {
                     node.scale_z = model.extra.scale.z;
                 }
                 node.bind = function () {
-                    vbos[0].bind();
-                    please.prop_map(model.groups, function(group_name, group) {
-                        group.ibo.bind();
-                    });
+                    model.vbo.bind();
+                    model.ibo.bind();
                 };
                 node.draw = function () {
                     please.prop_map(model.groups, function(group_name, group) {
-                        group.ibo.draw();
+                        model.ibo.draw(group.start, group.count);
                     });
                 };
                 return node;
@@ -2211,7 +2224,7 @@ please.gl.__jta_array = function (array) {
     return please.typed_array(blob, hint);
 };
 // Extract the model objects defined in the jta file.
-please.gl.__jta_extract_models = function (model_defs, vbos) {
+please.gl.__jta_extract_models = function (model_defs, buffer_objects) {
     var models = please.prop_map(model_defs, function(name, model_def) {
         // The model object contains all the data needed to render a
         // singular model within a scene. All of the models in a scene
@@ -2220,19 +2233,19 @@ please.gl.__jta_extract_models = function (model_defs, vbos) {
         var model = {
             "parent" : model_def.parent,
             "__vbo_hint" : model_def.struct,
-            "vbo" : vbos[model_def.struct],
             "uniforms" : {},
             "samplers" : {},
+            "vbo" : buffer_objects[model_def.struct]['vbo'],
+            "ibo" : buffer_objects[model_def.struct]['ibo'],
             "extra" : model_def.extra,
             "groups" : [],
         };
         please.prop_map(model_def.groups, function(group_name, group) {
             // groups coorespond to IBOs, but also store the name of
             // relevant bone matrices.
-            var element_array = please.gl.__jta_array(group.faces);
             var group = {
-                "bones" : group.bones,
-                "ibo" : please.gl.ibo(element_array),
+                "start" : group["start"],
+                "count" : group["count"],
             };
             model.groups.push(group);
         });
@@ -2263,9 +2276,12 @@ please.gl.__jta_extract_models = function (model_defs, vbos) {
     return models;
 };
 // Extract the vertex buffer objects defined in the jta file.
-please.gl.__jta_extract_vbos = function (attributes) {
-    return attributes.map(function(attr_data) {
+please.gl.__jta_extract_buffer_objects = function (attributes) {
+    return attributes.map(function(buffer_defs) {
+        var attr_data = buffer_defs["vertices"];
+        var poly_data = buffer_defs["polygons"];
         var position_data = please.gl.__jta_array(attr_data["position"])
+        // organize data for the VBO creation
         var attr_map = {
             "position" : position_data,
         };
@@ -2279,9 +2295,12 @@ please.gl.__jta_extract_vbos = function (attributes) {
             attr_map["weights"] = please.gl.__jta_array(attr_data["weights"]);
         }
         var vertex_count = attr_map.position.length / attr_data["position"].item;
-        return please.gl.vbo(vertex_count, attr_map);
+        // create the buffer objects
+        var VBO = please.gl.vbo(vertex_count, attr_map);
+        var IBO = please.gl.ibo(please.gl.__jta_array(poly_data));
+        return {"vbo" : VBO, "ibo" : IBO};
     });
-}
+};
 // This function creates image objects for any textures packed in the
 // jta file.
 please.gl.__jta_unpack_textures = function (packed_data) {
@@ -2293,6 +2312,7 @@ please.gl.__jta_unpack_textures = function (packed_data) {
         }
     }
 };
+/////////////////////////////////// deprecated stuff after this point
 // the old JTA model loader.  This is just a quick-and-dirty
 // implementation, and is deprecated.
 please.gl.__jta_model = function (src, uri) {
