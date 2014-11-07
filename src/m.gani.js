@@ -13,7 +13,7 @@ please.media.handlers.ani = function (url, asset_name, callback) {
 
 
 // Namespace for m.ani guts
-please.ani = {
+please.gani = {
     "__frame_cache" : {},
 
     "get_cache_name" : function (uri, attrs) {
@@ -27,9 +27,9 @@ please.ani = {
     },
     "on_bake_ani_frameset" : function (uri, ani) {
         // bs frame bake handler
-        var cache_id = please.ani.get_cache_name(uri, ani.attrs);
-        if (!please.ani.__frame_cache[cache_id]) {
-            please.ani.__frame_cache[cache_id] = true;
+        var cache_id = please.gani.get_cache_name(uri, ani.attrs);
+        if (!please.gani.__frame_cache[cache_id]) {
+            please.gani.__frame_cache[cache_id] = true;
             console.info("req_bake: " + cache_id);
         }
     },
@@ -198,7 +198,7 @@ please.media.__AnimationInstance = function (animation_data) {
         if (!pending_rebuild) {
             pending_rebuild = true;
             please.postpone(function () {
-                please.ani.on_bake_ani_frameset(ani.data.__uri, ani);
+                please.gani.on_bake_ani_frameset(ani.data.__uri, ani);
                 pending_rebuild = false;
             });
         }
@@ -538,9 +538,9 @@ please.media.__AnimationData = function (gani_text, uri) {
         }
     }
 
-    if (typeof(please.ani.on_bake_ani_frameset) === "function") {
+    if (typeof(please.gani.on_bake_ani_frameset) === "function") {
         please.postpone(function () {
-            please.ani.on_bake_ani_frameset(ani.__uri, ani);
+            please.gani.on_bake_ani_frameset(ani.__uri, ani);
         });
     }
 
