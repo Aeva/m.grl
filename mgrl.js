@@ -2047,7 +2047,7 @@ please.media.handlers.jta = function (url, asset_name, callback) {
     please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
 };
 // JTA model loader.  This will replace the old one once it works.
-please.gl.new_jta = function (src, uri) {
+please.gl.__jta_model = function (src, uri) {
     // The structure of a JTA file is json.  Large blocks of agregate
     // data are base64 encoded binary data.
     var directory = JSON.parse(src);
@@ -2291,16 +2291,19 @@ please.gl.__jta_extract_models = function (model_defs, buffer_objects) {
 please.gl.__jta_extract_buffer_objects = function (attributes) {
     return attributes.map(function(buffer_defs) {
         var attr_data = buffer_defs["vertices"];
-        var poly_data = buffer_defs["polygons"];
-        var position_data = please.gl.__jta_array(attr_data["position"])
+        var poly_data = please.gl.__jta_array(buffer_defs["polygons"]);
+        var position_data = please.gl.__jta_array(attr_data["position"]);
+        var normal_data = please.gl.__jta_generate_normals(
+            position_data, poly_data);
         // organize data for the VBO creation
         var attr_map = {
             "position" : position_data,
+            "normal" : normal_data,
         };
         // extract UV coordinates
         if (attr_data.tcoords !== undefined && attr_data.tcoords.length >= 1) {
             // FIXME: use all UV layers, not just the first one
-            attr_map["tcoord"] = please.gl.__jta_array(attr_data["tcoords"][0]);
+            attr_map["tcoords"] = please.gl.__jta_array(attr_data["tcoords"][0]);
         }
         // extract bone weights
         if (attr_data.weights !== undefined) {
@@ -2309,9 +2312,38 @@ please.gl.__jta_extract_buffer_objects = function (attributes) {
         var vertex_count = attr_map.position.length / attr_data["position"].item;
         // create the buffer objects
         var VBO = please.gl.vbo(vertex_count, attr_map);
-        var IBO = please.gl.ibo(please.gl.__jta_array(poly_data));
+        var IBO = please.gl.ibo(poly_data);
         return {"vbo" : VBO, "ibo" : IBO};
     });
+};
+// Generate data for surface normals
+please.gl.__jta_generate_normals = function (verts, indices) {
+    var normals = new Float32Array(verts.length);
+    var k, a, b, c;
+    var lhs = vec3.create();
+    var rhs = vec3.create();
+    var norm = vec3.create();
+    for (var i=0; i<indices.length; i+=3) {
+        // https://math.stackexchange.com/questions/305642/how-to-find-surface-normal-of-a-triangle
+        k = i*3;
+        a = vec3.fromValues(verts[k], verts[k+1], verts[k+2]);
+        b = vec3.fromValues(verts[k+3], verts[k+4], verts[k+5]);
+        c = vec3.fromValues(verts[k+6], verts[k+7], verts[k+8]);
+        vec3.subtract(lhs, b, a); // guessing
+        vec3.subtract(rhs, c, a); // guessing
+        vec3.cross(norm, rhs, lhs); // swap lhs and rhs to flip the normal
+        vec3.normalize(norm, norm);
+        normals[k] = norm[0];
+        normals[k+1] = norm[1];
+        normals[k+2] = norm[2];
+        normals[k+3] = norm[0];
+        normals[k+4] = norm[1];
+        normals[k+5] = norm[2];
+        normals[k+6] = norm[0];
+        normals[k+7] = norm[1];
+        normals[k+8] = norm[2];
+    }
+    return normals;
 };
 // This function creates image objects for any textures packed in the
 // jta file.
@@ -2323,83 +2355,6 @@ please.gl.__jta_unpack_textures = function (packed_data) {
             please.media.assets[checksum] = img;
         }
     }
-};
-/////////////////////////////////// deprecated stuff after this point
-// the old JTA model loader.  This is just a quick-and-dirty
-// implementation, and is deprecated.
-please.gl.__jta_model = function (src, uri) {
-    // The structure of a JTA file is json.  Large blocks of agregate
-    // data are base64 encoded binary data.
-    var directory = JSON.parse(src);
-    if (directory.meta.jta_version !== undefined) {
-        // call the new jta loader instead
-        return please.gl.new_jta(src, uri);
-    }
-    var groups = directory["vertex_groups"];
-    var uniforms = directory["vars"];
-    var model = {
-        "__groups" : [],
-        "uniforms" : {},
-        "bind" : function () {
-            for (var i=0; i<this.__groups.length; i+=1) {
-                this.__groups[i].bind();
-            }
-        },
-        "draw" : function () {
-            for (var i=0; i<this.__groups.length; i+=1) {
-                this.__groups[i].draw();
-            }
-        },
-    };
-    // Note suggested uniform values, unpack data, and possibly queue
-    // up additional image downloads:
-    please.get_properties(uniforms).map(function(name) {
-        var meta = uniforms[name];
-        if (meta.hint === "Sampler2D") {
-            var uri;
-            if (meta.mode === "linked") {
-                uri = meta.uri;
-                please.load(uri);
-            }
-            else if (meta.mode === "packed") {
-                uri = meta.md5;
-                if (!please.access(uri, true)) {
-                    var img = new Image();
-                    img.src = meta.uri;
-                    please.media.assets[uri] = img;
-                }
-            }
-            else {
-                console.error("Cannot load texture of type: " + meta.mode);
-            }
-            if (uri) {
-                model.uniforms[name] = uri;
-            }
-        }
-        else {
-            console.warn("Not implemented: " + meta.hint);
-        }
-    });
-    // Create our attribute lists.  Closure to avoid scope polution.
-    please.get_properties(groups).map(function(name) {
-        var vertices = groups[name];
-        if (!vertices.position) {
-            throw("JTA model " + uri + " is missing the 'position' attribute!!");
-        }
-        var attr_map = {};
-        for (var attr in vertices) {
-            var hint = vertices[attr].hint;
-            var raw = vertices[attr].data;
-            attr_map[attr] = please.typed_array(raw, hint);
-        }
-        var faces = attr_map.position.length / 3;
-        var vbo = please.gl.vbo(faces, attr_map);
-        if (vbo) {
-            console.info("Created vbo for: " + uri + " / " + name);
-            model.__groups.push(vbo);
-        }
-    });
-    return model;
 };
 // - m.graph.js ---------------------------------------------------------- //
 please.GraphNode = function () {
