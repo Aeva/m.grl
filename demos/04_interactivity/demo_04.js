@@ -123,7 +123,7 @@ demo.walk_handler = function () {
     for (var i=0; i<coins.length; i+=1) {
         var coin = coins[i];
         coin.destroy();
-        var file = please.access("../lpc_assets/sounds/coin.ogg", true);
+        var file = please.access("coin.ogg", true);
         if (file) {
             var sound = new Audio();
             sound.src = file.src;
