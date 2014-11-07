@@ -140,6 +140,7 @@ class Model(object):
         self.mesh.transform(mathutils.Matrix.Scale(options["global_scale"], 4))
         self.__triangulate()
 
+        self.use_smooth = False
         self.use_weights = len(self.obj.vertex_groups) > 0
         self.texture_count = len(self.mesh.uv_textures)
         self.__generate_vertices()
@@ -167,6 +168,7 @@ class Model(object):
         # it in a set and record it in a mapping dict.
         for face in self.mesh.polygons:
             face_vertices = []
+            self.use_smooth = self.use_smooth or face.use_smooth
             for vertex_index, loop_index in zip(face.vertices, face.loop_indices):
                 vdata = self.mesh.vertices[vertex_index]
 
@@ -341,6 +343,9 @@ class Model(object):
         # Note the object's coordinates and postion values in Extras.
         extras["position"] = dict(zip("xyz", self.obj.matrix_local.to_translation()))
         extras["rotation"] = dict(zip("xyz", self.obj.matrix_local.to_euler()))
+        
+        # Note the usage of smooth shading.
+        extras["smooth_normals"] = self.use_smooth
 
         return {
             "struct" : self.attr_struct.index,

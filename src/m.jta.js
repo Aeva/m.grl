@@ -42,7 +42,8 @@ please.gl.__jta_model = function (src, uri) {
     }
 
     // extract model data
-    var buffer_objects = please.gl.__jta_extract_buffer_objects(directory.attributes);
+    var buffer_objects = please.gl.__jta_extract_buffer_objects(
+        directory.models, directory.attributes);
     scene.models = please.gl.__jta_extract_models(directory.models, buffer_objects);
 
     please.prop_map(scene.models, function(name, model) {
@@ -274,13 +275,13 @@ please.gl.__jta_extract_models = function (model_defs, buffer_objects) {
 
 
 // Extract the vertex buffer objects defined in the jta file.
-please.gl.__jta_extract_buffer_objects = function (attributes) {
+please.gl.__jta_extract_buffer_objects = function (model_defs, attributes) {
     return attributes.map(function(buffer_defs) {
         var attr_data = buffer_defs["vertices"];
         var poly_data = please.gl.__jta_array(buffer_defs["polygons"]);
         var position_data = please.gl.__jta_array(attr_data["position"]);
         var normal_data = please.gl.__jta_generate_normals(
-            position_data, poly_data);
+            position_data, poly_data, model_defs);
         
         // organize data for the VBO creation
         var attr_map = {
@@ -307,7 +308,7 @@ please.gl.__jta_extract_buffer_objects = function (attributes) {
 
 
 // Generate data for surface normals
-please.gl.__jta_generate_normals = function (verts, indices, smooth) {
+please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
     var normals = new Float32Array(verts.length);
     var k, a, b, c;
     var lhs = vec3.create();
@@ -331,38 +332,43 @@ please.gl.__jta_generate_normals = function (verts, indices, smooth) {
         vec3.subtract(rhs, c, a); // guessing
         vec3.cross(norm, rhs, lhs); // swap lhs and rhs to flip the normal
         vec3.normalize(norm, norm);
-        if (smooth) {
-            for (var n=0; n<3; n+=1) {
-                var m = n*3;
-                var key = ""+verts[k+m]+":"+verts[k+m+1]+":"+verts[k+m+2];
-                if (!cache[key]) {
-                    cache[key] = vec3.clone(norm);
-                }
-                else {
-                    vec3.add(cache[key], cache[key], norm);
-                }
+        for (var n=0; n<3; n+=1) {
+            var m = n*3;
+            var key = ""+verts[k+m]+":"+verts[k+m+1]+":"+verts[k+m+2];
+            if (!cache[key]) {
+                cache[key] = vec3.clone(norm);
+            }
+            else {
+                vec3.add(cache[key], cache[key], norm);
             }
         }
-        else {
-            normals[k] = norm[0];
-            normals[k+1] = norm[1];
-            normals[k+2] = norm[2];
-            normals[k+3] = norm[0];
-            normals[k+4] = norm[1];
-            normals[k+5] = norm[2];
-            normals[k+6] = norm[0];
-            normals[k+7] = norm[1];
-            normals[k+8] = norm[2];
-        }
+        normals[k] = norm[0];
+        normals[k+1] = norm[1];
+        normals[k+2] = norm[2];
+        normals[k+3] = norm[0];
+        normals[k+4] = norm[1];
+        normals[k+5] = norm[2];
+        normals[k+6] = norm[0];
+        normals[k+7] = norm[1];
+        normals[k+8] = norm[2];
     }
-    if (smooth) {
-        for (var i=0; i<verts.length; i+=3) {
+    var set_smooth = function(start, total) {
+        for (var i=start; i<start+total*3; i+=3) {
             var key = "" + verts[i] + ":" + verts[i+1] + ":" + verts[i+2];
             var normal = cache[key];
             vec3.normalize(normal, normal);
             normals[i] = normal[0];
             normals[i+1] = normal[1];
             normals[i+2] = normal[2];
+        }
+    }
+    ITER_PROPS(model_name, model_defs) {
+        var model = model_defs[model_name];
+        if (model.extra.smooth_shading) {
+            ITER_PROPS(group_name, model.groups) {
+                var group = model.groups[group_name];
+                set_smooth(group.start, group.total);
+            }   
         }
     }
     return normals;
