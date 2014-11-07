@@ -307,12 +307,20 @@ please.gl.__jta_extract_buffer_objects = function (attributes) {
 
 
 // Generate data for surface normals
-please.gl.__jta_generate_normals = function (verts, indices) {
+please.gl.__jta_generate_normals = function (verts, indices, smooth) {
     var normals = new Float32Array(verts.length);
     var k, a, b, c;
     var lhs = vec3.create();
     var rhs = vec3.create();
     var norm = vec3.create();
+    var cache = {};
+    var log_normal = function (vertex, normal) {
+        var key = ""+vertex[0]+":"+vertex[1]+":"+vertex[2];
+        if (!cache[key]) {
+            cache[key] = [];
+        }
+        cache[key].push(normal);
+    };
     for (var i=0; i<indices.length; i+=3) {
         // https://math.stackexchange.com/questions/305642/how-to-find-surface-normal-of-a-triangle
         k = i*3;
@@ -323,15 +331,39 @@ please.gl.__jta_generate_normals = function (verts, indices) {
         vec3.subtract(rhs, c, a); // guessing
         vec3.cross(norm, rhs, lhs); // swap lhs and rhs to flip the normal
         vec3.normalize(norm, norm);
-        normals[k] = norm[0];
-        normals[k+1] = norm[1];
-        normals[k+2] = norm[2];
-        normals[k+3] = norm[0];
-        normals[k+4] = norm[1];
-        normals[k+5] = norm[2];
-        normals[k+6] = norm[0];
-        normals[k+7] = norm[1];
-        normals[k+8] = norm[2];
+        if (smooth) {
+            for (var n=0; n<3; n+=1) {
+                var m = n*3;
+                var key = ""+verts[k+m]+":"+verts[k+m+1]+":"+verts[k+m+2];
+                if (!cache[key]) {
+                    cache[key] = vec3.clone(norm);
+                }
+                else {
+                    vec3.add(cache[key], cache[key], norm);
+                }
+            }
+        }
+        else {
+            normals[k] = norm[0];
+            normals[k+1] = norm[1];
+            normals[k+2] = norm[2];
+            normals[k+3] = norm[0];
+            normals[k+4] = norm[1];
+            normals[k+5] = norm[2];
+            normals[k+6] = norm[0];
+            normals[k+7] = norm[1];
+            normals[k+8] = norm[2];
+        }
+    }
+    if (smooth) {
+        for (var i=0; i<verts.length; i+=3) {
+            var key = "" + verts[i] + ":" + verts[i+1] + ":" + verts[i+2];
+            var normal = cache[key];
+            vec3.normalize(normal, normal);
+            normals[i] = normal[0];
+            normals[i+1] = normal[1];
+            normals[i+2] = normal[2];
+        }
     }
     return normals;
 };
