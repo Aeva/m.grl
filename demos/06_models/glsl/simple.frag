@@ -11,7 +11,7 @@ uniform sampler2D texture_map;
 
 varying vec3 local_position;
 varying vec3 local_normal;
-varying vec2 local_tcoord;
+varying vec2 local_tcoords;
 varying vec3 world_position;
 varying vec3 world_normal;
 varying vec3 view_position;
@@ -101,7 +101,7 @@ void main(void) {
   }
   else {
     // sample the color value for the models from a texture
-    color_sample = pdq_phong(texture2D(texture_map, local_tcoord));
+    color_sample = pdq_phong(texture2D(texture_map, local_tcoords));
     weird = pdq_anti_phong(vec4(rand, rand, rand, 1.0));
   }
 

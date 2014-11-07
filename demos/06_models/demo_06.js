@@ -74,26 +74,23 @@ addEventListener("mgrl_media_ready", function () {
     var prog = please.glsl("default", vert, frag);
     prog.activate();
 
-
-    // setup matricies & uniforms
-    var projection_matrix = mat4.perspective(
-        mat4.create(), 45, canvas.width/canvas.height, 0.1, 100.0);
-    var view_matrix = mat4.create();
-    var model_matrix = mat4.create();
-
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.CULL_FACE);
-    //gl.clearColor(.93, .93, .93, 1.0);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
+    // access model data
+    var gav_model = please.access("gavroche.jta");
+    var lamp_model = please.access("floor_lamp.jta");
 
-    // store the models we're going to display
-    var models = [
-        floor_quad(),
-        model_instance("floor_lamp.jta", model_matrix),
-    ];
+    // build the scene graph
+    var graph = new please.SceneGraph();
+    //graph.add(new FloorNode());
+
+    var lamp = lamp_model.instance();
+    lamp.vars.mode = 2; // indicate this is not the floor
+    graph.add(lamp);
 
     var coords = [
         [-5, 0, 0],
@@ -103,14 +100,21 @@ addEventListener("mgrl_media_ready", function () {
     ];
 
     // add a bunch of gavroches
+    var gavroches = new please.GraphNode();
     for (var i=0; i<coords.length; i+=1) {
-        var gav = model_instance("gavroche.jta", model_matrix);
+        var gav = gav_model.instance();
+        gav.vars.mode = 2;
         gav.x = coords[i][0];
         gav.y = coords[i][1];
         gav.z = coords[i][2];
-        gav.rz = Math.random()*360;
-        models.push(gav);
+        gav.rotate_z = Math.random()*360;
+        gavroches.add(gav);
     }
+    gavroches.rotate_z = function () {
+        var progress = performance.now()/500;
+        return Math.sin(progress)/2.0;
+    };
+    graph.add(gavroches);
 
     // add row of lamps in the background
     var spacing = 5;
@@ -119,137 +123,54 @@ addEventListener("mgrl_media_ready", function () {
     var start = end*-1;
     var y = -20;
     for (var x=start; x<=end; x+= spacing) {
-        var lamp = model_instance("floor_lamp.jta");
+        var lamp = lamp_model.instance();
+        lamp.vars.mode = 2;
         lamp.x = x;
         lamp.y = y;
-        lamp.rz = Math.random()*20-10;
-        models.push(lamp);
+        lamp.rotate_z = Math.random()*20-10;
+        graph.add(lamp);
     }
 
-    var camera_coords = vec3.fromValues(-3, 10, 6);
-    var lookat_coords = vec3.fromValues(0, 0, 1);
+    var camera = new please.PerspectiveCamera(canvas);
+    //camera.look_at = vec3.fromValues(0, 10, 2.5);
+    camera.look_at = vec3.fromValues(0, 0, 1);
+    camera.location = vec3.fromValues(-3, 10, 6);
+    graph.camera = camera;
+
+    // set up a directional light
     var light_direction = vec3.fromValues(.25, -1.0, -.4);
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
     
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_06/draw", function () {
-        var mark = performance.now();
-        mat4.identity(model_matrix);
-        mat4.lookAt(
-            view_matrix,
-            camera_coords,
-            lookat_coords,
-            vec3.fromValues(0, 0, 1) // up vector
-        );
-
-        var slowdown = 5000;
-        model_matrix = mat4.rotateZ(
-            model_matrix, model_matrix, please.radians((-90*mark/slowdown)-90));
-
         // -- update uniforms
-        prog.vars.time = mark;
+        prog.vars.time = performance.now();
         prog.vars.light_direction = light_direction;
-        prog.vars.view_matrix = view_matrix;
-        prog.vars.model_matrix = model_matrix;
-        prog.vars.projection_matrix = projection_matrix;
-        prog.vars.normal_matrix = normal_matrix(model_matrix, view_matrix);
-
 
         // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         
         // -- draw geometry
-        for (var i=0; i<models.length; i+=1) {
-            models[i].bind();
-            models[i].draw();
-        }
+        graph.tick();
+        graph.draw();
     });
     please.pipeline.start();
 });
 
 
-// This function creates a matrix for transforming normals from model
-// space to world space.
-function normal_matrix (model_matrix) {
-    var normal = mat3.create();
-    mat3.fromMat4(normal, model_matrix);
-    mat3.invert(normal, normal);
-    mat3.transpose(normal, normal);
-    return normal;
-};
 
-
-function floor_quad () {
-    var vbo = please.gl.make_quad(100, 100);
-    var world_matrix = mat4.create();
-
-    return {
-        "bind" : function () {
-            var prog = please.gl.get_program();
-            prog.vars.mode = 1; // floor mode
-            prog.vars.model_matrix = world_matrix;
-            prog.vars.normal_matrix = normal_matrix(world_matrix);
-            vbo.bind();
-        },
-
-        "draw" : function () {
-            vbo.draw();
-        },
+function FloorNode () {
+    this.vbo = please.gl.make_quad(100, 100);
+    this.__drawable = true;
+    this.vars = {
+        "mode" : 1, // "floor mode"
+    };
+    this.bind = function () {
+        this.vbo.bind();
+    };
+    this.draw = function () {
+        this.vbo.draw();
     };
 };
-
-
-function model_instance (uri, model_matrix) {
-    return {
-        "x" : 0,
-        "y" : 0,
-        "z" : 0,
-        "rx" : 0,
-        "ry" : 0,
-        "rz" : 0,
-        "name" : uri,
-        "__stamp" : performance.now(),
-
-        "bind" : function () {
-            var dt = performance.now() - this.__stamp;
-            var model = please.access(this.name, true);
-            var prog = please.gl.get_program();
-            if (model && prog) {
-                var position = mat4.create();
-                mat4.translate(position, position, [this.x, this.y, this.z]);
-                if (this.rx) {
-                    mat4.rotateX(position, position, please.radians(this.rx));
-                }
-                if (this.ry) {
-                    mat4.rotateY(position, position, please.radians(this.ry));
-                }
-                if (this.rz) {
-                    mat4.rotateZ(position, position, please.radians(this.rz));
-                }
-                if (model_matrix) {
-                    var new_mvmatrix = mat4.multiply(mat4.create(), model_matrix, position);
-                    prog.vars.model_matrix = new_mvmatrix;
-                    prog.vars.normal_matrix = normal_matrix(new_mvmatrix);
-                }
-                else {
-                    prog.vars.model_matrix = position;
-                    prog.vars.normal_matrix = normal_matrix(position);
-                }
-
-                if (model.uniforms.texture && prog.samplers.hasOwnProperty("texture_map")) {
-                    prog.samplers.texture_map = model.uniforms.texture;
-                }
-                prog.vars.mode = 2; // not-floor mode
-                model.bind();
-            }
-        },
-
-        "draw" : function () {
-            var model = please.access(this.name, true);
-            if (model) {
-                model.draw();
-            }
-        },
-    };
-};
+FloorNode.prototype = new please.GraphNode();

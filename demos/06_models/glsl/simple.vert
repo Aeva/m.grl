@@ -13,12 +13,12 @@ varying float directional_weight;
 // vertex data
 attribute vec3 position;
 attribute vec3 normal;
-attribute vec2 tcoord;
+attribute vec2 tcoords;
 
 // interpolated vertex data in various transformations
 varying vec3 local_position;
 varying vec3 local_normal;
-varying vec2 local_tcoord;
+varying vec2 local_tcoords;
 varying vec3 world_position;
 varying vec3 world_normal;
 varying vec3 view_position;
@@ -28,7 +28,7 @@ void main(void) {
   // pass along to the fragment shader
   local_position = position;
   local_normal = normal;
-  local_tcoord = tcoord;
+  local_tcoords = tcoords;
 
   // various coordinate transforms
   world_normal = normal_matrix * normal;
