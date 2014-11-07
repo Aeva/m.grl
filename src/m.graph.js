@@ -59,6 +59,8 @@ please.GraphNode.prototype = {
         return found;
     },
     "__update_world_matrix" : function (parent_matrix) {
+        // update the calculated world matrix and normal matrix for
+        // the entity.
         this.__cache.world_matrix = mat4.create();
         var local_matrix = mat4.create();
         mat4.translate(local_matrix, local_matrix, this.__cache.xyz);
@@ -71,6 +73,13 @@ please.GraphNode.prototype = {
         for (var i=0; i<this.children.length; i+=1) {
             this.children[i].__update_world_matrix(this.__cache.world_matrix);
         }
+        if (this.__drawable) {
+            var normal_matrix = mat3.create();
+            mat3.fromMat4(normal_matrix, this.__cache.world_matrix);
+            mat3.invert(normal_matrix, normal_matrix);
+            mat3.transpose(normal_matrix, normal_matrix);
+            this.__cache.normal_matrix = normal_matrix;
+        }
     },
     "__rig" : function () {
         // cache the values of this object's driver functions.
@@ -82,6 +91,7 @@ please.GraphNode.prototype = {
             "rotate" : null,
             "scale" : null,
             "world_matrix" : null,
+            "normal_matrix" : null,
         };
 
         this.__cache.xyz = vec3.fromValues(
@@ -125,6 +135,7 @@ please.GraphNode.prototype = {
         if (this.visible) {
             if (this.__drawable && typeof(this.draw) === "function") {
                 prog.vars["world_matrix"] = self.__cache.world_matrix;
+                //prog.vars["normal_matrix"] = self.__cache.normal_matrix;
                 ITER_PROPS(name, self.__cache.uniforms) {
                     prog.vars[name] = self.__cache.uniforms[name];
                 }
