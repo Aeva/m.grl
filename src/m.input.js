@@ -152,7 +152,7 @@ please.keys.__cancel = function (char) {
         stats.timeout = -1;
         stats.keys = [];
         stats.state = "cancel";
-        please.schedule(function () {handler(stats.state, char);});
+        please.postpone(function () {handler(stats.state, char);});
     }
 };
 
@@ -172,7 +172,7 @@ please.keys.__event_handler = function (event) {
         if (event.type === "keydown") {
             if (stats.state === "cancel") {
                 stats.state = "press";
-                please.schedule(function(){handler("press", key)});
+                please.postpone(function(){handler("press", key)});
                 if (stats.threshold !== undefined) {
                     clearTimeout(stats.timeout);
                     stats.timeout = setTimeout(function() {

@@ -128,16 +128,6 @@ please.prop_map = function (dict, callback) {
 };
 
 
-// Schedules a callback to executed whenever it is convinient to do
-// so.  This is useful for preventing errors from completely halting
-// the program's execution, and makes some errors easier to find.
-please.schedule = function (callback) {
-    if (typeof(callback) === "function") {
-        window.setTimeout(callback, 0);
-    }
-};
-
-
 // Returns a function that will call a callback, but only the first
 // time it is called.
 please.once = function (callback) {

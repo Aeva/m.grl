@@ -65,7 +65,7 @@ please.load = function (asset_name, callback, options) {
     }
     var url = opt.absolute_url ? asset_name : please.media.relative_path(type, asset_name);
     if (!!please.access(url, true) && typeof(callback) === "function") {
-        please.schedule(function () {
+        please.postpone(function () {
             callback("pass", asset_name);
         });
     }
@@ -176,8 +176,8 @@ please.media._pop = function (req_key) {
     }
     if (please.media.pending.length === 0) {
         // Trigger a global event.
-        please.schedule(function () {
-            // please.schedule allows for this to be evaluated
+        please.postpone(function () {
+            // please.postpone allows for this to be evaluated
             // after the media handlers.
             if (please.media.pending.length === 0) {
                 // We still check here to make sure nothing is pending

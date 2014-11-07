@@ -36,85 +36,6 @@ please.ani = {
 };
 
 
-// The batch object is used for animations to schedule their updates.
-// Closure generates singleton.
-please.ani.batch = (function () {
-    var batch = {
-        "__pending" : [],
-        "__times" : [],
-        "now" : performance.now(),
-
-        "schedule" : function (callback, when) {},
-        "remove" : function (callback) {},
-    };
-    var dirty = false;
-    var pipe_id = "m.ani.js/batch";
-
-
-    // This function works like setTimeout, but syncs up with
-    // animation frames.
-    batch.schedule = function (callback, when) {
-        when = batch.now + when;
-        var i = batch.__pending.indexOf(callback);
-        if (i > -1) {
-            batch.__times[i] = when;
-        }
-        else {
-            batch.__pending.push(callback);
-            batch.__times.push(when);
-            if (!dirty) {
-                dirty = true;
-                
-                // register a pipeline stage if it doesn't exist
-                if (please.pipeline.__callbacks[pipe_id] === undefined) {
-                    please.pipeline.add(-1, pipe_id, frame_handler);
-                }
-            }
-        }
-    };
-
-
-    // This function unschedules a pending callback.
-    batch.remove = function (callback) {
-        var i = batch.__pending.indexOf(callback);
-        if (i > -1) {
-            batch.__pending.splice(i, 1);
-            batch.__times.splice(i, 1);
-        }
-    };
-
-
-    var frame_handler= function () {
-        if (batch.__pending.length > 0) {
-            var stamp = performance.now();
-            batch.now = stamp;
-
-            var pending = batch.__pending;
-            var times = batch.__times;
-            batch.__pending = [];
-            batch.__times = [];
-            var updates = 0;
-            ITER(i, pending) {
-                var callback = pending[i];
-                var when = times[i];
-                if (when <= stamp) {
-                    updates += 1;                
-                    callback(stamp);
-                }
-                else {
-                    batch.__pending.push(callback);
-                    batch.__times.push(when);
-                }
-            };
-        }
-    };
-
-
-    return batch;
-})();
-
-
-
 // Function returns Animation Instance object.  AnimationData.create()
 // wraps this function, so you don't need to use it directly.
 please.media.__AnimationInstance = function (animation_data) {
@@ -175,7 +96,7 @@ please.media.__AnimationInstance = function (animation_data) {
     // updated
     var advance = function (time_stamp) {
         if (!time_stamp) {
-            time_stamp = please.ani.batch.now;
+            time_stamp = please.time.now;
         }
         var progress = time_stamp - ani.__start_time;
         var frame = ani.get_current_frame(progress);
@@ -201,14 +122,14 @@ please.media.__AnimationInstance = function (animation_data) {
                 }
             }
             ani.__set_dirty();
-            please.ani.batch.schedule(advance, frame.wait);
+            please.time.schedule(advance, frame.wait);
         }
     };
 
 
     // play function starts the animation sequence
     ani.play = function () {
-        ani.__start_time = please.ani.batch.now;
+        ani.__start_time = please.time.now;
         ani.__frame_pointer = 0;
         advance(ani.__start_time);
     };
@@ -216,7 +137,7 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // reset the animation 
     ani.reset = function (start_frame) {
-        ani.__start_time = please.ani.batch.now;
+        ani.__start_time = please.time.now;
         ani.__frame_pointer = 0;
         if (start_frame) {
             ani.__frame_pointer = start_frame;
@@ -230,7 +151,7 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // stop the animation
     ani.stop = function () {
-        please.ani.batch.remove(advance);
+        please.time.remove(advance);
     };
 
 
@@ -276,7 +197,7 @@ please.media.__AnimationInstance = function (animation_data) {
     ani.__cue_rebuild = function () {
         if (!pending_rebuild) {
             pending_rebuild = true;
-            please.schedule(function () {
+            please.postpone(function () {
                 please.ani.on_bake_ani_frameset(ani.data.__uri, ani);
                 pending_rebuild = false;
             });
@@ -618,7 +539,7 @@ please.media.__AnimationData = function (gani_text, uri) {
     }
 
     if (typeof(please.ani.on_bake_ani_frameset) === "function") {
-        please.schedule(function () {
+        please.postpone(function () {
             please.ani.on_bake_ani_frameset(ani.__uri, ani);
         });
     }

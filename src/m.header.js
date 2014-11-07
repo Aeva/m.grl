@@ -31,6 +31,7 @@
 
 #include "m.macros.js"
 #include "m.defs.js"
+#include "m.time.js"
 #include "m.media.js"
 #include "m.input.js"
 #include "m.multipass.js"
