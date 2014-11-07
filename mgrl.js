@@ -911,7 +911,7 @@ please.pipeline.__regen_cache = function () {
     });
     this.__dirty = false;
 };
-// - m.ani.js --------------------------------------------------------------- //
+// - m.gani.js -------------------------------------------------------------- //
 // "gani" media type handler
 please.media.search_paths.ani = "";
 please.media.handlers.ani = function (url, asset_name, callback) {
