@@ -34,7 +34,7 @@
 #include "m.media.js"
 #include "m.input.js"
 #include "m.multipass.js"
-#include "m.ani.js"
+#include "m.gani.js"
 #include "m.gl.js"
 #include "m.jta.js"
 #include "m.graph.js"
