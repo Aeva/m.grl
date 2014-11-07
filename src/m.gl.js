@@ -3,11 +3,11 @@
 
 // "glsl" media type handler
 please.media.search_paths.glsl = "",
-please.media.handlers.glsl = function (url, callback) {
+please.media.handlers.glsl = function (url, asset_name, callback) {
     var media_callback = function (req) {
-        please.media.assets[url] = please.gl.__build_shader(req.response, url);
+        please.media.assets[asset_name] = please.gl.__build_shader(req.response, url);
     };
-    please.media.__xhr_helper("text", url, media_callback, callback);
+    please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
 };
 
 
@@ -21,7 +21,6 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
-    "relative_lookup" : false, // used by please.gl.get_texture(...) below
     
     // binds the rendering context
     "set_context" : function (canvas_id) {
@@ -82,20 +81,12 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
     if (please.gl.__cache.textures[uri]) {
         return please.gl.__cache.textures[uri];
     }
-    
-    // Check to see if we're doing relative lookups, and adjust the
-    // uri if necessary.  Accounts for manually added assets.
-    if (!please.media.assets[uri] && please.gl.relative_lookup && uri !=="error") {
-        uri = please.relative("img", uri);
-    }
-
 
     // See if we already have a texture object for the uri:
     var texture = please.gl.__cache.textures[uri];
     if (texture) {
         return texture;
     }
-
 
     // No texture, now we check to see if the asset is present:
     var asset = please.access(uri, true);
@@ -105,7 +96,7 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
     else {
         // Queue up the asset for download, and then either return a place
         // holder, or null
-        please.load("img", uri, function (state, uri) {
+        please.load(uri, function (state, uri) {
             if (state === "pass") {
                 var asset = please.access(uri, false);
                 please.gl.__build_texture(uri, asset);

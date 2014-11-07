@@ -3,12 +3,12 @@
 
 // "gani" media type handler
 please.media.search_paths.ani = "";
-please.media.handlers.ani = function (url, callback) {
+please.media.handlers.ani = function (url, asset_name, callback) {
     var media_callback = function (req) {
-        //please.media.assets[url] = new please.media.__Animation(req.response);
-        please.media.assets[url] = new please.media.__AnimationData(req.response, url);
+        please.media.assets[asset_name] = new please.media.__AnimationData(
+            req.response, url);
     };
-    please.media.__xhr_helper("text", url, media_callback, callback);
+    please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
 };
 
 
@@ -193,8 +193,7 @@ please.media.__AnimationInstance = function (animation_data) {
         }
         else {
             if (frame.sound) {
-                var uri = please.relative("audio", frame.sound.file);
-                var resource = please.access(uri, true);
+                var resource = please.access(frame.sound.file, true);
                 if (resource) {
                     var sound = new Audio();
                     sound.src = resource.src;
@@ -611,24 +610,17 @@ please.media.__AnimationData = function (gani_text, uri) {
         if (file.indexOf(".") === -1) {
             file += ".gani";
         }
-        var type = please.media.guess_type(file);
         try {
-            if (type !== undefined) {
-                var uri = please.relative(type, file);
-                please.load(type, uri);
-            }
-            else {
-                throw("Couldn't determine media type for: " + file);
-            }
+            please.load(file);
         } catch (err) {
             console.warn(err);
         }
     }
 
     if (typeof(please.ani.on_bake_ani_frameset) === "function") {
-        please.media.connect_onload(function () {
+        //please.schedule(function () {
             please.ani.on_bake_ani_frameset(ani.__uri, ani);
-        });
+        //});
     }
 
     return ani;

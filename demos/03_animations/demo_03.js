@@ -46,17 +46,17 @@ var sprite2html = function (ani_object, sprite_id, x, y) {
     }
     var html = '<div style="';
     
-    var uri = please.relative("img", sprite.resource);
-    if (please.access(uri, true) === undefined) {
-        please.load("img", uri, function(state, uri) {
+    var asset_name = sprite.resource;
+    if (please.access(asset_name, true) === undefined) {
+        please.load(asset_name, function(state, uri) {
             if (state === "pass") {
 	        ani_object.__set_dirty();
                 notify_download(uri);
             }
         });
     }
-    var src = please.access(uri).src;
-    var is_error = please.access(uri).src === please.access("error").src;
+    var src = please.access(asset_name).src;
+    var is_error = please.access(asset_name).src === please.media.errors.img.src;
 
     var clip_x = sprite.x * -1;
     var clip_y = sprite.y * -1;
@@ -202,15 +202,14 @@ addEventListener("mgrl_media_ready", function () {
 
 addEventListener("load", function () {
     please.pipeline.start();
-    please.media.search_paths.img = "../lpc_assets/sprites/";
-    please.media.search_paths.ani = "../lpc_assets/keyframes/";
-    please.media.search_paths.audio = "../lpc_assets/sounds/";
+    please.set_search_path("img", "../lpc_assets/sprites/");
+    please.set_search_path("ani", "../lpc_assets/keyframes/");
+    please.set_search_path("audio", "../lpc_assets/sounds/");
 
     var ganis = ["idle", "walk", "magic", "fall", "clock", 
                  "coin", "coin", "coin", "campfire", "campfire"];
     for (var i=0; i<ganis.length; i+=1) {
         var file = ganis[i] + ".gani";
-        var uri = please.relative("ani", file);
-        please.load("ani", uri, ani_callback);
+        please.load(file, ani_callback);
     }
 });

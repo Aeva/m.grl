@@ -28,6 +28,7 @@ var write = function (msg) {
 
 
 addEventListener("load", function () {
+    please.set_search_path("img", "img/");
     var handler = function (state, resource) {
         var notice = state==="pass" ? "downloaded" : "failed to load";
         write("--> " + notice + ": " + resource);
@@ -67,17 +68,20 @@ addEventListener("load", function () {
         };
 
         update_img();
-        please.load("img", url, function(s,r){update_img();handler(s,r);});
+        please.load(url, function(state, resource) {
+            update_img();
+            handler(state, resource);
+        });
     };
 
     write("Hi there!");
     write("Be sure to take a look at the javascript debugger.");
     write("Starting downloads...<br/>");
 
-    thumbnail("img/baul.jpg", "large image");
-    thumbnail("img/house_map.jpg", "some map thing");
-    thumbnail("img/mondaux_imports.png", "fancy graphic");
-    thumbnail("img/bat.png", "hedgehog");
+    thumbnail("baul.jpg", "large image");
+    thumbnail("house_map.jpg", "some map thing");
+    thumbnail("mondaux_imports.png", "fancy graphic");
+    thumbnail("bat.png", "hedgehog");
     thumbnail("bogus_file.png", "bad path");
     write("")
 });

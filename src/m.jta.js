@@ -3,11 +3,11 @@
 
 // "jta" media type handler
 please.media.search_paths.jta = "";
-please.media.handlers.jta = function (url, callback) {
+please.media.handlers.jta = function (url, asset_name, callback) {
     var media_callback = function (req) {
-        please.media.assets[url] = please.gl.__jta_model(req.response, url);
+        please.media.assets[asset_name] = please.gl.__jta_model(req.response, url);
     };
-    please.media.__xhr_helper("text", url, media_callback, callback);
+    please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
 };
 
 
@@ -50,7 +50,7 @@ please.gl.new_jta = function (src, uri) {
             // this if-statement is to ignore packed textures, not to
             // verify that relative ones are actually downloaded.
             if (!please.media.assets[uri]) {
-                please.relative_load("img", uri);
+                please.load(uri);
             }
         });
     });
@@ -359,13 +359,7 @@ please.gl.__jta_model = function (src, uri) {
             var uri;
             if (meta.mode === "linked") {
                 uri = meta.uri;
-                if (please.gl.relative_lookup) {
-                    please.relative_load("img", uri);
-
-                }
-                else {
-                    please.load("img", uri);                    
-                }
+                please.load(uri);
             }
             else if (meta.mode === "packed") {
                 uri = meta.md5;

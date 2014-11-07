@@ -4,6 +4,7 @@
 please.media = {
     // data
     "assets" : {},
+    "errors" : {},
     "handlers" : {},
     "pending" : [],
     "__load_callbacks" : {},
@@ -14,46 +15,83 @@ please.media = {
     },
 
     // functions
-    "connect_onload" : function (callback) {},
+    "relative_path" : function (type, file_name) {},
+    "rename" : function (old_uri, new_uri) {},
+    "get_progress" : function () {},
+    "guess_type" : function (file_name) {},
     "_push" : function (req_key) {},
     "_pop" : function (req_key) {},
+    "__xhr_helper" : function (req_type, url, media_callback, user_callback) {},
 };
 
 
 // default placeholder image
-please.media.assets["error"] = new Image();
-please.media.assets["error"].src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAACVBMVEUAAADjE2T///+ACSv4AAAAHUlEQVQI12NoYGKQWsKgNoNBcwWDVgaIAeQ2MAEAQA4FYPGbugcAAAAASUVORK5CYII="
+please.media.errors["img"] = new Image();
+please.media.errors["img"].src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAACVBMVEUAAADjE2T///+ACSv4AAAAHUlEQVQI12NoYGKQWsKgNoNBcwWDVgaIAeQ2MAEAQA4FYPGbugcAAAAASUVORK5CYII="
 
 
-
-
-// Downloads an asset.
-please.load = function (type, url, callback) {
-    if (type === "guess") {
-        type = please.media.guess_type(url);
+// Add a search path
+please.set_search_path = function (type, path) {
+    if (!path.endsWith("/")) {
+        path += "/";
     }
-    if (please.media.handlers[type] === undefined) {
-        throw("Unknown media type '"+type+"'");
+    please.media.search_paths[type] = path;
+};
+
+
+// Download an asset.
+please.load = function (asset_name, callback, options) {
+    var opt = {
+        "force_type" : false,
+        "absolute_url" : false,
     }
-    else {
-        var asset_exists = !!please.access(url, true);
-        if (asset_exists && typeof(callback) === "function") {
-            please.schedule(function () {
-                callback("pass", url);
-            });
+    if (options) {
+        ITER_PROPS(key, options) {
+            var value = options[key];
+            if (opt.hasOwnProperty(key)) {
+                opt[key] = !!options[key];
+            }
+        }
+    }
+    var type = opt.force_type ? opt.force_type : please.media.guess_type(asset_name);
+    if (please.media.handlers[type] === "undefined") {
+        if (absolute_url) {
+            console.warn("Unknown media type, coercing to plain text.");
+            type = "text";
         }
         else {
-            if (typeof(callback) !== "function") {
-                callback = undefined;
-            }
-            please.media.handlers[type](url, callback);
+            throw("Unknown media type '"+type+"'");
         }
+    }
+    var url = opt.absolute_url ? opt.absoltue_url : please.media.relative_path(type, asset_name);
+    if (!!please.access(url, true) && typeof(callback) === "function") {
+        please.schedule(function () {
+            callback("pass", asset_name);
+        });
+    }
+    else {
+        please.media.handlers[type](url, asset_name, callback);
     }
 };
 
 
+// Access an asset.  If the asset is not found, this function
+// returns the hardcoded 'error' image, unless no_error is set to
+// some truthy value, in which case undefined is returned.
+please.access = function (asset_name, no_error) {
+    var found = please.media.assets[asset_name];
+    if (!found && !no_error) {
+        var type = please.media.guess_type(asset_name);
+        if (type) {
+            found = please.media.errors[type];
+        }
+    }
+    return found;
+};
+
+
 // Returns a uri for relative file names
-please.relative = function (type, file_name) {
+please.media.relative_path = function (type, file_name) {
     if (type === "guess") {
         type = please.media.guess_type(file_name);
     }
@@ -68,27 +106,9 @@ please.relative = function (type, file_name) {
 };
 
 
-// Shorthand for please.load(type, please.relative(type, file_name), callback)
-please.relative_load = function (type, file_name, callback) {
-    return please.load(type, please.relative(type, file_name), callback);
-};
-
-
-// Access an asset.  If the asset is not found, this function
-// returns the hardcoded 'error' image, unless no_error is set to
-// some truthy value, in which case undefined is returned.
-please.access = function (uri, no_error) {
-    var found = please.media.assets[uri];
-    if (!found && !no_error) {
-        found = please.access("error", true);
-    }
-    return found;
-};
-
-
 // Rename an asset.  May be used to overwrite the error image, for example.
 // This doesn't remove the old uri, so I guess this is really just copying...
-please.rename = function (old_uri, new_uri) {
+please.media.rename = function (old_uri, new_uri) {
     var asset = please.access(old_uri, true);
     if (asset) {
         new_uri = asset;
@@ -176,10 +196,12 @@ please.media._pop = function (req_key) {
 // Guess a file's media type
 please.media.guess_type = function (file_name) {
     var type_map = {
-        "img" : [".png", ".gif"],
+        "img" : [".png", ".gif", ".jpg", ".jpeg"],
+        "jta" : [".jta"],
         "ani" : [".gani"],
         "audio" : [".wav", ".mp3", ".ogg"],
         "glsl" : [".vert", ".frag"],
+        "text" : [".txt"],
     };
 
     ITER_PROPS (type, type_map) {
@@ -196,7 +218,7 @@ please.media.guess_type = function (file_name) {
 
 
 // xhr wrapper to provide common machinery to media types.
-please.media.__xhr_helper = function (req_type, url, media_callback, user_callback) {
+please.media.__xhr_helper = function (req_type, url, asset_name, media_callback, user_callback) {
     var req_ok = please.media._push(url, user_callback);
     if (req_ok) {
         var load_status = please.media.__load_status[url] = {
@@ -225,7 +247,7 @@ please.media.__xhr_helper = function (req_type, url, media_callback, user_callba
             ITER(c, callbacks) {
                 var callback = callbacks[c];
                 if (typeof(callback) === "function") {
-                    callback(state, url);
+                    callback(state, asset_name);
                 }
             }
         });
@@ -237,20 +259,20 @@ please.media.__xhr_helper = function (req_type, url, media_callback, user_callba
 
 
 // "img" media type handler
-please.media.handlers.img = function (url, callback) {
+please.media.handlers.img = function (url, asset_name, callback) {
     var media_callback = function (req) {
         var img = new Image();
         img.loaded = false;
         img.addEventListener("load", function() {img.loaded = true});
         img.src = url;
-        please.media.assets[url] = img;
+        please.media.assets[asset_name] = img;
     };
-    please.media.__xhr_helper("blob", url, media_callback, callback);
+    please.media.__xhr_helper("blob", url, asset_name, media_callback, callback);
 };
 
 
 // "audio" media type handler
-please.media.handlers.audio = function (url, callback) {
+please.media.handlers.audio = function (url, asset_name, callback) {
     // FIXME: intelligently support multiple codecs, detecting codecs,
     // and failing not silently (no pun intendend).
     // https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement
@@ -258,16 +280,16 @@ please.media.handlers.audio = function (url, callback) {
     var media_callback = function (req) {
         var audio = new Audio();
         audio.src = url;
-        please.media.assets[url] = audio;
+        please.media.assets[asset_name] = audio;
     };
-    please.media.__xhr_helper("blob", url, media_callback, callback);
+    please.media.__xhr_helper("blob", url, asset_name, media_callback, callback);
 };
 
 
 // "text" media type handler
-please.media.handlers.text = function (url, callback) {
+please.media.handlers.text = function (url, asset_name, callback) {
     var media_callback = function (req) {
-        please.media.assets[url] = req.response;
+        please.media.assets[asset_name] = req.response;
     };
-    please.media.__xhr_helper("text", url, media_callback, callback);
+    please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
 };

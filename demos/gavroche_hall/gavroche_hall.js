@@ -73,19 +73,20 @@ function key_handler(state, key) {
 
 addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
-    please.media.search_paths.img = "../gl_assets/img/";
-    please.media.search_paths.jta = "../gl_assets/models/";
+    please.set_search_path("glsl", "glsl/");
+    please.set_search_path("img", "../gl_assets/img/");
+    please.set_search_path("jta", "../gl_assets/models/");
     
     // files that load files will use relative file paths
     please.gl.relative_lookup = true;
 
     // load shader sources
-    please.load("glsl", "glsl/simple.vert");
-    please.load("glsl", "glsl/simple.frag");
+    please.load("simple.vert");
+    please.load("simple.frag");
 
     // load our model files
-    please.relative_load("jta", "gavroche_hall.jta");
-    please.relative_load("jta", "psycho.jta");
+    please.load("gavroche_hall.jta");
+    please.load("psycho.jta");
     show_progress();
 });
 
@@ -102,8 +103,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
-    var vert = please.access("glsl/simple.vert");
-    var frag = please.access("glsl/simple.frag");
+    var vert = please.access("simple.vert");
+    var frag = please.access("simple.frag");
     var prog = please.glsl("default", vert, frag);
     prog.activate();
 
@@ -114,10 +115,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
     // store our scene & build the graph:
-    var level_data = window.scene = please.access(
-        please.relative("jta", "gavroche_hall.jta"));
-    var char_data = please.access(
-        please.relative("jta", "psycho.jta"));
+    var level_data = window.scene = please.access("gavroche_hall.jta");
+    var char_data = please.access("psycho.jta");
 
     // display licensing meta_data info, where applicable
     [level_data, char_data].map(function (scene) {

@@ -171,17 +171,18 @@ var sprite2html = function (ani_object, sprite_id, x, y) {
     }
     var html = '<div style="';
     
-    var uri = please.relative("img", sprite.resource);
-    if (please.access(uri, true) === undefined) {
-        please.load("img", uri, function(state, uri) {
+    var asset = please.access(sprite.resource, true);
+    var is_error = false;
+    if (!asset) {
+        asset = please.access(sprite.resource);
+        is_error = true;
+        please.load(sprite.resource, function(state, uri) {
             if (state === "pass") {
 	        ani_object.__set_dirty();
             }
         });
     }
-    var src = please.access(uri).src;
-    var is_error = please.access(uri).src === please.access("error").src;
-
+    var src = asset.src;
     var clip_x = sprite.x * -1;
     var clip_y = sprite.y * -1;
     html += "position: absolute;";
@@ -241,19 +242,18 @@ demo.Actor = function (initial_animation) {
         "get" : function () {
             return actor.__ani_name;
         },
-        "set" : function (value) {
-            if (actor.__ani_name !== value) {
-                actor.__ani_name = value;
+        "set" : function (asset_name) {
+            if (actor.__ani_name !== asset_name) {
+                actor.__ani_name = asset_name;
 
-                var uri = please.relative("ani", value);
-                var ani = please.access(uri, true);
+                var ani = please.access(asset_name, true);
                 if (ani === undefined) {
-                    please.relative_load("guess", value, function (status, uri) {
+                    please.load(asset_name, function (status, uri) {
                         actor.__attach_ani(uri);
                     });
                 }
                 else {
-                    actor.__attach_ani(uri);
+                    actor.__attach_ani(asset_name);
                 }
             }
             return actor.__ani_name;
@@ -448,7 +448,7 @@ addEventListener("load", function () {
      "cave_overhangs.png",
      "cave_physics.png",
     ].map(function (asset) {
-        please.load("img", asset);
+        please.load(asset);
     });        
 
     // load assets from lcp_assets repository
@@ -462,6 +462,6 @@ addEventListener("load", function () {
      "misc/emerald_coin.png",
      "misc/ruby_coin.png",
     ].map(function (asset) {
-        please.relative_load("guess", asset);
+        please.load(asset);
     });
 });

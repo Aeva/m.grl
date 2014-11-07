@@ -24,24 +24,22 @@
 
 addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
-    please.media.search_paths.img = "../gl_assets/img/";
-    please.media.search_paths.jta = "../gl_assets/models/";
+    please.set_search_path("glsl", "glsl/");
+    please.set_search_path("img", "../gl_assets/img/");
+    please.set_search_path("jta", "../gl_assets/models/");
     
-    // files that load files will use relative file paths
-    please.gl.relative_lookup = true;
-
     // load shader sources
-    please.load("glsl", "glsl/simple.vert");
-    please.load("glsl", "glsl/simple.frag");
+    please.load("simple.vert");
+    please.load("simple.frag");
 
     // load our model files
-    please.relative_load("jta", "gavroche.jta");
-    please.relative_load("jta", "floor_lamp.jta");
+    please.load("gavroche.jta");
+    please.load("floor_lamp.jta");
 
     // while not strictly necessary, the progress bar will make more
     // sense if we manually queue up textures here:
-    please.relative_load("img", "uvmap.png");
-    please.relative_load("img", "floor_lamp.png");
+    please.load("uvmap.png");
+    please.load("floor_lamp.png");
 
     show_progress();
 });
@@ -71,8 +69,8 @@ addEventListener("mgrl_media_ready", function () {
 
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
-    var vert = please.access("glsl/simple.vert");
-    var frag = please.access("glsl/simple.frag");
+    var vert = please.access("simple.vert");
+    var frag = please.access("simple.frag");
     var prog = please.glsl("default", vert, frag);
     prog.activate();
 
@@ -210,7 +208,7 @@ function model_instance (uri, model_matrix) {
         "rx" : 0,
         "ry" : 0,
         "rz" : 0,
-        "name" : please.relative("jta", uri),
+        "name" : uri,
         "__stamp" : performance.now(),
 
         "bind" : function () {

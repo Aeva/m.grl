@@ -24,14 +24,13 @@
 
 addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
-    please.media.search_paths.img = "../gl_assets/img/";
-    please.media.search_paths.jta = "../gl_assets/models/";
-    please.gl.relative_lookup = true;
+    please.set_search_path("glsl", "glsl/");
+    please.set_search_path("img", "../gl_assets/img/");
+    please.set_search_path("jta", "../gl_assets/models/");
 
-    please.load("glsl", "glsl/halftone.vert");
-    please.load("glsl", "glsl/halftone.frag");
-
-    please.relative_load("jta", "suzanne.jta");
+    please.load("halftone.vert");
+    please.load("halftone.frag");
+    please.load("suzanne.jta");
     show_progress();
 });
 
@@ -147,8 +146,8 @@ addEventListener("mgrl_media_ready", function () {
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
 
-    var vert = please.access("glsl/halftone.vert");
-    var frag = please.access("glsl/halftone.frag");
+    var vert = please.access("halftone.vert");
+    var frag = please.access("halftone.frag");
     var prog = please.glsl("default", vert, frag);
     prog.activate();
 
@@ -292,7 +291,7 @@ function model_instance (uri, model_matrix) {
         "rx" : 0,
         "ry" : 0,
         "rz" : 0,
-        "name" : please.relative("jta", uri),
+        "name" : uri,
         "__stamp" : performance.now(),
 
         "bind" : function () {

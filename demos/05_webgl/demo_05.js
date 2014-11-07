@@ -33,8 +33,10 @@ addEventListener("load", function() {
         main method to setup the demo!
      */
     please.gl.set_context("gl_canvas");
-    please.load("glsl", "glsl/hello.vert");
-    please.load("glsl", "glsl/hello.frag");
+    please.set_search_path("glsl", "glsl/");
+
+    please.load("hello.vert");
+    please.load("hello.frag");
 });
 
 
@@ -48,8 +50,8 @@ addEventListener("mgrl_media_ready", function () {
       completed by calling prog.activate() to enable the shader.
      */
     console.info("starting the demo");
-    var vert = please.access("glsl/hello.vert");
-    var frag = please.access("glsl/hello.frag");
+    var vert = please.access("hello.vert");
+    var frag = please.access("hello.frag");
     var prog = please.glsl("default", vert, frag);
     prog.activate();
 
