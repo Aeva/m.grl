@@ -356,7 +356,7 @@ please.load = function (asset_name, callback, options) {
             throw("Unknown media type '"+type+"'");
         }
     }
-    var url = opt.absolute_url ? opt.absoltue_url : please.media.relative_path(type, asset_name);
+    var url = opt.absolute_url ? asset_name : please.media.relative_path(type, asset_name);
     if (!!please.access(url, true) && typeof(callback) === "function") {
         please.schedule(function () {
             callback("pass", asset_name);
@@ -1455,9 +1455,9 @@ please.media.__AnimationData = function (gani_text, uri) {
         }
     }
     if (typeof(please.ani.on_bake_ani_frameset) === "function") {
-        //please.schedule(function () {
+        please.schedule(function () {
             please.ani.on_bake_ani_frameset(ani.__uri, ani);
-        //});
+        });
     }
     return ani;
 };

@@ -63,7 +63,7 @@ please.load = function (asset_name, callback, options) {
             throw("Unknown media type '"+type+"'");
         }
     }
-    var url = opt.absolute_url ? opt.absoltue_url : please.media.relative_path(type, asset_name);
+    var url = opt.absolute_url ? asset_name : please.media.relative_path(type, asset_name);
     if (!!please.access(url, true) && typeof(callback) === "function") {
         please.schedule(function () {
             callback("pass", asset_name);

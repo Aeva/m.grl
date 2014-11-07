@@ -618,9 +618,9 @@ please.media.__AnimationData = function (gani_text, uri) {
     }
 
     if (typeof(please.ani.on_bake_ani_frameset) === "function") {
-        //please.schedule(function () {
+        please.schedule(function () {
             please.ani.on_bake_ani_frameset(ani.__uri, ani);
-        //});
+        });
     }
 
     return ani;

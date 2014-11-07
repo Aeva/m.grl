@@ -385,7 +385,7 @@ addEventListener('mgrl_media_ready', function () {
     canvas.width = 32;
     canvas.height = 32;
     var ctx = canvas.getContext("2d");
-    var img = please.access("cave_physics.png");
+    var img = please.access("cave_physics.png", true);
     ctx.drawImage(img, 0, 0);
     demo.__phys = {
         "canvas" : canvas,
@@ -448,8 +448,8 @@ addEventListener("load", function () {
      "cave_overhangs.png",
      "cave_physics.png",
     ].map(function (asset) {
-        please.load(asset);
-    });        
+        please.load(asset, null, {"absolute_url" : true});
+    });
 
     // load assets from lcp_assets repository
     ["idle.gani",
