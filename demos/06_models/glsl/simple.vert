@@ -1,6 +1,6 @@
 
 // matrices
-uniform mat4 model_matrix;
+uniform mat4 world_matrix;
 uniform mat4 view_matrix;
 uniform mat4 projection_matrix;
 
@@ -32,8 +32,8 @@ void main(void) {
 
   // various coordinate transforms
   world_normal = normal_matrix * normal;
-  world_position = (model_matrix * vec4(position, 1.0)).xyz;
-  vec4 tmp = projection_matrix * view_matrix * model_matrix * vec4(position, 1.0);
+  world_position = (world_matrix * vec4(position, 1.0)).xyz;
+  vec4 tmp = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);
   view_position = tmp.xyz;
 
   // pdq lighting

@@ -113,7 +113,7 @@ please.GraphNode.prototype = {
         please.prop_map(self.ext, function (name, value) {
             DRIVER(self, value);
         });
-        please.prop_map(self.uniforms, function (name, value) {
+        please.prop_map(self.vars, function (name, value) {
             self.__cache["uniforms"][name] = DRIVER(self, value);
         });
         please.prop_map(self.samplers, function (name, value) {
@@ -135,7 +135,7 @@ please.GraphNode.prototype = {
         if (this.visible) {
             if (this.__drawable && typeof(this.draw) === "function") {
                 prog.vars["world_matrix"] = self.__cache.world_matrix;
-                //prog.vars["normal_matrix"] = self.__cache.normal_matrix;
+                prog.vars["normal_matrix"] = self.__cache.normal_matrix;
                 ITER_PROPS(name, self.__cache.uniforms) {
                     prog.vars[name] = self.__cache.uniforms[name];
                 }

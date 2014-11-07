@@ -75,10 +75,16 @@ please.gl.__jta_model = function (src, uri) {
                 node.__asset_hint = uri + ":" + model.__vbo_hint;
                 node.__drawable = true;
                 node.__asset = model;
+                node.ext = {};
+                node.vars = {};
+                node.samplers = {};
                 please.prop_map(model.samplers, function(name, uri) {
                     node.samplers[name] = uri;
                 });
                 please.prop_map(model.uniforms, function(name, value) {
+                    if (name === "world_matrix") {
+                        return;
+                    }
                     node.vars[name] = value;
                 });
                 if (model.extra.position) {
@@ -330,7 +336,7 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
         c = vec3.fromValues(verts[k+6], verts[k+7], verts[k+8]);
         vec3.subtract(lhs, b, a); // guessing
         vec3.subtract(rhs, c, a); // guessing
-        vec3.cross(norm, rhs, lhs); // swap lhs and rhs to flip the normal
+        vec3.cross(norm, lhs, rhs); // swap lhs and rhs to flip the normal
         vec3.normalize(norm, norm);
         for (var n=0; n<3; n+=1) {
             var m = n*3;

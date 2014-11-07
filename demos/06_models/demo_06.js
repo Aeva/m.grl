@@ -86,21 +86,15 @@ addEventListener("mgrl_media_ready", function () {
 
     // build the scene graph
     var graph = new please.SceneGraph();
-    //graph.add(new FloorNode());
 
-    var lamp = lamp_model.instance();
-    lamp.vars.mode = 2; // indicate this is not the floor
-    graph.add(lamp);
-
+    // add a bunch of rotating objects
+    var rotatoe = new please.GraphNode();
     var coords = [
         [-5, 0, 0],
         [5, 0, 0],
         [0, -5, 0],
         [0, 5, 0],
     ];
-
-    // add a bunch of gavroches
-    var gavroches = new please.GraphNode();
     for (var i=0; i<coords.length; i+=1) {
         var gav = gav_model.instance();
         gav.vars.mode = 2;
@@ -108,13 +102,16 @@ addEventListener("mgrl_media_ready", function () {
         gav.y = coords[i][1];
         gav.z = coords[i][2];
         gav.rotate_z = Math.random()*360;
-        gavroches.add(gav);
+        rotatoe.add(gav);
     }
-    gavroches.rotate_z = function () {
-        var progress = performance.now()/500;
-        return Math.sin(progress)/2.0;
+    rotatoe.rotate_z = function () {
+        var progress = performance.now()/2000;
+        return progress*-1;
     };
-    graph.add(gavroches);
+    var lamp = lamp_model.instance();
+    lamp.vars.mode = 2; // indicate this is not the floor
+    rotatoe.add(lamp);
+    graph.add(rotatoe);
 
     // add row of lamps in the background
     var spacing = 5;
@@ -122,7 +119,7 @@ addEventListener("mgrl_media_ready", function () {
     var end = count*spacing;
     var start = end*-1;
     var y = -20;
-    for (var x=start; x<=end; x+= spacing) {
+    for (var x=start; x<=end; x+=spacing) {
         var lamp = lamp_model.instance();
         lamp.vars.mode = 2;
         lamp.x = x;
@@ -131,8 +128,10 @@ addEventListener("mgrl_media_ready", function () {
         graph.add(lamp);
     }
 
+    // add a floor
+    graph.add(new FloorNode());
+
     var camera = new please.PerspectiveCamera(canvas);
-    //camera.look_at = vec3.fromValues(0, 10, 2.5);
     camera.look_at = vec3.fromValues(0, 0, 1);
     camera.location = vec3.fromValues(-3, 10, 6);
     graph.camera = camera;
