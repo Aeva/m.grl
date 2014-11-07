@@ -375,6 +375,7 @@ please.media = {
     "pending" : [],
     "__load_callbacks" : {},
     "__load_status" : {},
+    "__loaded" : {},
     "search_paths" : {
         "img" : "",
         "audio" : "",
@@ -530,9 +531,9 @@ please.media._pop = function (req_key) {
                 var media_ready = new Event("mgrl_media_ready");
                 window.dispatchEvent(media_ready);
                 please.__wait_for_pending = false;
+                please.media.__load_status = {};
             }
         });
-        please.media.__load_status = {};
     }
     return callbacks;
 };
