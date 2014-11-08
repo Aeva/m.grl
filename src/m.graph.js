@@ -46,15 +46,17 @@ please.GraphNode.prototype = {
     "__flatten" : function () {
         // return the list of all decendents to this object;
         var found = [];
-        for (var i=0; i<this.children.length; i+=1) {
-            var child = this.children[i];
-            if (child.__unlink) {
-                this.remove(child);
-                continue;
+        if (this.visible) {
+            for (var i=0; i<this.children.length; i+=1) {
+                var child = this.children[i];
+                if (child.__unlink) {
+                    this.remove(child);
+                    continue;
+                }
+                var tmp = child.__flatten();
+                found.push(child);
+                found = found.concat(tmp);
             }
-            var tmp = child.__flatten();
-            found.push(child);
-            found = found.concat(tmp);
         }
         return found;
     },
@@ -133,20 +135,16 @@ please.GraphNode.prototype = {
         // overhead should be insignificant.
         var self = this;
         if (this.visible) {
+            ITER_PROPS(name, self.__cache.uniforms) {
+                prog.vars[name] = self.__cache.uniforms[name];
+            }
+            ITER_PROPS(name, self.__cache.samplers) {
+                prog.samplers[name] = self.__cache.samplers[name];
+            }
             if (this.__drawable && typeof(this.draw) === "function") {
                 prog.vars["world_matrix"] = self.__cache.world_matrix;
                 prog.vars["normal_matrix"] = self.__cache.normal_matrix;
-                ITER_PROPS(name, self.__cache.uniforms) {
-                    prog.vars[name] = self.__cache.uniforms[name];
-                }
-                ITER_PROPS(name, self.__cache.samplers) {
-                    prog.samplers[name] = self.__cache.samplers[name];
-                }
                 this.draw();
-            }
-            for (var i=0; i<this.children.length; i+=1) {
-                var child = this.children[i];
-                child.__draw(prog);
             }
         }
     },
@@ -184,12 +182,11 @@ please.SceneGraph = function () {
         ITER(i, this.__flat) {
             var element = this.__flat[i];
             element.__rig();
-            if (element.visible && element.__drawable) {
-                if (!this.__states[element.__asset_hint]) {
-                    this.__states[element.__asset_hint] = [];
-                }
-                this.__states[element.__asset_hint].push(element);
+            var hint = element.__asset_hint ? element.__asset_hint : "uknown_asset";
+            if (!this.__states[hint]) {
+                this.__states[hint] = [];
             }
+            this.__states[hint].push(element);
         };
 
         // update the matricies of objects in the tree

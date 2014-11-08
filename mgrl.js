@@ -2089,11 +2089,19 @@ please.gl.__jta_model = function (src, uri) {
         // model_name can be set to null to return an empty group of
         // all object
         if (!model_name) {
-            var node = new please.GraphNode();
-            please.prop_map(scene.models, function(name, model) {
-                node.add(scene.instance(name));
-            });
-            return node;
+            var models = please.get_properties(scene.models);
+            if (models.length === 1) {
+                return scene.instance(models[0]);
+            }
+            else {
+                var node = new please.GraphNode();
+                node.__asset = model;
+                node.__asset_hint = uri + ":";
+                please.prop_map(scene.models, function(name, model) {
+                    node.add(scene.instance(name));
+                });
+                return node;
+            }
         }
         else {
             var model = scene.models[model_name];
@@ -2102,16 +2110,10 @@ please.gl.__jta_model = function (src, uri) {
                 node.__asset_hint = uri + ":" + model.__vbo_hint;
                 node.__drawable = true;
                 node.__asset = model;
-                node.ext = {};
-                node.vars = {};
-                node.samplers = {};
                 please.prop_map(model.samplers, function(name, uri) {
                     node.samplers[name] = uri;
                 });
                 please.prop_map(model.uniforms, function(name, value) {
-                    if (name === "world_matrix") {
-                        return;
-                    }
                     node.vars[name] = value;
                 });
                 if (model.extra.position) {
@@ -2134,9 +2136,10 @@ please.gl.__jta_model = function (src, uri) {
                     model.ibo.bind();
                 };
                 node.draw = function () {
-                    please.prop_map(model.groups, function(group_name, group) {
+                    for (var group_name in model.groups) if (model.groups.hasOwnProperty(group_name)) {
+                        var group = model.groups[group_name];
                         model.ibo.draw(group.start, group.count);
-                    });
+                    };
                 };
                 return node;
             }
@@ -2344,9 +2347,9 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
         a = vec3.fromValues(verts[k], verts[k+1], verts[k+2]);
         b = vec3.fromValues(verts[k+3], verts[k+4], verts[k+5]);
         c = vec3.fromValues(verts[k+6], verts[k+7], verts[k+8]);
-        vec3.subtract(lhs, b, a); // guessing
-        vec3.subtract(rhs, c, a); // guessing
-        vec3.cross(norm, lhs, rhs); // swap lhs and rhs to flip the normal
+        vec3.subtract(lhs, a, b); // is wrong?
+        vec3.subtract(rhs, c, b); // is wrong?
+        vec3.cross(norm, rhs, lhs); // swap lhs and rhs to flip the normal
         vec3.normalize(norm, norm);
         for (var n=0; n<3; n+=1) {
             var m = n*3;
@@ -2446,15 +2449,17 @@ please.GraphNode.prototype = {
     "__flatten" : function () {
         // return the list of all decendents to this object;
         var found = [];
-        for (var i=0; i<this.children.length; i+=1) {
-            var child = this.children[i];
-            if (child.__unlink) {
-                this.remove(child);
-                continue;
+        if (this.visible) {
+            for (var i=0; i<this.children.length; i+=1) {
+                var child = this.children[i];
+                if (child.__unlink) {
+                    this.remove(child);
+                    continue;
+                }
+                var tmp = child.__flatten();
+                found.push(child);
+                found = found.concat(tmp);
             }
-            var tmp = child.__flatten();
-            found.push(child);
-            found = found.concat(tmp);
         }
         return found;
     },
@@ -2531,20 +2536,16 @@ please.GraphNode.prototype = {
         // overhead should be insignificant.
         var self = this;
         if (this.visible) {
+            for (var name in self.__cache.uniforms) if (self.__cache.uniforms.hasOwnProperty(name)) {
+                prog.vars[name] = self.__cache.uniforms[name];
+            }
+            for (var name in self.__cache.samplers) if (self.__cache.samplers.hasOwnProperty(name)) {
+                prog.samplers[name] = self.__cache.samplers[name];
+            }
             if (this.__drawable && typeof(this.draw) === "function") {
                 prog.vars["world_matrix"] = self.__cache.world_matrix;
                 prog.vars["normal_matrix"] = self.__cache.normal_matrix;
-                for (var name in self.__cache.uniforms) if (self.__cache.uniforms.hasOwnProperty(name)) {
-                    prog.vars[name] = self.__cache.uniforms[name];
-                }
-                for (var name in self.__cache.samplers) if (self.__cache.samplers.hasOwnProperty(name)) {
-                    prog.samplers[name] = self.__cache.samplers[name];
-                }
                 this.draw();
-            }
-            for (var i=0; i<this.children.length; i+=1) {
-                var child = this.children[i];
-                child.__draw(prog);
             }
         }
     },
@@ -2577,12 +2578,11 @@ please.SceneGraph = function () {
         for (var i=0; i<this.__flat.length; i+=1) {
             var element = this.__flat[i];
             element.__rig();
-            if (element.visible && element.__drawable) {
-                if (!this.__states[element.__asset_hint]) {
-                    this.__states[element.__asset_hint] = [];
-                }
-                this.__states[element.__asset_hint].push(element);
+            var hint = element.__asset_hint ? element.__asset_hint : "uknown_asset";
+            if (!this.__states[hint]) {
+                this.__states[hint] = [];
             }
+            this.__states[hint].push(element);
         };
         // update the matricies of objects in the tree
         for (var i=0; i<this.children.length; i+=1) {

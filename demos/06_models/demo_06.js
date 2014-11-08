@@ -124,7 +124,7 @@ addEventListener("mgrl_media_ready", function () {
         lamp.vars.mode = 2;
         lamp.x = x;
         lamp.y = y;
-        lamp.rotate_z = Math.random()*20-10;
+        lamp.rotate_y = Math.random()*20-10;
         graph.add(lamp);
     }
 
@@ -160,16 +160,17 @@ addEventListener("mgrl_media_ready", function () {
 
 
 function FloorNode () {
-    this.vbo = please.gl.make_quad(100, 100);
-    this.__drawable = true;
-    this.vars = {
+    var node = new please.GraphNode();
+    node.vbo = please.gl.make_quad(100, 100);
+    node.__drawable = true;
+    node.vars = {
         "mode" : 1, // "floor mode"
     };
-    this.bind = function () {
+    node.bind = function () {
         this.vbo.bind();
     };
-    this.draw = function () {
+    node.draw = function () {
         this.vbo.draw();
     };
+    return node;
 };
-FloorNode.prototype = new please.GraphNode();

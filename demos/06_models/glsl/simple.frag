@@ -7,7 +7,7 @@ precision mediump float;
 
 uniform float time;
 uniform float mode;
-uniform sampler2D texture_map;
+uniform sampler2D diffuse_texture;
 
 varying vec3 local_position;
 varying vec3 local_normal;
@@ -101,7 +101,7 @@ void main(void) {
   }
   else {
     // sample the color value for the models from a texture
-    color_sample = pdq_phong(texture2D(texture_map, local_tcoords));
+    color_sample = pdq_phong(texture2D(diffuse_texture, local_tcoords));
     weird = pdq_anti_phong(vec4(rand, rand, rand, 1.0));
   }
 

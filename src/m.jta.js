@@ -62,11 +62,19 @@ please.gl.__jta_model = function (src, uri) {
         // model_name can be set to null to return an empty group of
         // all object
         if (!model_name) {
-            var node = new please.GraphNode();
-            please.prop_map(scene.models, function(name, model) {
-                node.add(scene.instance(name));
-            });
-            return node;
+            var models = please.get_properties(scene.models);
+            if (models.length === 1) {
+                return scene.instance(models[0]);
+            }
+            else {
+                var node = new please.GraphNode();
+                node.__asset = model;
+                node.__asset_hint = uri + ":";
+                please.prop_map(scene.models, function(name, model) {
+                    node.add(scene.instance(name));
+                });
+                return node;
+            }
         }
         else {
             var model = scene.models[model_name];
@@ -75,16 +83,10 @@ please.gl.__jta_model = function (src, uri) {
                 node.__asset_hint = uri + ":" + model.__vbo_hint;
                 node.__drawable = true;
                 node.__asset = model;
-                node.ext = {};
-                node.vars = {};
-                node.samplers = {};
                 please.prop_map(model.samplers, function(name, uri) {
                     node.samplers[name] = uri;
                 });
                 please.prop_map(model.uniforms, function(name, value) {
-                    if (name === "world_matrix") {
-                        return;
-                    }
                     node.vars[name] = value;
                 });
                 if (model.extra.position) {
@@ -107,9 +109,10 @@ please.gl.__jta_model = function (src, uri) {
                     model.ibo.bind();
                 };
                 node.draw = function () {
-                    please.prop_map(model.groups, function(group_name, group) {
+                    ITER_PROPS(group_name, model.groups) {
+                        var group = model.groups[group_name];
                         model.ibo.draw(group.start, group.count);
-                    });
+                    };
                 };
                 return node;
             }
@@ -334,9 +337,9 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
         a = vec3.fromValues(verts[k], verts[k+1], verts[k+2]);
         b = vec3.fromValues(verts[k+3], verts[k+4], verts[k+5]);
         c = vec3.fromValues(verts[k+6], verts[k+7], verts[k+8]);
-        vec3.subtract(lhs, b, a); // guessing
-        vec3.subtract(rhs, c, a); // guessing
-        vec3.cross(norm, lhs, rhs); // swap lhs and rhs to flip the normal
+        vec3.subtract(lhs, a, b); // is wrong?
+        vec3.subtract(rhs, c, b); // is wrong?
+        vec3.cross(norm, rhs, lhs); // swap lhs and rhs to flip the normal
         vec3.normalize(norm, norm);
         for (var n=0; n<3; n+=1) {
             var m = n*3;
