@@ -2463,9 +2463,26 @@ please.GraphNode.prototype = {
         }
         return found;
     },
-    "__update_world_matrix" : function (parent_matrix) {
-        // update the calculated world matrix and normal matrix for
-        // the entity.
+    "__hoist" : function (parent_matrix, cache) {
+        // This recalculates the world and normal matrices for each
+        // element in the tree, and also copies other cache entries
+        // for uniforms and samplers from parent to child if the child
+        // does not define its own.
+        if (cache) {
+            // copy uniforms into child
+            for (var uniform_name in cache.uniforms) if (cache.uniforms.hasOwnProperty(uniform_name)) {
+                if (!this.__cache.uniforms.hasOwnProperty(uniform_name)) {
+                    this.__cache.uniforms[uniform_name] = cache.uniforms[uniform_name];
+                }
+            }
+            // copy samplers into child
+            for (var sampler_name in cache.sampler) if (cache.sampler.hasOwnProperty(sampler_name)) {
+                if (!this.__cache.samplers.hasOwnProperty(sampler_name)) {
+                    this.__cache.samplers[sampler_name] = cache.samplers[sampler_name];
+                }
+            }
+        }
+        // generate this entity's world matrix
         this.__cache.world_matrix = mat4.create();
         var local_matrix = mat4.create();
         mat4.translate(local_matrix, local_matrix, this.__cache.xyz);
@@ -2476,8 +2493,9 @@ please.GraphNode.prototype = {
         mat4.multiply(
             this.__cache.world_matrix, parent_matrix, local_matrix);
         for (var i=0; i<this.children.length; i+=1) {
-            this.children[i].__update_world_matrix(this.__cache.world_matrix);
+            this.children[i].__hoist(this.__cache.world_matrix, this.__cache);
         }
+        // generate this entity's normal matrix
         if (this.__drawable) {
             var normal_matrix = mat3.create();
             mat3.fromMat4(normal_matrix, this.__cache.world_matrix);
@@ -2536,13 +2554,13 @@ please.GraphNode.prototype = {
         // overhead should be insignificant.
         var self = this;
         if (this.visible) {
-            for (var name in self.__cache.uniforms) if (self.__cache.uniforms.hasOwnProperty(name)) {
-                prog.vars[name] = self.__cache.uniforms[name];
-            }
-            for (var name in self.__cache.samplers) if (self.__cache.samplers.hasOwnProperty(name)) {
-                prog.samplers[name] = self.__cache.samplers[name];
-            }
             if (this.__drawable && typeof(this.draw) === "function") {
+                for (var name in self.__cache.uniforms) if (self.__cache.uniforms.hasOwnProperty(name)) {
+                    prog.vars[name] = self.__cache.uniforms[name];
+                }
+                for (var name in self.__cache.samplers) if (self.__cache.samplers.hasOwnProperty(name)) {
+                    prog.samplers[name] = self.__cache.samplers[name];
+                }
                 prog.vars["world_matrix"] = self.__cache.world_matrix;
                 prog.vars["normal_matrix"] = self.__cache.normal_matrix;
                 this.draw();
@@ -2587,7 +2605,7 @@ please.SceneGraph = function () {
         // update the matricies of objects in the tree
         for (var i=0; i<this.children.length; i+=1) {
             var child = this.children[i];
-            child.__update_world_matrix(this.local_matrix);
+            child.__hoist(this.local_matrix);
         }
     };
     this.draw = function () {
