@@ -2610,15 +2610,17 @@ please.SceneGraph = function () {
         for (var i=0; i<this.__flat.length; i+=1) {
             var element = this.__flat[i];
             element.__rig();
-            if (element.sort_mode === "alpha") {
-                this.__alpha.push(element);
-            }
-            else {
-                var hint = element.__asset_hint ? element.__asset_hint : "uknown_asset";
-                if (!this.__states[hint]) {
-                    this.__states[hint] = [];
+            if (element.__drawable) {
+                if (element.sort_mode === "alpha") {
+                    this.__alpha.push(element);
                 }
-                this.__states[hint].push(element);
+                else {
+                    var hint = element.__asset_hint ? element.__asset_hint : "uknown_asset";
+                    if (!this.__states[hint]) {
+                        this.__states[hint] = [];
+                    }
+                    this.__states[hint].push(element);
+                }
             }
         };
         // update the matricies of objects in the tree
