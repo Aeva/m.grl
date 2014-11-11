@@ -130,13 +130,17 @@ function get_camera_position() {
 };
 
 
+addEventListener("mgrl_fps", function (event) {
+    document.getElementById("fps").innerHTML = event.detail;
+});
+
+
 addEventListener("mgrl_media_ready", function () {
     // Clear loading screen, show canvas
     document.getElementById("loading_screen").style.display = "none";
-    document.getElementById("gl_canvas").style.display = "block";
+    document.getElementById("demo_area").style.display = "block";
 
     // connect keyboard stuff
-
     please.keys.enable();
     please.keys.connect("up", key_handler);
     please.keys.connect("left", key_handler);
@@ -145,16 +149,10 @@ addEventListener("mgrl_media_ready", function () {
 
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
-
     var vert = please.access("halftone.vert");
     var frag = please.access("halftone.frag");
     var prog = please.glsl("default", vert, frag);
     prog.activate();
-
-    // setup matricies & uniforms
-    var projection_matrix = mat4.perspective(
-        mat4.create(), 45, canvas.width/canvas.height, 0.1, 100.0);
-    var view_matrix = mat4.create();
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
@@ -163,60 +161,88 @@ addEventListener("mgrl_media_ready", function () {
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
     // add model
-    var suzanne = model_instance("suzanne.jta")
+    var suzanne_data = please.access("suzanne.jta");
     var rotation_speed = .0005;
+
+    // display licensing meta_data info, where applicable
+    /*
+    [suzanne_data].map(function (scene) {
+        var target = document.getElementById("attribution_area");
+        target.style.display = "block";
+        var div = scene.get_license_html();
+        if (div) {
+            target.appendChild(div);
+        }
+    });
+    */
+
+    // build the scene graph
+    var graph = new please.SceneGraph();
+    var suzanne = suzanne_data.instance();
+    graph.add(suzanne);
+
+    suzanne.rotate_z = function () {
+        var progress = performance.now()/5000;
+        return progress*-1;
+    };
+
+    // frame buffer for our first render pass
+    var buffer_size = 512;
+    register_framebuffer("demo_07/draw", buffer_size);
+
+    // setup camera_a
+    var camera_a = new please.PerspectiveCamera(canvas);
+    camera_a.look_at = get_camera_position;
+    camera_a.location = vec3.fromValues(-3, 10, 6);
+    camera_a.use_canvas_dimensions = true;
+    camera_a.width = buffer_size;
+    camera_a.height = buffer_size;
+
+    var camera_b = new please.PerspectiveCamera(canvas);
+    camera_b.look_at = vec3.fromValues(0, 0, 1);
+    camera_b.location = vec3.fromValues(0, .1, .1);
 
     // lighting stuff
     var light_direction = vec3.fromValues(-1.0, 1.0, 0.0);
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
 
-    // frame buffer for our first render pass
-    var buffer_size = 512;
-    register_framebuffer("demo_07/draw", buffer_size);
-
-
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_07/draw", function () {
-        var mark = performance.now();
+        // connect the camera
+        graph.camera = camera_a;
+
+        // update uniforms
+        prog.vars.time = performance.now();
+        prog.vars.light_direction = light_direction;
+        prog.vars.render_pass = 1;
+        camera_a.update_camera();
+        prog.vars.width = camera_a.width;
+        prog.vars.height = camera_a.height;
 
         // set render target
         set_framebuffer("demo_07/draw");
         gl.viewport(0, 0, buffer_size, buffer_size);
 
-        // setup the projection matrix
+        // clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        mat4.perspective(projection_matrix, 45, canvas.width/canvas.height, 0.1, 100.0);
 
-        // setup the camera
-        mat4.lookAt(
-            view_matrix,
-            get_camera_position(), // camera
-            vec3.fromValues(0, 0, 1),  // look at
-            vec3.fromValues(0, 0, 1)   // up vector
-        );
-
-        // force cache expiration
-        view_matrix.dirty = true;
-        projection_matrix.dirty = true;
-
-        // rotate suzanne
-        suzanne.rz = (-90*mark*rotation_speed)-90;
-
-        // update vars
-        prog.vars.render_pass = 1;
-        prog.vars.view_matrix = view_matrix;
-        prog.vars.projection_matrix = projection_matrix;
-        prog.vars.light_direction = light_direction;
-
-        // draw suzanne
-        suzanne.bind();
-        suzanne.draw();
+        // draw the scene
+        graph.tick();
+        graph.draw();
     });
 
     
     // add post processing pass
     please.pipeline.add(2, "demo_07/post", function () {
+        // connect the camera
+        graph.camera = camera_b;
+
+        // update uniforms
+        prog.vars.render_pass = 2;
+        camera_b.update_camera();
+        prog.vars.width = camera_b.width;
+        prog.vars.height = camera_b.height;
 
         // set render target
         set_framebuffer(null);
@@ -225,7 +251,6 @@ addEventListener("mgrl_media_ready", function () {
 
         // setup the projection matrix
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        mat4.perspective(projection_matrix, 45, canvas.width/canvas.height, 0.1, 100.0);
 
         /*
           A quick note / FIXME:
@@ -239,102 +264,14 @@ addEventListener("mgrl_media_ready", function () {
           the screen with fragments.
          */
 
-        // setup the camera
-        mat4.lookAt(
-            view_matrix,
-            vec3.fromValues(0, .1, .1), // camera
-            vec3.fromValues(0, 0, 1),   // look at
-            vec3.fromValues(0, 0, 1)    // up vector
-        );
-
-        // force cache expiration
-        view_matrix.dirty = true;
-        projection_matrix.dirty = true;
-
-        // update vars
-        prog.vars.render_pass = 2;
-        prog.vars.view_matrix = view_matrix;
-        prog.vars.projection_matrix = projection_matrix;
-        prog.vars.width = canvas.width;
-        prog.vars.height = canvas.height;
-
         // draw suzanne
-        suzanne.bind();
-        suzanne.draw();
+        graph.tick();
+        graph.draw();
     });
-
     
     // start the drawing loop
     please.pipeline.start();
 });
-
-
-
-
-// This function creates a matrix for transforming normals from model
-// space to world space.
-function normal_matrix (model_matrix) {
-    var normal = mat3.create();
-    mat3.fromMat4(normal, model_matrix);
-    mat3.invert(normal, normal);
-    mat3.transpose(normal, normal);
-    return normal;
-};
-
-
-// temporary model instance function from demo 06
-function model_instance (uri, model_matrix) {
-    return {
-        "x" : 0,
-        "y" : 0,
-        "z" : 0,
-        "rx" : 0,
-        "ry" : 0,
-        "rz" : 0,
-        "name" : uri,
-        "__stamp" : performance.now(),
-
-        "bind" : function () {
-            var dt = performance.now() - this.__stamp;
-            var model = please.access(this.name, true);
-            var prog = please.gl.get_program();
-            if (model && prog) {
-                var position = mat4.create();
-                mat4.translate(position, position, [this.x, this.y, this.z]);
-                if (this.rx) {
-                    mat4.rotateX(position, position, please.radians(this.rx));
-                }
-                if (this.ry) {
-                    mat4.rotateY(position, position, please.radians(this.ry));
-                }
-                if (this.rz) {
-                    mat4.rotateZ(position, position, please.radians(this.rz));
-                }
-                if (model_matrix) {
-                    var new_mvmatrix = mat4.multiply(mat4.create(), model_matrix, position);
-                    prog.vars.model_matrix = new_mvmatrix;
-                    prog.vars.normal_matrix = normal_matrix(new_mvmatrix);
-                }
-                else {
-                    prog.vars.model_matrix = position;
-                    prog.vars.normal_matrix = normal_matrix(position);
-                }
-
-                if (model.uniforms.texture && prog.samplers.hasOwnProperty("texture_map")) {
-                    prog.samplers.texture_map = model.uniforms.texture;
-                }
-                model.bind();
-            }
-        },
-
-        "draw" : function () {
-            var model = please.access(this.name, true);
-            if (model) {
-                model.draw();
-            }
-        },
-    };
-};
 
 
 function register_framebuffer(handle, size) {

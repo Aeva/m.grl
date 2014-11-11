@@ -284,6 +284,7 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
     this.__canvas = canvas;
     this.__width = null;
     this.__height = null;
+    this.use_canvas_dimensions = true;
     this.__fov = please.is_number(fov)?fov:45;
     this.__near = please.is_number(near)?near:0.1;
     this.__far = please.is_number(far)?far:100.0;
@@ -293,41 +294,72 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
     this.projection_matrix = mat4.create();
     this.view_matrix = mat4.create();
 
+    var self = this;
+    var update_perspective = function () {
+        mat4.perspective(
+            self.projection_matrix, self.__fov, 
+            self.__width / self.__height, self.__near, self.__far);
+    };
+
+    Object.defineProperty(this, "width", {
+        get : function () {
+            return this.__width;
+        },
+        set : function (val) {
+            if (!this.use_canvas_dimensions) {
+                this.__width = val;
+                update_perspective();
+            }
+            return this.__width;
+        },
+    });
+
+    Object.defineProperty(this, "height", {
+        get : function () {
+            return this.__height;
+        },
+        set : function (val) {
+            if (!this.use_canvas_dimensions) {
+                this.__height = val;
+                update_perspective();
+            }
+            return this.__height;
+        },
+    });
+
     this.update_camera = function () {
         // Recalculate the projection matrix, if necessary
-        if (this.__width !== this.__canvas.width && this.__height !== this.__canvas.height) {
+        if (this.use_canvas_dimensions && this.__width !== this.__canvas.width && this.__height !== this.__canvas.height) {
             this.__width = this.__canvas.width;
             this.__height = this.__canvas.height;
-            mat4.perspective(
-                this.projection_matrix, this.__fov, 
-                this.__width / this.__height, this.__near, this.__far);
+            update_perspective();
         }
 
         // Calculate the look_at vector, if necessary
-        var look_at = null;
-        if (this.look_at.length === 3) {
-            look_at = this.look_at;
+        var look_at = DRIVER(this, this.look_at);
+        if (look_at.__cache && look_at.__cache.xyz) {    
+            look_at = look_at.__cache.xyz;
         }
-        else if (this.look_at.__cache && this.look_at.__cache.xyz) {    
-            look_at = this.look_at.__cache.xyz;
+        if (look_at.length !== 3) {
+            look_at = null;
         }
 
         // Calculate the location vector, if necessary
-        var location = null;
-        if (this.location.length === 3) {
-            location = this.location;
+        var location = DRIVER(this, this.location);
+        if (location.__cache && location.__cache.xyz) {    
+            location = location.__cache.xyz;
         }
-        if (typeof(this.location) === "function") {
-            location = this.location();
+        if (location.length !== 3) {
+            location = null;
         }
 
-        // Calculate the up vector, if necessary
-        var up_vector = null;
-        if (this.up_vector.length === 3) {
-            up_vector = this.up_vector;
+        // Calculate the location vector, if necessary
+        var up_vector = DRIVER(this, this.up_vector);
+        if (up_vector.__cache && up_vector.__cache.xyz) {    
+            up_vector = up_vector.__cache.xyz;
         }
-        if (typeof(this.up_vector) === "function") {
-            up_vector = this.up_vector();
+        if (up_vector.length !== 3) {
+            up_vector = null;
         }
 
         mat4.lookAt(
