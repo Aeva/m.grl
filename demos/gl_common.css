@@ -1,0 +1,117 @@
+
+#attribution_area {
+    display: none;
+    position: relative;
+    width: 820px;
+    margin: auto;
+    margin-top: 1em;
+    padding: 10px;
+    border-radius: 3px;
+    background-color: #eee;
+    margin-bottom: 1em;
+}
+
+.mgrl_asset_license {
+    position: relative;
+    padding: 10px;
+    with: 710px;
+    margin-left: 90px;
+}
+
+.mgrl_asset_license > a:first-child {
+    position: absolute;
+    display: block;
+    width: 80px;
+    left: -80px;
+    top: 50%;
+    margin-top: -7px;
+}
+
+.mgrl_asset_license > div {
+    font-size: 12px;
+}
+
+.mgrl_asset_license .derived_work {
+    display: block;
+}
+
+.game_screen {
+    width: 840px;
+    height: 630px;
+    margin-left: -20px;
+    margin-right: -20px;
+    margin-bottom: -20px;
+    border-radius: 3px;
+}
+
+#demo_area {
+    position: relative;
+    display: none;
+}
+
+canvas#gl_canvas {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    z-index: 10;
+}
+
+#fps_counter {
+    position: absolute;
+    top: -21px;
+    left: 5px;
+    z-index: 20;
+    color: #888;
+}
+
+#loading_screen {
+    position: relative;
+}
+
+#loading_box {
+    position: absolute;
+    top: 220px;
+    left: 0px;
+    right: 0px;
+    text-align: center;
+    font-size: 20px;
+}
+
+#progress {
+    display: block;
+    position: relative;
+    margin: auto;
+    margin-top: 10px;
+    width: 500px;
+    height: 25px;
+    line-height: 25px;
+    border: 1px dashed #444;
+}
+
+#progress_bar {
+    position: absolute;
+    left: -1px;
+    top: -1px;
+    bottom: -1px;
+    background-color: #d8d8d8;
+    border: 1px solid #444;
+    border-right: 1px dotted #444;
+}
+
+#progress_info {
+    margin-top: 1em;
+    font-size: 18px;
+}
+
+#percent {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    text-align: center;
+}
+
+#halp {
+    font-size: 20px;
+    text-align: center;
+}

@@ -62,10 +62,15 @@ function show_progress() {
 };
 
 
+addEventListener("mgrl_fps", function (event) {
+    document.getElementById("fps").innerHTML = event.detail;
+});
+
+
 addEventListener("mgrl_media_ready", function () {
     // Clear loading screen, show canvas
     document.getElementById("loading_screen").style.display = "none";
-    document.getElementById("gl_canvas").style.display = "block";
+    document.getElementById("demo_area").style.display = "block";
 
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
@@ -85,10 +90,19 @@ addEventListener("mgrl_media_ready", function () {
     //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     
-
     // access model data
     var gav_model = please.access("gavroche.jta");
     var lamp_model = please.access("floor_lamp.jta");
+
+    // display licensing meta_data info, where applicable
+    [gav_model, lamp_model].map(function (scene) {
+        var target = document.getElementById("attribution_area");
+        target.style.display = "block";
+        var div = scene.get_license_html();
+        if (div) {
+            target.appendChild(div);
+        }
+    });
 
     // build the scene graph
     var graph = new please.SceneGraph();
