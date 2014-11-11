@@ -177,14 +177,16 @@ addEventListener("mgrl_media_ready", function () {
     */
 
     // build the scene graph
-    var graph = new please.SceneGraph();
+    var graph_a = new please.SceneGraph();
     var suzanne = suzanne_data.instance();
-    graph.add(suzanne);
-
-    suzanne.rotate_z = function () {
+    suzanne.rotate_y = function () {
         var progress = performance.now()/5000;
         return progress*-1;
     };
+    graph_a.add(suzanne);
+
+    var graph_b = new please.SceneGraph();
+    graph_b.add(suzanne_data.instance());
 
     // frame buffer for our first render pass
     var buffer_size = 512;
@@ -192,15 +194,18 @@ addEventListener("mgrl_media_ready", function () {
 
     // setup camera_a
     var camera_a = new please.PerspectiveCamera(canvas);
-    camera_a.look_at = get_camera_position;
-    camera_a.location = vec3.fromValues(-3, 10, 6);
+    camera_a.look_at = vec3.fromValues(0, 0, 1);
+    camera_a.location = get_camera_position;
     camera_a.use_canvas_dimensions = true;
     camera_a.width = buffer_size;
     camera_a.height = buffer_size;
+    graph_a.camera = camera_a;
 
+    // setup camera_b
     var camera_b = new please.PerspectiveCamera(canvas);
     camera_b.look_at = vec3.fromValues(0, 0, 1);
-    camera_b.location = vec3.fromValues(0, .1, .1);
+    camera_b.location = vec3.fromValues(0, 0.1, 0.1);
+    graph_b.camera = camera_b;
 
     // lighting stuff
     var light_direction = vec3.fromValues(-1.0, 1.0, 0.0);
@@ -209,16 +214,12 @@ addEventListener("mgrl_media_ready", function () {
 
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_07/draw", function () {
-        // connect the camera
-        graph.camera = camera_a;
-
         // update uniforms
         prog.vars.time = performance.now();
         prog.vars.light_direction = light_direction;
         prog.vars.render_pass = 1;
-        camera_a.update_camera();
-        prog.vars.width = camera_a.width;
-        prog.vars.height = camera_a.height;
+        prog.vars.width = buffer_size;
+        prog.vars.height = buffer_size;
 
         // set render target
         set_framebuffer("demo_07/draw");
@@ -228,21 +229,17 @@ addEventListener("mgrl_media_ready", function () {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // draw the scene
-        graph.tick();
-        graph.draw();
+        graph_a.tick();
+        graph_a.draw();
     });
 
     
     // add post processing pass
     please.pipeline.add(2, "demo_07/post", function () {
-        // connect the camera
-        graph.camera = camera_b;
-
         // update uniforms
         prog.vars.render_pass = 2;
-        camera_b.update_camera();
-        prog.vars.width = camera_b.width;
-        prog.vars.height = camera_b.height;
+        prog.vars.width = canvas.width;
+        prog.vars.height = canvas.height;
 
         // set render target
         set_framebuffer(null);
@@ -265,8 +262,8 @@ addEventListener("mgrl_media_ready", function () {
          */
 
         // draw suzanne
-        graph.tick();
-        graph.draw();
+        graph_b.tick();
+        graph_b.draw();
     });
     
     // start the drawing loop

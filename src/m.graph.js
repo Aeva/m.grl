@@ -190,6 +190,8 @@ please.SceneGraph = function () {
     if (this === please) {
         return new please.SceneGraph();
     }
+    please.GraphNode.call(this)
+
     this.__rig = null;
     this.__bind = null;
     this.__draw = null;
@@ -276,7 +278,7 @@ please.SceneGraph = function () {
         }
     };
 };
-please.SceneGraph.prototype = new please.GraphNode();
+please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 
 
 // Camera object for perspective projection
