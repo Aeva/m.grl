@@ -171,9 +171,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     
     // register a render pass with the scheduler
     please.pipeline.add(1, "gavroche_hall/draw", function () {
-        // -- update uniforms
-        prog.vars.time = performance.now();
-
         // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
