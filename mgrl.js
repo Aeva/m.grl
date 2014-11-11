@@ -2562,18 +2562,16 @@ please.GraphNode.prototype = {
         // binds, so as long as the calls are sorted, this extra
         // overhead should be insignificant.
         var self = this;
-        if (this.visible) {
-            if (this.__drawable && typeof(this.draw) === "function") {
-                for (var name in self.__cache.uniforms) if (self.__cache.uniforms.hasOwnProperty(name)) {
-                    prog.vars[name] = self.__cache.uniforms[name];
-                }
-                for (var name in self.__cache.samplers) if (self.__cache.samplers.hasOwnProperty(name)) {
-                    prog.samplers[name] = self.__cache.samplers[name];
-                }
-                prog.vars["world_matrix"] = self.__cache.world_matrix;
-                prog.vars["normal_matrix"] = self.__cache.normal_matrix;
-                this.draw();
+        if (this.visible && this.__drawable && typeof(this.draw) === "function") {
+            for (var name in self.__cache.uniforms) if (self.__cache.uniforms.hasOwnProperty(name)) {
+                prog.vars[name] = self.__cache.uniforms[name];
             }
+            for (var name in self.__cache.samplers) if (self.__cache.samplers.hasOwnProperty(name)) {
+                prog.samplers[name] = self.__cache.samplers[name];
+            }
+            prog.vars["world_matrix"] = self.__cache.world_matrix;
+            prog.vars["normal_matrix"] = self.__cache.normal_matrix;
+            this.draw();
         }
     },
     // The bind function is called to set up the object's state.
