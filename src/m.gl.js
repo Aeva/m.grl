@@ -432,7 +432,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     for (var i=0; i<uni_count; i+=1) {
         bind_uniform(gl.getActiveUniform(prog.id, i));
     }
-
+    
+    // leaving these commented out for now, because the error message
+    // they produce is too cryptic
     //Object.freeze(prog.vars);
     //Object.freeze(prog.samplers);
 
