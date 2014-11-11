@@ -119,5 +119,11 @@ void main(void) {
   float falloff = view_position.z-5.0;
   float range = 30.0;
 
-  gl_FragColor = mix(mixed_color, haze, clamp(falloff, 0.0, range)/range);
+  vec4 final_color = mix(mixed_color, haze, clamp(falloff, 0.0, range)/range);
+  if (mode < 3.0) {
+    gl_FragColor = vec4(final_color.rgb, 1.0);
+  }
+  else {
+    gl_FragColor = vec4(final_color.rgb, 0.75);
+  }
 }

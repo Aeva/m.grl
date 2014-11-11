@@ -22,7 +22,7 @@ please.GraphNode = function () {
     this.__cache = null;
     this.__asset = null;
     this.__asset_hint = "";
-    this.sort_mode = "solid"; // can be set to translucent
+    this.sort_mode = "solid"; // can be set to "alpha"
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__unlink = false; // set to true to tell parents to remove this child
     this.priority = 100; // lower means the driver functions are called sooner
@@ -104,6 +104,14 @@ please.GraphNode.prototype = {
             this.__cache.normal_matrix = normal_matrix;
         }
     },
+    "__z_sort_prep" : function (screen_matrix) {
+        var matrix = mat4.multiply(
+            mat4.create(), screen_matrix, this.__cache.world_matrix);
+        var position = vec3.transformMat4(vec3.create(), this.__cache.xyz, matrix);
+        // I guess we want the Y and not the Z value?
+        this.__cache.final_depth = position[1];
+        
+    },
     "__rig" : function () {
         // cache the values of this object's driver functions.
         var self = this;
@@ -115,6 +123,8 @@ please.GraphNode.prototype = {
             "scale" : null,
             "world_matrix" : null,
             "normal_matrix" : null,
+            "final_transform" : null,
+            "final_depth" : 0,
         };
 
         this.__cache.xyz = vec3.fromValues(
@@ -186,6 +196,7 @@ please.SceneGraph = function () {
     this.__bind = null;
     this.__draw = null;
     this.__flat = [];
+    this.__alpha = [];
     this.__states = {};
     this.camera = null;
     this.local_matrix = mat4.create();
@@ -195,19 +206,29 @@ please.SceneGraph = function () {
         return lhs.priority - rhs.priority;
     };
 
+    var z_sort_function = function (lhs, rhs) {
+        return rhs.__cache.final_depth - lhs.__cache.final_depth;
+    };
+
     this.tick = function () {
         this.__flat = this.__flatten();
         this.__flat.sort(tick_sort_function);
 
+        this.__alpha = [];
         this.__states = {};
         ITER(i, this.__flat) {
             var element = this.__flat[i];
             element.__rig();
-            var hint = element.__asset_hint ? element.__asset_hint : "uknown_asset";
-            if (!this.__states[hint]) {
-                this.__states[hint] = [];
+            if (element.sort_mode === "alpha") {
+                this.__alpha.push(element);
             }
-            this.__states[hint].push(element);
+            else {
+                var hint = element.__asset_hint ? element.__asset_hint : "uknown_asset";
+                if (!this.__states[hint]) {
+                    this.__states[hint] = [];
+                }
+                this.__states[hint].push(element);
+            }
         };
 
         // update the matricies of objects in the tree
@@ -232,6 +253,25 @@ please.SceneGraph = function () {
                     child.__bind(prog);
                     child.__draw(prog);
                 }
+            }
+        }
+        if (this.__alpha) {
+            // sort the transparent items by z
+            var screen_matrix = mat4.multiply(
+                mat4.create(), 
+                this.camera.projection_matrix,
+                this.camera.view_matrix);
+            ITER(i, this.__alpha) {
+                var child = this.__alpha[i];
+                child.__z_sort_prep(screen_matrix);
+            };
+            this.__alpha.sort(z_sort_function);
+
+            // draw translucent elements
+            ITER(i, this.__alpha) {
+                var child = this.__alpha[i];
+                child.__bind(prog);
+                child.__draw(prog);
             }
         }
     };

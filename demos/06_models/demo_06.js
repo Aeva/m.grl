@@ -80,6 +80,11 @@ addEventListener("mgrl_media_ready", function () {
     gl.enable(gl.CULL_FACE);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
+    // enable alpha blending
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    
+
     // access model data
     var gav_model = please.access("gavroche.jta");
     var lamp_model = please.access("floor_lamp.jta");
@@ -97,7 +102,8 @@ addEventListener("mgrl_media_ready", function () {
     ];
     for (var i=0; i<coords.length; i+=1) {
         var gav = gav_model.instance();
-        gav.vars.mode = 2;
+        gav.vars.mode = 3; // mode 2 + translucent
+        gav.sort_mode = "alpha";
         gav.x = coords[i][0];
         gav.y = coords[i][1];
         gav.z = coords[i][2];
@@ -105,7 +111,8 @@ addEventListener("mgrl_media_ready", function () {
         rotatoe.add(gav);
     }
     rotatoe.rotate_z = function () {
-        var progress = performance.now()/2000;
+        //var progress = performance.now()/2000;
+        var progress = performance.now()/5000;
         return progress*-1;
     };
     var lamp = lamp_model.instance();
