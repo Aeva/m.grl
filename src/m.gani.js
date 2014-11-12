@@ -571,7 +571,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                     clip_x, clip_y, clip_w, clip_h,
                     alpha);
                 img_node.x = part.x / scale;
-                img_node.y = (0 - clip_h - part.y) / scale;
+                img_node.y = (48-part.y-clip_h) / scale;
                 img_node.z_bias = bias;
                 bias += 1;
                 node.add(img_node);

@@ -89,6 +89,7 @@ addEventListener("load", function() {
     please.load("gavroche_hall.jta");
     please.load("psycho.jta");
     please.load("coin.gani");
+    please.load("campfire.gani");
     show_progress();
 });
 
@@ -154,26 +155,37 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // gani debug
     var coin = window.coin = please.access("coin.gani").instance();
     coin.rotate_x = please.radians(90);
-    coin.x = 1;
-    coin.z = 3;
+    //coin.x = 1;
+    coin.z = 0;
+    graph.add(coin);
+    coin.gani.play();
+
+    coin = window.coin = please.access("coin.gani").instance();
+    coin.x = -2;
+    coin.z = 0.1;
+    graph.add(coin);
+    coin.gani.play();
+
+
+    coin = window.coin = please.access("campfire.gani").instance();
+    coin.rotate_x = please.radians(90);
+    coin.x = 2;
+    coin.z = 0;
+    graph.add(coin);
+    coin.gani.play();
+
+    coin = window.coin = please.access("campfire.gani").instance();
+    coin.x = 4;
+    coin.z = 0.1;
     graph.add(coin);
     coin.gani.play();
 
     coin = window.coin = please.access("coin.gani").instance();
     coin.rotate_x = please.radians(90);
-    coin.x = -1;
-    coin.y = -2;
-    coin.z = 3;
-    graph.add(coin);
-    please.load("misc/silver_coin.png");
-    coin.gani.attrs.coin = "misc/silver_coin.png";
-    coin.gani.play();
-
-    coin = window.coin = please.access("coin.gani").instance();
-    coin.rotate_x = please.radians(90);
-    coin.x = 3;
-    coin.y = 2;
-    coin.z = 3;
+    coin.rotate_y = please.radians(90);
+    //coin.x = 3;
+    //coin.y = 2;
+    coin.z = -10;
     graph.add(coin);
     coin.gani.attrs.coin = "misc/ruby_coin.png";
     coin.gani.play();

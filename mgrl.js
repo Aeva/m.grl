@@ -652,14 +652,14 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     var x1, x2, y1, y2, z=0;
     if (center) {
         x1 = width / (scale / -2);
-        y1 = height / (scale / -2);
+        y1 = height / (scale / 2);
         x2 = x1 * -1;
         y2 = y1 * -1;
     }
     else {
-        x1 = 0;
+        x1 = width / scale;
         y1 = 0;
-        x2 = width / scale;
+        x2 = 0;
         y2 = height / scale;
     }
     var hint = "flat:"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th;
@@ -668,19 +668,19 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         var attr_map = {};
         attr_map.position = new Float32Array([
             x1, y1, z,
+            x2, y2, z,
             x2, y1, z,
             x2, y2, z,
-            x2, y2, z,
-            x1, y2, z,
             x1, y1, z,
+            x1, y2, z,
         ]);
         attr_map.tcoords = new Float32Array([
             tx, ty,
+            tx+tw, ty+th,
             tx+tw, ty,
             tx+tw, ty+th,
-            tx+tw, ty+th,
-            tx, ty+th,
             tx, ty,
+            tx, ty+th,
         ]);
         attr_map.normal = new Float32Array([
             0, 0, 1,
@@ -1570,7 +1570,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                     clip_x, clip_y, clip_w, clip_h,
                     alpha);
                 img_node.x = part.x / scale;
-                img_node.y = (0 - clip_h - part.y) / scale;
+                img_node.y = (48-part.y-clip_h) / scale;
                 img_node.z_bias = bias;
                 bias += 1;
                 node.add(img_node);
