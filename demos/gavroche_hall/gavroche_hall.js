@@ -76,7 +76,7 @@ addEventListener("load", function() {
     please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "../gl_assets/img/");
     please.set_search_path("jta", "../gl_assets/models/");
-    please.set_search_path("ani", "../lpc_assets/keyframes/");
+    please.set_search_path("ani", "./");
 
     // files that load files will use relative file paths
     please.gl.relative_lookup = true;
@@ -161,7 +161,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
         coin.gani.play();
         graph.add(coin);
 
-        var sprite = Math.floor(Math.random()*7);
+        var sprite = Math.floor(Math.random()*6);
+        if (x === -4) {
+            sprite = 6;
+        }
         if (sprite == 2) {
             coin.gani.attrs.coin = "misc/silver_coin.png";
         }
