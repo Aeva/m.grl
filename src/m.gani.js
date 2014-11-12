@@ -546,9 +546,8 @@ please.media.__AnimationData = function (gani_text, uri) {
 
 #ifdef WEBGL
     // return a graph node instance of this animation
-    ani.instance = function (center, scale, alpha) {
-        DEFAULT(center, true);
-        DEFAULT(scale, 64);
+    ani.instance = function (scale, alpha) {
+        DEFAULT(scale, 16);
         DEFAULT(alpha, true);
         var node = new please.GraphNode();
         node.gani = ani.create();
@@ -568,11 +567,11 @@ please.media.__AnimationData = function (gani_text, uri) {
                 var clip_h = sprite.h;
                 var img = please.access(sprite.resource);
                 var img_node = img.instance(
-                    center, scale, 
+                    false, scale, 
                     clip_x, clip_y, clip_w, clip_h,
                     alpha);
                 img_node.x = part.x / scale;
-                img_node.y = part.y / scale * -1;
+                img_node.y = (0 - clip_h - part.y) / scale;
                 img_node.z_bias = bias;
                 bias += 1;
                 node.add(img_node);

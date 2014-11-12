@@ -311,7 +311,7 @@ please.media.__image_vbo_cache = {};
 // the scene graph.
 please.media.__image_instance = function (center, scale, x, y, width, height, alpha) {
     DEFAULT(center, true);
-    DEFAULT(scale, 64);
+    DEFAULT(scale, 32);
     DEFAULT(x, 0);
     DEFAULT(y, 0);
     DEFAULT(width, this.width);
@@ -331,8 +331,8 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     else {
         x1 = 0;
         y1 = 0;
-        x2 = scale;
-        y2 = scale*-1;
+        x2 = width / scale;
+        y2 = height / scale;
     }
 
     var hint = "flat:"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th;

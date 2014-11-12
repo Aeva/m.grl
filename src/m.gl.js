@@ -117,19 +117,33 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
 };
 
 
+// Upscale an image to the next power of 2
+please.gl.__upscale_image = function (image_object) {
+    var wlog = Math.log2(image_object.width);
+    var hlog = Math.log2(image_object.height);
+    var w_ok = Math.floor(wlog) === wlog;
+    var h_ok = Math.floor(hlog) === hlog;
+    if (w_ok && h_ok) {
+        return image_object;
+    }
+    var next_w = Math.pow(2, Math.ceil(wlog));
+    var next_h = Math.pow(2, Math.ceil(hlog));
+
+    var canvas = document.createElement("canvas");
+    canvas.width = next_w;
+    canvas.height = next_h;
+    var ctx = canvas.getContext("2d");
+    ctx.drawImage(image_object, 0, 0, next_w, next_h);
+    return canvas;
+};
+
+
 // Used by please.gl.get_texture
 please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
     // bind and load the texture, cache and return the id:
 
     if (use_mipmaps === undefined) {
         use_mipmaps = true;
-    }
-    var width_log = Math.log2(image_object.width);
-    var height_log = Math.log2(image_object.height);
-    var width_pow2 = Math.floor(width_log) === width_log;
-    var height_pow2 = Math.floor(height_log) === height_log;
-    if (!(width_pow2 && height_pow2)) {
-        use_mipmaps = false;
     }
 
     if (image_object.loaded === false) {
@@ -146,8 +160,9 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
         // FIXME: should we not assume gl.RGBA?
+        var upscaled = please.gl.__upscale_image(image_object);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, 
-                      gl.UNSIGNED_BYTE, image_object);
+                      gl.UNSIGNED_BYTE, upscaled);
 
         if (use_mipmaps) {
             var aniso = please.gl.ext['EXT_texture_filter_anisotropic'];

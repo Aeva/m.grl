@@ -639,7 +639,7 @@ please.media.__image_vbo_cache = {};
 // the scene graph.
 please.media.__image_instance = function (center, scale, x, y, width, height, alpha) {
     if (center === undefined) { center = true; };
-    if (scale === undefined) { scale = 64; };
+    if (scale === undefined) { scale = 32; };
     if (x === undefined) { x = 0; };
     if (y === undefined) { y = 0; };
     if (width === undefined) { width = this.width; };
@@ -659,8 +659,8 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     else {
         x1 = 0;
         y1 = 0;
-        x2 = scale;
-        y2 = scale*-1;
+        x2 = width / scale;
+        y2 = height / scale;
     }
     var hint = "flat:"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th;
     var vbo = please.media.__image_vbo_cache[hint];
@@ -1545,9 +1545,8 @@ please.media.__AnimationData = function (gani_text, uri) {
         });
     }
     // return a graph node instance of this animation
-    ani.instance = function (center, scale, alpha) {
-        if (center === undefined) { center = true; };
-        if (scale === undefined) { scale = 64; };
+    ani.instance = function (scale, alpha) {
+        if (scale === undefined) { scale = 16; };
         if (alpha === undefined) { alpha = true; };
         var node = new please.GraphNode();
         node.gani = ani.create();
@@ -1567,11 +1566,11 @@ please.media.__AnimationData = function (gani_text, uri) {
                 var clip_h = sprite.h;
                 var img = please.access(sprite.resource);
                 var img_node = img.instance(
-                    center, scale,
+                    false, scale,
                     clip_x, clip_y, clip_w, clip_h,
                     alpha);
                 img_node.x = part.x / scale;
-                img_node.y = part.y / scale * -1;
+                img_node.y = (0 - clip_h - part.y) / scale;
                 img_node.z_bias = bias;
                 bias += 1;
                 node.add(img_node);
@@ -1687,18 +1686,29 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
         }
     }
 };
+// Upscale an image to the next power of 2
+please.gl.__upscale_image = function (image_object) {
+    var wlog = Math.log2(image_object.width);
+    var hlog = Math.log2(image_object.height);
+    var w_ok = Math.floor(wlog) === wlog;
+    var h_ok = Math.floor(hlog) === hlog;
+    if (w_ok && h_ok) {
+        return image_object;
+    }
+    var next_w = Math.pow(2, Math.ceil(wlog));
+    var next_h = Math.pow(2, Math.ceil(hlog));
+    var canvas = document.createElement("canvas");
+    canvas.width = next_w;
+    canvas.height = next_h;
+    var ctx = canvas.getContext("2d");
+    ctx.drawImage(image_object, 0, 0, next_w, next_h);
+    return canvas;
+};
 // Used by please.gl.get_texture
 please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
     // bind and load the texture, cache and return the id:
     if (use_mipmaps === undefined) {
         use_mipmaps = true;
-    }
-    var width_log = Math.log2(image_object.width);
-    var height_log = Math.log2(image_object.height);
-    var width_pow2 = Math.floor(width_log) === width_log;
-    var height_pow2 = Math.floor(height_log) === height_log;
-    if (!(width_pow2 && height_pow2)) {
-        use_mipmaps = false;
     }
     if (image_object.loaded === false) {
         image_object.addEventListener("load", function () {
@@ -1713,8 +1723,9 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
         // FIXME: should we not assume gl.RGBA?
+        var upscaled = please.gl.__upscale_image(image_object);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
-                      gl.UNSIGNED_BYTE, image_object);
+                      gl.UNSIGNED_BYTE, upscaled);
         if (use_mipmaps) {
             var aniso = please.gl.ext['EXT_texture_filter_anisotropic'];
             if (aniso) {

@@ -154,15 +154,16 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // gani debug
     var coin = window.coin = please.access("coin.gani").instance();
     coin.rotate_x = please.radians(90);
-    coin.z = 2;
+    coin.x = 1;
+    coin.z = 3;
     graph.add(coin);
     coin.gani.play();
 
     coin = window.coin = please.access("coin.gani").instance();
     coin.rotate_x = please.radians(90);
-    coin.x = -2;
-    coin.z = 2;
+    coin.x = -1;
     coin.y = -2;
+    coin.z = 3;
     graph.add(coin);
     please.load("misc/silver_coin.png");
     coin.gani.attrs.coin = "misc/silver_coin.png";
@@ -170,9 +171,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     coin = window.coin = please.access("coin.gani").instance();
     coin.rotate_x = please.radians(90);
-    coin.z = 2;
+    coin.x = 3;
     coin.y = 2;
-    coin.x = 2;
+    coin.z = 3;
     graph.add(coin);
     coin.gani.attrs.coin = "misc/ruby_coin.png";
     coin.gani.play();
