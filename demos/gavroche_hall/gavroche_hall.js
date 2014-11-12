@@ -89,7 +89,6 @@ addEventListener("load", function() {
     please.load("gavroche_hall.jta");
     please.load("psycho.jta");
     please.load("coin.gani");
-    please.load("campfire.gani");
     show_progress();
 });
 
@@ -153,42 +152,37 @@ addEventListener("mgrl_media_ready", please.once(function () {
     };
 
     // gani debug
-    var coin = window.coin = please.access("coin.gani").instance();
-    coin.rotate_x = please.radians(90);
-    //coin.x = 1;
-    coin.z = 0;
-    graph.add(coin);
-    coin.gani.play();
+    for (var x=-12; x<=12; x+=2) {
+        var coin = please.access("coin.gani").instance();
+        coin.rotate_x = please.radians(90);
+        coin.x = x;
+        coin.y = -1.5;
+        coin.z = .1;
+        coin.gani.play();
+        graph.add(coin);
 
-    coin = window.coin = please.access("coin.gani").instance();
-    coin.x = -2;
-    coin.z = 0.1;
-    graph.add(coin);
-    coin.gani.play();
-
-
-    coin = window.coin = please.access("campfire.gani").instance();
-    coin.rotate_x = please.radians(90);
-    coin.x = 2;
-    coin.z = 0;
-    graph.add(coin);
-    coin.gani.play();
-
-    coin = window.coin = please.access("campfire.gani").instance();
-    coin.x = 4;
-    coin.z = 0.1;
-    graph.add(coin);
-    coin.gani.play();
-
-    coin = window.coin = please.access("coin.gani").instance();
-    coin.rotate_x = please.radians(90);
-    coin.rotate_y = please.radians(90);
-    //coin.x = 3;
-    //coin.y = 2;
-    coin.z = -10;
-    graph.add(coin);
-    coin.gani.attrs.coin = "misc/ruby_coin.png";
-    coin.gani.play();
+        var sprite = Math.floor(Math.random()*7);
+        if (sprite == 2) {
+            coin.gani.attrs.coin = "misc/silver_coin.png";
+        }
+        if (sprite == 3) {
+            coin.gani.attrs.coin = "misc/copper_coin.png";
+        }
+        if (sprite == 4) {
+            coin.gani.attrs.coin = "misc/emerald_coin.png";
+        }
+        if (sprite == 5) {
+            coin.gani.attrs.coin = "misc/ruby_coin.png";
+        }
+        if (sprite == 6) {
+            coin.gani.attrs.coin = "misc/missingno.png";
+        }
+    }
+    // hack
+    please.load("misc/silver_coin.png");
+    please.load("misc/copper_coin.png");
+    please.load("misc/emerald_coin.png");
+    please.load("misc/ruby_coin.png");
 
     // add our models to the graph
     graph.add(level_node);
