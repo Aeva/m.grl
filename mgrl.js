@@ -639,7 +639,7 @@ please.media.__image_vbo_cache = {};
 // the scene graph.
 please.media.__image_instance = function (center, scale, x, y, width, height, alpha) {
     if (center === undefined) { center = true; };
-    if (scale === undefined) { scale = 32; };
+    if (scale === undefined) { scale = 64; };
     if (x === undefined) { x = 0; };
     if (y === undefined) { y = 0; };
     if (width === undefined) { width = this.width; };
@@ -676,10 +676,10 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         ]);
         attr_map.tcoords = new Float32Array([
             tx, ty,
-            tw, ty,
-            tw, th,
-            tw, th,
-            tx, th,
+            tx+tw, ty,
+            tx+tw, ty+th,
+            tx+tw, ty+th,
+            tx, ty+th,
             tx, ty,
         ]);
         attr_map.normal = new Float32Array([
@@ -1547,7 +1547,7 @@ please.media.__AnimationData = function (gani_text, uri) {
     // return a graph node instance of this animation
     ani.instance = function (center, scale, alpha) {
         if (center === undefined) { center = true; };
-        if (scale === undefined) { scale = 32; };
+        if (scale === undefined) { scale = 64; };
         if (alpha === undefined) { alpha = true; };
         var node = new please.GraphNode();
         node.gani = ani.create();
@@ -1557,8 +1557,6 @@ please.media.__AnimationData = function (gani_text, uri) {
             for (var i=0; i<current_frame.length; i+=1) {
                 var part = current_frame[i];
                 var sprite_id = part.sprite;
-                var x = part.x;
-                var y = part.y;
                 var sprite = ani.sprites[sprite_id];
                 if (sprite.resource === undefined) {
                     continue;
@@ -1572,6 +1570,8 @@ please.media.__AnimationData = function (gani_text, uri) {
                     center, scale,
                     clip_x, clip_y, clip_w, clip_h,
                     alpha);
+                img_node.x = part.x / scale;
+                img_node.y = part.y / scale * -1;
                 img_node.z_bias = bias;
                 bias += 1;
                 node.add(img_node);

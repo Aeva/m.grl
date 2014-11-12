@@ -311,7 +311,7 @@ please.media.__image_vbo_cache = {};
 // the scene graph.
 please.media.__image_instance = function (center, scale, x, y, width, height, alpha) {
     DEFAULT(center, true);
-    DEFAULT(scale, 32);
+    DEFAULT(scale, 64);
     DEFAULT(x, 0);
     DEFAULT(y, 0);
     DEFAULT(width, this.width);
@@ -349,10 +349,10 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         ]);
         attr_map.tcoords = new Float32Array([
             tx, ty,
-            tw, ty,
-            tw, th,
-            tw, th,
-            tx, th,
+            tx+tw, ty,
+            tx+tw, ty+th,
+            tx+tw, ty+th,
+            tx, ty+th,
             tx, ty,
         ]);
         attr_map.normal = new Float32Array([

@@ -548,7 +548,7 @@ please.media.__AnimationData = function (gani_text, uri) {
     // return a graph node instance of this animation
     ani.instance = function (center, scale, alpha) {
         DEFAULT(center, true);
-        DEFAULT(scale, 32);
+        DEFAULT(scale, 64);
         DEFAULT(alpha, true);
         var node = new please.GraphNode();
         node.gani = ani.create();
@@ -558,8 +558,6 @@ please.media.__AnimationData = function (gani_text, uri) {
             ITER(i, current_frame) {
                 var part = current_frame[i];
                 var sprite_id = part.sprite;
-                var x = part.x;
-                var y = part.y;
                 var sprite = ani.sprites[sprite_id];
                 if (sprite.resource === undefined) {
                     continue;
@@ -573,6 +571,8 @@ please.media.__AnimationData = function (gani_text, uri) {
                     center, scale, 
                     clip_x, clip_y, clip_w, clip_h,
                     alpha);
+                img_node.x = part.x / scale;
+                img_node.y = part.y / scale * -1;
                 img_node.z_bias = bias;
                 bias += 1;
                 node.add(img_node);

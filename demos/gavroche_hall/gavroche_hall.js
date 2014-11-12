@@ -158,6 +158,25 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(coin);
     coin.gani.play();
 
+    coin = window.coin = please.access("coin.gani").instance();
+    coin.rotate_x = please.radians(90);
+    coin.x = -2;
+    coin.z = 2;
+    coin.y = -2;
+    graph.add(coin);
+    please.load("misc/silver_coin.png");
+    coin.gani.attrs.coin = "misc/silver_coin.png";
+    coin.gani.play();
+
+    coin = window.coin = please.access("coin.gani").instance();
+    coin.rotate_x = please.radians(90);
+    coin.z = 2;
+    coin.y = 2;
+    coin.x = 2;
+    graph.add(coin);
+    coin.gani.attrs.coin = "misc/ruby_coin.png";
+    coin.gani.play();
+
     // add our models to the graph
     graph.add(level_node);
     graph.add(char_node);
