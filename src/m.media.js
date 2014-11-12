@@ -335,6 +335,7 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         y2 = height / scale;
     }
 
+    this.scale_filter = "NEAREST";
     var hint = "flat:"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th;
     var vbo = please.media.__image_vbo_cache[hint];
     if (!vbo) {

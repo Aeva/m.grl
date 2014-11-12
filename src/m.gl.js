@@ -142,6 +142,12 @@ please.gl.__upscale_image = function (image_object) {
 please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
     // bind and load the texture, cache and return the id:
 
+    var scale_mode = "LINEAR";
+    if (image_object.scale_filter) {
+        scale_mode = image_object.scale_filter;
+        use_mipmaps = false;
+    }
+
     if (use_mipmaps === undefined) {
         use_mipmaps = true;
     }
@@ -176,9 +182,13 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
             gl.generateMipmap(gl.TEXTURE_2D);
         }
-        else {
+        else if (scale_mode === "LINEAR") {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        }
+        else if (scale_mode === "NEAREST") {
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
         }
         gl.bindTexture(gl.TEXTURE_2D, null);
 
