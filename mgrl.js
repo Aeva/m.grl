@@ -392,6 +392,7 @@ please.media = {
 // default placeholder image
 please.media.errors["img"] = new Image();
 please.media.errors["img"].src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAACVBMVEUAAADjE2T///+ACSv4AAAAHUlEQVQI12NoYGKQWsKgNoNBcwWDVgaIAeQ2MAEAQA4FYPGbugcAAAAASUVORK5CYII="
+please.media.errors["img"].asset_name = "error_image";
 // Add a search path
 please.set_search_path = function (type, path) {
     if (!path.endsWith("/")) {
@@ -437,6 +438,9 @@ please.load = function (asset_name, callback, options) {
 // returns the hardcoded 'error' image, unless no_error is set to
 // some truthy value, in which case undefined is returned.
 please.access = function (asset_name, no_error) {
+    if (asset_name === "error_image") {
+        return please.media.errors.img;
+    }
     var found = please.media.assets[asset_name];
     if (!found && !no_error) {
         var type = please.media.guess_type(asset_name);
@@ -647,8 +651,8 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     var th = height / this.height;
     var x1, x2, y1, y2, z=0;
     if (center) {
-        x1 = width / scale / -2;
-        y1 = height / scale / -2;
+        x1 = width / (scale / -2);
+        y1 = height / (scale / -2);
         x2 = x1 * -1;
         y2 = y1 * -1;
     }
@@ -658,7 +662,7 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         x2 = scale;
         y2 = scale*-1;
     }
-    var hint = this.asset_name+":"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th;
+    var hint = "flat:"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th;
     var vbo = please.media.__image_vbo_cache[hint];
     if (!vbo) {
         var attr_map = {};
@@ -706,6 +710,7 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     node.draw = function() { this.vbo.draw(); };
     return node;
 };
+please.media.errors["img"].instance = please.media.__image_instance;
 // - m.input.js ------------------------------------------------------------- //
 please.keys = {
     "handlers" : {},
@@ -1539,6 +1544,43 @@ please.media.__AnimationData = function (gani_text, uri) {
             please.gani.on_bake_ani_frameset(ani.__uri, ani);
         });
     }
+    // return a graph node instance of this animation
+    ani.instance = function (center, scale, alpha) {
+        if (center === undefined) { center = true; };
+        if (scale === undefined) { scale = 32; };
+        if (alpha === undefined) { alpha = true; };
+        var node = new please.GraphNode();
+        node.gani = ani.create();
+        node.gani.on_dirty = function (ani, current_frame) {
+            node.children = [];
+            var bias = 0;
+            for (var i=0; i<current_frame.length; i+=1) {
+                var part = current_frame[i];
+                var sprite_id = part.sprite;
+                var x = part.x;
+                var y = part.y;
+                var sprite = ani.sprites[sprite_id];
+                if (sprite.resource === undefined) {
+                    continue;
+                }
+                var clip_x = sprite.x;
+                var clip_y = sprite.y;
+                var clip_w = sprite.w;
+                var clip_h = sprite.h;
+                var img = please.access(sprite.resource);
+                var img_node = img.instance(
+                    center, scale,
+                    clip_x, clip_y, clip_w, clip_h,
+                    alpha);
+                img_node.z_bias = bias;
+                bias += 1;
+                node.add(img_node);
+            }
+        };
+        node.gani.on_change_reel = function (ani, new_ani) {
+        };
+        return node;
+    };
     return ani;
 };
 // - m.gl.js ------------------------------------------------------------- //
@@ -1651,6 +1693,13 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
     if (use_mipmaps === undefined) {
         use_mipmaps = true;
     }
+    var width_log = Math.log2(image_object.width);
+    var height_log = Math.log2(image_object.height);
+    var width_pow2 = Math.floor(width_log) === width_log;
+    var height_pow2 = Math.floor(height_log) === height_log;
+    if (!(width_pow2 && height_pow2)) {
+        use_mipmaps = false;
+    }
     if (image_object.loaded === false) {
         image_object.addEventListener("load", function () {
             please.gl.__build_texture(uri, image_object);
@@ -1662,6 +1711,7 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
         var tid = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, tid);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
         // FIXME: should we not assume gl.RGBA?
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
                       gl.UNSIGNED_BYTE, image_object);
@@ -2506,6 +2556,7 @@ please.GraphNode = function () {
     this.__asset = null;
     this.__asset_hint = "";
     this.sort_mode = "solid"; // can be set to "alpha"
+    this.z_bias = 0; // used for the "alpha" sort pass as a tie breaker
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__unlink = false; // set to true to tell parents to remove this child
     this.priority = 100; // lower means the driver functions are called sooner

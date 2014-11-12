@@ -124,6 +124,13 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
     if (use_mipmaps === undefined) {
         use_mipmaps = true;
     }
+    var width_log = Math.log2(image_object.width);
+    var height_log = Math.log2(image_object.height);
+    var width_pow2 = Math.floor(width_log) === width_log;
+    var height_pow2 = Math.floor(height_log) === height_log;
+    if (!(width_pow2 && height_pow2)) {
+        use_mipmaps = false;
+    }
 
     if (image_object.loaded === false) {
         image_object.addEventListener("load", function () {
@@ -137,6 +144,7 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
         var tid = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, tid);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
         // FIXME: should we not assume gl.RGBA?
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, 
                       gl.UNSIGNED_BYTE, image_object);

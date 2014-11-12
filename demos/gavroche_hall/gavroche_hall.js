@@ -76,7 +76,8 @@ addEventListener("load", function() {
     please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "../gl_assets/img/");
     please.set_search_path("jta", "../gl_assets/models/");
-    
+    please.set_search_path("ani", "../lpc_assets/keyframes/");
+
     // files that load files will use relative file paths
     please.gl.relative_lookup = true;
 
@@ -87,6 +88,7 @@ addEventListener("load", function() {
     // load our model files
     please.load("gavroche_hall.jta");
     please.load("psycho.jta");
+    please.load("coin.gani");
     show_progress();
 });
 
@@ -113,6 +115,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
     gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.CULL_FACE);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
+
+    // blending stuff
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     // store our scene & build the graph:
     var level_data = window.scene = please.access("gavroche_hall.jta");
@@ -144,6 +150,13 @@ addEventListener("mgrl_media_ready", please.once(function () {
         var progress = performance.now()/500;
         return Math.sin(progress)/2.0;
     };
+
+    // gani debug
+    var coin = window.coin = please.access("coin.gani").instance();
+    coin.rotate_x = please.radians(90);
+    coin.z = 2;
+    graph.add(coin);
+    coin.gani.play();
 
     // add our models to the graph
     graph.add(level_node);

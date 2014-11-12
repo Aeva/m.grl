@@ -23,6 +23,7 @@ please.GraphNode = function () {
     this.__asset = null;
     this.__asset_hint = "";
     this.sort_mode = "solid"; // can be set to "alpha"
+    this.z_bias = 0; // used for the "alpha" sort pass as a tie breaker
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__unlink = false; // set to true to tell parents to remove this child
     this.priority = 100; // lower means the driver functions are called sooner

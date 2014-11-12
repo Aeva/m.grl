@@ -29,6 +29,7 @@ please.media = {
 // default placeholder image
 please.media.errors["img"] = new Image();
 please.media.errors["img"].src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAACVBMVEUAAADjE2T///+ACSv4AAAAHUlEQVQI12NoYGKQWsKgNoNBcwWDVgaIAeQ2MAEAQA4FYPGbugcAAAAASUVORK5CYII="
+please.media.errors["img"].asset_name = "error_image";
 
 
 // Add a search path
@@ -80,6 +81,9 @@ please.load = function (asset_name, callback, options) {
 // returns the hardcoded 'error' image, unless no_error is set to
 // some truthy value, in which case undefined is returned.
 please.access = function (asset_name, no_error) {
+    if (asset_name === "error_image") {
+        return please.media.errors.img;
+    }
     var found = please.media.assets[asset_name];
     if (!found && !no_error) {
         var type = please.media.guess_type(asset_name);
@@ -331,7 +335,7 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         y2 = scale*-1;
     }
 
-    var hint = this.asset_name+":"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th;
+    var hint = "flat:"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th;
     var vbo = please.media.__image_vbo_cache[hint];
     if (!vbo) {
         var attr_map = {};
@@ -380,4 +384,5 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     node.draw = function() { this.vbo.draw(); };
     return node;
 };
+please.media.errors["img"].instance = please.media.__image_instance;
 #endif

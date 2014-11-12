@@ -544,8 +544,46 @@ please.media.__AnimationData = function (gani_text, uri) {
         });
     }
 
+#ifdef WEBGL
+    // return a graph node instance of this animation
+    ani.instance = function (center, scale, alpha) {
+        DEFAULT(center, true);
+        DEFAULT(scale, 32);
+        DEFAULT(alpha, true);
+        var node = new please.GraphNode();
+        node.gani = ani.create();
+        node.gani.on_dirty = function (ani, current_frame) {
+            node.children = [];
+            var bias = 0;
+            ITER(i, current_frame) {
+                var part = current_frame[i];
+                var sprite_id = part.sprite;
+                var x = part.x;
+                var y = part.y;
+                var sprite = ani.sprites[sprite_id];
+                if (sprite.resource === undefined) {
+                    continue;
+                }
+                var clip_x = sprite.x;
+                var clip_y = sprite.y;
+                var clip_w = sprite.w;
+                var clip_h = sprite.h;
+                var img = please.access(sprite.resource);
+                var img_node = img.instance(
+                    center, scale, 
+                    clip_x, clip_y, clip_w, clip_h,
+                    alpha);
+                img_node.z_bias = bias;
+                bias += 1;
+                node.add(img_node);
+            }
+        };
+        node.gani.on_change_reel = function (ani, new_ani) {
+        };
+        return node;
+    };
+#endif
     return ani;
 };
-
 
 
