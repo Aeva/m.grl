@@ -15,5 +15,8 @@ varying vec3 screen_position;
 
 void main(void) {
   vec4 diffuse = texture2D(diffuse_texture, local_tcoords);
+  if (diffuse.a < .2) {
+    discard;
+  }
   gl_FragColor = diffuse;
 }
