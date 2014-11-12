@@ -36,10 +36,12 @@
 #include "m.input.js"
 #include "m.multipass.js"
 #include "m.gani.js"
+#ifdef WEBGL
 #include "m.gl.js"
 #include "m.jta.js"
 #include "m.graph.js"
 #include "m.prefab.js"
+#endif
 
 #ifdef BSIDES
 // -------------------------------------------------------------------------- //

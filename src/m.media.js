@@ -266,6 +266,10 @@ please.media.handlers.img = function (url, asset_name, callback) {
         img.loaded = false;
         img.addEventListener("load", function() {img.loaded = true});
         img.src = url;
+        img.asset_name = asset_name;
+#ifdef WEBGL
+        img.instance = please.media.__image_instance;
+#endif
         please.media.assets[asset_name] = img;
     };
     please.media.__xhr_helper("blob", url, asset_name, media_callback, callback);
@@ -294,3 +298,86 @@ please.media.handlers.text = function (url, asset_name, callback) {
     };
     please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
 };
+
+
+#ifdef WEBGL
+please.media.__image_vbo_cache = {};
+
+// this is not called directly - creates an instance of an image in
+// the scene graph.
+please.media.__image_instance = function (center, scale, x, y, width, height, alpha) {
+    DEFAULT(center, true);
+    DEFAULT(scale, 32);
+    DEFAULT(x, 0);
+    DEFAULT(y, 0);
+    DEFAULT(width, this.width);
+    DEFAULT(height, this.height);
+    DEFAULT(alpha, false);
+    var tx = x / this.width;
+    var ty = y / this.height;
+    var tw = width / this.width;
+    var th = height / this.height;
+    var x1, x2, y1, y2, z=0;
+    if (center) {
+        x1 = width / (scale / -2);
+        y1 = height / (scale / -2);
+        x2 = x1 * -1;
+        y2 = y1 * -1;
+    }
+    else {
+        x1 = 0;
+        y1 = 0;
+        x2 = scale;
+        y2 = scale*-1;
+    }
+
+    var hint = this.asset_name+":"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th;
+    var vbo = please.media.__image_vbo_cache[hint];
+    if (!vbo) {
+        var attr_map = {};
+        attr_map.position = new Float32Array([
+            x1, y1, z,
+            x2, y1, z,
+            x2, y2, z,
+            x2, y2, z,
+            x1, y2, z,
+            x1, y1, z,
+        ]);
+        attr_map.tcoords = new Float32Array([
+            tx, ty,
+            tw, ty,
+            tw, th,
+            tw, th,
+            tx, th,
+            tx, ty,
+        ]);
+        attr_map.normal = new Float32Array([
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+        ]);
+        vbo = please.gl.vbo(6, attr_map);
+        please.media.__image_vbo_cache[hint] = vbo;
+    }
+
+    var node = new please.GraphNode();
+    node.vbo = vbo;
+    node.ext = {};
+    node.vars = {};
+    node.samplers = {
+        "diffuse_texture" : this.asset_name,
+    };
+    node.__drawable = true;
+    if (alpha) {
+        node.sort_mode = "alpha";
+    }
+    node.asset = this;
+    node.hint = hint;
+    node.bind = function() { this.vbo.bind(); };
+    node.draw = function() { this.vbo.draw(); };
+    return node;
+};
+#endif
