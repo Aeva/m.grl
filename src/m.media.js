@@ -305,72 +305,33 @@ please.media.handlers.text = function (url, asset_name, callback) {
 
 
 #ifdef WEBGL
-please.media.__image_vbo_cache = {};
+please.media.__image_buffer_cache = {};
 
 // this is not called directly - creates an instance of an image in
 // the scene graph.
 please.media.__image_instance = function (center, scale, x, y, width, height, alpha) {
-    DEFAULT(center, true);
-    DEFAULT(scale, 32);
+    DEFAULT(center, false);
+    DEFAULT(scale, 64);
     DEFAULT(x, 0);
     DEFAULT(y, 0);
     DEFAULT(width, this.width);
     DEFAULT(height, this.height);
-    DEFAULT(alpha, false);
-    var tx = x / this.width;
-    var ty = y / this.height;
-    var tw = width / this.width;
-    var th = height / this.height;
-    var x1, x2, y1, y2, z=0;
-    if (center) {
-        x1 = width / (scale / -2);
-        y1 = height / (scale / 2);
-        x2 = x1 * -1;
-        y2 = y1 * -1;
-    }
-    else {
-        x1 = width / scale;
-        y1 = 0;
-        x2 = 0;
-        y2 = height / scale;
-    }
-
+    DEFAULT(alpha, true);
     this.scale_filter = "NEAREST";
-    var hint = "flat:"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th;
-    var vbo = please.media.__image_vbo_cache[hint];
-    if (!vbo) {
-        var attr_map = {};
-        attr_map.position = new Float32Array([
-            x1, y1, z,
-            x2, y2, z,
-            x2, y1, z,
-            x2, y2, z,
-            x1, y1, z,
-            x1, y2, z,
 
-        ]);
-        attr_map.tcoords = new Float32Array([
-            tx, ty,
-            tx+tw, ty+th,
-            tx+tw, ty,
-            tx+tw, ty+th,
-            tx, ty,
-            tx, ty+th,
-        ]);
-        attr_map.normal = new Float32Array([
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-        ]);
-        vbo = please.gl.vbo(6, attr_map);
-        please.media.__image_vbo_cache[hint] = vbo;
+    var builder = new please.builder.SpriteBuilder(center, scale, alpha);
+    var flat = builder.add_flat(x, y, this.width, this.height, width, height);
+    var hint = flat.hint;
+
+    var data = please.media.__image_buffer_cache[hint];
+    if (!data) {
+        var data = builder.build();
+        please.media.__image_buffer_cache[hint] = data;
     }
 
     var node = new please.GraphNode();
-    node.vbo = vbo;
+    node.vbo = data.vbo;
+    node.ibo = data.ibo;
     node.ext = {};
     node.vars = {};
     node.samplers = {
@@ -382,8 +343,13 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     }
     node.asset = this;
     node.hint = hint;
-    node.bind = function() { this.vbo.bind(); };
-    node.draw = function() { this.vbo.draw(); };
+    node.bind = function() { 
+        this.vbo.bind();
+        this.ibo.bind();
+    };
+    node.draw = function() {
+        this.ibo.draw();
+    };
     return node;
 };
 please.media.errors["img"].instance = please.media.__image_instance;

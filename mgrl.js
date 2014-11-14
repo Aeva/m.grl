@@ -634,68 +634,29 @@ please.media.handlers.text = function (url, asset_name, callback) {
     };
     please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
 };
-please.media.__image_vbo_cache = {};
+please.media.__image_buffer_cache = {};
 // this is not called directly - creates an instance of an image in
 // the scene graph.
 please.media.__image_instance = function (center, scale, x, y, width, height, alpha) {
-    if (center === undefined) { center = true; };
-    if (scale === undefined) { scale = 32; };
+    if (center === undefined) { center = false; };
+    if (scale === undefined) { scale = 64; };
     if (x === undefined) { x = 0; };
     if (y === undefined) { y = 0; };
     if (width === undefined) { width = this.width; };
     if (height === undefined) { height = this.height; };
-    if (alpha === undefined) { alpha = false; };
-    var tx = x / this.width;
-    var ty = y / this.height;
-    var tw = width / this.width;
-    var th = height / this.height;
-    var x1, x2, y1, y2, z=0;
-    if (center) {
-        x1 = width / (scale / -2);
-        y1 = height / (scale / 2);
-        x2 = x1 * -1;
-        y2 = y1 * -1;
-    }
-    else {
-        x1 = width / scale;
-        y1 = 0;
-        x2 = 0;
-        y2 = height / scale;
-    }
+    if (alpha === undefined) { alpha = true; };
     this.scale_filter = "NEAREST";
-    var hint = "flat:"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th;
-    var vbo = please.media.__image_vbo_cache[hint];
-    if (!vbo) {
-        var attr_map = {};
-        attr_map.position = new Float32Array([
-            x1, y1, z,
-            x2, y2, z,
-            x2, y1, z,
-            x2, y2, z,
-            x1, y1, z,
-            x1, y2, z,
-        ]);
-        attr_map.tcoords = new Float32Array([
-            tx, ty,
-            tx+tw, ty+th,
-            tx+tw, ty,
-            tx+tw, ty+th,
-            tx, ty,
-            tx, ty+th,
-        ]);
-        attr_map.normal = new Float32Array([
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-        ]);
-        vbo = please.gl.vbo(6, attr_map);
-        please.media.__image_vbo_cache[hint] = vbo;
+    var builder = new please.builder.SpriteBuilder(center, scale, alpha);
+    var flat = builder.add_flat(x, y, this.width, this.height, width, height);
+    var hint = flat.hint;
+    var data = please.media.__image_buffer_cache[hint];
+    if (!data) {
+        var data = builder.build();
+        please.media.__image_buffer_cache[hint] = data;
     }
     var node = new please.GraphNode();
-    node.vbo = vbo;
+    node.vbo = data.vbo;
+    node.ibo = data.ibo;
     node.ext = {};
     node.vars = {};
     node.samplers = {
@@ -707,8 +668,13 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     }
     node.asset = this;
     node.hint = hint;
-    node.bind = function() { this.vbo.bind(); };
-    node.draw = function() { this.vbo.draw(); };
+    node.bind = function() {
+        this.vbo.bind();
+        this.ibo.bind();
+    };
+    node.draw = function() {
+        this.ibo.draw();
+    };
     return node;
 };
 please.media.errors["img"].instance = please.media.__image_instance;
@@ -2902,6 +2868,97 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
         this.projection_matrix.dirty = true;
         this.view_matrix.dirty = true;
     };
+};
+// - m.builder.js -------------------------------------------------------- //
+// namespace
+please.builder = {};
+// This is used to programatically populate drawable objects.
+please.builder.SpriteBuilder = function (center, resolution, alpha) {
+    if (center === undefined) { center = false; };
+    if (resolution === undefined) { resolution = 64; }; // pixels to gl unit
+    if (alpha === undefined) { alpha = true; }; // to use alpha blending or not
+    this.__center = center;
+    this.__resolution = resolution;
+    this.__alpha = alpha;
+    this.__flats = [];
+    this.__v_array = {
+        "position" : [],
+        "tcoords" : [],
+        "normal" : [],
+    };
+    this.__i_array = [];
+};
+please.builder.SpriteBuilder.prototype = {
+    // add a quad to the builder; returns the element draw range.
+    "add_flat" : function (x, y, width, height, clip_width, clip_height) {
+        if (x === undefined) { x = 0; };
+        if (y === undefined) { y = 0; };
+        if (clip_width === undefined) { clip_width = width-x; };
+        if (clip_height === undefined) { clip_height = height-y; };
+        var x1, y1, x2, y2;
+        var tx = x / width;
+        var ty = y / height;
+        var tw = clip_width / width;
+        var th = clip_height / height;
+        if (this.__center) {
+            x1 = clip_width / (this.__resolution / -2);
+            y1 = clip_height / (this.__resolution / 2);
+            x2 = x1 * -1;
+            y2 = y1 * -1;
+        }
+        else {
+            x1 = clip_width / this.__resolution;
+            y1 = 0;
+            x2 = 0;
+            y2 = clip_height / this.__resolution;
+        }
+        var v_offset = this.__v_array.position.length;
+        this.__v_array.position = this.__v_array.position.concat([
+            x1, y1, 0,
+            x2, y2, 0,
+            x2, y1, 0,
+            x1, y2, 0,
+        ]);
+        this.__v_array.tcoords = this.__v_array.tcoords.concat([
+            tx, ty,
+            tx+tw, ty+th,
+            tx+tw, ty,
+            tx, ty+th,
+        ]);
+        this.__v_array.normal = this.__v_array.normal.concat([
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+        ]);
+        var receipt = {
+            "hint" : "flat:"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th,
+            "offset" : this.__i_array.length,
+            "count" : 2,
+        };
+        this.__i_array = this.__i_array.concat([
+            v_offset + 0,
+            v_offset + 1,
+            v_offset + 2,
+            v_offset + 1,
+            v_offset + 0,
+            v_offset + 3,
+        ]);
+        return receipt;
+    },
+    // builds and returns a VBO
+    "build" : function () {
+        var v_count = this.__v_array.position.length / 3;
+        var attr_map = {
+            "position" : new Float32Array(this.__v_array.position),
+            "tcoords" : new Float32Array(this.__v_array.tcoords),
+            "normal" : new Float32Array(this.__v_array.normal),
+        };
+        return {
+            "vbo" : please.gl.vbo(v_count, attr_map),
+            "ibo" : please.gl.ibo(new Uint16Array(this.__i_array)),
+        };
+    },
 };
 // - m.prefab.js ------------------------------------------------------------ //
 // -------------------------------------------------------------------------- //

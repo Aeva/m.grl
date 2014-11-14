@@ -152,7 +152,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     };
 
     // gani debug
-    for (var x=-12; x<=12; x+=2) {
+    //for (var x=-12; x<=12; x+=2) {
+    for (var x=-2; x<=-2; x+=2) {
         var coin = please.access("coin.gani").instance();
         coin.rotate_x = please.radians(90);
         coin.x = x;

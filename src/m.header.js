@@ -40,6 +40,7 @@
 #include "m.gl.js"
 #include "m.jta.js"
 #include "m.graph.js"
+#include "m.builder.js"
 #include "m.prefab.js"
 #endif
 
