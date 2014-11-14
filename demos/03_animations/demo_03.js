@@ -203,7 +203,7 @@ addEventListener("mgrl_media_ready", function () {
 addEventListener("load", function () {
     please.pipeline.start();
     please.set_search_path("img", "../lpc_assets/sprites/");
-    please.set_search_path("ani", "../lpc_assets/keyframes/");
+    please.set_search_path("gani", "../lpc_assets/keyframes/");
     please.set_search_path("audio", "../lpc_assets/sounds/");
 
     var ganis = ["idle", "walk", "magic", "fall", "clock", 

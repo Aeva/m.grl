@@ -440,7 +440,7 @@ addEventListener('mgrl_media_ready', function () {
 addEventListener("load", function () {
     please.pipeline.start();
     please.media.search_paths.img = "../lpc_assets/sprites/";
-    please.media.search_paths.ani = "../lpc_assets/keyframes/";
+    please.media.search_paths.gani = "../lpc_assets/keyframes/";
     please.media.search_paths.audio = "../lpc_assets/sounds/";
 
     // load demo specific assets

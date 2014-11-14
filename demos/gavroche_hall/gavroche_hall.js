@@ -76,7 +76,7 @@ addEventListener("load", function() {
     please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "../gl_assets/img/");
     please.set_search_path("jta", "../gl_assets/models/");
-    please.set_search_path("ani", "./");
+    please.set_search_path("gani", "./");
 
     // files that load files will use relative file paths
     please.gl.relative_lookup = true;

@@ -546,7 +546,7 @@ please.media.guess_type = function (file_name) {
     var type_map = {
         "img" : [".png", ".gif", ".jpg", ".jpeg"],
         "jta" : [".jta"],
-        "ani" : [".gani"],
+        "gani" : [".gani"],
         "audio" : [".wav", ".mp3", ".ogg"],
         "glsl" : [".vert", ".frag"],
         "text" : [".txt"],
@@ -1065,7 +1065,7 @@ please.pipeline.__regen_cache = function () {
 // - m.gani.js -------------------------------------------------------------- //
 // "gani" media type handler
 please.media.search_paths.ani = "";
-please.media.handlers.ani = function (url, asset_name, callback) {
+please.media.handlers.gani = function (url, asset_name, callback) {
     var media_callback = function (req) {
         please.media.assets[asset_name] = new please.media.__AnimationData(
             req.response, url);
