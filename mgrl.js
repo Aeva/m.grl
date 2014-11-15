@@ -1041,6 +1041,7 @@ please.media.handlers.gani = function (url, asset_name, callback) {
 // Namespace for m.ani guts
 please.gani = {
     "__frame_cache" : {},
+    "resolution" : 16,
     "get_cache_name" : function (uri, attrs) {
         var cache_id = uri;
         var props = Object.getOwnPropertyNames(attrs);
@@ -1057,6 +1058,8 @@ please.gani = {
             please.gani.__frame_cache[cache_id] = true;
             console.info("req_bake: " + cache_id);
         }
+    },
+    "build_gl_buffers" : function (animation_data) {
     },
 };
 // Function returns Animation Instance object.  AnimationData.create()
@@ -1308,6 +1311,18 @@ please.media.__AnimationData = function (gani_text, uri) {
         "__resources" : {}, // files that this gani would load, using dict as a set
         "__uri" : uri,
         "sprites" : {},
+        // 'sprites' is an object, not an array, but all of the keys
+        // are numbers.  Values are objects like so:
+        /*
+        0 : {
+            'hint' : "Coin Frame 1",
+            'resource': "COIN",
+            'x': 0, 
+            'y': 0, 
+            'w': 32, 
+            'h': 32,
+        }
+        */
         "attrs" : {
             /*
             "SPRITES" : "sprites.png",
@@ -1318,6 +1333,27 @@ please.media.__AnimationData = function (gani_text, uri) {
             */
         },
         "frames" : [],
+        /*
+        {"data" : [
+            // index corresponds to facing index "dir", so there 
+            // will be 1 or 4 entries here.
+            // this is determined by 'single dir'
+            [{"sprite" : 608, // num is the key for this.sprites
+              "x" : -8,
+              "y" : -16,
+
+              // these are used by webgl
+              "ibo_start" : 0,
+              "ibo_total" : 10,
+              },
+             //...
+            ],
+        ],
+         "wait" : 40, // frame duration
+         "sound" : false, // or sound to play
+        },
+        // ...
+        */
         "base_speed" : 50,
         "durration" : 0,
         "single_dir" : false,
@@ -1325,6 +1361,9 @@ please.media.__AnimationData = function (gani_text, uri) {
         "continuous" : false,
         "setbackto" : false,
         "create" : function () {},
+        "vbo" : null,
+        "ibo" : null,
+        "instance" : function () {},
     };
     // the create function returns an AnimationInstance for this
     // animation.
@@ -1512,42 +1551,98 @@ please.media.__AnimationData = function (gani_text, uri) {
         });
     }
     // return a graph node instance of this animation
-    ani.instance = function (scale, alpha) {
-        if (scale === undefined) { scale = 16; };
+    ani.instance = function (alpha) {
         if (alpha === undefined) { alpha = true; };
         var node = new please.GraphNode();
-        node.gani = ani.create();
-        node.gani.on_dirty = function (ani, current_frame) {
-            node.children = [];
-            var bias = 0;
-            for (var i=0; i<current_frame.length; i+=1) {
-                var part = current_frame[i];
-                var sprite_id = part.sprite;
-                var sprite = ani.sprites[sprite_id];
-                if (sprite.resource === undefined) {
-                    continue;
-                }
-                var clip_x = sprite.x;
-                var clip_y = sprite.y;
-                var clip_w = sprite.w;
-                var clip_h = sprite.h;
-                var img = please.access(sprite.resource);
-                var img_node = img.instance(
-                    false, scale,
-                    clip_x, clip_y, clip_w, clip_h,
-                    alpha);
-                img_node.x = (part.x-24) / scale;
-                img_node.y = (48-part.y-clip_h) / scale;
-                img_node.z_bias = bias;
-                bias += 1;
-                node.add(img_node);
-            }
-        };
+        node.__drawable = true;
+        node.ext = {};
+        node.vars = {};
+        node.samplers = {};
+        if (alpha) {
+            node.sort_mode = "alpha";
+        }
+        node.gani = this.create();
+        if (!node.gani.data.ibo) {
+            // build the VBO and IBO for this animation.
+            please.gani.build_gl_buffers(node.gani.data);
+        }
+        // this is called when the animation "loops back" to another animation
         node.gani.on_change_reel = function (ani, new_ani) {
+        };
+        node.bind = function () {
+            node.gani.data.vbo.bind();
+            node.gani.data.ibo.bind();
+        };
+        node.draw = function () {
+            gl.depthMask(false);
+            var prog = please.gl.get_program();
+            var ibo = node.gani.data.ibo;
+            var frame_ptr = node.gani.__frame_pointer;
+            var direction = node.gani.data.single_dir ? 0 : node.gani.dir;
+            var frame = node.gani.data.frames[frame_ptr].data[direction];
+            if (frame) {
+                for (var i=0; i<frame.length; i+=1) {
+                    //if (i >= 1) { break; }
+                    var blit = frame[i];
+                    var attr = node.gani.data.sprites[blit.sprite].resource.toLowerCase();;
+                    var asset_name = node.gani.attrs[attr]
+                    var asset = please.access(asset_name, null);
+                    if (asset) {
+                        asset.scale_filter = "NEAREST";
+                    }
+                    prog.samplers["diffuse_texture"] = asset_name;
+                    ibo.draw(blit.ibo_start, blit.ibo_total);
+                }
+            }
+            gl.depthMask(true);
         };
         return node;
     };
     return ani;
+};
+please.gani.build_gl_buffers = function (ani) {
+    var builder = new please.builder.SpriteBuilder(
+        false, please.gani.resolution);
+    var directions = ani.single_dir ? 1 : 4;
+    var images = {};
+    for (var sprite in ani.attrs) if (ani.attrs.hasOwnProperty(sprite)) {
+        var asset_name = ani.attrs[sprite];
+        var lower = asset_name.toLowerCase();
+        if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".gif") || lower.endsWith(".jpeg")) {
+            // it is required that the default images are
+            // all loaded before the vbo can be built
+            var asset = please.access(asset_name, false);
+            console.assert(asset);
+            images[sprite] = asset;
+        }
+    };
+    for (var dir = 0; dir<directions; dir +=1) {
+        for (var f = 0; f<ani.frames.length; f+=1) {
+            var defs = ani.frames[f].data[dir];
+            for (var i=0; i<defs.length; i+=1) {
+                var part = ani.frames[f].data[dir][i];
+                var sprite = ani.sprites[part.sprite];
+                var img = images[sprite.resource];
+                var width = img.width;
+                var height = img.height;
+                var clip_x = sprite.x;
+                var clip_y = sprite.y;
+                var clip_width = sprite.w;
+                var clip_height = sprite.h;
+                var offset_x = part.x-24;
+                var offset_y = 48-part.y-clip_height;
+                var receipt = builder.add_flat(
+                    clip_x, clip_y, width, height,
+                    clip_width, clip_height,
+                    offset_x, offset_y);
+                part.ibo_start = receipt.offset;
+                part.ibo_total = receipt.count;
+            }
+        }
+    }
+    var buffers = builder.build();
+    ani.vbo = buffers.vbo;
+    ani.ibo = buffers.ibo;
 };
 // - m.gl.js ------------------------------------------------------------- //
 // "glsl" media type handler
@@ -1617,17 +1712,19 @@ please.gl = {
 // Helper function for creating texture objects from the asset cache.
 // Implies please.load etc:
 please.gl.get_texture = function (uri, use_placeholder, no_error) {
-    // Check for textures that were not created from image assets:
-    if (please.gl.__cache.textures[uri]) {
-        return please.gl.__cache.textures[uri];
-    }
     // See if we already have a texture object for the uri:
     var texture = please.gl.__cache.textures[uri];
     if (texture) {
         return texture;
     }
     // No texture, now we check to see if the asset is present:
-    var asset = please.access(uri, true);
+    var asset;
+    if (uri === "error") {
+        asset = please.media.errors["img"];
+    }
+    else {
+        asset = please.access(uri, true);
+    }
     if (asset) {
         return please.gl.__build_texture(uri, asset);
     }
@@ -2873,13 +2970,11 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
 // namespace
 please.builder = {};
 // This is used to programatically populate drawable objects.
-please.builder.SpriteBuilder = function (center, resolution, alpha) {
+please.builder.SpriteBuilder = function (center, resolution) {
     if (center === undefined) { center = false; };
     if (resolution === undefined) { resolution = 64; }; // pixels to gl unit
-    if (alpha === undefined) { alpha = true; }; // to use alpha blending or not
     this.__center = center;
     this.__resolution = resolution;
-    this.__alpha = alpha;
     this.__flats = [];
     this.__v_array = {
         "position" : [],
@@ -2890,29 +2985,35 @@ please.builder.SpriteBuilder = function (center, resolution, alpha) {
 };
 please.builder.SpriteBuilder.prototype = {
     // add a quad to the builder; returns the element draw range.
-    "add_flat" : function (x, y, width, height, clip_width, clip_height) {
-        if (x === undefined) { x = 0; };
-        if (y === undefined) { y = 0; };
-        if (clip_width === undefined) { clip_width = width-x; };
-        if (clip_height === undefined) { clip_height = height-y; };
+    "add_flat" : function (clip_x, clip_y, width, height, clip_width, clip_height, offset_x, offset_y) {
+        if (clip_x === undefined) { clip_x = 0; };
+        if (clip_y === undefined) { clip_y = 0; };
+        if (clip_width === undefined) { clip_width = width-offset_x; };
+        if (clip_height === undefined) { clip_height = height-offset_y; };
+        if (offset_x === undefined) { offset_x = 0; };
+        if (offset_y === undefined) { offset_y = 0; };
         var x1, y1, x2, y2;
-        var tx = x / width;
-        var ty = y / height;
+        var tx = clip_x / width;
+        var ty = clip_y / height;
         var tw = clip_width / width;
         var th = clip_height / height;
         if (this.__center) {
-            x1 = clip_width / (this.__resolution / -2);
-            y1 = clip_height / (this.__resolution / 2);
+            x1 = clip_width / -2;
+            y1 = clip_height / 2;
             x2 = x1 * -1;
             y2 = y1 * -1;
         }
         else {
-            x1 = clip_width / this.__resolution;
+            x1 = clip_width;
             y1 = 0;
             x2 = 0;
-            y2 = clip_height / this.__resolution;
+            y2 = clip_height;
         }
-        var v_offset = this.__v_array.position.length;
+        x1 = (offset_x + x1) / this.__resolution;
+        x2 = (offset_x + x2) / this.__resolution;
+        y1 = (offset_y + y1) / this.__resolution;
+        y2 = (offset_y + y2) / this.__resolution;
+        var v_offset = this.__v_array.position.length/3;
         this.__v_array.position = this.__v_array.position.concat([
             x1, y1, 0,
             x2, y2, 0,
@@ -2920,10 +3021,10 @@ please.builder.SpriteBuilder.prototype = {
             x1, y2, 0,
         ]);
         this.__v_array.tcoords = this.__v_array.tcoords.concat([
-            tx, ty,
-            tx+tw, ty+th,
-            tx+tw, ty,
-            tx, ty+th,
+            tx, 1.0-(ty+th),
+            tx+tw, 1.0-(ty),
+            tx+tw, 1.0-(ty+th),
+            tx, 1.0-ty,
         ]);
         this.__v_array.normal = this.__v_array.normal.concat([
             0, 0, 1,
@@ -2934,7 +3035,7 @@ please.builder.SpriteBuilder.prototype = {
         var receipt = {
             "hint" : "flat:"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th,
             "offset" : this.__i_array.length,
-            "count" : 2,
+            "count" : 6,
         };
         this.__i_array = this.__i_array.concat([
             v_offset + 0,

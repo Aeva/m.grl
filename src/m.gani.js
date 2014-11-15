@@ -16,6 +16,10 @@ please.media.handlers.gani = function (url, asset_name, callback) {
 please.gani = {
     "__frame_cache" : {},
 
+#ifdef WEBGL
+    "resolution" : 16,
+#endif
+
     "get_cache_name" : function (uri, attrs) {
         var cache_id = uri;
         var props = Object.getOwnPropertyNames(attrs);
@@ -33,6 +37,10 @@ please.gani = {
             console.info("req_bake: " + cache_id);
         }
     },
+#ifdef WEBGL
+    "build_gl_buffers" : function (animation_data) {
+    },
+#endif
 };
 
 
@@ -313,6 +321,19 @@ please.media.__AnimationData = function (gani_text, uri) {
         "__uri" : uri,
 
         "sprites" : {},
+        // 'sprites' is an object, not an array, but all of the keys
+        // are numbers.  Values are objects like so:
+        /*
+        0 : {
+            'hint' : "Coin Frame 1",
+            'resource': "COIN",
+            'x': 0, 
+            'y': 0, 
+            'w': 32, 
+            'h': 32,
+        }
+        */
+
         "attrs" : {
             /*
             "SPRITES" : "sprites.png",
@@ -324,6 +345,27 @@ please.media.__AnimationData = function (gani_text, uri) {
         },
         
         "frames" : [],
+        /*
+        {"data" : [
+            // index corresponds to facing index "dir", so there 
+            // will be 1 or 4 entries here.
+            // this is determined by 'single dir'
+            [{"sprite" : 608, // num is the key for this.sprites
+              "x" : -8,
+              "y" : -16,
+
+              // these are used by webgl
+              "ibo_start" : 0,
+              "ibo_total" : 10,
+              },
+             //...
+            ],
+        ],
+         "wait" : 40, // frame duration
+         "sound" : false, // or sound to play
+        },
+        // ...
+        */
 
         "base_speed" : 50,
         "durration" : 0,
@@ -334,6 +376,11 @@ please.media.__AnimationData = function (gani_text, uri) {
         "setbackto" : false,
 
         "create" : function () {},
+#ifdef WEBGL
+        "vbo" : null,
+        "ibo" : null,
+        "instance" : function () {},
+#endif
     };
 
     // the create function returns an AnimationInstance for this
@@ -546,38 +593,53 @@ please.media.__AnimationData = function (gani_text, uri) {
 
 #ifdef WEBGL
     // return a graph node instance of this animation
-    ani.instance = function (scale, alpha) {
-        DEFAULT(scale, 16);
+    ani.instance = function (alpha) {
         DEFAULT(alpha, true);
         var node = new please.GraphNode();
-        node.gani = ani.create();
-        node.gani.on_dirty = function (ani, current_frame) {
-            node.children = [];
-            var bias = 0;
-            ITER(i, current_frame) {
-                var part = current_frame[i];
-                var sprite_id = part.sprite;
-                var sprite = ani.sprites[sprite_id];
-                if (sprite.resource === undefined) {
-                    continue;
-                }
-                var clip_x = sprite.x;
-                var clip_y = sprite.y;
-                var clip_w = sprite.w;
-                var clip_h = sprite.h;
-                var img = please.access(sprite.resource);
-                var img_node = img.instance(
-                    false, scale, 
-                    clip_x, clip_y, clip_w, clip_h,
-                    alpha);
-                img_node.x = (part.x-24) / scale;
-                img_node.y = (48-part.y-clip_h) / scale;
-                img_node.z_bias = bias;
-                bias += 1;
-                node.add(img_node);
-            }
-        };
+        node.__drawable = true;
+        node.ext = {};
+        node.vars = {};
+        node.samplers = {};
+        if (alpha) {
+            node.sort_mode = "alpha";
+        }
+        node.gani = this.create();
+        if (!node.gani.data.ibo) {
+            // build the VBO and IBO for this animation.
+            please.gani.build_gl_buffers(node.gani.data);
+        }
+        // this is called when the animation "loops back" to another animation
         node.gani.on_change_reel = function (ani, new_ani) {
+        };
+
+        node.bind = function () {
+            node.gani.data.vbo.bind();
+            node.gani.data.ibo.bind();
+        };
+        
+        node.draw = function () {
+            gl.depthMask(false);
+            var prog = please.gl.get_program();
+            var ibo = node.gani.data.ibo;
+
+            var frame_ptr = node.gani.__frame_pointer;
+            var direction = node.gani.data.single_dir ? 0 : node.gani.dir;
+            var frame = node.gani.data.frames[frame_ptr].data[direction];
+            if (frame) {
+                for (var i=0; i<frame.length; i+=1) {
+                    //if (i >= 1) { break; }
+                    var blit = frame[i];
+                    var attr = node.gani.data.sprites[blit.sprite].resource.toLowerCase();;
+                    var asset_name = node.gani.attrs[attr]
+                    var asset = please.access(asset_name, null);
+                    if (asset) {
+                        asset.scale_filter = "NEAREST";
+                    }
+                    prog.samplers["diffuse_texture"] = asset_name;
+                    ibo.draw(blit.ibo_start, blit.ibo_total);
+                }
+            }
+            gl.depthMask(true);
         };
         return node;
     };
@@ -586,3 +648,52 @@ please.media.__AnimationData = function (gani_text, uri) {
 };
 
 
+#ifdef WEBGL
+please.gani.build_gl_buffers = function (ani) {
+    var builder = new please.builder.SpriteBuilder(
+        false, please.gani.resolution);
+    var directions = ani.single_dir ? 1 : 4;
+
+    var images = {};
+    ITER_PROPS(sprite, ani.attrs) {
+        var asset_name = ani.attrs[sprite];
+        var lower = asset_name.toLowerCase();
+        if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".gif") || lower.endsWith(".jpeg")) {
+            // it is required that the default images are
+            // all loaded before the vbo can be built
+            var asset = please.access(asset_name, false);
+            console.assert(asset);
+            images[sprite] = asset;
+        }
+    };
+
+    for (var dir = 0; dir<directions; dir +=1) {
+        for (var f = 0; f<ani.frames.length; f+=1) {
+            var defs = ani.frames[f].data[dir];
+            for (var i=0; i<defs.length; i+=1) {
+                var part = ani.frames[f].data[dir][i];
+                var sprite = ani.sprites[part.sprite];
+                var img = images[sprite.resource];
+                var width = img.width;
+                var height = img.height;
+                var clip_x = sprite.x;
+                var clip_y = sprite.y;
+                var clip_width = sprite.w;
+                var clip_height = sprite.h;
+                var offset_x = part.x-24;
+                var offset_y = 48-part.y-clip_height;
+                var receipt = builder.add_flat(
+                    clip_x, clip_y, width, height, 
+                    clip_width, clip_height, 
+                    offset_x, offset_y);
+                part.ibo_start = receipt.offset;
+                part.ibo_total = receipt.count;
+            }
+        }
+    }
+
+    var buffers = builder.build();
+    ani.vbo = buffers.vbo;
+    ani.ibo = buffers.ibo;
+};
+#endif

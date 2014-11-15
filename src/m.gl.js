@@ -77,11 +77,6 @@ please.gl = {
 // Implies please.load etc:
 please.gl.get_texture = function (uri, use_placeholder, no_error) {
 
-    // Check for textures that were not created from image assets:
-    if (please.gl.__cache.textures[uri]) {
-        return please.gl.__cache.textures[uri];
-    }
-
     // See if we already have a texture object for the uri:
     var texture = please.gl.__cache.textures[uri];
     if (texture) {
@@ -89,7 +84,13 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
     }
 
     // No texture, now we check to see if the asset is present:
-    var asset = please.access(uri, true);
+    var asset;
+    if (uri === "error") {
+        asset = please.media.errors["img"];
+    }
+    else {
+        asset = please.access(uri, true);
+    }
     if (asset) {
         return please.gl.__build_texture(uri, asset);
     }

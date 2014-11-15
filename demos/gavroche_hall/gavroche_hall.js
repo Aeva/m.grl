@@ -89,6 +89,7 @@ addEventListener("load", function() {
     please.load("gavroche_hall.jta");
     please.load("psycho.jta");
     please.load("coin.gani");
+    please.load("walk.gani");
     show_progress();
 });
 
@@ -152,41 +153,36 @@ addEventListener("mgrl_media_ready", please.once(function () {
     };
 
     // gani debug
-    //for (var x=-12; x<=12; x+=2) {
-    for (var x=-2; x<=-2; x+=2) {
-        var coin = please.access("coin.gani").instance();
-        coin.rotate_x = please.radians(90);
-        coin.x = x;
-        coin.y = -1.5;
-        coin.z = .1;
-        coin.gani.play();
-        graph.add(coin);
-
-        var sprite = Math.floor(Math.random()*6);
-        if (x === -4) {
-            sprite = 6;
-        }
-        if (sprite == 2) {
-            coin.gani.attrs.coin = "misc/silver_coin.png";
-        }
-        if (sprite == 3) {
-            coin.gani.attrs.coin = "misc/copper_coin.png";
-        }
-        if (sprite == 4) {
-            coin.gani.attrs.coin = "misc/emerald_coin.png";
-        }
-        if (sprite == 5) {
-            coin.gani.attrs.coin = "misc/ruby_coin.png";
-        }
-        if (sprite == 6) {
-            coin.gani.attrs.coin = "misc/missingno.png";
+    var stagger = -0.5;
+    for (var y=-4; y<3; y+=2) {
+        stagger *= -1;
+        for (var x=-12+stagger; x<=12; x+=2) {
+            //for (var x=0; x==0; x+=2) {
+            var pick = Math.floor(Math.random()*3);
+            var ani = pick===0? "coin.gani" : "walk.gani";
+            var entity = please.access(ani).instance();
+            entity.rotate_x = please.radians(90);
+            entity.x = x;
+            entity.y = y;
+            entity.z = 0;
+            entity.gani.dir = Math.floor(Math.random()*4);
+            entity.gani.play();
+            graph.add(entity);
+            if (pick === 0) {
+                var coin_n = Math.floor(Math.random()*5);
+                var coin = ["gold", "silver", "copper", "emerald", "ruby"][coin_n];
+                entity.gani.attrs.coin = "misc/"+coin+"_coin.png";
+            }
+            else {
+                var hair_n = Math.floor(Math.random()*3);
+                var hair = ["messy", "mohawk", "princess"][hair_n];
+                var dress_n = Math.floor(Math.random()*3);
+                var dress = ["green", "princess", "red"][dress_n];
+                entity.gani.attrs.hair = "hair/"+hair+".png";
+                entity.gani.attrs.body = "outfits/"+dress+"_dress.png";
+            }
         }
     }
-    // hack
-    please.load("misc/silver_coin.png");
-    please.load("misc/copper_coin.png");
-    please.load("misc/emerald_coin.png");
-    please.load("misc/ruby_coin.png");
 
     // add our models to the graph
     graph.add(level_node);
