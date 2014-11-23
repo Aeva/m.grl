@@ -600,6 +600,7 @@ please.media.__AnimationData = function (gani_text, uri) {
         node.ext = {};
         node.vars = {};
         node.samplers = {};
+        node.draw_type = "sprite";
         if (alpha) {
             node.sort_mode = "alpha";
         }
@@ -618,7 +619,14 @@ please.media.__AnimationData = function (gani_text, uri) {
         };
         
         node.draw = function () {
-            gl.depthMask(false);
+            if (node.sort_mode === "alpha") {
+                gl.depthMask(false);
+            }
+            else {
+                var offset_factor = -1;
+                var offset_units = -2;
+                gl.enable(gl.POLYGON_OFFSET_FILL);
+            }
             var prog = please.gl.get_program();
             var ibo = node.gani.data.ibo;
 
@@ -636,10 +644,18 @@ please.media.__AnimationData = function (gani_text, uri) {
                         asset.scale_filter = "NEAREST";
                     }
                     prog.samplers["diffuse_texture"] = asset_name;
+                    if (node.sort_mode !== "alpha") {
+                        gl.polygonOffset(offset_factor, offset_units*i);
+                    }
                     ibo.draw(blit.ibo_start, blit.ibo_total);
                 }
             }
-            gl.depthMask(true);
+            if (node.sort_mode === "alpha") {
+                gl.depthMask(true);
+            }
+            else {
+                gl.disable(gl.POLYGON_OFFSET_FILL);
+            }
         };
         return node;
     };

@@ -160,7 +160,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
             //for (var x=0; x==0; x+=2) {
             var pick = Math.floor(Math.random()*3);
             var ani = pick===0? "coin.gani" : "walk.gani";
-            var entity = please.access(ani).instance();
+            var entity = please.access(ani).instance(false);
             entity.rotate_x = please.radians(90);
             entity.x = x;
             entity.y = y;
@@ -172,6 +172,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
                 var coin_n = Math.floor(Math.random()*5);
                 var coin = ["gold", "silver", "copper", "emerald", "ruby"][coin_n];
                 entity.gani.attrs.coin = "misc/"+coin+"_coin.png";
+                entity.sort_mode = "alpha";
             }
             else {
                 var hair_n = Math.floor(Math.random()*3);

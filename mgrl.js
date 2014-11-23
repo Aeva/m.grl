@@ -1558,6 +1558,7 @@ please.media.__AnimationData = function (gani_text, uri) {
         node.ext = {};
         node.vars = {};
         node.samplers = {};
+        node.draw_type = "sprite";
         if (alpha) {
             node.sort_mode = "alpha";
         }
@@ -1574,7 +1575,14 @@ please.media.__AnimationData = function (gani_text, uri) {
             node.gani.data.ibo.bind();
         };
         node.draw = function () {
-            gl.depthMask(false);
+            if (node.sort_mode === "alpha") {
+                gl.depthMask(false);
+            }
+            else {
+                var offset_factor = -1;
+                var offset_units = -2;
+                gl.enable(gl.POLYGON_OFFSET_FILL);
+            }
             var prog = please.gl.get_program();
             var ibo = node.gani.data.ibo;
             var frame_ptr = node.gani.__frame_pointer;
@@ -1591,10 +1599,18 @@ please.media.__AnimationData = function (gani_text, uri) {
                         asset.scale_filter = "NEAREST";
                     }
                     prog.samplers["diffuse_texture"] = asset_name;
+                    if (node.sort_mode !== "alpha") {
+                        gl.polygonOffset(offset_factor, offset_units*i);
+                    }
                     ibo.draw(blit.ibo_start, blit.ibo_total);
                 }
             }
-            gl.depthMask(true);
+            if (node.sort_mode === "alpha") {
+                gl.depthMask(true);
+            }
+            else {
+                gl.disable(gl.POLYGON_OFFSET_FILL);
+            }
         };
         return node;
     };
@@ -2639,6 +2655,7 @@ please.GraphNode = function () {
     this.__cache = null;
     this.__asset = null;
     this.__asset_hint = "";
+    this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
     this.z_bias = 0; // used for the "alpha" sort pass as a tie breaker
     this.__drawable = false; // set to true to call .bind and .draw functions
@@ -2786,6 +2803,9 @@ please.GraphNode.prototype = {
             }
             prog.vars["world_matrix"] = self.__cache.world_matrix;
             prog.vars["normal_matrix"] = self.__cache.normal_matrix;
+            // FIXME: these should both be bools
+            prog.vars["is_sprite"] = self.draw_type==="sprite" ? 1 : 0;
+            prog.vars["is_transparent"] = self.sort_mode==="alpha" ? 1 : 0;
             this.draw();
         }
     },

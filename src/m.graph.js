@@ -22,6 +22,7 @@ please.GraphNode = function () {
     this.__cache = null;
     this.__asset = null;
     this.__asset_hint = "";
+    this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
     this.z_bias = 0; // used for the "alpha" sort pass as a tie breaker
     this.__drawable = false; // set to true to call .bind and .draw functions
@@ -175,6 +176,10 @@ please.GraphNode.prototype = {
             }
             prog.vars["world_matrix"] = self.__cache.world_matrix;
             prog.vars["normal_matrix"] = self.__cache.normal_matrix;
+
+            // FIXME: these should both be bools
+            prog.vars["is_sprite"] = self.draw_type==="sprite" ? 1 : 0;
+            prog.vars["is_transparent"] = self.sort_mode==="alpha" ? 1 : 0;
             this.draw();
         }
     },
