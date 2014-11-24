@@ -41,32 +41,59 @@ function show_progress() {
 
 
 // keyboard control stuff
-var key_timers = {
+var key_tracker = {
     "left" : null,
     "right" : null,
 };
 function key_handler(state, key) {
     // arrow key handler
     if (state === "cancel") {
-        window.clearInterval(key_timers[key]);
-        key_timers[key] = null;
+        if (key_tracker[key] !== null) {
+            please.time.remove(key_tracker[key].handler);
+            key_tracker[key] = null;
+        }
     }
-    else if (state === "press" && key_timers[key] === null) {
+    else if (state === "press" && key_tracker[key] === null) {
+        var start_time = performance.now();
+
         var amount = .15;
         if (key == "left") {
             amount *= -1;
         }
-        key_timers[key] = window.setInterval(function () {
-            if (window.player) {
-                window.player.x += amount;
+
+        var frequency = 5;
+        var handler = function (timestamp) {
+            var delta = timestamp - key_tracker[key].stamp;
+            key_tracker[key].stamp = timestamp;
+
+            // 'delta' is assumed to usually be higher than the ideal
+            // frequency, so 'late' is the amount of extra time
+            // waited.  
+            var late = delta - frequency;
+
+            // 'scale' is the amount that distances should be adjusted by.
+            var scale = delta/frequency;
+
+            if (window.player && delta > 0) {
+                //window.player.x += amount;
+                window.player.x += (amount / frequency) * delta;
+
+                // snap to level boundaries
                 if (window.player.x < -15) {
                     window.player.x = -15;
                 }
                 if (window.player.x > 15) {
                     window.player.x = 15;
-                }                
+                }
             }
-        }, 1);
+            please.time.schedule(handler, frequency - late);
+        };
+        please.time.schedule(handler, frequency);
+
+        key_tracker[key] = {
+            "stamp" : start_time,
+            "handler" : handler,
+        };
     }
 };
 
@@ -138,7 +165,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var graph = new please.SceneGraph();
     var level_node = level_data.instance();
     var char_avatar = char_data.instance();
-    char_avatar.aplha = .75;
+    char_avatar.alpha = .75;
     char_avatar.sort_mode = "alpha";
     char_avatar.y = -2.5;
     var char_node = window.player = new please.GraphNode();
