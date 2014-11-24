@@ -324,59 +324,98 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
     var rhs = vec3.create();
     var norm = vec3.create();
     var cache = {};
-    var log_normal = function (vertex, normal) {
-        var key = ""+vertex[0]+":"+vertex[1]+":"+vertex[2];
-        if (!cache[key]) {
-            cache[key] = [];
-        }
-        cache[key].push(normal);
-    };
+
     for (var i=0; i<indices.length; i+=3) {
-        // https://math.stackexchange.com/questions/305642/how-to-find-surface-normal-of-a-triangle
+        /*
+          For every three attribute indices, gerenate a surface normal
+          via taking the cross product of the vectors created by two
+          of the edges.  Value 'k' corresponds to vertex componets
+          ('i' points to a vector). Values 'a', 'b', and 'c' are the
+          three vectors coordinates of the triangle selected by an
+          iteration of this loop.
+         */
         k = i*3;
         a = vec3.fromValues(verts[k], verts[k+1], verts[k+2]);
         b = vec3.fromValues(verts[k+3], verts[k+4], verts[k+5]);
         c = vec3.fromValues(verts[k+6], verts[k+7], verts[k+8]);
-        vec3.subtract(lhs, a, b); // is wrong?
-        vec3.subtract(rhs, c, b); // is wrong?
-        vec3.cross(norm, rhs, lhs); // swap lhs and rhs to flip the normal
+
+        // Calculate the normal for this face.
+        vec3.subtract(lhs, b, a);
+        vec3.subtract(rhs, c, a);
+        vec3.cross(norm, lhs, rhs); // swap lhs and rhs to flip the normal
         vec3.normalize(norm, norm);
+
+        // Accumulate/cache/log the calculated normal for each
+        // position of vertex 'n'.  This will allow us to determine
+        // the smooth normal, where applicable.
         for (var n=0; n<3; n+=1) {
             var m = n*3;
             var key = ""+verts[k+m]+":"+verts[k+m+1]+":"+verts[k+m+2];
             if (!cache[key]) {
+                // copy the normal into a new cache entry
                 cache[key] = vec3.clone(norm);
             }
             else {
+                // add the normal with the old cache entry
                 vec3.add(cache[key], cache[key], norm);
             }
         }
+        // set normal for vertex 0
         normals[k] = norm[0];
         normals[k+1] = norm[1];
         normals[k+2] = norm[2];
+        // set normal for vertex 1
         normals[k+3] = norm[0];
         normals[k+4] = norm[1];
         normals[k+5] = norm[2];
+        // set normal for vertex 2
         normals[k+6] = norm[0];
         normals[k+7] = norm[1];
         normals[k+8] = norm[2];
     }
     var set_smooth = function(start, total) {
-        for (var i=start; i<start+total*3; i+=3) {
-            var key = "" + verts[i] + ":" + verts[i+1] + ":" + verts[i+2];
-            var normal = cache[key];
-            vec3.normalize(normal, normal);
-            normals[i] = normal[0];
-            normals[i+1] = normal[1];
-            normals[i+2] = normal[2];
+        /*
+          The process of calculating the smooth normals is already
+          accomplished by the caching / logging step done durring the
+          calculation of face normals.  As a result, all we need to do
+          is normalize the resulting vector and save that in the right
+          place.  Note, this is probably not technically correct, but
+          it looks fine.
+
+          Start is the first face index, total is the total number of
+          indices in the group.
+         */
+        for (var i=start; i<start+total; i+=3) {
+            /* 
+               For each face 'i' in the range provided, and each value
+               'k' being the beginning offset of the vectors in the
+               position and normal arrays...
+             */
+            var k = i*3;
+            for (var n=0; n<3; n+=1) {
+                var m = n*3;
+                var key = ""+verts[k+m]+":"+verts[k+m+1]+":"+verts[k+m+2];
+                var norm = vec3.normalize(vec3.create(), cache[key]);
+                normals[k+m] = norm[0];
+                normals[k+m+1] = norm[1];
+                normals[k+m+2] = norm[2];
+            }
         }
     }
     ITER_PROPS(model_name, model_defs) {
+        /*
+          For each model definition, check to see if it requires
+          smooth normals, and adjust appropriately.
+         */
         var model = model_defs[model_name];
         if (model.extra.smooth_normals) {
             ITER_PROPS(group_name, model.groups) {
+                /*
+                  Get the index ranges per group and call the smooth
+                  normals method for those ranges.
+                 */
                 var group = model.groups[group_name];
-                set_smooth(group.start, group.total);
+                set_smooth(group.start, group.count);
             }   
         }
     }
