@@ -1,6 +1,21 @@
 // - m.time.js -------------------------------------------------------------- //
 
+/**
+ * This module provides a scheduler suitable for animation, as well as
+ * some other handy methods pertaining to time.
+ * @module mgrl.time
+ */
 
+/**
+ * Shorthand for setTimeout(callback, 0).  This method is used to
+ * schedule a function to be called after the current execution stack
+ * finishes and the interpreter is idle again.
+ * @function
+ * @memberOf mgrl.time
+ *
+ * @param {function} callback 
+ * A function to be called relatively soon.
+ */
 // Schedules a callback to executed whenever it is convinient to do
 // so.  This is useful for preventing errors from completely halting
 // the program's execution, and makes some errors easier to find.
@@ -26,8 +41,21 @@ please.time = (function () {
     var pipe_id = "m.ani.js/batch";
 
 
-    // This function works like setTimeout, but syncs up with
-    // animation frames.
+    /**
+     * This function works like setTimeout, but syncs up with
+     * animation frames.
+     * 
+     * @function
+     * @memberOf mgrl.time
+     * @alias please.time.schedule
+     *
+     * @param {function} callback 
+     * A function to be called on an animation frame.
+     * 
+     * @param {number} when
+     * Delay in milliseconds for the soonest time which the callback
+     * may be called.
+     */
     batch.schedule = function (callback, when) {
         when = batch.now + when;
         var i = batch.__pending.indexOf(callback);
@@ -49,7 +77,16 @@ please.time = (function () {
     };
 
 
-    // This function unschedules a pending callback.
+    /**
+     * Remove a pending callback.
+     * 
+     * @function
+     * @memberOf mgrl.time
+     * @alias please.time.remove
+     *
+     * @param {function} callback 
+     * A function that was already scheduled by please.time.schedule.
+     */
     batch.remove = function (callback) {
         var i = batch.__pending.indexOf(callback);
         if (i > -1) {

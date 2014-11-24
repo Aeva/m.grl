@@ -4,6 +4,11 @@
 // used widely in the codebase, and defines the module's faux
 // namespace.
 
+/**
+ * This module implements polyfills for browser compatibility, as well
+ * as defines various helper functions used elsewhere within M.GRL.
+ * @module mgrl.defs
+ */
 
 // Define said namespace:
 if (window.please === undefined) { window.please = {} };
@@ -118,7 +123,23 @@ if (!Array.prototype.map) {
 }
 
 
-// Variation of array.map for non-array objects:
+/**
+ * Variation of array.map for non-array objects:
+ * @function
+ * @memberOf mgrl.defs
+ *
+ * @param {object} dict
+ * An object to be enumerated.
+ *
+ * @param {function} callback
+ * A function to be called for each of the object's properties.
+ *
+ * @example
+ * var some_ob = {"prop_name" : "prop_value"};
+ * please.prop_map(some_ob, function(key, value, dict) {
+ *     console.info(key + " = " + value);
+ * });
+ */
 please.prop_map = function (dict, callback) {
     var results = {};
     ITER_PROPS(key, dict) {
@@ -128,8 +149,16 @@ please.prop_map = function (dict, callback) {
 };
 
 
-// Returns a function that will call a callback, but only the first
-// time it is called.
+/**
+ * Returns a function that will call a callback, but only the first
+ * time it is called.
+ * @function 
+ * @memberOf mgrl.defs
+ * @deprecated
+ *
+ * @param {function} callback
+ * A function to only be called once.
+ */
 please.once = function (callback) {
     var called = false;
     return function () {
