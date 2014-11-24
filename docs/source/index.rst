@@ -6,44 +6,20 @@
 Welcome to M.GRL's documentation!
 =================================
 
-Tutorials:
+Contents:
 
 .. toctree::
+   :maxdepth: 2
 
-   intro/blender.rst
-   intro/walkthrough.rst
-
-Specific Topics:
-
-.. toctree::
-
-   examples/graph.rst
-   examples/cameras.rst
-   examples/blending.rst
-   examples/sprites.rst
-   examples/animation.rst
-   examples/multipass.rst
-   examples/volumes.rst
-
-Advanced Topics:
-
-.. toctree::
-   
-   advanced/extending.rst
-   advanced/jta_spec.rst
-   advanced/gani_spec.rst
-
-Reference Pages:
-
-.. toctree::
-   
-   M.GRL Reference <autogen/api>
+   tutorials.rst
+   examples.rst
+   advanced.rst
+   API Reference <autogen/api>
 
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
 
