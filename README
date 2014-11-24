@@ -37,6 +37,22 @@
 .
 
 
+ Sphinx is used for documenting M.GRL.  If you make changes to the
+ api, you will need to regenerate some of the documentation.
+
+ Automatic generation of API documentation in Sphinx is accomplished
+ with jsdoc and jsdoc-rst-template.  Both of these modules may be
+ installed via *sigh* npm.
+
+$ npm install jsdoc
+$ npm install jsdoc-rst-template
+
+ Then you can regenerate the API pages like so:
+
+$ ./autogen_api.sh
+.
+
+
  "Mondaux" is pronounced like "monday".  Bad faux-french.
 
  As for "m.grl", think "riot grrl" or "perl grrl".  Only it's
