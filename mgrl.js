@@ -2005,7 +2005,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 return;
             }
             var value = type_array;
-            if (typeof(type_array) === "number") {
+            if (typeof(type_array) === "number" || typeof(type_array) === "boolean") {
                 if (is_array) {
                     if (data.type === gl.FLOAT) {
                         value = new Float32Array([type_array]);
@@ -2652,6 +2652,7 @@ please.GraphNode = function () {
     this.scale_x = 1;
     this.scale_y = 1;
     this.scale_z = 1;
+    this.alpha = 1.0;
     this.__cache = null;
     this.__asset = null;
     this.__asset_hint = "";
@@ -2804,8 +2805,14 @@ please.GraphNode.prototype = {
             prog.vars["world_matrix"] = self.__cache.world_matrix;
             prog.vars["normal_matrix"] = self.__cache.normal_matrix;
             // FIXME: these should both be bools
-            prog.vars["is_sprite"] = self.draw_type==="sprite" ? 1 : 0;
-            prog.vars["is_transparent"] = self.sort_mode==="alpha" ? 1 : 0;
+            prog.vars["is_sprite"] = self.draw_type==="sprite";
+            prog.vars["is_transparent"] = self.sort_mode==="alpha";
+            if (self.sort_mode === "alpha") {
+                prog.vars["alpha"] = self.alpha;
+            }
+            else {
+                prog.vars["alpha"] = 1.0;
+            }
             this.draw();
         }
     },

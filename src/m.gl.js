@@ -392,7 +392,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
 
             var value = type_array;
-            if (typeof(type_array) === "number") {
+            if (typeof(type_array) === "number" || typeof(type_array) === "boolean") {
                 if (is_array) {
                     if (data.type === gl.FLOAT) {
                         value = new Float32Array([type_array]);
