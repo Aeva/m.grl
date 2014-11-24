@@ -33,6 +33,12 @@ Advanced Topics:
    advanced/jta_spec.rst
    advanced/gani_spec.rst
 
+Reference Pages:
+
+.. toctree::
+   
+   M.GRL Reference <autogen/api>
+
 
 Indices and tables
 ==================
