@@ -2613,7 +2613,7 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
     }
     for (var model_name in model_defs) if (model_defs.hasOwnProperty(model_name)) {
         var model = model_defs[model_name];
-        if (model.extra.smooth_shading) {
+        if (model.extra.smooth_normals) {
             for (var group_name in model.groups) if (model.groups.hasOwnProperty(group_name)) {
                 var group = model.groups[group_name];
                 set_smooth(group.start, group.total);

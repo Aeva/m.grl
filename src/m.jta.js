@@ -373,7 +373,7 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
     }
     ITER_PROPS(model_name, model_defs) {
         var model = model_defs[model_name];
-        if (model.extra.smooth_shading) {
+        if (model.extra.smooth_normals) {
             ITER_PROPS(group_name, model.groups) {
                 var group = model.groups[group_name];
                 set_smooth(group.start, group.total);
