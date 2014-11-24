@@ -5,3 +5,4 @@
 /apps/jta_tool/dist/
 /apps/jta_tool/*.egg-info
 *.blend?
+/docs/build/
