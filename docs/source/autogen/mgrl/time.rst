@@ -32,7 +32,7 @@ some other handy methods pertaining to time.
     animation frames.
 
     :param function callback: A function to be called on an animation frame.
-    :param number when: Delay in milliseconds for the soonest time which the callback
+    :param Number when: Delay in milliseconds for the soonest time which the callback
     may be called.
 
 

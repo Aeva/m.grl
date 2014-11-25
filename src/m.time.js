@@ -13,12 +13,9 @@
  * @function
  * @memberOf mgrl.time
  *
- * @param {function} callback 
+ * @param {Function} callback 
  * A function to be called relatively soon.
  */
-// Schedules a callback to executed whenever it is convinient to do
-// so.  This is useful for preventing errors from completely halting
-// the program's execution, and makes some errors easier to find.
 please.postpone = function (callback) {
     if (typeof(callback) === "function") {
         window.setTimeout(callback, 0);
@@ -49,10 +46,10 @@ please.time = (function () {
      * @memberOf mgrl.time
      * @alias please.time.schedule
      *
-     * @param {function} callback 
+     * @param {Function} callback 
      * A function to be called on an animation frame.
      * 
-     * @param {number} when
+     * @param {Number} when
      * Delay in milliseconds for the soonest time which the callback
      * may be called.
      */
@@ -84,7 +81,7 @@ please.time = (function () {
      * @memberOf mgrl.time
      * @alias please.time.remove
      *
-     * @param {function} callback 
+     * @param {Function} callback 
      * A function that was already scheduled by please.time.schedule.
      */
     batch.remove = function (callback) {
