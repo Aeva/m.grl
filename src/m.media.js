@@ -1,5 +1,11 @@
 // - m.media.js ------------------------------------------------------------- //
 
+/**
+ * This module is responsible for downloading art assets, error
+ * handling (via placeholder sprites etc), and triggering callbacks.
+ * @module mgrl.media
+ */
+
 
 please.media = {
     // data
@@ -32,7 +38,25 @@ please.media.errors["img"].src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA
 please.media.errors["img"].asset_name = "error_image";
 
 
-// Add a search path
+/**
+ * Define a search path for a given asset type.  This will be used to
+ * prefix the asset name in most cases.  For example, MGRL expects all
+ * of your images to be in a common directory - when a .jta or .gani
+ * file requests a texture, the image file name in the file will be
+ * assumed to be relative to the path defined with this method.
+ * @function
+ * @memberOf mgrl.media
+ *
+ * @param {String} type
+ * One of "img", "jta", "gani", "audio", "glsl", or "text".
+ *
+ * @param {String} path
+ * A url where the game assets might be found.
+ *
+ * @example
+ * please.set_search_path("img", "/assets/images/");
+ * please.set_search_path("jta", "/assets/models/");
+ */
 please.set_search_path = function (type, path) {
     if (!path.endsWith("/")) {
         path += "/";
