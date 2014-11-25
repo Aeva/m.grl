@@ -141,11 +141,15 @@ if (!Array.prototype.map) {
  * @function
  * @memberOf mgrl.defs
  *
- * @param {object} dict
+ * @param {Object} dict
  * An object to be enumerated.
  *
- * @param {function} callback
+ * @param {Function} callback
  * A function to be called for each of the object's properties.
+ *
+ * @returns {Object} 
+ * Returns an object with same keys as the dict parameter, but who's
+ * values are the callback return values.
  *
  * @example
  * var some_ob = {"prop_name" : "prop_value"};
@@ -167,8 +171,24 @@ please.prop_map = function (dict, callback) {
  * @memberOf mgrl.defs
  * @deprecated
  *
- * @param {function} callback
+ * @param {Function} callback
  * A function to only be called once.
+ *
+ * @returns {Function} Generated function.
+ *
+ * @example
+ * 
+ * var counter = 0;
+ * function increment() {
+ *     counter += 1;
+ * };
+ *
+ * var burn_after_reading = please.once(increment);
+ * burn_after_reading();
+ * burn_after_reading();
+ * burn_after_reading();
+ *
+ * console.assert(counter === 1); // assertion should pass
  */
 please.once = function (callback) {
     var called = false;
@@ -179,8 +199,26 @@ please.once = function (callback) {
         }
     };
 };
-// Text processing function, splits a line into parameters, and does
-// some cleaning.
+/**
+ * Splits a line into a list of parameters.  The whitespace is trimmed
+ * from the parameters automatically.
+ *
+ * @function 
+ * @memberOf mgrl.defs
+ *
+ * @param {String} line
+ * A string of text to be split apart.
+ *
+ * @param {String} delim
+ * The delimiting character, defaults to " " if it is undefined.
+ *
+ * @return {String|Array} Array of parameters.
+ *
+ * @example
+ * var message = "This   is a      test."; 
+ * var params = please.split_params(message, " ");
+ * // params is equal to ["This", "is", "a", "test."];
+ */
 please.split_params = function (line, delim) {
     if (delim === undefined) {
         delim = " ";
@@ -195,7 +233,24 @@ please.split_params = function (line, delim) {
     }
     return params;
 };
-// Determines if the string contains only a number:
+/**
+ * Determines if the string contains only a number:
+ * @function 
+ * @memberOf mgrl.defs
+ *
+ * @param {Object} param
+
+ * An object to be tested to see if it is a Number or a String that
+ * may be parsed as a Number.
+ *
+ * @return {Boolean} Boolean value.
+ *
+ * @example
+ * please.is_number(10); // return true
+ * please.is_number("42"); // return true
+ * please.is_number("one hundred"); // return false
+ * please.is_number({}); // return false
+ */
 please.is_number = function (param) {
     if (typeof(param) === "number") {
         return true;
@@ -208,7 +263,17 @@ please.is_number = function (param) {
         return false;
     }
 };
-// Determines if the string describes a gani attribute:
+/**
+ * Determines if a string describes a valid gani attribute.
+ * @function 
+ * @memberOf mgrl.defs
+ * @deprecated
+ *
+ * @param {String} param
+ * A string that is a potentially valid gani attribute.
+ *
+ * @return {Boolean} Boolean value.
+ */
 please.is_attr = function (param) {
     if (typeof(param) === "string") {
         var found = param.match(/^[A-Z]+[0-9A-Z]*$/);
@@ -218,10 +283,26 @@ please.is_attr = function (param) {
         return false;
     }
 };
-// Returns an object's properties list:
+/**
+ * Alias for Object.getOwnPropertyNames
+ * @function 
+ * @memberOf mgrl.defs
+ * @param {Object} param
+ * Any object.
+ */
 please.get_properties = Object.getOwnPropertyNames;
-// Find the correct vendor prefix version of a css attribute.
-// Expects and returns css notation.
+/**
+ * Find the correct vendor prefix version of a css attribute.  Expects
+ * and returns css notation.
+ * @function 
+ * @memberOf mgrl.defs
+ * 
+ * @param {String} attrib_name
+ * A string containing the name of a css attribute.
+ *
+ * @returns {String}
+ * The css attribute with the appropriate css vendor prefix attached.
+ */
 please.normalize_prefix = function (property) {
     var prefi = ["", "moz-", "webkit-", "o-", "ms-"];
     var parts, part, check, found=false;
@@ -248,17 +329,41 @@ please.normalize_prefix = function (property) {
         return "-" + prefi[found] + property;
     }
 };
-// Returns a random element from the given list:
+/**
+ * Returns a random element from a given list.
+ * @function 
+ * @memberOf mgrl.defs
+ *
+ * @param {Array} list
+ * A list of arbitrary objects.
+ * 
+ * @Return {Object} A random object from the list.
+ */
 please.random_of = function(array) {
     var selected = Math.floor(Math.random()*array.length);
     return array[selected];
 };
-// Converts from degrees to radians:
+/**
+ * Converts from degrees to radians:
+ * @function 
+ * @memberOf mgrl.defs
+ *
+ * @param {Number} degrees An angular value expressed in degrees.
+ *
+ * @returns {Number} An angular value expressed in radians.
+ */
 please.radians = function (degrees) {
     return degrees*(Math.PI/180);
 };
-// Take a base64 encoded array of binary data and return something
-// that can be cast into a typed array eg Float32Array.
+/**
+ * Creates an ArrayBuffer from base64 encoded binary data.
+ * @function 
+ * @memberOf mgrl.defs
+ *
+ * @param {Blob} blob Base64 encoded binary array.
+ *
+ * @returns {ArrayBuffer} An array buffer.
+ */
 please.decode_buffer = function(blob) {
     // FIXME, correct for local endianness
     var raw = atob(blob);
@@ -269,8 +374,23 @@ please.decode_buffer = function(blob) {
     }
     return buffer;
 };
-// Intelligently create a typed array from a type hint.  Includes
-// normalizing Float16 arrays into Float32 arrays.
+/**
+ * Intelligently create a typed array from a type hint.  Includes
+ * normalizing Float16 arrays into Float32 arrays.
+ *
+ * @function 
+ * @memberOf mgrl.defs
+ *
+ * @param {Blob} raw
+ * Base64 encoded binary array.
+ *
+ * @param {String} hint
+ * A type hint to determine the resulting typed
+ * array's type.  Hint may be one of "Float16Array", "Float32Array",
+ * "Int32Array", "Uint16Array", and "Uint32Array".  The hint
+ * "Float16Array" will cause the resulting data to be safely cast to
+ * the Float32Array type since javascript lacks a Float16Array type.
+ */
 please.typed_array = function (raw, hint) {
     if (hint == "Float32Array") {
         return new Float32Array(please.decode_buffer(raw));
