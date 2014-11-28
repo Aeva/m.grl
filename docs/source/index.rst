@@ -14,7 +14,7 @@ Contents:
    tutorials.rst
    examples.rst
    advanced.rst
-   API Reference <autogen/api>
+   api_reference/index.rst
 
 
 Indices and tables

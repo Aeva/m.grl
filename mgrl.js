@@ -606,7 +606,31 @@ please.set_search_path = function (type, path) {
     }
     please.media.search_paths[type] = path;
 };
-// Download an asset.
+/**
+ * Downloads an asset.
+ * @function
+ * @memberOf mgrl.media
+ *
+ * @param {String} asset_name The name of the asset to be downloaded,
+ * relative to the search path (unless the "absolute_url" option is
+ * set).
+ *
+ * @param {Function} callback An optional callback that is triggered
+ * as soon as the asset exists in memory.  Repeated calls of
+ * please.load to an asset already in memory will trigger a callback
+ * if one is set.  This param may be set to null.
+ *
+ * @param {Object} options The options dictionary has two keys:
+ * "force_type" (defaults to false) and "absolute_url" (defaults to
+ * false).  The former may be used to coerce a specific type to be
+ * used (eg 'text'), the later may be used to bypass the search path
+ * of a file.
+ *
+ * @example
+ * please.set_search_path("img", "/assets/images/");
+ * please.load("hello_world.png");
+ * please.load("/foo.jpg", null, {"absolute_url":true});
+ */
 please.load = function (asset_name, callback, options) {
     var opt = {
         "force_type" : false,
