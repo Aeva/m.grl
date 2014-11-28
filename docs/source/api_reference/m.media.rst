@@ -69,3 +69,30 @@ Downloads an asset if it is not already in memory.
 
 
 
+please.access
+-------------
+*please.access* **(asset\_name[, no\_error=false])**
+
+Access an asset. If the asset is not found, this function returns the
+hardcoded placeholder/error image. The placeholder image is defined in
+the object 'please.media.errors[type]'. The 'no\_error' parameter
+descirbed below may be used to override this behavior.
+
+-  **asset\_name** The URI of an asset to be downloaded, relative to the
+   set search path. If the key 'absolute\_url' in the options object is
+   true then nothing will be prepended to 'asset\_name'.
+
+-  **no\_error** When this optional value is set to true, nothing is
+   returned when the asset does not exist.
+
+::
+
+    please.set_search_path("img", "/assets/images/");
+    var foo = please.access("some_image.png"); // returns error image
+    var bar = please.access("some_image.png", true); // returns false
+    please.load("some_image.png", function() {
+    var baz = please.access("some_image.png"); // returns the image
+    });
+
+
+
