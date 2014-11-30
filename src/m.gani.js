@@ -714,8 +714,11 @@ please.media.__AnimationData = function (gani_text, uri) {
 // animation object.
 //
 please.gani.build_gl_buffers = function (ani) {
-    // FIXME: check to see if the ani object already has a vbo / ibo
-    // to prevent redundant builds
+    if (ani.vbo && ani.ibo) {
+        // Buffer objects are already present, so do nothing.
+        return;
+    }
+
     var builder = new please.builder.SpriteBuilder(
         false, please.gani.resolution);
     var directions = ani.single_dir ? 1 : 4;
