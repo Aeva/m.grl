@@ -31,7 +31,7 @@ relative to the path defined with this method.
 
 -  **base\_url** A url where the game assets might be found.
 
-::
+.. code-block:: javascript
 
     please.set_search_path("img", "/assets/images/");
     please.set_search_path("jta", "/assets/models/");
@@ -61,11 +61,17 @@ Downloads an asset if it is not already in memory.
    true, the searchpath is bypassed, and the asset\_name is treated as
    an asolute path or URL.
 
-::
+.. code-block:: javascript
 
     please.set_search_path("img", "/assets/images/");
+
+    // load an image relative to the search path
     please.load("hello_world.png");
-    please.load("/foo.jpg", null, {"absolute_url":true});
+
+    // load an image with an absolute url
+    please.load("/foo.jpg", null, {
+        "absolute_url" : true,
+    });
 
 
 
@@ -85,13 +91,19 @@ descirbed below may be used to override this behavior.
 -  **no\_error** When this optional value is set to true, nothing is
    returned when the asset does not exist.
 
-::
+.. code-block:: javascript
 
     please.set_search_path("img", "/assets/images/");
-    var foo = please.access("some_image.png"); // returns error image
-    var bar = please.access("some_image.png", true); // returns false
+
+    // foo contains a placeholder image
+    var foo = please.access("some_image.png");
+
+    // bar is false
+    var bar = please.access("some_image.png", true);
+
     please.load("some_image.png", function() {
-        var baz = please.access("some_image.png"); // returns the image
+        // baz contains the image
+        var baz = please.access("some_image.png");
     });
 
 

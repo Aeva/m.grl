@@ -95,8 +95,14 @@ please.set_search_path = function (type, path) {
 //
 // ```
 // please.set_search_path("img", "/assets/images/");
+//
+// // load an image relative to the search path
 // please.load("hello_world.png");
-// please.load("/foo.jpg", null, {"absolute_url":true});
+//
+// // load an image with an absolute url
+// please.load("/foo.jpg", null, {
+//     "absolute_url" : true,
+// });
 // ```
 //
 please.load = function (asset_name, callback, options) {
@@ -150,10 +156,16 @@ please.load = function (asset_name, callback, options) {
 //
 // ```
 // please.set_search_path("img", "/assets/images/");
-// var foo = please.access("some_image.png"); // returns error image
-// var bar = please.access("some_image.png", true); // returns false
+//
+// // foo contains a placeholder image
+// var foo = please.access("some_image.png");
+//
+// // bar is false
+// var bar = please.access("some_image.png", true);
+//
 // please.load("some_image.png", function() {
-//     var baz = please.access("some_image.png"); // returns the image
+//     // baz contains the image
+//     var baz = please.access("some_image.png"); 
 // });
 // ```
 //

@@ -28,7 +28,7 @@ the likely physical placement of various keys.
 -  **str** A string containing a string of text as if it were typed on a
    dvorak key layout.
 
-::
+.. code-block:: javascript
 
     var asd = please.keys.normalize_dvorak("aoe");
 

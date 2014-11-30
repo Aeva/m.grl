@@ -21,7 +21,7 @@ is called.
 
 -  **callback** A function to be called only once.
 
-::
+.. code-block:: javascript
 
     var counter = 0;
     function increment() { counter += 1 };
@@ -47,7 +47,7 @@ trimmed from the resulting tokens before they are returned in an array.
 
 -  **delim** An optional delimiting character, defaults to " ".
 
-::
+.. code-block:: javascript
 
     var message = "This   is a      test.";
     var params = please.split_params(message, " ");

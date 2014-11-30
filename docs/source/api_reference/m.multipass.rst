@@ -57,7 +57,7 @@ please.pipeline.remove_above
 Remove all handlers of a priority greater than or equal to the one
 passed to this method.
 
-::
+.. code-block:: javascript
 
     // removes all pipeline stages that perform rendering functionality
     please.pipeline.remove_above(0);
