@@ -1011,6 +1011,20 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
 };
 please.media.errors["img"].instance = please.media.__image_instance;
 // - m.input.js ------------------------------------------------------------- //
+/* [+]
+ *
+ * This part of the module is responsible for abstracting various
+ * input events in such a way that they are more flexible beyond their
+ * intended use.  Most notably, that means wrapping the event handlers
+ * for keyboard events, so as to prevent rapid emission of redundant
+ * key press events.
+ *
+ * Functionality is also provided for allowing automatic mappings for
+ * different keyboard layouts.
+ *
+ * This file stores most of its API under the __please.keys__ object.
+ *
+ */
 please.keys = {
     "handlers" : {},
     "stats" : {},
@@ -1027,12 +1041,80 @@ please.keys = {
     "connect" : function (char, handler, threshold) {},
     "remove" : function (char) {},
 };
+// [+] please.keys.enable()
+//
+// This function hooks up the necessary event handling machinery.
+//
+please.keys.enable = function () {
+    window.addEventListener("keydown", please.keys.__event_handler);
+    window.addEventListener("keypress", please.keys.__event_handler);
+    window.addEventListener("keyup", please.keys.__event_handler);
+    window.addEventListener("blur", please.keys.__full_stop);
+};
+// [+] please.keys.disable()
+//
+// This function removes the necessary event handling machinery.
+//
+please.keys.disable = function () {
+    please.keys.__full_stop();
+    window.removeEventListener("keydown", please.keys.__event_handler);
+    window.removeEventListener("keypress", please.keys.__event_handler);
+    window.removeEventListener("keyup", please.keys.__event_handler);
+    window.removeEventListener("blur", please.keys.__full_stop);
+};
+// [+] please.connect(char, handler, threshold)
+//
+// Adds a keyboard binding.
+// - **char** is a string such as "A", "S", "D", "\t", or whatever
+//   might be reported by keyboard events.  Automatic conversion to
+//   other keyboard layouts is supported in m.input, so please define
+//   your events assuming a QWERTY keyboard.
+//
+// - **handler** A function to be called with the argument _state_ and
+//   _keys_.  The _state_ argument on the callback is one of "press";
+//   "long"; or "cancel", and the "keys" argument is a list of keys
+//   currently being pressed.
+//
+// - **threshold** is the number of milliseconds for which after the
+//   key is held continuously for, the handler callback will be
+//   triggered.
+// 
+please.keys.connect = function (char, handler, threshold) {
+    please.keys.handlers[char] = handler;
+    please.keys.stats[char] = {
+        "threshold" : threshold,
+        "timeout" : -1,
+        "state" : "cancel",
+    };
+};
+// [+] please.keys.remove(char)
+//
+// Removes a keybinding set by please.keys.connect.
+//
+please.keys.remove = function (char) {
+    clearTimeout(please.keys.stats[char].timeout);
+    delete please.keys.handlers[char];
+    delete please.keys.stats[char];
+};
+// [+] please.keys.normalize\_dvorak(str)
+//
+// This function converts strings between qwerty and dvorak.  This is
+// used to convert keyboard events for Dvorak users to Qwerty for the
+// purpose of recognizing events and having a common notation (Qwerty)
+// for determining the likely physical placement of various keys.
+//
+// - **str** A string containing a string of text as if it were typed
+//   on a dvorak key layout.
+//
+// ```
+// var asd = please.keys.normalize_dvorak("aoe");
+// ```
 please.keys.normalize_dvorak = function (str) {
     /* This function converts strings between qwerty and dvorak. */
     if (str.length > 1) {
         var new_str = "";
         for (var i=0; i<str.length; i+=1) {
-            new_str += normalize_dvorak(str[i]);
+            new_str += please.keys.normalize_dvorak(str[i]);
         }
         return new_str;
     }
@@ -1127,10 +1209,19 @@ please.keys.__keycode_names = {
     221 : "]",
     222 : "'",
 };
+// [+] please.keys.lookup\_keycode(code)
+//
+// This function returns a human readable identifier for a given
+// keycode.  This is used because string.fromCharCode does not always
+// produce correct results.
+//
+// This function will automatically perform keyboard layout
+// conversion, if the keyboard layout is appended to the document URL.
+// Currently, only #dvorak is supported.
+//
+// - **code** Numerical character code value.
+//
 please.keys.lookup_keycode = function (code) {
-    /* This function returns a human readable identifier for a given
-       keycode.  string.fromCharCode does not always produce correct
-       results */
     var key = please.keys.__keycode_names[code];
     if (key === undefined) {
         key = String.fromCharCode(code);
@@ -1140,8 +1231,11 @@ please.keys.lookup_keycode = function (code) {
     }
     return key;
 };
+// [+] please.keys.\_\_cancel(char)
+//
+// Forces a key to be released.
+//
 please.keys.__cancel = function (char) {
-    /* Forces a key to be released. */
     if (please.keys.handlers[char] && please.keys.stats[char].state !== "cancel") {
         var handler = please.keys.handlers[char];
         var stats = please.keys.stats[char];
@@ -1180,52 +1274,16 @@ please.keys.__event_handler = function (event) {
         }
     }
 };
+// [+] please.keys.\_\_full\_stop()
+//
+// This function is called to force key-up events and clear all
+// pending input timeouts.  Usually this happens when the window is
+// blurred.
+//
 please.keys.__full_stop = function () {
-    /* This function is called to force key-up events and clear
-       pending timeouts.  Usually this happens when the window is
-       blurred. */
     for (var key in please.keys.handlers) if (please.keys.handlers.hasOwnProperty(key)) {
         please.keys.__cancel(key);
     }
-};
-/////////////////////// API functions
-please.keys.enable = function () {
-    /* This function hooks up the event handling machinery. */
-    window.addEventListener("keydown", please.keys.__event_handler);
-    window.addEventListener("keypress", please.keys.__event_handler);
-    window.addEventListener("keyup", please.keys.__event_handler);
-    window.addEventListener("blur", please.keys.__full_stop);
-};
-please.keys.disable = function () {
-    /* This function unhooks the event handling machinery. */
-    please.keys.__full_stop();
-    window.removeEventListener("keydown", please.keys.__event_handler);
-    window.removeEventListener("keypress", please.keys.__event_handler);
-    window.removeEventListener("keyup", please.keys.__event_handler);
-    window.removeEventListener("blur", please.keys.__full_stop);
-};
-please.keys.connect = function (char, handler, threshold) {
-    /* Adds a keyboard binding.  'Char' is something like "A", "S", "
-       ", "\t", or whatever might be reported by keyboard events.
-
-       Threshold is the number of milliseconds for which after the key
-       is held continuously for, the handler will be triggered.
-
-       The argument "handler" will be called with the argument "state"
-       which will be one of "press", "long", or "cancel".  Followed by a
-       list of keys currently pressed. */
-    please.keys.handlers[char] = handler;
-    please.keys.stats[char] = {
-        "threshold" : threshold,
-        "timeout" : -1,
-        "state" : "cancel",
-    };
-};
-please.keys.remove = function (char) {
-    /* Removes a keybinding set by the please.keys.connect function */
-    clearTimeout(please.keys.stats[char].timeout);
-    delete please.keys.handlers[char];
-    delete please.keys.stats[char];
 };
 // - m.multipass.js --------------------------------------------------------- //
 // Namespace for multipass rendering stuff:
