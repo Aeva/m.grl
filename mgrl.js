@@ -33,14 +33,14 @@
   structures.
  */
 // - m.defs.js  ------------------------------------------------------------- //
-// Makes sure various handy things are implemented manually if the
-// browser lacks native support.  Also implements helper functions
-// used widely in the codebase, and defines the module's faux
-// namespace.
-/**
- * This module implements polyfills for browser compatibility, as well
- * as defines various helper functions used elsewhere within M.GRL.
- * @module mgrl.defs
+/* [+]
+ *
+ * This part of the module is responsible primarily for polyfills of
+ * language features that are present in Firefox but absent from other
+ * browsers.  This file also implements some helper functions that are
+ * widely used within M.GRL's codebase, and defines the module's faux
+ * namespace 'please'.
+ * 
  */
 // Define said namespace:
 if (window.please === undefined) { window.please = {} };
@@ -164,32 +164,26 @@ please.prop_map = function (dict, callback) {
     };
     return results;
 };
-/**
- * Returns a function that will call a callback, but only the first
- * time it is called.
- * @function 
- * @memberOf mgrl.defs
- * @deprecated
- *
- * @param {Function} callback
- * A function to only be called once.
- *
- * @returns {Function} Generated function.
- *
- * @example
- * 
- * var counter = 0;
- * function increment() {
- *     counter += 1;
- * };
- *
- * var burn_after_reading = please.once(increment);
- * burn_after_reading();
- * burn_after_reading();
- * burn_after_reading();
- *
- * console.assert(counter === 1); // assertion should pass
- */
+// [+] please.once(callback)
+//
+// Returns a function that will call a callback, but only the first
+// time it is called.
+//
+// - **callback** A function to be called only once.
+//
+// ```
+// var counter = 0;
+// function increment() { counter += 1 };
+//
+// var burn_after_reading = please.once(increment);
+//
+// burn_after_reading(); // increment is called
+// burn_after_reading(); // nothing happens
+// burn_after_reading(); // nothing happens
+//
+// console.assert(counter === 1); // assertion should pass
+// ```
+//
 please.once = function (callback) {
     var called = false;
     return function () {
@@ -199,26 +193,22 @@ please.once = function (callback) {
         }
     };
 };
-/**
- * Splits a line into a list of parameters.  The whitespace is trimmed
- * from the parameters automatically.
- *
- * @function 
- * @memberOf mgrl.defs
- *
- * @param {String} line
- * A string of text to be split apart.
- *
- * @param {String} delim
- * The delimiting character, defaults to " " if it is undefined.
- *
- * @return {String|Array} Array of parameters.
- *
- * @example
- * var message = "This   is a      test."; 
- * var params = please.split_params(message, " ");
- * // params is equal to ["This", "is", "a", "test."];
- */
+// [+] please.split\_params(line[, delim=" "])
+//
+// Splits a string of text into tokens (or "parameters").  The
+// whitespace is trimmed from the resulting tokens before they are
+// returned in an array.
+//
+// - **line** A string of text to be split into tokens.
+//
+// - **delim** An optional delimiting character, defaults to " ".
+//
+// ```
+// var message = "This   is a      test.";
+// var params = please.split_params(message, " ");
+// // params is equal to ["This", "is", "a", "test."];
+// ```
+//
 please.split_params = function (line, delim) {
     if (delim === undefined) {
         delim = " ";
@@ -251,6 +241,21 @@ please.split_params = function (line, delim) {
  * please.is_number("one hundred"); // return false
  * please.is_number({}); // return false
  */
+// [+] please.is\_number(param)
+//
+// **DEPRECATED** this method will likely be renamed in the future,
+// or removed all together if .gani parsing functionality is spun off
+// into its own library.
+//
+// **Warning** the name of this method is misleading - it is intended
+// to determine if a block of text in a .gani file refers to a number.
+//
+// This method returns true if the parameter passed to it is either a
+// number object or a string that contains only numerical characters.
+// Otherwise, false is returned.
+//
+// - **param** Some object, presumably a string or a number.
+//
 please.is_number = function (param) {
     if (typeof(param) === "number") {
         return true;
@@ -263,17 +268,18 @@ please.is_number = function (param) {
         return false;
     }
 };
-/**
- * Determines if a string describes a valid gani attribute.
- * @function 
- * @memberOf mgrl.defs
- * @deprecated
- *
- * @param {String} param
- * A string that is a potentially valid gani attribute.
- *
- * @return {Boolean} Boolean value.
- */
+// [+] please.is\_attr(param)
+//
+// **DEPRECATED** this method will likely be renamed in the future,
+// or removed all together if .gani parsing functionality is spun off
+// into its own library.
+//
+// Determines if a string passed to it describes a valid gani
+// attribute name.  Returns true or false.
+//
+// - **param** A string that might refer to a .gani attribute
+// something else.
+//
 please.is_attr = function (param) {
     if (typeof(param) === "string") {
         var found = param.match(/^[A-Z]+[0-9A-Z]*$/);
@@ -283,87 +289,38 @@ please.is_attr = function (param) {
         return false;
     }
 };
-/**
- * Alias for Object.getOwnPropertyNames
- * @function 
- * @memberOf mgrl.defs
- * @param {Object} param
- * Any object.
- */
+// [+] please.get\_properties(obj)
+//
+// A name alias for Object.getOwnPropertyNames.  These are both the
+// same function.  See [this MDN article](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/getOwnPropertyNames)
+// for more information.
+//
 please.get_properties = Object.getOwnPropertyNames;
-/**
- * Find the correct vendor prefix version of a css attribute.  Expects
- * and returns css notation.
- * @function 
- * @memberOf mgrl.defs
- * 
- * @param {String} attrib_name
- * A string containing the name of a css attribute.
- *
- * @returns {String}
- * The css attribute with the appropriate css vendor prefix attached.
- */
-please.normalize_prefix = function (property) {
-    var prefi = ["", "moz-", "webkit-", "o-", "ms-"];
-    var parts, part, check, found=false;
-    for (var i=0; i<prefi.length; i+=1) {
-        check = prefi[i]+property;
-        parts = check.split("-");
-        check = parts.shift();
-        for (var k=0; k<parts.length; k+=1) {
-            part = parts[0];
-            check += part[0].toUpperCase() + part.slice(1);
-        }
-        if (document.body.style[check]!== undefined) {
-            found = i;
-            break;
-        }
-    }
-    if (found === false) {
-        throw("Unsupported css property!");
-    }
-    else if (found === 0) {
-        return property;
-    }
-    else {
-        return "-" + prefi[found] + property;
-    }
-};
-/**
- * Returns a random element from a given list.
- * @function 
- * @memberOf mgrl.defs
- *
- * @param {Array} list
- * A list of arbitrary objects.
- * 
- * @Return {Object} A random object from the list.
- */
+// [+] please.random\_of(array)
+//
+// Returns a random element from a given array.
+//
+// - **array** An array of objects.
+//
 please.random_of = function(array) {
     var selected = Math.floor(Math.random()*array.length);
     return array[selected];
 };
-/**
- * Converts from degrees to radians:
- * @function 
- * @memberOf mgrl.defs
- *
- * @param {Number} degrees An angular value expressed in degrees.
- *
- * @returns {Number} An angular value expressed in radians.
- */
+// [+] please.radians(degrees)
+//
+// Converts from degrees to radians.
+//
+// - **degrees** An angular value expressed in dgersee.
+//
 please.radians = function (degrees) {
     return degrees*(Math.PI/180);
 };
-/**
- * Creates an ArrayBuffer from base64 encoded binary data.
- * @function 
- * @memberOf mgrl.defs
- *
- * @param {Blob} blob Base64 encoded binary array.
- *
- * @returns {ArrayBuffer} An array buffer.
- */
+// [+] please.decode\_buffer(blob)
+//
+// Creates and returns an ArrayBuffer from Base64 encoded binary data.
+//
+// - **blob** A Base64 encoded binary array.
+//
 please.decode_buffer = function(blob) {
     // FIXME, correct for local endianness
     var raw = atob(blob);
@@ -374,23 +331,21 @@ please.decode_buffer = function(blob) {
     }
     return buffer;
 };
-/**
- * Intelligently create a typed array from a type hint.  Includes
- * normalizing Float16 arrays into Float32 arrays.
- *
- * @function 
- * @memberOf mgrl.defs
- *
- * @param {Blob} raw
- * Base64 encoded binary array.
- *
- * @param {String} hint
- * A type hint to determine the resulting typed
- * array's type.  Hint may be one of "Float16Array", "Float32Array",
- * "Int32Array", "Uint16Array", and "Uint32Array".  The hint
- * "Float16Array" will cause the resulting data to be safely cast to
- * the Float32Array type since javascript lacks a Float16Array type.
- */
+// [+] please.typed\_array(raw, hint)
+//
+// Creates and returns a typed array object from a Base64 encoded
+// string of binary data.
+// 
+// - **raw** The Base64 encoded string containing an array of binary
+//   data.
+//
+// - **hint** A string describing the data type for the packed binary
+//   data.  Must be one of the following: "Float16Array",
+//   "Float32Array", "Int32Array", "Uint16Array", and "Uint32Array".
+//   The hint "Float16Array" will cause the resulting data to be
+//   safely cast to the Float32Array type since javascript lacks a
+//   Float16Array type.
+//
 please.typed_array = function (raw, hint) {
     if (hint == "Float32Array") {
         return new Float32Array(please.decode_buffer(raw));
@@ -614,7 +569,7 @@ please.set_search_path = function (type, path) {
     }
     please.media.search_paths[type] = path;
 };
-// [+] please.load(asset_name, [callback=null, options={}])
+// [+] please.load(asset\_name, [callback=null, options={}])
 //
 // Downloads an asset if it is not already in memory.
 //
@@ -674,7 +629,7 @@ please.load = function (asset_name, callback, options) {
         please.media.handlers[type](url, asset_name, callback);
     }
 };
-// [+] please.access(asset_name[, no_error=false])
+// [+] please.access(asset\_name[, no\_error=false])
 //
 // Access an asset.  If the asset is not found, this function returns
 // the hardcoded placeholder/error image.  The placeholder image is
@@ -685,7 +640,7 @@ please.load = function (asset_name, callback, options) {
 //   the set search path.  If the key 'absolute_url' in the options
 //   object is true then nothing will be prepended to 'asset_name'.
 //
-// - **no_error** When this optional value is set to true, nothing is
+// - **no\_error** When this optional value is set to true, nothing is
 //   returned when the asset does not exist.
 //
 // ```
@@ -734,7 +689,7 @@ please.media.relative_path = function (type, file_name) {
     }
     return prefix + file_name;
 };
-// [+] please.media.get_progress()
+// [+] please.media.get\_progress()
 // 
 // Returns a progress estimation for pending downloads.  You would use
 // this to make some kind of loading bar.  The returned object both
@@ -766,7 +721,7 @@ please.media.get_progress = function () {
     }
     return progress;
 };
-// [+] please.media._push(req_key[, callback])
+// [+] please.media.\_push(req\_key[, callback])
 //
 // **Intended for M.GRL's internal use only**.  This method is used to
 // to keep track of pending downloads, and prevent redundant download
@@ -795,7 +750,7 @@ please.media._push = function (req_key, callback) {
     }
     return no_pending;
 };
-// [+] please.media._pop(req_key)
+// [+] please.media.\_pop(req\_key)
 //
 // **Intended for M.GRL's internal use only**.  This method is called
 // after an asset has finished downloading.  It is responsible for
@@ -830,7 +785,7 @@ please.media._pop = function (req_key) {
     }
     return callbacks;
 };
-// [+] please.media.guess_type(file_name)
+// [+] please.media.guess\_type(file\_name)
 //
 // Returns the media type associated with the file extension of the
 // file name passed to this function.  If the media type cannot be
@@ -857,7 +812,7 @@ please.media.guess_type = function (file_name) {
     }
     return undefined;
 };
-// [+] please.media.__xhr_helper(req_type, url, asset_name, media_callback[, user_callback])
+// [+] please.media.\_\_xhr\_helper(req\_type, url, asset\_name, media\_callback[, user\_callback])
 //
 // **Intended primarily for M.GRL's internal use**.  If you were to
 // create a new media type, you would use this method.  If you are
@@ -1006,7 +961,7 @@ please.media.handlers.text = function (url, asset_name, callback) {
 //// FIXME - from an autodoc standpoint, I'm not sure it makes sense
 //// to put this in m.media.js. :/
 please.media.__image_buffer_cache = {};
-// [+] please.media.__image_instance([center=false, scale=64, x=0, y=0, width=this.width, height=this.height, alpha=true])
+// [+] please.media.\_\_image_instance([center=false, scale=64, x=0, y=0, width=this.width, height=this.height, alpha=true])
 //
 // This is not called directly, but by the "instance" method added to
 // image objects.  The result is a GraphNode compatible instance of
