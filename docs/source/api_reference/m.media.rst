@@ -91,7 +91,7 @@ descirbed below may be used to override this behavior.
     var foo = please.access("some_image.png"); // returns error image
     var bar = please.access("some_image.png", true); // returns false
     please.load("some_image.png", function() {
-    var baz = please.access("some_image.png"); // returns the image
+        var baz = please.access("some_image.png"); // returns the image
     });
 
 

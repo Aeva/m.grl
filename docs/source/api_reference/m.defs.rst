@@ -100,36 +100,6 @@ article <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Globa
 for more information.
 
 
-please.random\_of
------------------
-*please.random\_of* **(array)**
-
-Returns a random element from a given array.
-
--  **array** An array of objects.
-
-
-
-please.radians
---------------
-*please.radians* **(degrees)**
-
-Converts from degrees to radians.
-
--  **degrees** An angular value expressed in dgersee.
-
-
-
-please.decode\_buffer
----------------------
-*please.decode\_buffer* **(blob)**
-
-Creates and returns an ArrayBuffer from Base64 encoded binary data.
-
--  **blob** A Base64 encoded binary array.
-
-
-
 please.typed\_array
 -------------------
 *please.typed\_array* **(raw, hint)**
