@@ -1,5 +1,22 @@
 // - m.multipass.js --------------------------------------------------------- //
 
+/* [+]
+ *
+ * This part of the module is responsible for scheduling rendering
+ * events that happen on every single redraw event.
+ *
+ * It allows for you to define callbacks for graphics code.  The
+ * callbacks are given a priority value, so that they are always
+ * called in a specific order.
+ *
+ * In the future, m.multipass will also automatically update some
+ * uniform variable values to the GLSL shader program, so as to aid in
+ * the development of multipass rendering effects.
+ *
+ * This file stores most of its API under the __please.pipeline__
+ * object.
+ */
+
 
 // Namespace for multipass rendering stuff:
 please.pipeline = {
@@ -28,11 +45,13 @@ please.pipeline = {
 };
 
 
-// Add callbacks to the pipeline.  Priority is a weight.
+// [+] please.pipeline.add(priority, name, callback)
 //
-// Note that the return value for each callback will be passed as an
-// argument to the next callback in the chain.  This is useful for
-// multipass shader effects, etc.
+// Adds a callback to the pipeline.  Priority determines the order in
+// which the registered callbacks are to be called.
+//
+// Note that the return value for each callback is be passed as a
+// singular argument to the next callback in the chain.
 //
 // A good convention is to put things that need to happen before
 // rendering as negative numbers (they could all be -1 if the order
@@ -41,6 +60,18 @@ please.pipeline = {
 //
 // The sprite animation system, if used, will implicitly add its own
 // handler at priority -1.
+//
+// - **priority** A numerical sorting weight for this callback.  The
+//   higher the number, the later the method will be called. Numbers
+//   below zero indicates the callback is non-graphical and is called
+//   before any rendering code.
+//
+// - **name** A human-readable name for the pipeline stage.
+//
+// - **callback** the function to be called to execute this pipeline
+//   stage.  The return value of the previous pipeline stage is passed
+//   as an argument to the next pipeline stage's callback.
+//
 please.pipeline.add = function (priority, name, callback) {
     if (this.__callbacks[name] !== undefined) {
         var err = "Cannot register a callback of the same name twice.";
@@ -55,7 +86,10 @@ please.pipeline.add = function (priority, name, callback) {
 };
 
 
-// Remove a handler of a given name.
+// [+] please.pipeline.remove(name)
+//
+// Removes a named pipeline stage, preventing it from being rendering.
+//
 please.pipeline.remove = function (name) {
     if (this.__callbacks[name] === undefined) {
         console.warn("No such pipeline stage exists: " + name);
@@ -65,9 +99,15 @@ please.pipeline.remove = function (name) {
 };
 
 
-// Remove all handlers of a priority greater or equal to the one
-// passed to this function.  For example, to remove all rendering
-// pipeline stages, call with priority=0.
+// [+] please.pipeline.remove_above(priority)
+//
+// Remove all handlers of a priority greater than or equal to the one
+// passed to this method.
+//
+// ```
+// // removes all pipeline stages that perform rendering functionality
+// please.pipeline.remove_above(0);
+// ```
 please.pipeline.remove_above = function (priority) {
     var cull = [];
     ITER_PROPS(name, this.__callbacks) {
@@ -81,14 +121,20 @@ please.pipeline.remove_above = function (priority) {
 };
 
 
-// Start the event processing.
+// [+] please.pipeline.start()
+//
+// Activates the rendering pipeline.
+//
 please.pipeline.start = function () {
     this.__stopped = false;
     this.__reschedule();
 };
 
 
-// Stop the event processing.
+// [+] please.pipeline.stop()
+//
+// Halts the rendering pipeline.
+//
 please.pipeline.stop = function () {
     if (!this.__stopped) {
         if (this.__timer !== null) {
