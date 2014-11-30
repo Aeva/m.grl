@@ -72,7 +72,7 @@ please.set_search_path = function (type, path) {
 };
 
 
-// [+] please.load(asset_name, [callback=null, options={}])
+// [+] please.load(asset\_name, [callback=null, options={}])
 //
 // Downloads an asset if it is not already in memory.
 //
@@ -134,7 +134,7 @@ please.load = function (asset_name, callback, options) {
 };
 
 
-// [+] please.access(asset_name[, no_error=false])
+// [+] please.access(asset\_name[, no\_error=false])
 //
 // Access an asset.  If the asset is not found, this function returns
 // the hardcoded placeholder/error image.  The placeholder image is
@@ -145,7 +145,7 @@ please.load = function (asset_name, callback, options) {
 //   the set search path.  If the key 'absolute_url' in the options
 //   object is true then nothing will be prepended to 'asset_name'.
 //
-// - **no_error** When this optional value is set to true, nothing is
+// - **no\_error** When this optional value is set to true, nothing is
 //   returned when the asset does not exist.
 //
 // ```
@@ -198,7 +198,7 @@ please.media.relative_path = function (type, file_name) {
 };
 
 
-// [+] please.media.get_progress()
+// [+] please.media.get\_progress()
 // 
 // Returns a progress estimation for pending downloads.  You would use
 // this to make some kind of loading bar.  The returned object both
@@ -234,7 +234,7 @@ please.media.get_progress = function () {
 };
 
 
-// [+] please.media._push(req_key[, callback])
+// [+] please.media.\_push(req\_key[, callback])
 //
 // **Intended for M.GRL's internal use only**.  This method is used to
 // to keep track of pending downloads, and prevent redundant download
@@ -265,7 +265,7 @@ please.media._push = function (req_key, callback) {
 };
 
 
-// [+] please.media._pop(req_key)
+// [+] please.media.\_pop(req\_key)
 //
 // **Intended for M.GRL's internal use only**.  This method is called
 // after an asset has finished downloading.  It is responsible for
@@ -302,7 +302,7 @@ please.media._pop = function (req_key) {
 };
 
 
-// [+] please.media.guess_type(file_name)
+// [+] please.media.guess\_type(file\_name)
 //
 // Returns the media type associated with the file extension of the
 // file name passed to this function.  If the media type cannot be
@@ -332,7 +332,7 @@ please.media.guess_type = function (file_name) {
 };
 
 
-// [+] please.media.__xhr_helper(req_type, url, asset_name, media_callback[, user_callback])
+// [+] please.media.\_\_xhr\_helper(req\_type, url, asset\_name, media\_callback[, user\_callback])
 //
 // **Intended primarily for M.GRL's internal use**.  If you were to
 // create a new media type, you would use this method.  If you are
@@ -493,7 +493,7 @@ please.media.handlers.text = function (url, asset_name, callback) {
 #ifdef WEBGL
 please.media.__image_buffer_cache = {};
 
-// [+] please.media.__image_instance([center=false, scale=64, x=0, y=0, width=this.width, height=this.height, alpha=true])
+// [+] please.media.\_\_image_instance([center=false, scale=64, x=0, y=0, width=this.width, height=this.height, alpha=true])
 //
 // This is not called directly, but by the "instance" method added to
 // image objects.  The result is a GraphNode compatible instance of

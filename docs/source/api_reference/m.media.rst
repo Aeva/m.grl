@@ -112,8 +112,8 @@ Returns the full URL for a given named asset.
 
 
 
-please.media.get_progress
--------------------------
+please.media.get\_progress
+--------------------------
 *please.media.get\_progress* **()**
 
 Returns a progress estimation for pending downloads. You would use this
@@ -122,9 +122,9 @@ combined completion percentage of all pending downloads, as well as the
 individual percentages per file.
 
 
-please.media._push
-------------------
-\*please.media.\_push\* **(req\_key[, callback])**
+please.media.\_push
+-------------------
+*please.media.\_push* **(req\_key[, callback])**
 
 **Intended for M.GRL's internal use only**. This method is used to to
 keep track of pending downloads, and prevent redundant download
@@ -140,9 +140,9 @@ return 'false' to indicate that a new download should be initiated.
 
 
 
-please.media._pop
------------------
-\*please.media.\_pop\* **(req\_key)**
+please.media.\_pop
+------------------
+*please.media.\_pop* **(req\_key)**
 
 **Intended for M.GRL's internal use only**. This method is called after
 an asset has finished downloading. It is responsible for triggering all
@@ -153,8 +153,8 @@ download, and may also trigger the "mgrl\_media\_ready" DOM event.
 
 
 
-please.media.guess_type
------------------------
+please.media.guess\_type
+------------------------
 *please.media.guess\_type* **(file\_name)**
 
 Returns the media type associated with the file extension of the file
@@ -162,10 +162,10 @@ name passed to this function. If the media type cannot be divined, then
 'undefined' is returned. This is mostly intended to be used internally.
 
 
-please.media.__xhr_helper
--------------------------
-\*please.media.\ **xhr\_helper\* **\ (req\_type, url, asset\_name,
-media\_callback[, user\_callback])\_\_
+please.media.\_\_xhr\_helper
+----------------------------
+*please.media.\_\_xhr\_helper* **(req\_type, url, asset\_name,
+media\_callback[, user\_callback])**
 
 **Intended primarily for M.GRL's internal use**. If you were to create a
 new media type, you would use this method. If you are setting out to do
@@ -258,10 +258,10 @@ not be called directly.
 
 
 
-please.media.__image_instance
------------------------------
-\*please.media.\ **image\_instance\* **\ ([center=false, scale=64, x=0,
-y=0, width=this.width, height=this.height, alpha=true])\_\_
+please.media.\_\_image_instance
+-------------------------------
+*please.media.\_\_image\_instance* **([center=false, scale=64, x=0, y=0,
+width=this.width, height=this.height, alpha=true])**
 
 This is not called directly, but by the "instance" method added to image
 objects. The result is a GraphNode compatible instance of the image
