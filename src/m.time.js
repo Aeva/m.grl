@@ -1,21 +1,25 @@
 // - m.time.js -------------------------------------------------------------- //
 
-/**
+/* [+]
+ *
  * This module provides a scheduler suitable for animation, as well as
  * some other handy methods pertaining to time.
- * @module mgrl.time
+ *
+ * The please.time object is used to schedule animation updates and
+ * other events.  Some useful methods on this singleton object are
+ * documented below.
+ *
  */
 
-/**
- * Shorthand for setTimeout(callback, 0).  This method is used to
- * schedule a function to be called after the current execution stack
- * finishes and the interpreter is idle again.
- * @function
- * @memberOf mgrl.time
- *
- * @param {Function} callback 
- * A function to be called relatively soon.
- */
+
+// [+] please.postpone(callback)
+//
+// Shorthand for setTimeout(callback, 0).  This method is used to
+// schedule a function to be called after the current execution stack
+// finishes and the interpreter is idle again.
+//
+// - **callback** A function to be called relatively soon.
+//
 please.postpone = function (callback) {
     if (typeof(callback) === "function") {
         window.setTimeout(callback, 0);
@@ -23,8 +27,6 @@ please.postpone = function (callback) {
 };
 
 
-// The time object is used for animations to schedule their updates.
-// Closure generates singleton.
 please.time = (function () {
     var batch = {
         "__pending" : [],
@@ -38,21 +40,19 @@ please.time = (function () {
     var pipe_id = "m.ani.js/batch";
 
 
-    /**
-     * This function works like setTimeout, but syncs up with
-     * animation frames.
-     * 
-     * @function
-     * @memberOf mgrl.time
-     * @alias please.time.schedule
-     *
-     * @param {Function} callback 
-     * A function to be called on an animation frame.
-     * 
-     * @param {Number} when
-     * Delay in milliseconds for the soonest time which the callback
-     * may be called.
-     */
+    // [+] please.time.schedule(callback, when)
+    //
+    // This function works like setTimeout, but syncs the callbacks up
+    // only to the next available animation frame.  This means that if
+    // the page is not currently visible (eg, another tab is active),
+    // then the callback will not be called until the page is visible
+    // again, etc.
+    //
+    // - **callback** A function to be called on an animation frame.
+    //
+    // - **when** Delay in milliseconds for the soonest time which 
+    //   callback may be called.
+    // 
     batch.schedule = function (callback, when) {
         when = batch.now + when;
         var i = batch.__pending.indexOf(callback);
@@ -74,16 +74,13 @@ please.time = (function () {
     };
 
 
-    /**
-     * Remove a pending callback.
-     * 
-     * @function
-     * @memberOf mgrl.time
-     * @alias please.time.remove
-     *
-     * @param {Function} callback 
-     * A function that was already scheduled by please.time.schedule.
-     */
+    // [+] please.time.remove(callback)
+    //
+    // Removes a pending callback from the scheduler.
+    //
+    // - **callback** A function that was already scheduled 
+    //   please.time.schedule.
+    //
     batch.remove = function (callback) {
         var i = batch.__pending.indexOf(callback);
         if (i > -1) {
