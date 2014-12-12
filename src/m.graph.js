@@ -116,51 +116,54 @@
 //
 // GraphNodes have some special properties:
 //
-//  - *x*, *y*, *z* Used to generate the node's local matrix.
+//  - **x**, **y**, **z** Used to generate the node's local matrix.
 //
-//  - *rotate_x*, *rotate_y*, *rotate_z* Used to generate the node's local matrix. 
+//  - **rotate_x**, **rotate_y**, **rotate_z** Used to generate the
+//    node's local matrix.
 //  
-//  - *scale_x*, *scale_y*, *scale_z* Used to generate the node's local matrix. 
+//  - **scale_x**, **scale_y**, **scale_z** Used to generate the
+//    node's local matrix.
 //
-//  - *alpha* A numerical value between 0.0 and 1.0.  Indicates alpha
-//    belnding value to be used by the GLSL shader.  In the future,
-//    setting this to 1.0 will put it in the state-sorting draw path,
-//    and setting it less than 1.0 will put it in the z-sorting draw
-//    path.  State sorting is more efficient, but z-sorting is needed
-//    to do alpha blending effects.
+//  - **alpha** A numerical value between 0.0 and 1.0.  Indicates
+//    alpha belnding value to be used by the GLSL shader.  In the
+//    future, setting this to 1.0 will put it in the state-sorting
+//    draw path, and setting it less than 1.0 will put it in the
+//    z-sorting draw path.  State sorting is more efficient, but
+//    z-sorting is needed to do alpha blending effects.
 //
-//  - *visible* Defaults to true.  May be set to false to prevent the
-//    node and its children from being drawn.
+//  - **visible** Defaults to true.  May be set to false to prevent
+//    the node and its children from being drawn.
 //
-//  - *priority* Defaults to 100. Determine the order in which all of
-//    the drivers are evaluated and cached.  Set it lower if you want
-//    a node to be evaluated before other nodes.
+//  - **priority** Defaults to 100. Determine the order in which all
+//    of the drivers are evaluated and cached.  Set it lower if you
+//    want a node to be evaluated before other nodes.
 //
-//  - *sort_mode* DEPRECATED - defaults to "solid" to make the node
-//    state sorted, but may be set to "alpha" to put it in the
-//    z-sorting draw path.
+//  - **sort_mode** Defaults to "solid", but may be set to "alpha" to
+//    force the object to use the z-sorting path instead of state
+//    sorting.  This is generally slower, but is needed if for partial
+//    transparency from a texture to work correctly.
 //
-//  - *draw_type* - defaults to "model" but may be set to "sprite".
+//  - **draw_type** defaults to "model", but may be set to "sprite".
 //    At the time of writing this doc, I am unsure if it is actually
 //    in use for anything.  Might be deprecated.
 //
-//  - *z_bias* defaults to 0, unused, so might be deprecated.
+//  - **z_bias** defaults to 0, unused, so might be deprecated.
 //
 // Additionally, each GraphNode has several objects used to set GLSL
 // variables:
 //
-//  - *vars* - The property names on the *vars* object correspond to
+//  - **vars** - The property names on the *vars* object correspond to
 //    uniform variables on the shader program, and will be set
 //    automatically.  The infrastructure that does this automatically
 //    prevents redundant state change calls so do not worry about
 //    that.  The properties on the vars object may have driver methods
 //    assigned to them.
 //
-//  - *ext* - Works exactly like vars, except it doesn't do anything
+//  - **ext** - Works exactly like vars, except it doesn't do anything
 //    to the GL state.  Useful for storing custom data that might be
 //    referenced elsewhere.
 //
-//  - *samplers* - The property names of the *samplers* object
+//  - **samplers** - The property names of the *samplers* object
 //    correspond to the sampler variables on the shader program, and
 //    will be set automatically.  You simply assign them the uri of an
 //    image asset that was loaded by m.media's machinery, and you are
