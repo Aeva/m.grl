@@ -7,6 +7,7 @@ API Reference
     
     m.defs.rst
     m.gani.rst
+    m.graph.rst
     m.input.rst
     m.media.rst
     m.multipass.rst
