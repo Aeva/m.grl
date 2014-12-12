@@ -191,6 +191,6 @@ function that contains your custom drawing code. Optionally, the "bind"
 property may also be set to a function. Bind is called before Draw, and
 is used to set up GL state. Bind is called regardless of if the node is
 visible, though both bind and draw requrie the node be drawable. The
-bind method is DEPRICATED
+bind method is essentially vestigial and should not be used.
 
 
