@@ -633,7 +633,8 @@ please.CameraNode.prototype.update_camera = function () {
             
             // Recalculate the projection matrix and flag it as dirty
             mat4.perspective(
-                this.projection_matrix, fov, width / height, near, far);
+                this.projection_matrix, please.radians(fov),
+                width / height, near, far);
             this.projection_matrix.dirty = true;
         }
     }

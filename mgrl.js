@@ -3688,7 +3688,8 @@ please.SceneGraph = function () {
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 // [+] please.CameraNode()
 //
-// Constructor function that creates a camera graph object.
+// Constructor function that creates a camera object that may be put
+// into the scene graph.
 //
 please.CameraNode = function () {
     console.assert(this !== window);
@@ -3758,7 +3759,8 @@ please.CameraNode.prototype.update_camera = function () {
             this.__last.fov = fov;
             // Recalculate the projection matrix and flag it as dirty
             mat4.perspective(
-                this.projection_matrix, fov, width / height, near, far);
+                this.projection_matrix, please.radians(fov),
+                width / height, near, far);
             this.projection_matrix.dirty = true;
         }
     }
