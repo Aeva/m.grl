@@ -126,12 +126,10 @@ GraphNodes have some special properties:
 -  **scale\_x**, **scale\_y**, **scale\_z** Used to generate the node's
    local matrix.
 
--  **alpha** A numerical value between 0.0 and 1.0. Indicates alpha
-   belnding value to be used by the GLSL shader. In the future, setting
-   this to 1.0 will put it in the state-sorting draw path, and setting
-   it less than 1.0 will put it in the z-sorting draw path. State
-   sorting is more efficient, but z-sorting is needed to do alpha
-   blending effects.
+-  **alpha** A numerical value between 0.0 and 1.0. If sort\_mode is set
+   to "alpha", then this indicates alpha belnding value to be used by
+   the GLSL shader, as accessible by the "alpha" uniform variable.
+   Defaults to 1.0.
 
 -  **visible** Defaults to true. May be set to false to prevent the node
    and its children from being drawn.
@@ -145,11 +143,9 @@ GraphNodes have some special properties:
    This is generally slower, but is needed if for partial transparency
    from a texture to work correctly.
 
--  **draw\_type** defaults to "model", but may be set to "sprite". At
-   the time of writing this doc, I am unsure if it is actually in use
-   for anything. Might be deprecated.
-
--  **z\_bias** defaults to 0, unused, so might be deprecated.
+-  **draw\_type** .jta model instances and empty GraphNodes default to
+   "model", while .gani and image instances default to "sprite".
+   Determines the value of the glsl uniform variable "is\_transparent".
 
 Additionally, each GraphNode has several objects used to set GLSL
 variables:
