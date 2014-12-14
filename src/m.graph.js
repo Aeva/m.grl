@@ -744,6 +744,7 @@ please.CameraNode.prototype.update_camera = function () {
 //    value to use for the camera's height than the gl context's canvas
 //    height.
 //
+/*
 please.PerspectiveCamera = function (canvas, fov, near, far) {
     this.__width = null;
     this.__height = null;
@@ -832,3 +833,4 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
         this.view_matrix.dirty = true;
     };
 };
+*/
