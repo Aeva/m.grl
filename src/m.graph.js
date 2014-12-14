@@ -546,9 +546,8 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 //    value to use for the camera's height than the gl context's canvas
 //    height.
 //
-#define GET_DIMENSION(width) \
-    this.__width === null ? please.gl.canvas.width : this.__width
-
+#define GET_WIDTH this.__width === null ? please.gl.canvas.width : this.__width
+#define GET_HEIGHT this.__height === null ? please.gl.canvas.height : this.__height
 please.PerspectiveCamera = function (canvas, fov, near, far) {
     this.__width = null;
     this.__height = null;
@@ -566,7 +565,7 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
     var self = this;
     Object.defineProperty(this, "width", {
         get : function () {
-            return GET_DIMENSION(width);
+            return GET_WIDTH;
         },
         set : function (val) {
             this.__width = val;
@@ -576,7 +575,7 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
 
     Object.defineProperty(this, "height", {
         get : function () {
-            return GET_DIMENSION(height);
+            return GET_HEIGHT;
         },
         set : function (val) {
             this.__height = val;
@@ -587,8 +586,8 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
     this.update_camera = function () {
         // Avoiding the getters / setters with a macro, as this is
         // called once per frame, and it will add up.
-        var width = GET_DIMENSION(width);
-        var height = GET_DIMENSION(width);
+        var width = GET_WIDTH;
+        var height = GET_HEIGHT;
 
         // Recalculate the projection matrix, if necessary
         if (this.__last_w !== width || this.__last_h !== height) {

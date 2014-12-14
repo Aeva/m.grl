@@ -3715,7 +3715,7 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
     });
     Object.defineProperty(this, "height", {
         get : function () {
-            return this.__width === null ? please.gl.canvas.height : this.__width;
+            return this.__height === null ? please.gl.canvas.height : this.__height;
         },
         set : function (val) {
             this.__height = val;
@@ -3726,7 +3726,7 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
         // Avoiding the getters / setters with a macro, as this is
         // called once per frame, and it will add up.
         var width = this.__width === null ? please.gl.canvas.width : this.__width;
-        var height = this.__width === null ? please.gl.canvas.width : this.__width;
+        var height = this.__height === null ? please.gl.canvas.height : this.__height;
         // Recalculate the projection matrix, if necessary
         if (this.__last_w !== width || this.__last_h !== height) {
             this.__last_w = width;
