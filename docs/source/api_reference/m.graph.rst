@@ -178,7 +178,7 @@ each instance.
         console.assert(this !== window);
         please.GraphNode.call(this);
     };
-    FancyNode.prototype = new please.GraphNode();
+    FancyNode.prototype = please.GraphNode.prototype;
 
 Should you desire not to call the constructor; at a minimum you really
 only need to define in a derrived class this.ext, this.vars,

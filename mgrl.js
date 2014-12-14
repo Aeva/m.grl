@@ -3341,7 +3341,7 @@ please.gl.__jta_unpack_textures = function (packed_data) {
 //     console.assert(this !== window);
 //     please.GraphNode.call(this);
 // };
-// FancyNode.prototype = new please.GraphNode();
+// FancyNode.prototype = please.GraphNode.prototype;
 // ```
 //
 // Should you desire not to call the constructor; at a minimum you
