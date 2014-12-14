@@ -220,7 +220,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     char_node.add(char_avatar);
 
     // add a camera object
-    var camera = new please.PerspectiveCamera(canvas);
+    var camera = new please.PerspectiveCamera();
     //camera.look_at = vec3.fromValues(0, 10, 2.5);
     camera.look_at = char_node;
     camera.location = function () {

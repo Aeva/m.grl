@@ -3663,16 +3663,11 @@ please.SceneGraph = function () {
     };
 };
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
-// [+] please.PerspectiveCamera(canvas, fov, near, far)
+// [+] please.PerspectiveCamera(fov, near, far)
 //
 // Constructor function.  Camera object for perspective projection.
 // The constructor takes the following arguments:
 // 
-//  - **canvas** The canvas object being rendered to.  Ideally, the
-//    information needed from it should be pulled from the GL context,
-//    so (DEPRICATION WARNING).  Currently, this is used for
-//    calculating the view matrix.
-//
 //  - **fov** Field of view, in degrees.  If unset, this defaults to 45.
 //
 //  - **near** Near bound of the view frustum.  Defaults to 0.1.
@@ -3691,11 +3686,19 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 //  - **up_vector** May be a coordinate tripple, a function that returns
 //    a tripple, or a graph node.  Defaults to vec3.fromValues(0, 0, 1).
 //
+//  - **width** getter/setter.  Write to this to give a different
+//    value to use for the camera's width than the gl context's canvas
+//    width.
+//
+//  - **height** getter/setter.  Write to this to give a different
+//    value to use for the camera's height than the gl context's canvas
+//    height.
+//
 please.PerspectiveCamera = function (canvas, fov, near, far) {
-    this.__canvas = canvas;
     this.__width = null;
     this.__height = null;
-    this.use_canvas_dimensions = true;
+    this.__last_w = null;
+    this.__last_h = null;
     this.__fov = please.is_number(fov)?fov:45;
     this.__near = please.is_number(near)?near:0.1;
     this.__far = please.is_number(far)?far:100.0;
@@ -3705,41 +3708,34 @@ please.PerspectiveCamera = function (canvas, fov, near, far) {
     this.projection_matrix = mat4.create();
     this.view_matrix = mat4.create();
     var self = this;
-    var update_perspective = function () {
-        mat4.perspective(
-            self.projection_matrix, self.__fov,
-            self.__width / self.__height, self.__near, self.__far);
-    };
     Object.defineProperty(this, "width", {
         get : function () {
-            return this.__width;
+            return this.__width === null ? please.gl.canvas.width : this.__width;
         },
         set : function (val) {
-            if (!this.use_canvas_dimensions) {
-                this.__width = val;
-                update_perspective();
-            }
+            this.__width = val;
             return this.__width;
         },
     });
     Object.defineProperty(this, "height", {
         get : function () {
-            return this.__height;
+            return this.__height === null ? please.gl.canvas.height : this.__height;
         },
         set : function (val) {
-            if (!this.use_canvas_dimensions) {
-                this.__height = val;
-                update_perspective();
-            }
+            this.__height = val;
             return this.__height;
         },
     });
     this.update_camera = function () {
+        var width = this.width;
+        var height = this.height;
         // Recalculate the projection matrix, if necessary
-        if (this.use_canvas_dimensions && this.__width !== this.__canvas.width && this.__height !== this.__canvas.height) {
-            this.__width = this.__canvas.width;
-            this.__height = this.__canvas.height;
-            update_perspective();
+        if (this.__last_w !== width || this.__last_h !== height) {
+            this.__last_w = width;
+            this.__last_h = height;
+            mat4.perspective(
+                this.projection_matrix, this.__fov,
+                width / height, this.__near, this.__far);
         }
         // Calculate the look_at vector, if necessary
         var look_at = typeof(this.look_at) === "function" ? this.look_at.call(this) : this.look_at;

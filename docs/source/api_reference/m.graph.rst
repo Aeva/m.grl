@@ -232,15 +232,10 @@ following example:
 
 please.PerspectiveCamera
 ------------------------
-*please.PerspectiveCamera* **(canvas, fov, near, far)**
+*please.PerspectiveCamera* **(fov, near, far)**
 
 Constructor function. Camera object for perspective projection. The
 constructor takes the following arguments:
-
--  **canvas** The canvas object being rendered to. Ideally, the
-   information needed from it should be pulled from the GL context, so
-   (DEPRICATION WARNING). Currently, this is used for calculating the
-   view matrix.
 
 -  **fov** Field of view, in degrees. If unset, this defaults to 45.
 
@@ -259,6 +254,12 @@ configured with the following object properties.
 
 -  **up\_vector** May be a coordinate tripple, a function that returns a
    tripple, or a graph node. Defaults to vec3.fromValues(0, 0, 1).
+
+-  **width** getter/setter. Write to this to give a different value to
+   use for the camera's width than the gl context's canvas width.
+
+-  **height** getter/setter. Write to this to give a different value to
+   use for the camera's height than the gl context's canvas height.
 
 
 

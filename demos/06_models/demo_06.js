@@ -153,7 +153,7 @@ addEventListener("mgrl_media_ready", function () {
     // add a floor
     graph.add(new FloorNode());
 
-    var camera = new please.PerspectiveCamera(canvas);
+    var camera = new please.PerspectiveCamera();
     camera.look_at = vec3.fromValues(0, 0, 1);
     camera.location = vec3.fromValues(-3, 10, 6);
     graph.camera = camera;
