@@ -16,6 +16,34 @@ This file stores most of its API under the **please.keys** object.
 
 
 
+please.keys.enable
+------------------
+*please.keys.enable* **()**
+
+This function hooks up the necessary event handling machinery.
+
+
+please.keys.disable
+-------------------
+*please.keys.disable* **()**
+
+This function removes the necessary event handling machinery.
+
+
+please.connect
+--------------
+*please.connect* **(char, handler, threshold)**
+
+Adds a keyboard binding.
+
+
+please.keys.remove
+------------------
+*please.keys.remove* **(char)**
+
+Removes a keybinding set by please.keys.connect.
+
+
 please.keys.normalize\_dvorak
 -----------------------------
 *please.keys.normalize\_dvorak* **(str)**
@@ -48,6 +76,13 @@ the keyboard layout is appended to the document URL. Currently, only
 
 -  **code** Numerical character code value.
 
+
+
+please.keys.\_\_cancel
+----------------------
+*please.keys.\_\_cancel* **(char)**
+
+Forces a key to be released.
 
 
 please.keys.\_\_full\_stop

@@ -50,6 +50,13 @@ handler at priority -1.
 
 
 
+please.pipeline.remove
+----------------------
+*please.pipeline.remove* **(name)**
+
+Removes a named pipeline stage, preventing it from being rendering.
+
+
 please.pipeline.remove_above
 ----------------------------
 *please.pipeline.remove\_above* **(priority)**
@@ -62,5 +69,19 @@ passed to this method.
     // removes all pipeline stages that perform rendering functionality
     please.pipeline.remove_above(0);
 
+
+
+please.pipeline.start
+---------------------
+*please.pipeline.start* **()**
+
+Activates the rendering pipeline.
+
+
+please.pipeline.stop
+--------------------
+*please.pipeline.stop* **()**
+
+Halts the rendering pipeline.
 
 
