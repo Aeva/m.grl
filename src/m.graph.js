@@ -545,7 +545,8 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 
 // [+] please.CameraNode()
 //
-// Constructor function that creates a camera graph object.
+// Constructor function that creates a camera object that may be put
+// into the scene graph.
 //
 please.CameraNode = function () {
     console.assert(this !== window);

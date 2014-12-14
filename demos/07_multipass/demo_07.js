@@ -193,18 +193,23 @@ addEventListener("mgrl_media_ready", function () {
     register_framebuffer("demo_07/draw", buffer_size);
 
     // setup camera_a
-    var camera_a = new please.PerspectiveCamera();
+    var camera_a = new please.CameraNode();
+    graph_a.add(camera_a);
     camera_a.look_at = vec3.fromValues(0, 0, 1);
-    camera_a.location = get_camera_position;
-    camera_a.use_canvas_dimensions = true;
-    camera_a.width = buffer_size;
-    camera_a.height = buffer_size;
+    camera_a.x = function () { return get_camera_position()[0]; };
+    camera_a.y = function () { return get_camera_position()[1]; };
+    camera_a.z = function () { return get_camera_position()[2]; };
+    //camera_a.width = buffer_size;
+    //camera_a.height = buffer_size;
     graph_a.camera = camera_a;
 
     // setup camera_b
-    var camera_b = new please.PerspectiveCamera();
+    var camera_b = new please.CameraNode();
+    graph_b.add(camera_b);
     camera_b.look_at = vec3.fromValues(0, 0, 1);
-    camera_b.location = vec3.fromValues(0, 0.1, 0.1);
+    camera_b.x = 0;
+    camera_b.y = 0.1;
+    camera_b.z = 0.1;
     graph_b.camera = camera_b;
 
     // lighting stuff

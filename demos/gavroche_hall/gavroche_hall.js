@@ -220,14 +220,18 @@ addEventListener("mgrl_media_ready", please.once(function () {
     char_node.add(char_avatar);
 
     // add a camera object
-    var camera = new please.PerspectiveCamera();
+    var camera = window.camera = new please.CameraNode();
+    graph.add(camera);
     //camera.look_at = vec3.fromValues(0, 10, 2.5);
     camera.look_at = char_node;
-    camera.location = function () {
-        var x = char_node.x/-2.0;
-        var y = char_node.y - 14;
-        var z = char_node.z + 6;
-        return vec3.fromValues(x,y,z);
+    camera.x = function () {
+        return char_node.x/-2.0;
+    };
+    camera.y = function () {
+        return char_node.y - 14;
+    };
+    camera.z = function () {
+        return char_node.z + 6;
     };
     
     // add the camera to the graph
