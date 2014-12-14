@@ -180,19 +180,21 @@ addEventListener("mgrl_media_ready", function () {
 });
 
 
+var FloorNode = function () {
+    console.assert(this !== window);
+    please.GraphNode.call(this);
 
-function FloorNode () {
-    var node = new please.GraphNode();
-    node.vbo = please.gl.make_quad(100, 100);
-    node.__drawable = true;
-    node.vars = {
-        "mode" : 1, // "floor mode"
+    this.__vbo = please.gl.make_quad(100, 100);
+    this.__drawable = true;
+    this.vars = {
+        mode : 1, // "floor mode"
     };
-    node.bind = function () {
-        this.vbo.bind();
+
+    this.bind = function () {
+        this.__vbo.bind();
     };
-    node.draw = function () {
-        this.vbo.draw();
+    this.draw = function () {
+        this.__vbo.draw();
     };
-    return node;
 };
+FloorNode.prototype = please.GraphNode.prototype;
