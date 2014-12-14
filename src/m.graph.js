@@ -176,13 +176,16 @@
 //
 // ```
 // var FancyNode = function () {
-//     this.children = [];
-//     this.ext = {};
-//     this.vars = {};
-//     this.samplers = {};
+//     console.assert(this !== window);
+//     please.GraphNode.call(this);
 // };
 // FancyNode.prototype = new please.GraphNode();
 // ```
+//
+// Should you desire not to call the constructor; at a minimum you
+// really only need to define in a derrived class this.ext, this.vars,
+// this.samplers, and this.children.  Calling the GraphNode
+// constructor will accomplish this for you.
 //
 // If you want to make an Empty or a derived constructor drawable, set
 // the "__drawable" property to true, and set the "draw" property to a
@@ -394,13 +397,38 @@ please.GraphNode.prototype = {
 
 // [+] please.SceneGraph()
 //
-// Constructor function.
+// Constructor function that creates an instance of the scene graph.
+// The constructor accepts no arguments.  To render, the **camera**
+// property must be set to a camera object.  Currently this is limited
+// to please.PerspectiveCamera, though other types will be available
+// in the future.
+//
+// The **.tick()** method on SceneGraph instances is called once per
+// frame (multiple render passes may occur per frame), and is
+// responsible for determining the world matricies for each object in
+// the graph, caching the newest values of driver functions, and
+// performs state sorting.
+//
+// The **.draw()** method is responsible for invoking the .draw()
+// methods of all of the nodes in the graph.  State sorted nodes will
+// be invoked in the order determined by .tick, though the z-sorted
+// nodes will need to be sorted on every draw call.  This method may
+// called as many times as you like per frame.  Normally the usage of
+// this will look something like the following example:
+//
+// ```
+// please.pipeline.add(10, "graph_demo/draw", function () {
+//    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+//    scene_graph.tick();
+//    scene_graph.draw();
+// });
+// ```
 //
 please.SceneGraph = function () {
     if (this === please) {
         return new please.SceneGraph();
     }
-    please.GraphNode.call(this)
+    please.GraphNode.call(this);
 
     this.__rig = null;
     this.__bind = null;
@@ -494,6 +522,30 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 // [+] please.PerspectiveCamera(canvas, fov, near, far)
 //
 // Constructor function.  Camera object for perspective projection.
+// The constructor takes the following arguments:
+// 
+//  - **canvas** The canvas object being rendered to.  Ideally, the
+//    information needed from it should be pulled from the GL context,
+//    so (DEPRICATION WARNING).  Currently, this is used for
+//    calculating the view matrix.
+//
+//  - **fov** Field of view, in degrees.  If unset, this defaults to 45.
+//
+//  - **near** Near bound of the view frustum.  Defaults to 0.1.
+//
+//  - **far** Far bound of the view frustum.  Defaults to 100.0.
+//
+//  In addition to the arguments above, the PerspectiveCamera is also
+//  configured with the following object properties.
+//
+//  - **look_at** May be a coordinate tripple, a function that returns
+//    a tripple, or a graph node.  Defaults to vec3.fromValues(0, 0, 0).
+//
+//  - **location** May be a coordinate tripple, a function that returns
+//    a tripple, or a graph node.  Defaults to vec3.fromValues(0, -10, 10).
+//
+//  - **up_vector** May be a coordinate tripple, a function that returns
+//    a tripple, or a graph node.  Defaults to vec3.fromValues(0, 0, 1).
 //
 please.PerspectiveCamera = function (canvas, fov, near, far) {
     this.__canvas = canvas;
