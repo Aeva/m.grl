@@ -97,7 +97,7 @@ function get_key_times(cap) {
 
 
 function get_camera_position() {
-    var rest = vec3.fromValues(0, -3, 2);
+    var rest = vec3.fromValues(0, -4, 2);
     var times = get_key_times(10000.0);
 
     // determine X mod
