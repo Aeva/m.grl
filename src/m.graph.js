@@ -215,11 +215,30 @@ please.GraphNode = function () {
     this.__cache = null;
     this.__asset = null;
     this.__asset_hint = "";
+    this.__parent_weakref = null;
     this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__unlink = false; // set to true to tell parents to remove this child
     this.priority = 100; // lower means the driver functions are called sooner
+
+    var self = this;
+    Object.defineProperty(this, "parent", {
+        get : function () {
+            // see if a weakref was set
+            var parent = self.__parent_weakref;
+            if (parent !== null) {
+                // read the value of the weakref
+                parent = self.__parent_weakref();
+                if (parent === null) {
+                    // weakref points to null, so clear it
+                    self.__parent_weakref = null;
+                }
+            }
+            // return the parent or null
+            return parent;
+        },
+    });
 };
 please.GraphNode.prototype = {
     "has_child" : function (entity) {
@@ -230,11 +249,20 @@ please.GraphNode.prototype = {
     "add" : function (entity) {
         // Add the given entity to this object's children.
         this.children.push(entity);
+        var parent = this;
+        entity.__parent_weakref = function () {
+            try {
+                return parent;
+            } catch (err) {
+                return null;
+            }
+        };
     },
     "remove" : function (entity) {
         //  Remove the given entity from this object's children.
         if (this.has_child(entity)) {
             this.children.splice(this.children.indexOf(entity),1);
+            entity.__parent_weakref = null;
         }
     },
     "__flatten" : function () {
@@ -515,7 +543,177 @@ please.SceneGraph = function () {
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 
 
-// [+] please.PerspectiveCamera(fov, near, far)
+// [+] please.CameraNode()
+//
+// Constructor function that creates a camera graph object.
+//
+please.CameraNode = function () {
+    console.assert(this !== window);
+    this.children = [];
+    this.ext = {};
+    this.vars = {};
+    this.samplers = {};
+
+    this.look_at = vec3.fromValues(0, 0, 0);
+    this.up_vector = vec3.fromValues(0, 0, 1);
+
+    this.fov = 45;
+    this.left = null;
+    this.right = null;
+    this.bottom = null;
+    this.top = null;
+
+    this.width = null;
+    this.height = null;
+
+    this.near = 0.1;
+    this.far = 100.0;
+
+    this.__last = {
+        "fov" : null,
+        "left" : null,
+        "right" : null,
+        "bottom" : null,
+        "top" : null,
+        "width" : null,
+        "height" : null,
+    };
+
+    this.projection_matrix = mat4.create();
+    this.view_matrix = mat4.create();
+    this.__projection_mode = "perspective";
+};
+please.CameraNode.prototype = Object.create(please.GraphNode.prototype);
+
+
+please.CameraNode.prototype.set_perspective = function() {
+    this.__projection_mode = "perspective";
+};
+
+
+please.CameraNode.prototype.set_orthographic = function() {
+    this.__projection_mode = "orthographic";
+};
+
+
+please.CameraNode.prototype.update_camera = function () {
+    // Calculate the arguments common to both projection functions.
+    var near = DRIVER(this, this.near);
+    var far = DRIVER(this, this.far);
+    var width = DRIVER(this, this.width);
+    var height = DRIVER(this, this.height);
+    if (width === null) {
+        width = please.gl.canvas.width;
+    }
+    if (height === null) {
+        height = please.gl.canvas.height;
+    }
+
+    // Determine if the common args have changed.
+    var dirty = false;
+    if (far !== this.__last.far ||
+        near !== this.__last.near ||
+        width !== this.__last.width ||
+        height !== this.__last.height) {
+
+        dirty = true;
+        this.__last.far = far;
+        this.__last.near = near;
+        this.__last.width = width;
+        this.__last.height = height;
+    }
+
+    // Perspective projection specific code
+    if (this.__projection_mode == "perspective") {
+        var fov = DRIVER(this, this.fov);
+
+        if (fov !== this.__last.fov || dirty) {
+            this.__last.fov = fov;
+            
+            // Recalculate the projection matrix and flag it as dirty
+            mat4.perspective(
+                this.projection_matrix, fov, width / height, near, far);
+            this.projection_matrix.dirty = true;
+        }
+    }
+
+    // Orthographic projection specific code
+    else if (this.__projection_mode == "orthographic") {
+        var left = DRIVER(this, this.left);
+        var right = DRIVER(this, this.right);
+        var bottom = DRIVER(this, this.bottom);
+        var top = DRIVER(this, this.top);
+
+        if (left === null || right === null ||
+            bottom === null || top === null) {
+
+            // If any of the orthographic args are unset, provide our
+            // own defaults based on the canvas element's dimensions.
+            left = 0;
+            right = width;
+            bottom = 0;
+            top = height;
+        }
+
+        if (left !== this.__last.left ||
+            right !== this.__last.right ||
+            bottom !== this.__last.bottom ||
+            top !== this.__last.top ||
+            dirty) {
+
+            this.__last.left = left;
+            this.__last.right = right;
+            this.__last.bottom = bottom;
+            this.__last.top = top;
+
+            // Recalculate the projection matrix and flag it as dirty
+            mat4.ortho(
+                this.projection_matrix, left, right, bottom, top, near, far);
+            this.projection_matrix.dirty = true;
+        }
+    }
+
+    // If the node is not in the graph, trigger its own __rig and __hoist methods.
+    if (this.parent === null) {
+        this.__rig();
+        this.__hoist(mat4.create(),{});
+    }
+    
+    // Now to update the view matrix, if necessary.
+    var location = this.__cache.xyz;
+    var look_at = DRIVER(this, this.look_at);
+    var up_vector = DRIVER(this, this.up_vector);
+
+    if (look_at.__cache && look_at.__cache.xyz) {
+        look_at = look_at.__cache.xyz;
+    }
+    if (up_vector.__cache && up_vector.__cache.xyz) {
+        up_vector = up_vector.__cache.xyz;
+    }
+
+    if (look_at !== null) {
+        // View matrix uses the mat4.lookAt method.
+        if (up_vector === null) {
+            up_vector = vec3.fromValues(0, 0, 1);
+        }
+        mat4.lookAt(
+            this.view_matrix,
+            location,
+            look_at,
+            up_vector);
+        this.view_matrix.dirty = true;
+    }
+    else {
+        // View matrix is determined by camera's world matrix...?
+        this.view_matrix = this.__cache.world_matrix;
+        this.view_matrix.dirty = true;
+    }
+};
+
+
+
+
+// [-] please.PerspectiveCamera(fov, near, far)
 //
 // Constructor function.  Camera object for perspective projection.
 // The constructor takes the following arguments:
@@ -546,8 +744,6 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 //    value to use for the camera's height than the gl context's canvas
 //    height.
 //
-#define GET_WIDTH this.__width === null ? please.gl.canvas.width : this.__width
-#define GET_HEIGHT this.__height === null ? please.gl.canvas.height : this.__height
 please.PerspectiveCamera = function (canvas, fov, near, far) {
     this.__width = null;
     this.__height = null;
