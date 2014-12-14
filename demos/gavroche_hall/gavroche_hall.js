@@ -233,6 +233,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     camera.z = function () {
         return char_node.z + 6;
     };
+    camera.fov = 57.29; // give it a weird field of view
     
     // add the camera to the graph
     graph.camera = camera;
