@@ -153,12 +153,12 @@ addEventListener("mgrl_media_ready", function () {
     // add a floor
     graph.add(new FloorNode());
 
-    var camera = new please.CameraNode();
+    var camera = window.camera = new please.CameraNode();
     graph.add(camera);
     camera.look_at = vec3.fromValues(0, 0, 1);
     camera.x = -3;
-    camera.y = 10;
-    camera.z = 6;
+    camera.y = 12.5;
+    camera.z = 5.7;
     graph.camera = camera;
 
     // set up a directional light
