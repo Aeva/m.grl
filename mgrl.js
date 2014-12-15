@@ -3216,10 +3216,13 @@ please.gl.__jta_unpack_textures = function (packed_data) {
  *
  * // Add a camera object that automatically points at particular
  * // graph node.
- * var camera = new please.PerspectiveCamera(canvas_element);
+ * var camera = new please.CameraNode();
+ * graph.add(camera);
  * camera.look_at = camera_target;
- * camera.location = vec3.formValues(10, -10, 10);
- * scene_graph.camera = camera;
+ * camera.x = 10;
+ * camera.y = -10;
+ * camera.z = 10;
+ * scene_graph.camera = camera; // this will not be needed in the future
  *
  * // Register a render pass with the scheduler (see m.multipass.js)
  * please.pipeline.add(10, "graph_demo/draw", function () {
@@ -3713,8 +3716,67 @@ please.SceneGraph = function () {
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 // [+] please.CameraNode()
 //
-// Constructor function that creates a camera object that may be put
-// into the scene graph.
+// Constructor function that creates a camera object to be put in the
+// scene graph.  Camera nodes support both orthographic and
+// perspective projection, and almost all of their properties are
+// animatable.  The view matrix can be generated in one of two ways
+// described below.
+//
+// The default way in which the view matrix is calculated uses the
+// mat4.lookAt method from the glMatrix library.  The following
+// properties provide the arguments for the library call.  Note that
+// the location argument is missing - this is because the CameraNode's
+// scene graph coordinates are used instead.
+//
+//  - **look_at** A vector of 3 values (defaults to [0, 0, 0]), null,
+//    or another GraphNode.  This is the coordinate where the camera
+//    is pointed at.  If this is set to null, then the CameraNode's
+//    calculated world matrix is used as the view matrix.
+//
+//  - **up_vector** A normal vector of 3 values, indicating which way
+//    is up (defaults to [0, 0, 1]).  If set to null, [0, 0, 1] will
+//    be used instead
+//
+// If the look_at property is set to null, the node's world matrix as
+// generated be the scene graph will be used as the view matrix
+// instead.
+//
+// The following property influences how the projection matrix is
+// generated when the camera is in perspective mode (default
+// behavior).
+//
+//  - **fov** Field of view, defined in degrees.  Defaults to 45.
+//
+// The following properties influence how the projection matrix is
+// generated when the camera is in orthographic mode.  When any of
+// these are set to 'null' (default behavior), the bottom left corner
+// is (0, 0), and the top right is (canvas_width, canvas_height).
+//
+//  - **left**
+//
+//  - **right**
+//
+//  - **bottom**
+//
+//  - **up**
+//
+// The following properties influence how the projection matrix is
+// generated, and are common to both orthographic and perspective
+// mode:
+// 
+//  - **width** Defaults to null, which indicates to use the rendering
+//    canvas's width instead.  For perspective rendering, width and
+//    height are used to calculate the screen ratio.  Orthographic
+//    rendering uses these to calculate the top right coordinate.
+//
+//  - **height** Defaults to null, which indicates to use the rendering
+//    canvas's height instead.  For perspective rendering, width and
+//    height are used to calculate the screen ratio.  Orthographic
+//    rendering uses these to calculate the top right coordinate.
+//
+//  - **near** Defaults to 0.1
+//
+//  - **far** Defaults to 100.0
 //
 please.CameraNode = function () {
     console.assert(this !== window);
@@ -3852,127 +3914,6 @@ please.CameraNode.prototype.update_camera = function () {
         this.view_matrix.dirty = true;
     }
 };
-// [-] please.PerspectiveCamera(fov, near, far)
-//
-// Constructor function.  Camera object for perspective projection.
-// The constructor takes the following arguments:
-// 
-//  - **fov** Field of view, in degrees.  If unset, this defaults to 45.
-//
-//  - **near** Near bound of the view frustum.  Defaults to 0.1.
-//
-//  - **far** Far bound of the view frustum.  Defaults to 100.0.
-//
-//  In addition to the arguments above, the PerspectiveCamera is also
-//  configured with the following object properties.
-//
-//  - **look_at** May be a coordinate tripple, a function that returns
-//    a tripple, or a graph node.  Defaults to vec3.fromValues(0, 0, 0).
-//
-//  - **location** May be a coordinate tripple, a function that returns
-//    a tripple, or a graph node.  Defaults to vec3.fromValues(0, -10, 10).
-//
-//  - **up_vector** May be a coordinate tripple, a function that returns
-//    a tripple, or a graph node.  Defaults to vec3.fromValues(0, 0, 1).
-//
-//  - **width** getter/setter.  Write to this to give a different
-//    value to use for the camera's width than the gl context's canvas
-//    width.
-//
-//  - **height** getter/setter.  Write to this to give a different
-//    value to use for the camera's height than the gl context's canvas
-//    height.
-//
-/*
-please.PerspectiveCamera = function (canvas, fov, near, far) {
-    this.__width = null;
-    this.__height = null;
-    this.__last_w = null;
-    this.__last_h = null;
-    this.__fov = please.is_number(fov)?fov:45;
-    this.__near = please.is_number(near)?near:0.1;
-    this.__far = please.is_number(far)?far:100.0;
-    this.look_at = vec3.fromValues(0, 0, 0);
-    this.location = vec3.fromValues(0, -10, 10);
-    this.up_vector = vec3.fromValues(0, 0, 1);
-    this.projection_matrix = mat4.create();
-    this.view_matrix = mat4.create();
-
-    var self = this;
-    Object.defineProperty(this, "width", {
-        get : function () {
-            return GET_WIDTH;
-        },
-        set : function (val) {
-            this.__width = val;
-            return this.__width;
-        },
-    });
-
-    Object.defineProperty(this, "height", {
-        get : function () {
-            return GET_HEIGHT;
-        },
-        set : function (val) {
-            this.__height = val;
-            return this.__height;
-        },
-    });
-
-    this.update_camera = function () {
-        // Avoiding the getters / setters with a macro, as this is
-        // called once per frame, and it will add up.
-        var width = GET_WIDTH;
-        var height = GET_HEIGHT;
-
-        // Recalculate the projection matrix, if necessary
-        if (this.__last_w !== width || this.__last_h !== height) {
-            this.__last_w = width;
-            this.__last_h = height;
-            mat4.perspective(
-                this.projection_matrix, this.__fov, 
-                width / height, this.__near, this.__far);
-        }
-
-        // Calculate the look_at vector, if necessary
-        var look_at = DRIVER(this, this.look_at);
-        if (look_at.__cache && look_at.__cache.xyz) {    
-            look_at = look_at.__cache.xyz;
-        }
-        if (look_at.length !== 3) {
-            look_at = null;
-        }
-
-        // Calculate the location vector, if necessary
-        var location = DRIVER(this, this.location);
-        if (location.__cache && location.__cache.xyz) {    
-            location = location.__cache.xyz;
-        }
-        if (location.length !== 3) {
-            location = null;
-        }
-
-        // Calculate the location vector, if necessary
-        var up_vector = DRIVER(this, this.up_vector);
-        if (up_vector.__cache && up_vector.__cache.xyz) {    
-            up_vector = up_vector.__cache.xyz;
-        }
-        if (up_vector.length !== 3) {
-            up_vector = null;
-        }
-
-        mat4.lookAt(
-            this.view_matrix,
-            location,
-            look_at,
-            up_vector);
-
-        // Mark both matricies as dirty updates
-        this.projection_matrix.dirty = true;
-        this.view_matrix.dirty = true;
-    };
-};
-*/
 // - m.builder.js -------------------------------------------------------- //
 // namespace
 please.builder = {};
