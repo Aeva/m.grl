@@ -598,6 +598,13 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 // generated be the scene graph will be used as the view matrix
 // instead.
 //
+// One can change between orthographic and perspective projection by
+// calling one of the following methods:
+//
+//  - **set_perspective()**
+//
+//  - **set_orthographic()**
+//
 // The following property influences how the projection matrix is
 // generated when the camera is in perspective mode (default
 // behavior).

@@ -280,6 +280,13 @@ coordinates are used instead.
 If the look\_at property is set to null, the node's world matrix as
 generated be the scene graph will be used as the view matrix instead.
 
+One can change between orthographic and perspective projection by
+calling one of the following methods:
+
+-  **set\_perspective()**
+
+-  **set\_orthographic()**
+
 The following property influences how the projection matrix is generated
 when the camera is in perspective mode (default behavior).
 
