@@ -168,6 +168,30 @@ variables:
    take care of texture uploading automatically. This object also
    accepts driver methods.
 
+Graph nodes have the following properties pertaining to object
+inhertiance:
+
+-  **children** This is a list of all objects that are directly parented
+   to a given GraphNode instance.
+
+-  **parent** To avoid a circular reference, this uses a trick involving
+   a closure to create weakref and a 'getter' property to provide a
+   cleaner means of access. This property may not be written to, and
+   reads out either the last object to add this one as a child
+   (including the scene graph instance itself), or returns null if the
+   object believes itself to be unparented.
+
+GraphNodes also have the following methods for managing the scene graph:
+
+-  **has\_child(entity)** Returns true or false whether or not this node
+   claims argument 'entity' as child.
+
+-  **add(entity)** Adds the passed object as a child, and sets its
+   parent weakref closure.
+
+-  **remove(entity)** Remove the given entity from this node's children,
+   and clear its parent weakref.
+
 If you want to create your own special GraphNodes, be sure to set the
 following variables in your constructor to ensure they are unique to
 each instance.
@@ -178,7 +202,7 @@ each instance.
         console.assert(this !== window);
         please.GraphNode.call(this);
     };
-    FancyNode.prototype = please.GraphNode.prototype;
+    FancyNode.prototype = Object.create(please.GraphNode.prototype);
 
 Should you desire not to call the constructor; at a minimum you really
 only need to define in a derrived class this.ext, this.vars,
@@ -226,37 +250,11 @@ following example:
 
 
 
-please.PerspectiveCamera
-------------------------
-*please.PerspectiveCamera* **(fov, near, far)**
+please.CameraNode
+-----------------
+*please.CameraNode* **()**
 
-Constructor function. Camera object for perspective projection. The
-constructor takes the following arguments:
-
--  **fov** Field of view, in degrees. If unset, this defaults to 45.
-
--  **near** Near bound of the view frustum. Defaults to 0.1.
-
--  **far** Far bound of the view frustum. Defaults to 100.0.
-
-In addition to the arguments above, the PerspectiveCamera is also
-configured with the following object properties.
-
--  **look\_at** May be a coordinate tripple, a function that returns a
-   tripple, or a graph node. Defaults to vec3.fromValues(0, 0, 0).
-
--  **location** May be a coordinate tripple, a function that returns a
-   tripple, or a graph node. Defaults to vec3.fromValues(0, -10, 10).
-
--  **up\_vector** May be a coordinate tripple, a function that returns a
-   tripple, or a graph node. Defaults to vec3.fromValues(0, 0, 1).
-
--  **width** getter/setter. Write to this to give a different value to
-   use for the camera's width than the gl context's canvas width.
-
--  **height** getter/setter. Write to this to give a different value to
-   use for the camera's height than the gl context's canvas height.
-
-
+Constructor function that creates a camera object that may be put into
+the scene graph.
 
 
