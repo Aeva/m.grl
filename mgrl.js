@@ -3856,9 +3856,15 @@ please.CameraNode = function () {
 };
 please.CameraNode.prototype = Object.create(please.GraphNode.prototype);
 please.CameraNode.prototype.activate = function () {
-    if (this.__graph_root !== null) {
-        this.__graph_root.camera = this;
+    var graph = this.__graph_root;
+    if (graph !== null) {
+        if (graph.camera && typeof(graph.camera.on_inactive) === "function") {
+            graph.camera.on_inactive();
+        }
+        graph.camera = this;
     }
+};
+please.CameraNode.prototype.on_inactive = function () {
 };
 please.CameraNode.prototype.set_perspective = function() {
     this.__projection_mode = "perspective";
