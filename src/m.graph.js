@@ -244,8 +244,10 @@ please.GraphNode = function () {
     this.__asset = null;
     this.__asset_hint = "";
     this.__parent_weakref = null;
+    this.__graph_root = null;
     this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
+    this.__is_camera = false; // set to true if the object is a camera
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__unlink = false; // set to true to tell parents to remove this child
     this.priority = 100; // lower means the driver functions are called sooner
@@ -278,6 +280,7 @@ please.GraphNode.prototype = {
         // Add the given entity to this object's children.
         this.children.push(entity);
         var parent = this;
+        entity.__set_graph_root(this.__graph_root)
         entity.__parent_weakref = function () {
             try {
                 return parent;
@@ -291,6 +294,14 @@ please.GraphNode.prototype = {
         if (this.has_child(entity)) {
             this.children.splice(this.children.indexOf(entity),1);
             entity.__parent_weakref = null;
+        }
+    },
+    "__set_graph_root" : function (root) {
+        // Used to recursively set the "graph root" (scene graph
+        // object) for all children of this object.
+        this.__graph_root = root;
+        for (var i=0; i<this.children.length; i+=1) {
+            this.children[i].__set_graph_root(root);
         }
     },
     "__flatten" : function () {
@@ -488,6 +499,7 @@ please.SceneGraph = function () {
     this.__flat = [];
     this.__alpha = [];
     this.__states = {};
+    this.__graph_root = this;
     this.camera = null;
     this.local_matrix = mat4.create();
 
@@ -501,6 +513,19 @@ please.SceneGraph = function () {
     };
 
     this.tick = function () {
+        if (this.camera === null) {
+            // if no camera was set, loop through the immediate
+            // children of this object and select the first camera
+            // available
+            for (var i=0; i<this.children.length; i+=1) {
+                var child = this.children[i];
+                if (child.__is_camera) {
+                    child.activate();
+                    break;
+                }
+            }
+        }
+
         this.__flat = this.__flatten();
         this.__flat.sort(tick_sort_function);
 
@@ -521,6 +546,11 @@ please.SceneGraph = function () {
                     this.__states[hint].push(element);
                 }
             }
+            if (this.camera === null && element.__is_camera) {
+                // if there is still no camera, just pick the first
+                // thing found :P
+                element.activate();
+            }
         };
 
         // update the matricies of objects in the tree
@@ -536,6 +566,9 @@ please.SceneGraph = function () {
             this.camera.update_camera();
             prog.vars.projection_matrix = this.camera.projection_matrix;
             prog.vars.view_matrix = this.camera.view_matrix;
+        }
+        else {
+            throw ("The scene graph has no camera in it!");
         }
         if (this.__states) {
             ITER_PROPS(hint, this.__states) {
@@ -578,6 +611,12 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 // perspective projection, and almost all of their properties are
 // animatable.  The view matrix can be generated in one of two ways
 // described below.
+//
+// To make a camera active, call it's "activate()" method.  If no
+// camera was explicitly activated, then the scene graph will call the
+// first one added that is an immediate child, and if no such camera
+// still exists, then it will pick the first one it can find durring
+// state sorting.
 //
 // The default way in which the view matrix is calculated uses the
 // mat4.lookAt method from the glMatrix library.  The following
@@ -644,6 +683,7 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 //
 please.CameraNode = function () {
     console.assert(this !== window);
+    this.__is_camera = true;
     this.children = [];
     this.ext = {};
     this.vars = {};
@@ -679,6 +719,13 @@ please.CameraNode = function () {
     this.__projection_mode = "perspective";
 };
 please.CameraNode.prototype = Object.create(please.GraphNode.prototype);
+
+
+please.CameraNode.prototype.activate = function () {
+    if (this.__graph_root !== null) {
+        this.__graph_root.camera = this;
+    }
+};
 
 
 please.CameraNode.prototype.set_perspective = function() {

@@ -199,9 +199,6 @@ addEventListener("mgrl_media_ready", function () {
     camera_a.x = function () { return get_camera_position()[0]; };
     camera_a.y = function () { return get_camera_position()[1]; };
     camera_a.z = function () { return get_camera_position()[2]; };
-    //camera_a.width = buffer_size;
-    //camera_a.height = buffer_size;
-    graph_a.camera = camera_a;
 
     // setup camera_b
     var camera_b = new please.CameraNode();
@@ -210,7 +207,6 @@ addEventListener("mgrl_media_ready", function () {
     camera_b.x = 0;
     camera_b.y = 0.1;
     camera_b.z = 0.1;
-    graph_b.camera = camera_b;
 
     // lighting stuff
     var light_direction = vec3.fromValues(-1.0, 1.0, 0.0);

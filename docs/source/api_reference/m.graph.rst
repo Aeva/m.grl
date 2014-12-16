@@ -262,6 +262,11 @@ graph. Camera nodes support both orthographic and perspective
 projection, and almost all of their properties are animatable. The view
 matrix can be generated in one of two ways described below.
 
+To make a camera active, call it's "activate()" method. If no camera was
+explicitly activated, then the scene graph will call the first one added
+that is an immediate child, and if no such camera still exists, then it
+will pick the first one it can find durring state sorting.
+
 The default way in which the view matrix is calculated uses the
 mat4.lookAt method from the glMatrix library. The following properties
 provide the arguments for the library call. Note that the location

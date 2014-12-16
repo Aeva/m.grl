@@ -153,13 +153,21 @@ addEventListener("mgrl_media_ready", function () {
     // add a floor
     graph.add(new FloorNode());
 
+    // add a camera
     var camera = window.camera = new please.CameraNode();
-    graph.add(camera);
     camera.look_at = vec3.fromValues(0, 0, 1);
     camera.x = -3;
     camera.y = 12.5;
     camera.z = 5.7;
-    graph.camera = camera;
+
+    // add the camera to the scene graph
+    graph.add(camera);
+
+    // if the camera is not explicitely activated, then the scene
+    // graph will attempt to pick one to use.  In this case we have
+    // only one so it doesn't matter, BUT it is generally good
+    // practice to explicitly activate the camera you want to use:
+    camera.activate();
 
     // set up a directional light
     var light_direction = vec3.fromValues(.25, -1.0, -.4);

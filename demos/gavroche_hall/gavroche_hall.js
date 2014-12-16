@@ -221,7 +221,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // add a camera object
     var camera = window.camera = new please.CameraNode();
-    graph.add(camera);
     //camera.look_at = vec3.fromValues(0, 10, 2.5);
     camera.look_at = char_node;
     camera.x = function () {
@@ -235,8 +234,14 @@ addEventListener("mgrl_media_ready", please.once(function () {
     };
     camera.fov = 57.29; // give it a weird field of view
     
-    // add the camera to the graph
-    graph.camera = camera;
+    // Add the camera to the scene graph
+    graph.add(camera);
+
+    // If the camera is not explicitely activated, then the scene
+    // graph will attempt to pick one to use.  In this case we have
+    // only one so it doesn't matter, BUT it is generally good
+    // practice to explicitly activate the camera you want to use:
+    camera.activate();
 
     // connect keyboard handlers
     please.keys.enable();
