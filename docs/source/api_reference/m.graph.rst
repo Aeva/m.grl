@@ -177,23 +177,14 @@ inhertiance:
 -  **children** This is a list of all objects that are directly parented
    to a given GraphNode instance.
 
--  **parent** To avoid a circular reference, this uses a trick involving
-   a closure to create weakref and a 'getter' property to provide a
-   cleaner means of access. This property may not be written to, and
-   reads out either the last object to add this one as a child
-   (including the scene graph instance itself), or returns null if the
-   object believes itself to be unparented.
-
 GraphNodes also have the following methods for managing the scene graph:
 
 -  **has\_child(entity)** Returns true or false whether or not this node
    claims argument 'entity' as child.
 
--  **add(entity)** Adds the passed object as a child, and sets its
-   parent weakref closure.
+-  **add(entity)** Adds the passed object as a child.
 
--  **remove(entity)** Remove the given entity from this node's children,
-   and clear its parent weakref.
+-  **remove(entity)** Remove the given entity from this node's children.
 
 If you want to create your own special GraphNodes, be sure to set the
 following variables in your constructor to ensure they are unique to

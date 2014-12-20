@@ -176,24 +176,16 @@
 //  - **children** This is a list of all objects that are directly
 //    parented to a given GraphNode instance.
 //
-//  - **parent** To avoid a circular reference, this uses a trick
-//    involving a closure to create weakref and a 'getter' property to
-//    provide a cleaner means of access.  This property may not be
-//    written to, and reads out either the last object to add this one
-//    as a child (including the scene graph instance itself), or
-//    returns null if the object believes itself to be unparented.
-//
 // GraphNodes also have the following methods for managing the scene
 // graph:
 //
 //  - **has\_child(entity)** Returns true or false whether or not this
 //    node claims argument 'entity' as child.
 //
-//  - **add(entity)** Adds the passed object as a child, and sets its
-//    parent weakref closure.
+//  - **add(entity)** Adds the passed object as a child.
 //
 //  - **remove(entity)** Remove the given entity from this node's
-//    children, and clear its parent weakref.
+//    children.
 //
 // If you want to create your own special GraphNodes, be sure to set
 // the following variables in your constructor to ensure they are
@@ -243,7 +235,6 @@ please.GraphNode = function () {
     this.__cache = null;
     this.__asset = null;
     this.__asset_hint = "";
-    this.__parent_weakref = null;
     this.__graph_root = null;
     this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
@@ -251,24 +242,6 @@ please.GraphNode = function () {
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__unlink = false; // set to true to tell parents to remove this child
     this.priority = 100; // lower means the driver functions are called sooner
-
-    var self = this;
-    Object.defineProperty(this, "parent", {
-        get : function () {
-            // see if a weakref was set
-            var parent = self.__parent_weakref;
-            if (parent !== null) {
-                // read the value of the weakref
-                parent = self.__parent_weakref();
-                if (parent === null) {
-                    // weakref points to null, so clear it
-                    self.__parent_weakref = null;
-                }
-            }
-            // return the parent or null
-            return parent;
-        },
-    });
 };
 please.GraphNode.prototype = {
     "has_child" : function (entity) {
@@ -279,21 +252,12 @@ please.GraphNode.prototype = {
     "add" : function (entity) {
         // Add the given entity to this object's children.
         this.children.push(entity);
-        var parent = this;
         entity.__set_graph_root(this.__graph_root)
-        entity.__parent_weakref = function () {
-            try {
-                return parent;
-            } catch (err) {
-                return null;
-            }
-        };
     },
     "remove" : function (entity) {
         //  Remove the given entity from this object's children.
         if (this.has_child(entity)) {
             this.children.splice(this.children.indexOf(entity),1);
-            entity.__parent_weakref = null;
         }
     },
     "__set_graph_root" : function (root) {
@@ -825,7 +789,7 @@ please.CameraNode.prototype.update_camera = function () {
     }
 
     // If the node is not in the graph, trigger its own __rig and __hoist methods.
-    if (this.parent === null) {
+    if (this.__graph_root === null) {
         this.__rig();
         this.__hoist(mat4.create(),{});
     }
