@@ -83,9 +83,7 @@ describe("Tests for m.graph.js", function () {
         priority = 10;
 
         graph.tick();
-        expect(bar.__cache.xyz[0]).toBe(-1);
         graph.tick();
-        expect(bar.__cache.xyz[0]).toBe(-2);
         graph.tick();
         expect(bar.__cache.xyz[0]).toBe(-3);
     });
