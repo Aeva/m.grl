@@ -2,6 +2,28 @@
 
 describe("Tests for m.graph.js", function () {
 
+    it("In which please.make_animatable is tested.", function () {
+        var node = {};
+        please.make_animatable(node, "foo");
+        please.make_animatable(node, "bar");
+        please.make_animatable(node, "baz");
+        
+        var count = 0;
+        node.foo = function () { return count +=1; };
+        node.bar = 10;
+        node.baz = function () { return node.bar * -1; };
+
+        expect(node.foo).toBe(1);
+        expect(node.bar).toBe(10);
+        expect(node.baz).toBe(-10);
+
+        node.__clear_ani_cache();
+
+        expect(node.foo).toBe(2);
+        expect(node.bar).toBe(10);
+        expect(node.baz).toBe(-10);
+    });
+
     it("In which a simple graph is constructed.", function () {
         graph = new please.SceneGraph();
         foo = new please.GraphNode();
@@ -46,23 +68,15 @@ describe("Tests for m.graph.js", function () {
         graph.add(bar);
         graph.add(baz);
 
-        foo.priority = 10; // first
-        bar.priority = 30; // last
-        baz.priority = 20; // middle
-
-        driver = function () {
-            counter += 1;
-            return counter;
-        };
-
-        foo.x = driver;
-        bar.x = driver;
-        baz.x = driver;
+        foo.x = 5;
+        bar.x = function () { return foo.x - 10; };
+        baz.x = function () { return bar.x * 2; };
 
         graph.tick();
-        expect(foo.__cache.xyz[0]).toBe(1);
-        expect(bar.__cache.xyz[0]).toBe(3);
-        expect(baz.__cache.xyz[0]).toBe(2);
+
+        expect(foo.__cache.xyz[0]).toBe(5);
+        expect(bar.__cache.xyz[0]).toBe(-5);
+        expect(baz.__cache.xyz[0]).toBe(-10);
     });
 
     it("In which we test reading cached vaules of driver methods.", function () {
@@ -75,16 +89,10 @@ describe("Tests for m.graph.js", function () {
             counter += 1;
             return counter;
         };
-        priority = 20;
-
-        bar.x = function () {
-            return foo.x * -1;
-        };
-        priority = 10;
 
         graph.tick();
         graph.tick();
         graph.tick();
-        expect(bar.__cache.xyz[0]).toBe(-3);
+        expect(foo.__cache.xyz[0]).toBe(3);
     });
 });

@@ -9,3 +9,4 @@
 #define DEFAULT(x, value) if (x === undefined) { x = value; }
 #define F(...) function (__VA_ARGS__)
 #define DRIVER(self, foo) typeof(foo) === "function" ? foo.call(self) : foo
+#define ANI(prop, val) please.make_animatable(this, prop, val);

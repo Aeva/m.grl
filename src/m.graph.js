@@ -90,6 +90,65 @@
  */
 
 
+// [+] please.make_animatable(object, property_name[, default_value])
+//
+// Sets up the machinery needed to make the given property on an
+// object animatable.
+//
+please.make_animatable = function(obj, prop, default_value) {
+
+    // Create the __ani_cache object if none exists.  Cache is reset every
+    // tick, and is generated on the first get.
+    if (!obj.__ani_cache) {
+        Object.defineProperty(obj, "__ani_cache", {
+            enumerable : false,
+            writable : false,
+            value : {},
+        });
+    }
+    if (!obj.__clear_ani_cache) {
+        Object.defineProperty(obj, "__clear_ani_cache", {
+            enumerable : false,
+            writable : false,
+            value : function () {
+                for (var key in obj.__ani_cache) {
+                    obj.__ani_cache[key] = null;
+                };
+            },
+        });
+    }
+    var cache = obj.__ani_cache;
+    var local = default_value !== undefined ? default_value : null;
+
+    // Add the property to the cache object.
+    Object.defineProperty(cache, prop, {
+        enumerable: true,
+        writable: true,
+        value: null,
+    });
+
+    // Define the getters and setters for the new property.
+    Object.defineProperty(obj, prop, {
+        enumerable: true,
+        get : function () {
+            if (typeof(local) === "function") {
+                if (cache[prop] === null) {
+                    cache[prop] = local();
+                }
+                return cache[prop];
+            }
+            else {
+                return local;
+            }
+        },
+        set : function (value) {
+            cache[prop] = null;
+            local = value;
+        },
+    });
+};
+
+
 // [+] please.GraphNode()
 //
 // Constructor function that creates an Empty node.  The constructor
@@ -134,10 +193,6 @@
 //
 //  - **visible** Defaults to true.  May be set to false to prevent
 //    the node and its children from being drawn.
-//
-//  - **priority** Defaults to 100. Determine the order in which all
-//    of the drivers are evaluated and cached.  Set it lower if you
-//    want a node to be evaluated before other nodes.
 //
 //  - **sort_mode** Defaults to "solid", but may be set to "alpha" to
 //    force the object to use the z-sorting path instead of state
@@ -193,16 +248,10 @@
 //
 // ```
 // var FancyNode = function () {
-//     console.assert(this !== window);
 //     please.GraphNode.call(this);
 // };
 // FancyNode.prototype = Object.create(please.GraphNode.prototype);
 // ```
-//
-// Should you desire not to call the constructor; at a minimum you
-// really only need to define in a derrived class this.ext, this.vars,
-// this.samplers, and this.children.  Calling the GraphNode
-// constructor will accomplish this for you.
 //
 // If you want to make an Empty or a derived constructor drawable, set
 // the "__drawable" property to true, and set the "draw" property to a
@@ -214,24 +263,28 @@
 // vestigial and should not be used.
 // 
 please.GraphNode = function () {
-    if (this === please) {
-        return new please.GraphNode();
-    }
+    console.assert(this !== window);
+
     this.children = [];
     this.visible = true;
     this.ext = {};
     this.vars = {};
     this.samplers = {};
-    this.x = 0;
-    this.y = 0;
-    this.z = 0;
-    this.rotate_x = 0;
-    this.rotate_y = 0;
-    this.rotate_z = 0;
-    this.scale_x = 1;
-    this.scale_y = 1;
-    this.scale_z = 1;
-    this.alpha = 1.0;
+
+    ANI("x", 0);
+    ANI("y", 0);
+    ANI("z", 0);
+
+    ANI("rotate_x", 0);
+    ANI("rotate_y", 0);
+    ANI("rotate_z", 0);
+
+    ANI("scale_x", 0);
+    ANI("scale_y", 0);
+    ANI("scale_z", 0);
+
+    ANI("alpha", 1.0);
+
     this.__cache = null;
     this.__asset = null;
     this.__asset_hint = "";
@@ -241,7 +294,6 @@ please.GraphNode = function () {
     this.__is_camera = false; // set to true if the object is a camera
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__unlink = false; // set to true to tell parents to remove this child
-    this.priority = 100; // lower means the driver functions are called sooner
 };
 please.GraphNode.prototype = {
     "has_child" : function (entity) {
@@ -353,20 +405,15 @@ please.GraphNode.prototype = {
         };
 
         this.__cache.xyz = vec3.fromValues(
-            DRIVER(self, this.x),
-            DRIVER(self, this.y),
-            DRIVER(self, this.z)
-        );
+            this.x, this.y, this.z);
+
         this.__cache.rotate = vec3.fromValues(
-            DRIVER(self, this.rotate_x),
-            DRIVER(self, this.rotate_y),
-            DRIVER(self, this.rotate_z)
-        );
+            this.rotate_x, this.rotate_y, this.rotate_z);
+
         this.__cache.scale = vec3.fromValues(
-            DRIVER(self, this.scale_x),
-            DRIVER(self, this.scale_y),
-            DRIVER(self, this.scale_z)
-        );
+            this.scale_x,
+            this.scale_y,
+            this.scale_z);
         
         please.prop_map(self.ext, function (name, value) {
             DRIVER(self, value);
@@ -452,9 +499,6 @@ please.GraphNode.prototype = {
 // ```
 //
 please.SceneGraph = function () {
-    if (this === please) {
-        return new please.SceneGraph();
-    }
     please.GraphNode.call(this);
 
     this.__rig = null;
@@ -466,11 +510,6 @@ please.SceneGraph = function () {
     this.__graph_root = this;
     this.camera = null;
     this.local_matrix = mat4.create();
-
-    var tick_sort_function = function (lhs, rhs) {
-        // sort object list by priority;
-        return lhs.priority - rhs.priority;
-    };
 
     var z_sort_function = function (lhs, rhs) {
         return rhs.__cache.final_depth - lhs.__cache.final_depth;
@@ -491,7 +530,11 @@ please.SceneGraph = function () {
         }
 
         this.__flat = this.__flatten();
-        this.__flat.sort(tick_sort_function);
+        // reset the cache on graph objects
+        ITER(i, this.__flat) {
+            var element = this.__flat[i];
+            element.__clear_ani_cache();
+        };
 
         this.__alpha = [];
         this.__states = {};
@@ -646,27 +689,24 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 //  - **far** Defaults to 100.0
 //
 please.CameraNode = function () {
-    console.assert(this !== window);
+    please.GraphNode.call(this);
     this.__is_camera = true;
-    this.children = [];
-    this.ext = {};
-    this.vars = {};
-    this.samplers = {};
 
     this.look_at = vec3.fromValues(0, 0, 0);
     this.up_vector = vec3.fromValues(0, 0, 1);
 
-    this.fov = 45;
-    this.left = null;
-    this.right = null;
-    this.bottom = null;
-    this.top = null;
+    ANI("fov", 45);
 
-    this.width = null;
-    this.height = null;
+    ANI("left", null);
+    ANI("right", null);
+    ANI("bottom", null);
+    ANI("top", null);
 
-    this.near = 0.1;
-    this.far = 100.0;
+    ANI("width", null);
+    ANI("height", null);
+    
+    ANI("near", 0.1);
+    ANI("far", 100.0);
 
     this.__last = {
         "fov" : null,
@@ -712,10 +752,10 @@ please.CameraNode.prototype.set_orthographic = function() {
 
 please.CameraNode.prototype.update_camera = function () {
     // Calculate the arguments common to both projection functions.
-    var near = DRIVER(this, this.near);
-    var far = DRIVER(this, this.far);
-    var width = DRIVER(this, this.width);
-    var height = DRIVER(this, this.height);
+    var near = this.near;
+    var far = this.far;
+    var width = this.width;
+    var height = this.height;
     if (width === null) {
         width = please.gl.canvas.width;
     }
@@ -739,7 +779,7 @@ please.CameraNode.prototype.update_camera = function () {
 
     // Perspective projection specific code
     if (this.__projection_mode == "perspective") {
-        var fov = DRIVER(this, this.fov);
+        var fov = this.fov;
 
         if (fov !== this.__last.fov || dirty) {
             this.__last.fov = fov;
@@ -754,10 +794,10 @@ please.CameraNode.prototype.update_camera = function () {
 
     // Orthographic projection specific code
     else if (this.__projection_mode == "orthographic") {
-        var left = DRIVER(this, this.left);
-        var right = DRIVER(this, this.right);
-        var bottom = DRIVER(this, this.bottom);
-        var top = DRIVER(this, this.top);
+        var left = this.left;
+        var right = this.right;
+        var bottom = this.bottom;
+        var top = this.top;
 
         if (left === null || right === null ||
             bottom === null || top === null) {
