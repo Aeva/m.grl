@@ -17,7 +17,8 @@ please.once
 *please.once* **(callback)**
 
 Returns a function that will call a callback, but only the first time it
-is called.
+is called. If the returned function is being used as an event handler,
+then it will attempt to remove itself so as to prevent further calls.
 
 -  **callback** A function to be called only once.
 

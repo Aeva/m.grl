@@ -156,7 +156,9 @@ please.prop_map = function (dict, callback) {
 // [+] please.once(callback)
 //
 // Returns a function that will call a callback, but only the first
-// time it is called.
+// time it is called.  If the returned function is being used as an
+// event handler, then it will attempt to remove itself so as to
+// prevent further calls.
 //
 // - **callback** A function to be called only once.
 //
@@ -175,8 +177,15 @@ please.prop_map = function (dict, callback) {
 //
 please.once = function (callback) {
     var called = false;
-    return function () {
+    return function burn_after_reading() {
         if (!called) {
+            // attempt to remove this callback if it is being used as
+            // an event listener
+            if (arguments.length >= 1 && arguments[0].originalTarget) {
+                var event = arguments[0];
+                var target = event.originalTarget;
+                target.removeEventListener(event.type, burn_after_reading);
+            }
             called = true;
             callback();
         }
