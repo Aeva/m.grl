@@ -528,19 +528,33 @@ please.SceneGraph = function () {
                 }
             }
         }
+        else {
+            // kind of a hack, since the camera doesn't strictly need
+            // to be a child of the graph node
+            this.camera.__clear_ani_cache();
+        }
 
+        // flatten the scene graph into a list (this line will soon
+        // not be needed)
         this.__flat = this.__flatten();
+
         // reset the cache on graph objects
         ITER(i, this.__flat) {
             var element = this.__flat[i];
             element.__clear_ani_cache();
         };
 
+        // nodes in the z-sorting path
         this.__alpha = [];
+
+        // nodes in the state-sorting path
         this.__states = {};
+
+        // run through the flattened list of nodes, calculate world
+        // matricies, and put things in applicable sorting paths
         ITER(i, this.__flat) {
             var element = this.__flat[i];
-            element.__rig();
+            element.__rig(); // reset the non-ani cache
             if (element.__drawable) {
                 if (element.sort_mode === "alpha") {
                     this.__alpha.push(element);
