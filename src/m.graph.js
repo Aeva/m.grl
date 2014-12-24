@@ -279,9 +279,9 @@ please.GraphNode = function () {
     ANI("rotate_y", 0);
     ANI("rotate_z", 0);
 
-    ANI("scale_x", 0);
-    ANI("scale_y", 0);
-    ANI("scale_z", 0);
+    ANI("scale_x", 1);
+    ANI("scale_y", 1);
+    ANI("scale_z", 1);
 
     ANI("alpha", 1.0);
 

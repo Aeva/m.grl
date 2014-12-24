@@ -3516,9 +3516,9 @@ please.GraphNode = function () {
     please.make_animatable(this, "rotate_x", 0);;
     please.make_animatable(this, "rotate_y", 0);;
     please.make_animatable(this, "rotate_z", 0);;
-    please.make_animatable(this, "scale_x", 0);;
-    please.make_animatable(this, "scale_y", 0);;
-    please.make_animatable(this, "scale_z", 0);;
+    please.make_animatable(this, "scale_x", 1);;
+    please.make_animatable(this, "scale_y", 1);;
+    please.make_animatable(this, "scale_z", 1);;
     please.make_animatable(this, "alpha", 1.0);;
     this.__cache = null;
     this.__asset = null;
