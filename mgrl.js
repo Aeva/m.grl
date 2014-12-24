@@ -4096,11 +4096,11 @@ please.CameraNode.prototype.update_camera = function () {
     var up_vector = typeof(this.up_vector) === "function" ? this.up_vector.call(this) : this.up_vector;
     if (look_at.length === undefined) {
         // look_at is probably a graph_node
-        look_at = vec3(look_at.x, look_at.y, look_at.z);
+        look_at = vec3.fromValues(look_at.x, look_at.y, look_at.z);
     }
     if (up_vector.length === undefined) {
         // up vector is probably a graph node o_O
-        up_vector = vec3(up_vector.x, up_vector.y, up_vector.z);
+        up_vector = vec3.fromValues(up_vector.x, up_vector.y, up_vector.z);
     }
     if (look_at !== null) {
         // View matrix uses the mat4.lookAt method.
