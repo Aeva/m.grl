@@ -121,6 +121,20 @@ Converts from degrees to radians.
 
 
 
+please.uuid
+-----------
+*please.uuid* **()**
+
+Generates a Universally Unique Identifier (UUID) string, in accordance
+to version 4 of the specification. In other words, this returns a
+randomized string in which generating it twice is statistically
+improbable enough so that it can be used to identify something with the
+reasonable expectation that it won't refer to anything else. This is
+useful for primary keys, routing data, and so on. Where possible,
+randomness is generated via window.crypto (supported by most modern
+browsers), with a (slower) fallback on Math.random.
+
+
 please.decode\_buffer
 ---------------------
 *please.decode\_buffer* **(blob)**

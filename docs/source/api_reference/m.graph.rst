@@ -92,6 +92,14 @@ returns a coordinate tripple, or a graph object.
 
 
 
+please.make_animatable
+----------------------
+*please.make\_animatable* **(object, property\_name[, default\_value])**
+
+Sets up the machinery needed to make the given property on an object
+animatable.
+
+
 please.GraphNode
 ----------------
 *please.GraphNode* **()**
@@ -136,10 +144,6 @@ GraphNodes have some special properties:
 
 -  **visible** Defaults to true. May be set to false to prevent the node
    and its children from being drawn.
-
--  **priority** Defaults to 100. Determine the order in which all of the
-   drivers are evaluated and cached. Set it lower if you want a node to
-   be evaluated before other nodes.
 
 -  **sort\_mode** Defaults to "solid", but may be set to "alpha" to
    force the object to use the z-sorting path instead of state sorting.
@@ -193,15 +197,9 @@ each instance.
 .. code-block:: javascript
 
     var FancyNode = function () {
-        console.assert(this !== window);
         please.GraphNode.call(this);
     };
     FancyNode.prototype = Object.create(please.GraphNode.prototype);
-
-Should you desire not to call the constructor; at a minimum you really
-only need to define in a derrived class this.ext, this.vars,
-this.samplers, and this.children. Calling the GraphNode constructor will
-accomplish this for you.
 
 If you want to make an Empty or a derived constructor drawable, set the
 "\_\_drawable" property to true, and set the "draw" property to a

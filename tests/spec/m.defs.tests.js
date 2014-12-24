@@ -17,4 +17,31 @@ describe("Tests for m.defs.js", function () {
         window.dispatchEvent(event);
         expect(count).toBe(-100);
     });
+
+    it("In which please.uuid is verified to have output.", function () {
+        var uuid = please.uuid();
+        expect(typeof(uuid)).toBe("string");
+    });
+
+    it("In which please.__uuid_with_crypto is tested.", function () {
+        var hash = {};
+        var total = 100000;
+        for (var i=0; i<total; i+=1) {
+            uuid = please.__uuid_with_crypto();
+            hash[uuid] = true;
+        }
+        expect(Object.keys(hash).length).toBe(total);
+        expect(typeof(uuid)).toBe("string");
+    });
+
+    it("In which please.__uuid_with_bad_rand is tested", function () {
+        var hash = {};
+        var total = 100000;
+        for (var i=0; i<total; i+=1) {
+            var uuid = please.__uuid_with_bad_rand();
+            hash[uuid] = true;
+        }
+        expect(Object.keys(hash).length).toBe(total);
+        expect(typeof(uuid)).toBe("string");
+    });
 });
