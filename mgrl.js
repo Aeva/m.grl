@@ -2919,10 +2919,10 @@ please.gl.__jta_model = function (src, uri) {
                 node.__drawable = true;
                 node.__asset = model;
                 please.prop_map(model.samplers, function(name, uri) {
-                    node.samplers[name] = uri;
+                    node[name] = uri;
                 });
                 please.prop_map(model.uniforms, function(name, value) {
-                    node.vars[name] = value;
+                    node[name] = value;
                 });
                 if (model.extra.position) {
                     node.x = model.extra.position.x;
@@ -3341,7 +3341,7 @@ please.gl.__jta_unpack_textures = function (packed_data) {
 // Sets up the machinery needed to make the given property on an
 // object animatable.
 //
-please.make_animatable = function(obj, prop, default_value) {
+please.make_animatable = function(obj, prop, default_value, lock) {
     // Create the __ani_cache object if none exists.  Cache is reset every
     // tick, and is generated on the first get.
     if (!obj.__ani_cache) {
@@ -3371,24 +3371,38 @@ please.make_animatable = function(obj, prop, default_value) {
         value: null,
     });
     // Define the getters and setters for the new property.
-    Object.defineProperty(obj, prop, {
-        enumerable: true,
-        get : function () {
-            if (typeof(local) === "function") {
-                if (cache[prop] === null) {
-                    cache[prop] = local();
-                }
-                return cache[prop];
+    var getter = function () {
+        if (typeof(local) === "function") {
+            if (cache[prop] === null) {
+                cache[prop] = local.call(obj);
             }
-            else {
-                return local;
-            }
-        },
-        set : function (value) {
-            cache[prop] = null;
-            local = value;
-        },
-    });
+            return cache[prop];
+        }
+        else {
+            return local;
+        }
+    };
+    var setter = function (value) {
+        cache[prop] = null;
+        local = value;
+        return value;
+    };
+    if (!lock) {
+        Object.defineProperty(obj, prop, {
+            enumerable: true,
+            get : getter,
+            set : setter,
+        });
+    }
+    else {
+        Object.defineProperty(obj, prop, {
+            enumerable: true,
+            get : getter,
+            set : function (value) {
+                return value;
+            },
+        });
+    }
 };
 // [+] please.GraphNode()
 //
@@ -3502,14 +3516,63 @@ please.make_animatable = function(obj, prop, default_value) {
 // regardless of if the node is visible, though both bind and draw
 // requrie the node be drawable.  The bind method is essentially
 // vestigial and should not be used.
-// 
+//
+please.graph_index = {};
 please.GraphNode = function () {
     console.assert(this !== window);
-    this.children = [];
-    this.visible = true;
-    this.ext = {};
-    this.vars = {};
-    this.samplers = {};
+    // The node_id value is immutable once set, and is used for
+    // tracking graph inheritance.
+    Object.defineProperty(this, "__id", {
+        enumerable : false,
+        configurable: false,
+        writable : false,
+        value : please.uuid(),
+    });
+    // The graph_index is used to track inheritance in the graph
+    // without creating extra object references.
+    please.graph_index[this.__id] = {
+        "root": null,
+        "parent" : null,
+        "children" : [],
+        "ref": this,
+    };
+    // Pull the parent reference out of the symbol table.
+    Object.defineProperty(this, "graph_root", {
+        "configurable" : true,
+        "get" : function () {
+            var graph_id = please.graph_index[this.__id].root;
+            if (graph_id) {
+                return please.graph_index[graph_id].ref;
+            }
+            else {
+                return null;
+            }
+        },
+    });
+    // Pull the parent reference out of the symbol table.
+    Object.defineProperty(this, "parent", {
+        "configurable" : true,
+        "get" : function () {
+            var parent_id = please.graph_index[this.__id].parent;
+            if (parent_id) {
+                return please.graph_index[parent_id].ref;
+            }
+            else {
+                return null;
+            }
+        },
+    });
+    // Generate a list of child objects from the symbol table.
+    Object.defineProperty(this, "children", {
+        "get" : function () {
+            var children_ids = please.graph_index[this.__id].children;
+            var children = [];
+            for (var i=0; i<children_ids.length; i+=1) {
+                children.push(please.graph_index[children_ids[i]].ref);
+            }
+            return children;
+        },
+    });
     please.make_animatable(this, "x", 0);;
     please.make_animatable(this, "y", 0);;
     please.make_animatable(this, "z", 0);;
@@ -3520,51 +3583,115 @@ please.GraphNode = function () {
     please.make_animatable(this, "scale_y", 1);;
     please.make_animatable(this, "scale_z", 1);;
     please.make_animatable(this, "alpha", 1.0);;
-    this.__cache = null;
+    // Automatically databind to the shader program's uniform and
+    // sampler variables.
+    var prog = please.gl.get_program();
+    var ignore = [
+        "projection_matrix",
+        "view_matrix",
+    ];
+    // GLSL bindings with default driver methods:
+    please.make_animatable(this, "world_matrix", this.__world_matrix_driver, true);;
+    please.make_animatable(this, "normal_matrix", this.__normal_matrix_driver, true);;
+    // LOCKED_ANI("is_transparent", this.__is_transparent_driver);
+    // LOCKED_ANI("is_sprite", this.__is_sprite_driver);
+    // prog.samplers is a subset of prog.vars
+    for (var name in prog.vars) if (prog.vars.hasOwnProperty(name)) {
+        if (ignore.indexOf(name) === -1 && !this.hasOwnProperty(name)) {
+            please.make_animatable(this, name, null);;
+        }
+    }
+    this.visible = true;
     this.__asset = null;
     this.__asset_hint = "";
-    this.__graph_root = null;
     this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
     this.__is_camera = false; // set to true if the object is a camera
     this.__drawable = false; // set to true to call .bind and .draw functions
-    this.__unlink = false; // set to true to tell parents to remove this child
+    this.__z_depth = null; // overwritten by z-sorting
 };
 please.GraphNode.prototype = {
     "has_child" : function (entity) {
         // Return true or false whether or not this graph node claims
         // the given entity as a child.
-        return this.children.indexOf[entity] !== -1;
+        var children = please.graph_index[this.__id].children;
+        return children.indexOf(entity.__id) !== -1;
     },
     "add" : function (entity) {
         // Add the given entity to this object's children.
-        this.children.push(entity);
-        entity.__set_graph_root(this.__graph_root)
+        var old_parent = entity.parent;
+        if (old_parent) {
+            if (old_parent === this) {
+                return;
+            }
+            old_parent.remove(entity);
+        }
+        if (!this.has_child(entity)) {
+            please.graph_index[this.__id].children.push(entity.__id);
+            please.graph_index[entity.__id].parent = this.__id;
+        }
+        entity.__set_graph_root(this.graph_root);
     },
     "remove" : function (entity) {
         //  Remove the given entity from this object's children.
         if (this.has_child(entity)) {
-            this.children.splice(this.children.indexOf(entity),1);
+            var children = please.graph_index[this.__id].children;
+            children.splice(children.indexOf(entity.__id), 1);
         }
+    },
+    "destroy" : function () {
+        var parent = this.parent;
+        if (parent) {
+            parent.remove(this);
+        }
+        var children = this.children;
+        for (var i=0; i<children.length; i+=1) {
+            var child_id = children[i].__id;
+            please.graph_index[child_id].parent = null;
+            children[i].__set_graph_root(null);
+        }
+        delete please.graph_index[this.__id];
     },
     "__set_graph_root" : function (root) {
         // Used to recursively set the "graph root" (scene graph
         // object) for all children of this object.
-        this.__graph_root = root;
-        for (var i=0; i<this.children.length; i+=1) {
-            this.children[i].__set_graph_root(root);
+        please.graph_index[this.__id].root = root ? root.__id : null;
+        var children = this.children;
+        for (var i=0; i<children.length; i+=1) {
+            children[i].__set_graph_root(root);
         }
+    },
+    "__world_matrix_driver" : function () {
+        var xyz = vec3.fromValues(this.x, this.y, this.z);
+        var scale = vec3.fromValues(this.scale_x, this.scale_y, this.scale_z);
+        var local_matrix = mat4.create();
+        var world_matrix = mat4.create();
+        mat4.translate(local_matrix, local_matrix, xyz);
+        mat4.rotateX(local_matrix, local_matrix, this.rotate_x);
+        mat4.rotateY(local_matrix, local_matrix, this.rotate_y);
+        mat4.rotateZ(local_matrix, local_matrix, this.rotate_z);
+        mat4.scale(local_matrix, local_matrix, scale);
+        var parent = this.parent;
+        var parent_matrix = parent ? parent.world_matrix : mat4.create();
+        mat4.multiply(world_matrix, parent_matrix, local_matrix);
+        world_matrix.dirty = true;
+        return world_matrix;
+    },
+    "__normal_matrix_driver" : function () {
+        var normal_matrix = mat3.create();
+        mat3.fromMat4(normal_matrix, this.world_matrix);
+        mat3.invert(normal_matrix, normal_matrix);
+        mat3.transpose(normal_matrix, normal_matrix);
+        normal_matrix.dirty = true;
+        return normal_matrix;
     },
     "__flatten" : function () {
         // return the list of all decendents to this object;
         var found = [];
         if (this.visible) {
-            for (var i=0; i<this.children.length; i+=1) {
-                var child = this.children[i];
-                if (child.__unlink) {
-                    this.remove(child);
-                    continue;
-                }
+            var children = this.children
+            for (var i=0; i<children.length; i+=1) {
+                var child = children[i];
                 var tmp = child.__flatten();
                 found.push(child);
                 found = found.concat(tmp);
@@ -3572,85 +3699,13 @@ please.GraphNode.prototype = {
         }
         return found;
     },
-    "__hoist" : function (parent_matrix, cache) {
-        // This recalculates the world and normal matrices for each
-        // element in the tree, and also copies other cache entries
-        // for uniforms and samplers from parent to child if the child
-        // does not define its own.
-        if (cache) {
-            // copy uniforms into child
-            for (var uniform_name in cache.uniforms) if (cache.uniforms.hasOwnProperty(uniform_name)) {
-                if (!this.__cache.uniforms.hasOwnProperty(uniform_name)) {
-                    this.__cache.uniforms[uniform_name] = cache.uniforms[uniform_name];
-                }
-            }
-            // copy samplers into child
-            for (var sampler_name in cache.sampler) if (cache.sampler.hasOwnProperty(sampler_name)) {
-                if (!this.__cache.samplers.hasOwnProperty(sampler_name)) {
-                    this.__cache.samplers[sampler_name] = cache.samplers[sampler_name];
-                }
-            }
-        }
-        // generate this entity's world matrix
-        this.__cache.world_matrix = mat4.create();
-        var local_matrix = mat4.create();
-        mat4.translate(local_matrix, local_matrix, this.__cache.xyz);
-        mat4.rotateX(local_matrix, local_matrix, this.__cache.rotate[0]);
-        mat4.rotateY(local_matrix, local_matrix, this.__cache.rotate[1]);
-        mat4.rotateZ(local_matrix, local_matrix, this.__cache.rotate[2]);
-        mat4.scale(local_matrix, local_matrix, this.__cache.scale);
-        mat4.multiply(
-            this.__cache.world_matrix, parent_matrix, local_matrix);
-        for (var i=0; i<this.children.length; i+=1) {
-            this.children[i].__hoist(this.__cache.world_matrix, this.__cache);
-        }
-        // generate this entity's normal matrix
-        if (this.__drawable) {
-            var normal_matrix = mat3.create();
-            mat3.fromMat4(normal_matrix, this.__cache.world_matrix);
-            mat3.invert(normal_matrix, normal_matrix);
-            mat3.transpose(normal_matrix, normal_matrix);
-            this.__cache.normal_matrix = normal_matrix;
-        }
-    },
     "__z_sort_prep" : function (screen_matrix) {
         var matrix = mat4.multiply(
-            mat4.create(), screen_matrix, this.__cache.world_matrix);
-        var position = vec3.transformMat4(vec3.create(), this.__cache.xyz, matrix);
+            mat4.create(), screen_matrix, this.world_matrix);
+        var xyz = vec3.fromValues(this.x, this.y, this.z);
+        var position = vec3.transformMat4(vec3.create(), xyz, matrix);
         // I guess we want the Y and not the Z value?
-        this.__cache.final_depth = position[1];
-    },
-    "__rig" : function () {
-        // cache the values of this object's driver functions.
-        var self = this;
-        this.__cache = {
-            "uniforms" : {},
-            "samplers" : {},
-            "xyz" : null,
-            "rotate" : null,
-            "scale" : null,
-            "world_matrix" : null,
-            "normal_matrix" : null,
-            "final_transform" : null,
-            "final_depth" : 0,
-        };
-        this.__cache.xyz = vec3.fromValues(
-            this.x, this.y, this.z);
-        this.__cache.rotate = vec3.fromValues(
-            this.rotate_x, this.rotate_y, this.rotate_z);
-        this.__cache.scale = vec3.fromValues(
-            this.scale_x,
-            this.scale_y,
-            this.scale_z);
-        please.prop_map(self.ext, function (name, value) {
-            typeof(value) === "function" ? value.call(self) : value;
-        });
-        please.prop_map(self.vars, function (name, value) {
-            self.__cache["uniforms"][name] = typeof(value) === "function" ? value.call(self) : value;
-        });
-        please.prop_map(self.samplers, function (name, value) {
-            self.__cache["samplers"][name] = typeof(value) === "function" ? value.call(self) : value;
-        });
+        this.__z_depth = position[1];
     },
     "__bind" : function (prog) {
         // calls this.bind if applicable.
@@ -3665,23 +3720,28 @@ please.GraphNode.prototype = {
         // overhead should be insignificant.
         var self = this;
         if (this.visible && this.__drawable && typeof(this.draw) === "function") {
-            for (var name in self.__cache.uniforms) if (self.__cache.uniforms.hasOwnProperty(name)) {
-                prog.vars[name] = self.__cache.uniforms[name];
+            var prog = please.gl.get_program();
+            for (var name in prog.vars) {
+                if (prog.vars.hasOwnProperty(name) && this.hasOwnProperty(name)) {
+                    var value = this[name];
+                    if (value !== null && value !== undefined) {
+                        if (prog.samplers.hasOwnProperty(name)) {
+                            prog.samplers[name] = value
+                        }
+                        else {
+                            prog.vars[name] = value;
+                        }
+                    }
+                }
             }
-            for (var name in self.__cache.samplers) if (self.__cache.samplers.hasOwnProperty(name)) {
-                prog.samplers[name] = self.__cache.samplers[name];
-            }
-            prog.vars["world_matrix"] = self.__cache.world_matrix;
-            prog.vars["normal_matrix"] = self.__cache.normal_matrix;
-            // FIXME: these should both be bools
             prog.vars["is_sprite"] = self.draw_type==="sprite";
             prog.vars["is_transparent"] = self.sort_mode==="alpha";
-            if (self.sort_mode === "alpha") {
-                prog.vars["alpha"] = self.alpha;
-            }
-            else {
-                prog.vars["alpha"] = 1.0;
-            }
+            // if (self.sort_mode === "alpha") {
+            //     prog.vars["alpha"] = self.alpha;
+            // }
+            // else {
+            //     prog.vars["alpha"] = 1.0;
+            // }
             this.draw();
         }
     },
@@ -3722,25 +3782,34 @@ please.GraphNode.prototype = {
 //
 please.SceneGraph = function () {
     please.GraphNode.call(this);
-    this.__rig = null;
     this.__bind = null;
     this.__draw = null;
     this.__flat = [];
     this.__alpha = [];
     this.__states = {};
-    this.__graph_root = this;
     this.camera = null;
     this.local_matrix = mat4.create();
+    Object.defineProperty(this, "graph_root", {
+        "configurable" : false,
+        "writable" : false,
+        "value" : this,
+    });
+    Object.defineProperty(this, "parent", {
+        "configurable" : false,
+        "writable" : false,
+        "value" : null,
+    });
     var z_sort_function = function (lhs, rhs) {
-        return rhs.__cache.final_depth - lhs.__cache.final_depth;
+        return rhs.__z_depth - lhs.__z_depth;
     };
     this.tick = function () {
-        if (this.camera === null) {
+        if (!this.camera) {
             // if no camera was set, loop through the immediate
             // children of this object and select the first camera
             // available
-            for (var i=0; i<this.children.length; i+=1) {
-                var child = this.children[i];
+            var children = this.children;
+            for (var i=0; i<children.length; i+=1) {
+                var child = children[i];
                 if (child.__is_camera) {
                     child.activate();
                     break;
@@ -3768,13 +3837,12 @@ please.SceneGraph = function () {
         // matricies, and put things in applicable sorting paths
         for (var i=0; i<this.__flat.length; i+=1) {
             var element = this.__flat[i];
-            element.__rig(); // reset the non-ani cache
             if (element.__drawable) {
                 if (element.sort_mode === "alpha") {
                     this.__alpha.push(element);
                 }
                 else {
-                    var hint = element.__asset_hint ? element.__asset_hint : "uknown_asset";
+                    var hint = element.__asset_hint || "uknown_asset";
                     if (!this.__states[hint]) {
                         this.__states[hint] = [];
                     }
@@ -3787,11 +3855,6 @@ please.SceneGraph = function () {
                 element.activate();
             }
         };
-        // update the matricies of objects in the tree
-        for (var i=0; i<this.children.length; i+=1) {
-            var child = this.children[i];
-            child.__hoist(this.local_matrix);
-        }
     };
     this.draw = function () {
         var prog = please.gl.get_program();
@@ -3940,7 +4003,7 @@ please.CameraNode = function () {
 };
 please.CameraNode.prototype = Object.create(please.GraphNode.prototype);
 please.CameraNode.prototype.activate = function () {
-    var graph = this.__graph_root;
+    var graph = this.graph_root;
     if (graph !== null) {
         if (graph.camera && typeof(graph.camera.on_inactive) === "function") {
             graph.camera.on_inactive();
@@ -4028,14 +4091,16 @@ please.CameraNode.prototype.update_camera = function () {
         this.__hoist(mat4.create(),{});
     }
     // Now to update the view matrix, if necessary.
-    var location = this.__cache.xyz;
+    var location = vec3.fromValues(this.x, this.y, this.z);
     var look_at = typeof(this.look_at) === "function" ? this.look_at.call(this) : this.look_at;
     var up_vector = typeof(this.up_vector) === "function" ? this.up_vector.call(this) : this.up_vector;
-    if (look_at.__cache && look_at.__cache.xyz) {
-        look_at = look_at.__cache.xyz;
+    if (look_at.length === undefined) {
+        // look_at is probably a graph_node
+        look_at = vec3(look_at.x, look_at.y, look_at.z);
     }
-    if (up_vector.__cache && up_vector.__cache.xyz) {
-        up_vector = up_vector.__cache.xyz;
+    if (up_vector.length === undefined) {
+        // up vector is probably a graph node o_O
+        up_vector = vec3(up_vector.x, up_vector.y, up_vector.z);
     }
     if (look_at !== null) {
         // View matrix uses the mat4.lookAt method.
@@ -4051,7 +4116,7 @@ please.CameraNode.prototype.update_camera = function () {
     }
     else {
         // View matrix is determined by camera's world matrix...?
-        this.view_matrix = this.__cache.world_matrix;
+        this.view_matrix = this.world_matrix;
         this.view_matrix.dirty = true;
     }
 };

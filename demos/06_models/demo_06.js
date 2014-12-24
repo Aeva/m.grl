@@ -105,7 +105,7 @@ addEventListener("mgrl_media_ready", function () {
     });
 
     // build the scene graph
-    var graph = new please.SceneGraph();
+    var graph = window.graph = new please.SceneGraph();
 
     // add a bunch of rotating objects
     var rotatoe = new please.GraphNode();
@@ -117,7 +117,7 @@ addEventListener("mgrl_media_ready", function () {
     ];
     for (var i=0; i<coords.length; i+=1) {
         var gav = gav_model.instance();
-        gav.vars.mode = 3; // mode 2 + translucent
+        gav.mode = 3; // mode 2 + translucent
         gav.sort_mode = "alpha";
         gav.x = coords[i][0];
         gav.y = coords[i][1];
@@ -131,7 +131,7 @@ addEventListener("mgrl_media_ready", function () {
         return progress*-1;
     };
     var lamp = lamp_model.instance();
-    lamp.vars.mode = 2; // indicate this is not the floor
+    lamp.mode = 2; // indicate this is not the floor
     rotatoe.add(lamp);
     graph.add(rotatoe);
 
@@ -143,7 +143,7 @@ addEventListener("mgrl_media_ready", function () {
     var y = -20;
     for (var x=start; x<=end; x+=spacing) {
         var lamp = lamp_model.instance();
-        lamp.vars.mode = 2;
+        lamp.mode = 2;
         lamp.x = x;
         lamp.y = y;
         lamp.rotate_y = Math.random()*20-10;
@@ -197,9 +197,7 @@ var FloorNode = function () {
 
     this.__vbo = please.gl.make_quad(100, 100);
     this.__drawable = true;
-    this.vars = {
-        mode : 1, // "floor mode"
-    };
+    this.mode = 1; // "floor mode"
 
     this.bind = function () {
         this.__vbo.bind();
