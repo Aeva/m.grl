@@ -95,8 +95,11 @@
 // Sets up the machinery needed to make the given property on an
 // object animatable.
 //
-please.make_animatable = function(obj, prop, default_value, lock) {
-
+please.make_animatable = function(obj, prop, default_value, proxy, lock) {
+    // obj is the value of this, but proxy determines where the
+    // getter/setter is saved
+    var target = proxy ? proxy : obj; 
+    
     // Create the __ani_cache object if none exists.  Cache is reset every
     // tick, and is generated on the first get.
     if (!obj.__ani_cache) {
@@ -127,7 +130,6 @@ please.make_animatable = function(obj, prop, default_value, lock) {
         value: null,
     });
 
-
     // Define the getters and setters for the new property.
     var getter = function () {
         if (typeof(local) === "function") {
@@ -147,14 +149,14 @@ please.make_animatable = function(obj, prop, default_value, lock) {
     };
 
     if (!lock) {
-        Object.defineProperty(obj, prop, {
+        Object.defineProperty(target, prop, {
             enumerable: true,
             get : getter,
             set : setter,
         });
     }
     else {
-        Object.defineProperty(obj, prop, {
+        Object.defineProperty(target, prop, {
             enumerable: true,
             get : getter,
             set : function (value) {
@@ -352,36 +354,42 @@ please.GraphNode = function () {
     ANI("scale_y", 1);
     ANI("scale_z", 1);
 
-    ANI("alpha", 1.0);
-
     // Automatically databind to the shader program's uniform and
     // sampler variables.
     var prog = please.gl.get_program();
     var ignore = [
         "projection_matrix",
         "view_matrix",
-        "world_matrix",
-        "normal_matrix",
     ];
 
     // GLSL bindings with default driver methods:
-    LOCKED_ANI("world_matrix", this.__world_matrix_driver);
-    LOCKED_ANI("normal_matrix", this.__normal_matrix_driver);
-    // LOCKED_ANI("is_transparent", this.__is_transparent_driver);
-    // LOCKED_ANI("is_sprite", this.__is_sprite_driver);
+    this.shader = {};
+    please.make_animatable(
+        this, "world_matrix", this.__world_matrix_driver, this.shader, true);
+    please.make_animatable(
+        this, "normal_matrix", this.__normal_matrix_driver, this.shader, true);
+
+    // GLSLS bindings with default behaviors
+    please.make_animatable(
+        this, "alpha", 1.0, this.shader);
+    please.make_animatable(
+        this, "is_sprite", this.__is_sprite_driver, this.shader, true);
+    please.make_animatable(
+        this, "is_transparent", this.__is_transparent_driver, this.shader, true);
 
     // prog.samplers is a subset of prog.vars
     ITER_PROPS(name, prog.vars) {
-        if (ignore.indexOf(name) === -1 && !this.hasOwnProperty(name)) {
-            ANI("gl_" + name, null);
+        if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
+            please.make_animatable(this, name, null, this.shader);
         }
     }
+    Object.freeze(this.shader);
 
     this.visible = true;
-    this.__asset = null;
-    this.__asset_hint = "";
     this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
+    this.__asset = null;
+    this.__asset_hint = "";
     this.__is_camera = false; // set to true if the object is a camera
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__z_depth = null; // overwritten by z-sorting
@@ -448,18 +456,24 @@ please.GraphNode.prototype = {
         mat4.rotateZ(local_matrix, local_matrix, this.rotate_z);
         mat4.scale(local_matrix, local_matrix, scale);
         var parent = this.parent;
-        var parent_matrix = parent ? parent.world_matrix : mat4.create();
+        var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
         mat4.multiply(world_matrix, parent_matrix, local_matrix);
         world_matrix.dirty = true;
         return world_matrix;
     },
     "__normal_matrix_driver" : function () {
         var normal_matrix = mat3.create();
-        mat3.fromMat4(normal_matrix, this.world_matrix);
+        mat3.fromMat4(normal_matrix, this.shader.world_matrix);
         mat3.invert(normal_matrix, normal_matrix);
         mat3.transpose(normal_matrix, normal_matrix);
         normal_matrix.dirty = true;
         return normal_matrix;
+    },
+    "__is_sprite_driver" : function () {
+        return this.draw_type === "sprite";
+    },
+    "__is_transparent_driver" : function () {
+        return this.sort_mode === "alpha";
     },
     "__flatten" : function () {
         // return the list of all decendents to this object;
@@ -477,7 +491,7 @@ please.GraphNode.prototype = {
     },
     "__z_sort_prep" : function (screen_matrix) {
         var matrix = mat4.multiply(
-            mat4.create(), screen_matrix, this.world_matrix);
+            mat4.create(), screen_matrix, this.shader.world_matrix);
         var xyz = vec3.fromValues(this.x, this.y, this.z);
         var position = vec3.transformMat4(vec3.create(), xyz, matrix);
         // I guess we want the Y and not the Z value?
@@ -498,17 +512,13 @@ please.GraphNode.prototype = {
         var self = this;
         if (this.visible && this.__drawable && typeof(this.draw) === "function") {
             var prog = please.gl.get_program();
-            for (var name in prog.vars) {
-                var label = "gl_" + name;
-                if (name === "world_matrix" || name === "normal_matrix") {
-                    // HACK
-                    label = name;
-                }
-                if (prog.vars.hasOwnProperty(name) && this.hasOwnProperty(label)) {
-                    var value = this[label];
+
+            for (var name in this.shader) {
+                if (prog.vars.hasOwnProperty(name)) {
+                    var value = this.shader[name];
                     if (value !== null && value !== undefined) {
                         if (prog.samplers.hasOwnProperty(name)) {
-                            prog.samplers[name] = value
+                            prog.samplers[name] = value;
                         }
                         else {
                             prog.vars[name] = value;
@@ -516,9 +526,6 @@ please.GraphNode.prototype = {
                     }
                 }
             }
-
-            prog.vars["is_sprite"] = self.draw_type==="sprite";
-            prog.vars["is_transparent"] = self.sort_mode==="alpha";
 
             // if (self.sort_mode === "alpha") {
             //     prog.vars["alpha"] = self.alpha;
@@ -948,7 +955,7 @@ please.CameraNode.prototype.update_camera = function () {
     }
     else {
         // View matrix is determined by camera's world matrix...?
-        this.view_matrix = this.world_matrix;
+        this.view_matrix = this.shader.world_matrix;
         this.view_matrix.dirty = true;
     }
 };
