@@ -84,10 +84,16 @@ please.gl.__jta_model = function (src, uri) {
                 node.__drawable = true;
                 node.__asset = model;
                 please.prop_map(model.samplers, function(name, uri) {
-                    node[name] = uri;
+                    var label = "gl_" + name;
+                    if (node.hasOwnProperty(label)) {
+                        node[label] = uri;
+                    }
                 });
                 please.prop_map(model.uniforms, function(name, value) {
-                    node[name] = value;
+                    var label = "gl_" + name;
+                    if (node.hasOwnProperty(label)) {
+                        node[label] = valueo;
+                    }
                 });
                 if (model.extra.position) {
                     node.x = model.extra.position.x;

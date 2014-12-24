@@ -360,6 +360,8 @@ please.GraphNode = function () {
     var ignore = [
         "projection_matrix",
         "view_matrix",
+        "world_matrix",
+        "normal_matrix",
     ];
 
     // GLSL bindings with default driver methods:
@@ -371,7 +373,7 @@ please.GraphNode = function () {
     // prog.samplers is a subset of prog.vars
     ITER_PROPS(name, prog.vars) {
         if (ignore.indexOf(name) === -1 && !this.hasOwnProperty(name)) {
-            ANI(name, null);
+            ANI("gl_" + name, null);
         }
     }
 
@@ -497,8 +499,13 @@ please.GraphNode.prototype = {
         if (this.visible && this.__drawable && typeof(this.draw) === "function") {
             var prog = please.gl.get_program();
             for (var name in prog.vars) {
-                if (prog.vars.hasOwnProperty(name) && this.hasOwnProperty(name)) {
-                    var value = this[name];
+                var label = "gl_" + name;
+                if (name === "world_matrix" || name === "normal_matrix") {
+                    // HACK
+                    label = name;
+                }
+                if (prog.vars.hasOwnProperty(name) && this.hasOwnProperty(label)) {
+                    var value = this[label];
                     if (value !== null && value !== undefined) {
                         if (prog.samplers.hasOwnProperty(name)) {
                             prog.samplers[name] = value

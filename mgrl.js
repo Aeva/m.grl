@@ -2919,10 +2919,16 @@ please.gl.__jta_model = function (src, uri) {
                 node.__drawable = true;
                 node.__asset = model;
                 please.prop_map(model.samplers, function(name, uri) {
-                    node[name] = uri;
+                    var label = "gl_" + name;
+                    if (node.hasOwnProperty(label)) {
+                        node[label] = uri;
+                    }
                 });
                 please.prop_map(model.uniforms, function(name, value) {
-                    node[name] = value;
+                    var label = "gl_" + name;
+                    if (node.hasOwnProperty(label)) {
+                        node[label] = valueo;
+                    }
                 });
                 if (model.extra.position) {
                     node.x = model.extra.position.x;
@@ -3589,6 +3595,8 @@ please.GraphNode = function () {
     var ignore = [
         "projection_matrix",
         "view_matrix",
+        "world_matrix",
+        "normal_matrix",
     ];
     // GLSL bindings with default driver methods:
     please.make_animatable(this, "world_matrix", this.__world_matrix_driver, true);;
@@ -3598,7 +3606,7 @@ please.GraphNode = function () {
     // prog.samplers is a subset of prog.vars
     for (var name in prog.vars) if (prog.vars.hasOwnProperty(name)) {
         if (ignore.indexOf(name) === -1 && !this.hasOwnProperty(name)) {
-            please.make_animatable(this, name, null);;
+            please.make_animatable(this, "gl_" + name, null);;
         }
     }
     this.visible = true;
@@ -3722,8 +3730,13 @@ please.GraphNode.prototype = {
         if (this.visible && this.__drawable && typeof(this.draw) === "function") {
             var prog = please.gl.get_program();
             for (var name in prog.vars) {
-                if (prog.vars.hasOwnProperty(name) && this.hasOwnProperty(name)) {
-                    var value = this[name];
+                var label = "gl_" + name;
+                if (name === "world_matrix" || name === "normal_matrix") {
+                    // HACK
+                    label = name;
+                }
+                if (prog.vars.hasOwnProperty(name) && this.hasOwnProperty(label)) {
+                    var value = this[label];
                     if (value !== null && value !== undefined) {
                         if (prog.samplers.hasOwnProperty(name)) {
                             prog.samplers[name] = value

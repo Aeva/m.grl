@@ -165,7 +165,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var graph = new please.SceneGraph();
     var level_node = level_data.instance();
     var char_avatar = char_data.instance();
-    char_avatar.alpha = .75;
+    char_avatar.gl_alpha = .75;
     char_avatar.sort_mode = "alpha";
     char_avatar.y = -2.5;
     var char_node = window.player = new please.GraphNode();
