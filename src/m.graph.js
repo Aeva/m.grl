@@ -90,16 +90,12 @@
  */
 
 
-// [+] please.make_animatable(object, property_name[, default_value])
+// [+] please.make_animatable(obj, prop, default_value, proxy, lock)
 //
 // Sets up the machinery needed to make the given property on an
 // object animatable.
 //
-please.make_animatable = function(obj, prop, default_value, proxy, lock) {
-    // obj is the value of this, but proxy determines where the
-    // getter/setter is saved
-    var target = proxy ? proxy : obj; 
-    
+please.__init_ani_cache = function (obj) {
     // Create the __ani_cache object if none exists.  Cache is reset every
     // tick, and is generated on the first get.
     if (!obj.__ani_cache) {
@@ -120,15 +116,23 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock) {
             },
         });
     }
-    var cache = obj.__ani_cache;
-    var local = default_value !== undefined ? default_value : null;
+    return obj.__ani_cache;
+};
+please.make_animatable = function(obj, prop, default_value, proxy, lock) {
+    // obj is the value of this, but proxy determines where the
+    // getter/setter is saved
+    var target = proxy ? proxy : obj;
 
     // Add the property to the cache object.
+    var cache = please.__init_ani_cache(obj);
     Object.defineProperty(cache, prop, {
         enumerable: true,
         writable: true,
         value: null,
     });
+
+    // Local store.
+    var local = default_value !== undefined ? default_value : null;
 
     // Define the getters and setters for the new property.
     var getter = function () {
@@ -162,6 +166,143 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock) {
             set : function (value) {
                 return value;
             },
+        });
+    }
+};
+
+
+// [+] please.make_animatable_tripple(object, prop, swizzle, default, proxy);
+//
+// 
+please.make_animatable_tripple = function (obj, prop, swizzle, default_val, proxy) {
+
+    // obj is the value of this, but proxy determines where the
+    // getter/setter is saved
+    var target = proxy !== undefined ? proxy : obj;
+
+    // Add the property to the cache object.
+    var cache = please.__init_ani_cache(obj);
+    Object.defineProperty(cache, prop, {
+        enumerable: true,
+        writable: true,
+        value: null,
+    });
+
+    // Build the local store.
+    var local = vec3.fromValues(0, 0, 0);
+    if (default_val) {
+        if (typeof(default_val) === "function") {
+            local = default_val;
+        }
+        else if (default_val.length && default_val.length === 3) {
+            local = vec3.clone(default_val);
+        }
+        else if (default_val.hasOwnProperty("location")) {
+            local = default_val;
+        }
+    }
+
+    // determine the swizzle handles
+    if (!swizzle || !swizzle.length || !swizzle.length === 3) {
+        swizzle = "xyz";
+    }
+    var a = swizzle[0];
+    var b = swizzle[1];
+    var c = swizzle[2];
+
+    var handle = [
+        prop + "_" + a,
+        prop + "_" + b,
+        prop + "_" + c,
+    ];
+
+    // Getters and setters
+    var getter = function () {
+        if (typeof(local) === "function") {
+            if (cache[prop] === null) {
+                cache[prop] = local.call(obj);
+                cache[prop].dirty = true;
+            }
+            return cache[prop];
+        }
+        else if (local.hasOwnProperty("location")) {
+            return local.location;
+        }
+        else if (typeof(local[0]) === "function" ||
+                 typeof(local[1]) === "function" ||
+                 typeof(local[2]) === "function") {
+
+            if (cache[prop] === null) {
+                var store = [];
+                for (var i=0; i<local.length; i+=1) {
+                    if (typeof(local[i]) === "function") {
+                        store.push(local[i].call(obj));
+                    }
+                    else {
+                        store.push(local[i]);
+                    }
+                }
+                var out = vec3.clone(store);
+                Object.freeze(out);
+                cache[prop] = out;
+                cache[prop].dirty = true;
+            }
+            return cache[prop];
+        }
+        else {
+            return local;
+        }
+    };
+
+    var setter = function (value) {
+        cache[prop] = null;
+        if (typeof(value) === "function") {
+            local = value;
+        }
+        else if (value.length && value.length === 3) {
+            local = vec3.clone(value);
+        }
+        else if (value.hasOwnProperty("location")) {
+            local = value;
+        }
+        else {
+            local = vec3.fromValues(0, 0, 0);
+        }
+        return value;
+    };
+
+    // Returns a getter for a given channel.
+    var channel_getter = function (i) {
+        return function () {
+            return getter()[i];
+        };
+    };
+    
+    // Returns a setter for a given channel.
+    var channel_setter = function (i) {
+        return function (value) {
+            if (typeof(local) === "function") {
+                return value;
+            }
+            else {
+                cache[prop] = null;
+                local[i] = value;
+                return value;
+            }
+        };
+    };
+
+    Object.defineProperty(target, prop, {
+        enumerable : true,
+        get : getter,
+        set : setter,
+    });
+
+    for (var i=0; i<handle.length; i+=1) {
+        Object.defineProperty(target, handle[i], {
+            enumerable : true,
+            get: channel_getter(i),
+            set: channel_setter(i),
         });
     }
 };
@@ -800,6 +941,9 @@ please.CameraNode = function () {
     
     ANI("near", 0.1);
     ANI("far", 100.0);
+
+    // test
+    please.make_animatable_tripple(this, "loca");
 
     this.__last = {
         "fov" : null,
