@@ -2921,13 +2921,11 @@ please.gl.__jta_model = function (src, uri) {
                 please.prop_map(model.samplers, function(name, uri) {
                     if (node.shader.hasOwnProperty(name)) {
                         node.shader[name] = uri;
-                        console.info("SET: "+name+" = "+node.shader[name]);
                     }
                 });
                 please.prop_map(model.uniforms, function(name, value) {
                     if (node.shader.hasOwnProperty(name)) {
                         node.shader[name] = value;
-                        console.info("SET: "+name+" = "+node.shader[name]);
                     }
                 });
                 if (model.extra.position) {
@@ -3417,124 +3415,119 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock) {
         });
     }
 };
-// [+] please.make_animatable_tripple(object, prop, swizzle, default, proxy);
+// [+] please.make_animatable_tripple(object, prop, swizzle, default_value, proxy);
 //
 // 
-please.make_animatable_tripple = function (obj, prop, swizzle, default_val, proxy) {
+please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
     // obj is the value of this, but proxy determines where the
     // getter/setter is saved
-    var target = proxy !== undefined ? proxy : obj;
+    var target = proxy ? proxy : obj;
     // Add the property to the cache object.
     var cache = please.__init_ani_cache(obj);
-    Object.defineProperty(cache, prop, {
-        enumerable: true,
-        writable: true,
-        value: null,
-    });
-    // Build the local store.
-    var local = [0, 0, 0];
-    if (default_val) {
-        if (typeof(default_val) === "function") {
-            local = default_val;
-        }
-        else if (default_val.length && default_val.length === 3) {
-            local = vec3.clone(default_val);
-        }
-    }
-    // determine the swizzle handles
-    if (!swizzle || !swizzle.length || !swizzle.length === 3) {
+    // Determine the swizzle handles.
+    if (!swizzle || swizzle.length !== 3) {
         swizzle = "xyz";
     }
-    var a = swizzle[0];
-    var b = swizzle[1];
-    var c = swizzle[2];
-    var handle = [
-        prop + "_" + a,
-        prop + "_" + b,
-        prop + "_" + c,
-    ];
-    // Getters and setters
-    var getter = function () {
-        if (typeof(local) === "function") {
-            if (cache[prop] === null) {
-                cache[prop] = local.call(obj);
-                cache[prop].dirty = true;
-            }
-            return cache[prop];
-        }
-        else if (local.hasOwnProperty("location")) {
-            return local.location;
-        }
-        else if (typeof(local[0]) === "function" ||
-                 typeof(local[1]) === "function" ||
-                 typeof(local[2]) === "function") {
-            if (cache[prop] === null) {
-                var store = [];
-                for (var i=0; i<local.length; i+=1) {
-                    if (typeof(local[i]) === "function") {
-                        store.push(local[i].call(obj));
-                    }
-                    else {
-                        store.push(local[i]);
-                    }
-                }
-                var out = vec3.clone(store);
-                Object.freeze(out);
-                cache[prop] = out;
-                cache[prop].dirty = true;
-            }
-            return cache[prop];
-        }
-        else {
-            return local;
-        }
-    };
-    var setter = function (value) {
-        cache[prop] = null;
-        if (typeof(value) === "function") {
-            local = value;
-        }
-        else if (value.length && value.length === 3) {
-            local = vec3.clone(value);
-        }
-        else if (value.hasOwnProperty("location")) {
-            local = value;
-        }
-        else {
-            local = [0, 0, 0];
-        }
-        return value;
-    };
-    // Returns a getter for a given channel.
+    var handles = [];
+    for (var i=0; i<swizzle.length; i+=1) {
+        handles.push(prop + "_" + swizzle[i]);
+    }
+    // Determine cache object entries.
+    var cache_lines = [prop + "_focus"].concat(handles);
+    for (var i=0; i<cache_lines.length; i+=1) {
+        // Add cache lines for this property set.
+        Object.defineProperty(cache, cache_lines[i], {
+            enumerable: true,
+            writable: true,
+            value: null,
+        });
+    }
+    // Local data stores.
+    var xyz = [0, 0, 0];
+    var focus = null;
+    // Add getters and setters for the individual channels.
     var channel_getter = function (i) {
         return function () {
-            return getter()[i];
-        };
-    };
-    // Returns a setter for a given channel.
-    var channel_setter = function (i) {
-        return function (value) {
-            if (typeof(local) === "function") {
-                return value;
+            if (focus && typeof(focus) === "function") {
+                return target[prop][i];
+            }
+            else if (focus && focus.hasOwnProperty("location")) {
+                return focus.location[i];
             }
             else {
-                cache[prop] = null;
-                local[i] = value;
-                return value;
+                if (typeof(xyz[i]) === "function") {
+                    if (cache[handles[i]] === null) {
+                        cache[handles[i]] = xyz[i].call(obj);
+                    }
+                    return cache[handles[i]];
+                }
+                else {
+                    return xyz[i];
+                }
             }
         };
     };
+    var channel_setter = function (i) {
+        return function(value) {
+            cache[prop] = null;
+            cache[handles[i]] = null;
+            xyz[i] = value;
+            return value;
+        };
+    };
+    for (var i=0; i<handles.length; i+=1) {
+        Object.defineProperty(target, handles[i], {
+            enumerable : true,
+            get : channel_getter(i),
+            set : channel_setter(i),
+        });
+    }
+    // Getter and setter for the tripple object itself.
     Object.defineProperty(target, prop, {
         enumerable : true,
-        get : getter,
-        set : setter,
+        get : function () {
+            if (focus && typeof(focus) === "function") {
+                if (cache[prop] === null) {
+                    cache[prop] = focus.call(obj);
+                }
+                return cache[prop];
+            }
+            else if (focus && focus.hasOwnProperty("location")) {
+                return focus.location;
+            }
+            else {
+                var out = [];
+                // FIXME maybe do something to make the all of the
+                // properties except 'dirty' immutable.
+                for (var i=0; i<handles.length; i+=1) {
+                    out.push(target[handles[i]]);
+                }
+                out.dirty = true;
+                return out;
+            }
+        },
+        set : function (value) {
+            cache[prop] = null;
+            if (value === null || value === undefined) {
+                focus = null;
+            }
+            else if (typeof(value) === "function") {
+                focus = value;
+            }
+            else if (value.hasOwnProperty("location")) {
+                focus = value;
+            }
+            else if (value.length === 3) {
+                for (var i=0; i<value.length; i+=1) {
+                    target[handles[i]] = value[i];
+                }
+            }
+            return value;
+        },
     });
-    for (var i=0; i<handle.length; i+=1) {
-        Object.defineProperty(target, handle[i], {
-            enumerable : true,
-            get: channel_getter(i),
-            set: channel_setter(i),
-        });
+    // Finaly, set the inital value if applicable.
+    if (initial) {
+        target[prop] = initial;
     }
 };
 // [+] please.GraphNode()
@@ -3706,15 +3699,9 @@ please.GraphNode = function () {
             return children;
         },
     });
-    please.make_animatable(this, "x", 0);;
-    please.make_animatable(this, "y", 0);;
-    please.make_animatable(this, "z", 0);;
-    please.make_animatable(this, "rotate_x", 0);;
-    please.make_animatable(this, "rotate_y", 0);;
-    please.make_animatable(this, "rotate_z", 0);;
-    please.make_animatable(this, "scale_x", 1);;
-    please.make_animatable(this, "scale_y", 1);;
-    please.make_animatable(this, "scale_z", 1);;
+    please.make_animatable_tripple(this, "location", "xyz", [0, 0, 0]);
+    please.make_animatable_tripple(this, "rotation", "xyz", [0, 0, 0]);
+    please.make_animatable_tripple(this, "scale", "xyz", [1, 1, 1]);
     // Automatically databind to the shader program's uniform and
     // sampler variables.
     var prog = please.gl.get_program();
@@ -3803,15 +3790,13 @@ please.GraphNode.prototype = {
         }
     },
     "__world_matrix_driver" : function () {
-        var xyz = vec3.fromValues(this.x, this.y, this.z);
-        var scale = vec3.fromValues(this.scale_x, this.scale_y, this.scale_z);
         var local_matrix = mat4.create();
         var world_matrix = mat4.create();
-        mat4.translate(local_matrix, local_matrix, xyz);
-        mat4.rotateX(local_matrix, local_matrix, this.rotate_x);
-        mat4.rotateY(local_matrix, local_matrix, this.rotate_y);
-        mat4.rotateZ(local_matrix, local_matrix, this.rotate_z);
-        mat4.scale(local_matrix, local_matrix, scale);
+        mat4.translate(local_matrix, local_matrix, this.location);
+        mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
+        mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
+        mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
+        mat4.scale(local_matrix, local_matrix, this.scale);
         var parent = this.parent;
         var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
         mat4.multiply(world_matrix, parent_matrix, local_matrix);
@@ -3849,8 +3834,7 @@ please.GraphNode.prototype = {
     "__z_sort_prep" : function (screen_matrix) {
         var matrix = mat4.multiply(
             mat4.create(), screen_matrix, this.shader.world_matrix);
-        var xyz = vec3.fromValues(this.x, this.y, this.z);
-        var position = vec3.transformMat4(vec3.create(), xyz, matrix);
+        var position = vec3.transformMat4(vec3.create(), this.location, matrix);
         // I guess we want the Y and not the Z value?
         this.__z_depth = position[1];
     },
@@ -4122,8 +4106,8 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 please.CameraNode = function () {
     please.GraphNode.call(this);
     this.__is_camera = true;
-    this.look_at = vec3.fromValues(0, 0, 0);
-    this.up_vector = vec3.fromValues(0, 0, 1);
+    please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
+    please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
     please.make_animatable(this, "fov", 45);;
     please.make_animatable(this, "left", null);;
     please.make_animatable(this, "right", null);;
@@ -4133,8 +4117,6 @@ please.CameraNode = function () {
     please.make_animatable(this, "height", null);;
     please.make_animatable(this, "near", 0.1);;
     please.make_animatable(this, "far", 100.0);;
-    // test
-    please.make_animatable_tripple(this, "loca");
     this.__last = {
         "fov" : null,
         "left" : null,
@@ -4238,34 +4220,17 @@ please.CameraNode.prototype.update_camera = function () {
         this.__hoist(mat4.create(),{});
     }
     // Now to update the view matrix, if necessary.
-    var location = vec3.fromValues(this.x, this.y, this.z);
-    var look_at = typeof(this.look_at) === "function" ? this.look_at.call(this) : this.look_at;
-    var up_vector = typeof(this.up_vector) === "function" ? this.up_vector.call(this) : this.up_vector;
-    if (look_at.length === undefined) {
-        // look_at is probably a graph_node
-        look_at = vec3.fromValues(look_at.x, look_at.y, look_at.z);
-    }
-    if (up_vector.length === undefined) {
-        // up vector is probably a graph node o_O
-        up_vector = vec3.fromValues(up_vector.x, up_vector.y, up_vector.z);
-    }
-    if (look_at !== null) {
-        // View matrix uses the mat4.lookAt method.
-        if (up_vector === null) {
-            up_vector = vec3.fromValues(0, 0, 1);
-        }
-        mat4.lookAt(
-            this.view_matrix,
-            location,
-            look_at,
-            up_vector);
-        this.view_matrix.dirty = true;
-    }
-    else {
-        // View matrix is determined by camera's world matrix...?
-        this.view_matrix = this.shader.world_matrix;
-        this.view_matrix.dirty = true;
-    }
+    var location = this.location;
+    var look_at = this.look_at;
+    var up_vector = this.up_vector;
+    // FIXME - provide some kind of override mechanism to just use the
+    // camera's world matrix or something instead.
+    mat4.lookAt(
+        this.view_matrix,
+        location,
+        look_at,
+        up_vector);
+    this.view_matrix.dirty = true;
 };
 // - m.builder.js -------------------------------------------------------- //
 // namespace

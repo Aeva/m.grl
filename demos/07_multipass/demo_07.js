@@ -179,8 +179,8 @@ addEventListener("mgrl_media_ready", function () {
     // build the scene graph
     var graph_a = new please.SceneGraph();
     var suzanne = suzanne_data.instance();
-    suzanne.rotate_y = function () {
-        var progress = performance.now()/5000;
+    suzanne.rotation_y = function () {
+        var progress = performance.now()/110;
         return progress*-1;
     };
     graph_a.add(suzanne);
@@ -195,18 +195,14 @@ addEventListener("mgrl_media_ready", function () {
     // setup camera_a
     var camera_a = new please.CameraNode();
     graph_a.add(camera_a);
-    camera_a.look_at = vec3.fromValues(0, 0, 1);
-    camera_a.x = function () { return get_camera_position()[0]; };
-    camera_a.y = function () { return get_camera_position()[1]; };
-    camera_a.z = function () { return get_camera_position()[2]; };
+    camera_a.look_at = [0, 0, 1];
+    camera_a.location = get_camera_position;
 
     // setup camera_b
     var camera_b = new please.CameraNode();
     graph_b.add(camera_b);
-    camera_b.look_at = vec3.fromValues(0, 0, 1);
-    camera_b.x = 0;
-    camera_b.y = 0.1;
-    camera_b.z = 0.1;
+    camera_b.look_at = [0, 0, 1];
+    camera_b.location = [0, 0.1, 0.1];
 
     // lighting stuff
     var light_direction = vec3.fromValues(-1.0, 1.0, 0.0);

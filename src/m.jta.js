@@ -86,13 +86,11 @@ please.gl.__jta_model = function (src, uri) {
                 please.prop_map(model.samplers, function(name, uri) {
                     if (node.shader.hasOwnProperty(name)) {
                         node.shader[name] = uri;
-                        console.info("SET: "+name+" = "+node.shader[name]);
                     }
                 });
                 please.prop_map(model.uniforms, function(name, value) {
                     if (node.shader.hasOwnProperty(name)) {
                         node.shader[name] = value;
-                        console.info("SET: "+name+" = "+node.shader[name]);
                     }
                 });
                 if (model.extra.position) {

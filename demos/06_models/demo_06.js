@@ -119,19 +119,17 @@ addEventListener("mgrl_media_ready", function () {
         var gav = gav_model.instance();
         gav.shader.mode = 3; // mode 2 + translucent
         gav.sort_mode = "alpha";
-        gav.x = coords[i][0];
-        gav.y = coords[i][1];
-        gav.z = coords[i][2];
-        gav.rotate_z = Math.random()*360;
+        gav.location = coords[i];
+        gav.rotation_z = Math.random()*360;
         rotatoe.add(gav);
     }
-    rotatoe.rotate_z = function () {
-        //var progress = performance.now()/2000;
-        var progress = performance.now()/5000;
+    rotatoe.rotation_z = function () {
+        var progress = performance.now()/110;
         return progress*-1;
     };
     var lamp = lamp_model.instance();
     lamp.shader.mode = 2; // indicate this is not the floor
+    lamp.rotation_x = 90; // hack to compensate for model orientation
     rotatoe.add(lamp);
     graph.add(rotatoe);
 
@@ -144,9 +142,10 @@ addEventListener("mgrl_media_ready", function () {
     for (var x=start; x<=end; x+=spacing) {
         var lamp = lamp_model.instance();
         lamp.shader.mode = 2;
-        lamp.x = x;
-        lamp.y = y;
-        lamp.rotate_y = Math.random()*20-10;
+        lamp.location_x = x;
+        lamp.location_y = y;
+        lamp.rotation_x = 90; // hack to compensate for model orientation
+        lamp.rotation_y = Math.random()*360;
         graph.add(lamp);
     }
 
@@ -156,9 +155,7 @@ addEventListener("mgrl_media_ready", function () {
     // add a camera
     var camera = window.camera = new please.CameraNode();
     camera.look_at = vec3.fromValues(0, 0, 1);
-    camera.x = -3;
-    camera.y = 12.5;
-    camera.z = 5.7;
+    camera.location = [-3, 12.5, 5.7];
 
     // add the camera to the scene graph
     graph.add(camera);

@@ -167,14 +167,14 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var char_avatar = char_data.instance();
     char_avatar.shader.alpha = .75;
     char_avatar.sort_mode = "alpha";
-    char_avatar.y = -2.5;
+    char_avatar.location_y = -2.5;
     var char_node = window.player = new please.GraphNode();
-    char_node.x = -1.8;
-    char_node.z = 6;
+    char_node.location_x = -1.8;
+    char_node.location_z = 6;
 
     // add some driver methods to animate things
     char_avatar.rotate_z = function () {
-        return char_node.x;
+        return char_node.location_x;
     };
     char_avatar.z = function () {
         var progress = performance.now()/500;
@@ -190,10 +190,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
             var pick = Math.floor(Math.random()*3);
             var ani = pick===0? "coin.gani" : "walk.gani";
             var entity = please.access(ani).instance(false);
-            entity.rotate_x = please.radians(90);
-            entity.x = x;
-            entity.y = y;
-            entity.z = 0;
+            entity.rotation_x = 90;
+            entity.location = [x, y, 0];
             entity.gani.dir = Math.floor(Math.random()*4);
             entity.gani.play();
             graph.add(entity);
@@ -223,16 +221,12 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var camera = window.camera = new please.CameraNode();
     //camera.look_at = vec3.fromValues(0, 10, 2.5);
     camera.look_at = char_node;
-    camera.x = function () {
-        return char_node.x/-2.0;
+    camera.location = function () {
+        return [char_node.location_x / -2.0,
+                char_node.location_y - 14,
+                char_node.location_z + 6];
     };
-    camera.y = function () {
-        return char_node.y - 14;
-    };
-    camera.z = function () {
-        return char_node.z + 6;
-    };
-    camera.fov = 57.29; // give it a weird field of view
+    camera.fov = 57.29; // zoom out a bit
     
     // Add the camera to the scene graph
     graph.add(camera);

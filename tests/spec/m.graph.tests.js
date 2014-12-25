@@ -26,76 +26,97 @@ describe("Tests for m.graph.js", function () {
 
     it("In which please.make_animatable_tripple is tested.", function () {
         var node_a = {};
-        please.make_animatable(node_a, "location");
+        please.make_animatable_tripple(node_a, "location");
 
-        node_a.location = [1,2,3];
-        expect(node_a.location_y===2);
-        node_a.location_z = function () { return 23; };
-        expect(node_a.location_z === 3)
-        expect(node_a.location_x === 1)
+        expect(node_a.location).toBeDefined();
+        expect(node_a.location_x).toBeDefined();
+        expect(node_a.location_y).toBeDefined();
+        expect(node_a.location_z).toBeDefined();
 
-        node_a.location = function () { return vec3.fromValues(-1, -2, -3); };
-        node_a.location_x = 43; // this should be ignored
-        node_a.location_y = function () { return 55; }; // this should be ignored
-        expect(node_a.location_x === -1);
-        expect(node_a.location_y === -2);
-        expect(node_a.location_z === -3);
-        expect(node_a.location[0] === -1);
-        expect(node_a.location[1] === -2);
-        expect(node_a.location[2] === -3);
+        node_a.location = [1, 2, 3];
+        expect(node_a.location_x).toEqual(1);
+        expect(node_a.location_y).toEqual(2);
+        expect(node_a.location_z).toEqual(3);
 
-        node_a.location = [5, 4, 3];
-        expect(node_a.location_x === 5);
-        expect(node_a.location_y === 4);
-        expect(node_a.location_z === 3);
-        expect(node_a.location[0] === 5);
-        expect(node_a.location[1] === 4);
-        expect(node_a.location[2] === 3);
-        
+        var seed = 10;
+        node_a.location_x = function () { return seed; };
+        node_a.location_y = function () { return this.location_x*2; };
+        node_a.location_z = function () { return this.location_y*2; };
+
+        expect(node_a.location_x).toEqual(10);
+        expect(node_a.location_y).toEqual(20);
+        expect(node_a.location_z).toEqual(40);
+        expect(node_a.location[0]).toEqual(10);
+        expect(node_a.location[1]).toEqual(20);
+        expect(node_a.location[2]).toEqual(40);
+
         var node_b = {};
-        please.make_animatable(node_b, "location");
-        expect(node_b.location == null).toBe(false);
+        please.make_animatable_tripple(node_b, "location");
+
+        expect(node_b.location).toBeDefined();
+        expect(node_b.location_x).toEqual(0);
+        expect(node_b.location_y).toEqual(0);
+        expect(node_b.location_z).toEqual(0);
+        expect(node_b.location[0]).toEqual(0);
+        expect(node_b.location[0]).toEqual(0);
+        expect(node_b.location[0]).toEqual(0);
 
         node_a.location = node_b;
-        // node_a.location_x = 9; // ignore
-        // node_a.location_y = function () { return 5; };
+        expect(node_a.location_x).toEqual(0);
+        expect(node_a.location_y).toEqual(0);
+        expect(node_a.location_z).toEqual(0);
+        expect(node_a.location[0]).toEqual(0);
+        expect(node_a.location[0]).toEqual(0);
+        expect(node_a.location[0]).toEqual(0);
 
-        node_b.location_x = function () { return 22; };
-        node_b.location_y = 99;
+        node_b.location_y = function () { return 23; };
+        expect(node_b.location_y).toEqual(23);
+        expect(node_b.location[1]).toEqual(23);
+        expect(node_a.location_y).toEqual(23);
+        expect(node_a.location[1]).toEqual(23);
 
-        // expect(node_a.location_x === 5);
-        // expect(node_a.location_y === 22);
-        // expect(node_a.location_z === 0);
-        // expect(node_a.location[0] === 5);
-        // expect(node_a.location[1] === 22);
-        // expect(node_a.location[2] === 0);
-       
-        // expect(node_b.location_x === 5);
-        // expect(node_b.location_y === 22);
-        // expect(node_b.location_z === 0);
+        node_b.location = function () { return [5, 7, 9]; };
+        expect(node_b.location[0]).toEqual(5);
+        expect(node_b.location[1]).toEqual(7);
+        expect(node_b.location[2]).toEqual(9);
+        expect(node_b.location_x).toEqual(5);
+        expect(node_b.location_y).toEqual(7);
+        expect(node_b.location_z).toEqual(9);
 
-        window.node_a = node_a;
-        window.node_b = node_b;
+        node_a.location_x = -1;
+        node_a.location_y = -2;
+        node_a.location_z = function () { return -30; };
 
-        // expect(node_b.location[0] === 5);
-        // expect(node_b.location[1] === 22);
-        // expect(node_b.location[2] === 0);
+        expect(node_a.location[0]).toEqual(5);
+        expect(node_a.location[1]).toEqual(7);
+        expect(node_a.location[2]).toEqual(9);
+        expect(node_a.location_x).toEqual(5);
+        expect(node_a.location_y).toEqual(7);
+        expect(node_a.location_z).toEqual(9);
+
+        node_a.location = null;
+        expect(node_a.location[0]).toEqual(-1);
+        expect(node_a.location[1]).toEqual(-2);
+        expect(node_a.location[2]).toEqual(-30);
+        expect(node_a.location_x).toEqual(-1);
+        expect(node_a.location_y).toEqual(-2);
+        expect(node_a.location_z).toEqual(-30);
     });
 
-    it("In which a simple graph is constructed.", function () {
-        graph = new please.SceneGraph();
-        foo = new please.GraphNode();
-        bar = new please.GraphNode();
+    // it("In which a simple graph is constructed.", function () {
+    //     graph = new please.SceneGraph();
+    //     foo = new please.GraphNode();
+    //     bar = new please.GraphNode();
 
-        graph.add(foo);
-        foo.add(bar);
+    //     graph.add(foo);
+    //     foo.add(bar);
 
-        expect(graph.children.indexOf(foo)).toBe(0);
-        expect(graph.children.length).toBe(1);
+    //     expect(graph.children.indexOf(foo)).toBe(0);
+    //     expect(graph.children.length).toBe(1);
 
-        expect(foo.children.indexOf(bar)).toBe(0);
-        expect(foo.children.length).toBe(1);
-    });
+    //     expect(foo.children.indexOf(bar)).toBe(0);
+    //     expect(foo.children.length).toBe(1);
+    // });
 
     // it("In which we test databinding.", function () {
     //     var counter = 0;
