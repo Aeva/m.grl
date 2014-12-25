@@ -176,7 +176,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     char_avatar.rotation_z = function () {
         return char_node.location_x*45;
     };
-    char_avatar.z = function () {
+    char_avatar.location_z = function () {
         var progress = performance.now()/500;
         return Math.sin(progress)/2.0;
     };
