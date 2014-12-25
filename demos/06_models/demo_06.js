@@ -129,7 +129,6 @@ addEventListener("mgrl_media_ready", function () {
     };
     var lamp = lamp_model.instance();
     lamp.shader.mode = 2; // indicate this is not the floor
-    lamp.rotation_x = 90; // hack to compensate for model orientation
     rotatoe.add(lamp);
     graph.add(rotatoe);
 
@@ -144,7 +143,6 @@ addEventListener("mgrl_media_ready", function () {
         lamp.shader.mode = 2;
         lamp.location_x = x;
         lamp.location_y = y;
-        lamp.rotation_x = 90; // hack to compensate for model orientation
         lamp.rotation_y = Math.random()*360;
         graph.add(lamp);
     }

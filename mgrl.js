@@ -2929,14 +2929,15 @@ please.gl.__jta_model = function (src, uri) {
                     }
                 });
                 if (model.extra.position) {
-                    node.x = model.extra.position.x;
-                    node.y = model.extra.position.y;
-                    node.z = model.extra.position.z;
+                    node.location_x = model.extra.position.x;
+                    node.location_y = model.extra.position.y;
+                    node.location_z = model.extra.position.z;
                 }
                 if (model.extra.rotation) {
-                    node.rotate_x = model.extra.rotation.x;
-                    node.rotate_y = model.extra.rotation.y;
-                    node.rotate_z = model.extra.rotation.z;
+                    // need to convert from radians to degrees :P
+                    node.rotation_x = model.extra.rotation.x * 57.2957795;
+                    node.rotation_y = model.extra.rotation.y * 57.2957795;
+                    node.rotation_z = model.extra.rotation.z * 57.2957795;
                 }
                 if (model.extra.scale) {
                     node.scale_x = model.extra.scale.x;
