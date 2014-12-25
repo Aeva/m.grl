@@ -75,15 +75,15 @@ function key_handler(state, key) {
             var scale = delta/frequency;
 
             if (window.player && delta > 0) {
-                //window.player.x += amount;
-                window.player.x += (amount / frequency) * delta;
+                //window.player.location_x += amount;
+                window.player.location_x += (amount / frequency) * delta;
 
                 // snap to level boundaries
-                if (window.player.x < -15) {
-                    window.player.x = -15;
+                if (window.player.location_x < -15) {
+                    window.player.location_x = -15;
                 }
-                if (window.player.x > 15) {
-                    window.player.x = 15;
+                if (window.player.location_x > 15) {
+                    window.player.location_x = 15;
                 }
             }
             please.time.schedule(handler, frequency - late);
@@ -173,8 +173,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     char_node.location_z = 6;
 
     // add some driver methods to animate things
-    char_avatar.rotate_z = function () {
-        return char_node.location_x;
+    char_avatar.rotation_z = function () {
+        return char_node.location_x*45;
     };
     char_avatar.z = function () {
         var progress = performance.now()/500;
