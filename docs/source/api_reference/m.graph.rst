@@ -10,11 +10,11 @@ to have better performance than would be achieved with by rendering
 manually.
 
 Additionally, a mechanism for data binding exists on most of the
-properties of graph objects. For example, you could set the object's "x"
-coordinate to be a value like "10", or you could set it to be a function
-that returns a numerical value like "10". This can be used to perform
-animation tasks. When a function is assigned to a property in such a
-fashion, it is called a "driver function".
+properties of graph objects. For example, you could set the object's
+"location\_x" coordinate to be a value like "10", or you could set it to
+be a function that returns a numerical value like "10". This can be used
+to perform animation tasks. When a function is assigned to a property in
+such a fashion, it is called a "driver function".
 
 Note that, being a scene graph, objects can be parented to other
 objects. When the parent moves, the child moves with it! Empty graph
@@ -22,9 +22,26 @@ objects can be used to influence objects that draw. Between empties,
 inheritance, and driver functions, you are given the tools to implement
 animations without requiring vertex deformation.
 
-Camera objects have a mechanism similar to driver functions, wherein
-they can either take a coordinate tripple [1,2,3], a function that
-returns a coordinate tripple, or a graph object.
+Some properties on graph nodes can be accessed either as an array or as
+individual channels. Node.location = [x,y,z] can be used to set a driver
+function for all three channels at once. The individual channels can be
+accessed, set, or assigned their own driver methods via .location\_x,
+.location\_y, and .location\_z. Currently, .location, .rotation, and
+.scale work like this on all graph nodes. CameraNodes also have
+.look\_at and .up\_vector. In the future, all vec3 uniform variables
+will be accessible in this way. If a GraphNode-descended object is
+assigned to a "tripple" handle, such as the example of look\_at in the
+code above, then a driver function will be automatically created to wrap
+the object's "location" property. Note, you should avoid setting
+individual channels via the array handle - don **not** do ".location[0]
+= num"!
+
+Word of caution: driver functions are only called if the scene graph
+thinks it needs them for rendering! The way this is determined, is that
+driver functions associated to glsl variables are always evaluated. If
+such a driver function attempts to read from another driver function,
+then that driver is evaluated (and cached, so the value doesn't change
+again this frame), and so on.
 
 .. code-block:: javascript
 
@@ -33,11 +50,11 @@ returns a coordinate tripple, or a graph object.
 
     // A drawable graph node.  You can instance gani and image files, too!
     var character_model = please.access("alice.jta").instance();
-    character_model.rotate_z = function () { return performance.now()/500; };
+    character_model.rotation_z = function () { return performance.now()/100; };
 
     // The focal point of the camera
     var camera_target = new please.GraphNode();
-    camera_target.z = 2;
+    camera_target.location_z = 2;
 
     // An empty that has the previous two graph nodes as its children
     // The game logic would move this node.
@@ -49,23 +66,24 @@ returns a coordinate tripple, or a graph object.
     character_base.add(camera_target);
 
     // Add a camera object that automatically points at particular
-    // graph node.
+    // graph node.  If is more than one camera in the graph, then you
+    // will need to explicitly call the camera's "activate" method to
+    // have predictable behavior.
     var camera = new please.CameraNode();
     graph.add(camera);
     camera.look_at = camera_target;
-    camera.x = 10;
-    camera.y = -10;
-    camera.z = 10;
-    scene_graph.camera = camera; // this will not be needed in the future
+    camera.location = [10, -10, 10];
 
     // Register a render pass with the scheduler (see m.multipass.js)
     please.pipeline.add(10, "graph_demo/draw", function () {
        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-       // this line needs to be called once per frame, before drawing.
+       // This line needs to be called once per frame, before drawing.
+       // I hope to remove the need for this, and make it implicit
+       // before the 1.0 release.
        scene_graph.tick();
 
-       // this line may be called repeatedly to draw the current
+       // This line may be called repeatedly to draw the current
        // snapshot of the graph multiple times the same way.
        scene_graph.draw();
 
@@ -94,10 +112,37 @@ returns a coordinate tripple, or a graph object.
 
 please.make_animatable
 ----------------------
-*please.make\_animatable* **(object, property\_name[, default\_value])**
+*please.make\_animatable* **(obj, prop, default\_value, proxy, lock)**
 
 Sets up the machinery needed to make the given property on an object
 animatable.
+
+
+please.make_animatable_tripple
+------------------------------
+*please.make\_animatable\_tripple* **(object, prop, swizzle,
+default\_value, proxy);**
+
+Makes property 'prop' an animatable tripple / vec3 / array with three
+items. Parameter 'object' determines where the cache lives, the value of
+'this' passed to driver functions, and if proxy is unset, this also
+determines where the animatable property is written. The 'prop' argument
+is the name of the property to be animatable (eg 'location'). Swizzle is
+an optional string of three elements that determines the channel names
+(eg, 'xyz' to produce location\_x, location\_y, and location\_z). The
+'initial' argument determines what the property should be set to, and
+'proxy' determines an alternate object for which the properties are
+written to.
+
+As mentioned above, if an animatable tripple is passed a GraphNode, then
+an implicit driver function will be generated such that it returns the
+'location' property of the GraphNode.
+
+If the main handle (eg 'location') is assigned a driver function, then
+the swizzle handles (eg, 'location\_x') will stop functioning as setters
+until the main handle is cleared. You can still assign values to the
+channels, and they will appear when the main handle's driver function is
+removed. To clear the main handle's driver function, set it to null.
 
 
 please.GraphNode
@@ -115,8 +160,8 @@ for use by the scene graph's .draw() method.
 .. code-block:: javascript
 
     var empty = new please.GraphNode();
-    var empty.rotate_x = 10;
-    var empty.rotate_x = fuction() { return performance.now()/500; };
+    var empty.rotation.x = 10;
+    var empty.rotation.x = fuction() { return performance.now()/100; };
 
 Most of the time when you want to draw something with the scene graph,
 you create the GraphNodes indirectly from loaded game assets.
@@ -129,18 +174,18 @@ you create the GraphNodes indirectly from loaded game assets.
 
 GraphNodes have some special properties:
 
--  **x**, **y**, **z** Used to generate the node's local matrix.
+-  **location** Animatable tripple, used to generate the node's local
+   matrix.
 
--  **rotate\_x**, **rotate\_y**, **rotate\_z** Used to generate the
-   node's local matrix.
+-  **rotation** Animatable tripple, used to generate the node's local
+   matrix.
 
--  **scale\_x**, **scale\_y**, **scale\_z** Used to generate the node's
-   local matrix.
+-  **scale** Animatable tripple, used to generate the node's local
+   matrix.
 
--  **alpha** A numerical value between 0.0 and 1.0. If sort\_mode is set
-   to "alpha", then this indicates alpha belnding value to be used by
-   the GLSL shader, as accessible by the "alpha" uniform variable.
-   Defaults to 1.0.
+-  **shader** An object, automatically contains bindings for most GLSL
+   shader variables. Variables with non-zero defaults are be listed
+   below.
 
 -  **visible** Defaults to true. May be set to false to prevent the node
    and its children from being drawn.
@@ -154,32 +199,43 @@ GraphNodes have some special properties:
    "model", while .gani and image instances default to "sprite".
    Determines the value of the glsl uniform variable "is\_transparent".
 
-Additionally, each GraphNode has several objects used to set GLSL
-variables:
+Additionally, each GraphNode has a "shader" property, which is an object
+containing additional animatable properties for automatically setting
+GLSL shader variables when it is drawn. The following variables have
+non-zero defaults.
 
--  **vars** - The property names on the *vars* object correspond to
-   uniform variables on the shader program, and will be set
-   automatically. The infrastructure that does this automatically
-   prevents redundant state change calls so do not worry about that. The
-   properties on the vars object may have driver methods assigned to
-   them.
+-  **shader.alpha** Animatable scalar - a numerical value between 0.0
+   and 1.0. Defaults to 1.0.
 
--  **ext** - Works exactly like vars, except it doesn't do anything to
-   the GL state. Useful for storing custom data that might be referenced
-   elsewhere.
+-  **shader.world\_matrix** "Locked" animatable variable which by
+   default contains a driver method that calculate's the object's world
+   matrix for this frame by calculating it's world matrix from the
+   location, rotation, and scale properties, and then multiplying it
+   against either the parent's world matrix if applicable (or the
+   identity matrix if not) to produce the object's own world matrix.
 
--  **samplers** - The property names of the *samplers* object correspond
-   to the sampler variables on the shader program, and will be set
-   automatically. You simply assign them the uri of an image asset that
-   was loaded by m.media's machinery, and you are good to go! M.GRL will
-   take care of texture uploading automatically. This object also
-   accepts driver methods.
+-  **shader.normal\_matrix** "Locked" animatable variable which
+   calculates the normal\_matrix from shader.world\_matrix.
 
-Graph nodes have the following properties pertaining to object
-inhertiance:
+-  **is\_sprite** "Locked" animatable scalar value. Returns true if
+   this.draw\_type is set to "sprite", otherwise returns false.
+
+-  **is\_transparent** "Locked" animatable scalar value. Returns true if
+   this.sort\_mode is set to "alpha", otherwise returns false.
+
+Graph nodes have the following getters for accessing graph inhertiance.
+You should avoid saving the vaules returned by these anywhere, as you
+can prevent objects from being garbage collected or accidentally create
+a reference cycle.
 
 -  **children** This is a list of all objects that are directly parented
    to a given GraphNode instance.
+
+-  **parent** This returns either null or the object for which this node
+   is parented to.
+
+-  **graph\_root** Returns the GraphNode that is the root of the graph.
+   This should be either a SceneGraph instance or a derivative thereof.
 
 GraphNodes also have the following methods for managing the scene graph:
 
@@ -189,6 +245,9 @@ GraphNodes also have the following methods for managing the scene graph:
 -  **add(entity)** Adds the passed object as a child.
 
 -  **remove(entity)** Remove the given entity from this node's children.
+
+-  **destroy()** Remove the object from it's parent, and then removes
+   the reference to it from the node index.
 
 If you want to create your own special GraphNodes, be sure to set the
 following variables in your constructor to ensure they are unique to
@@ -215,10 +274,8 @@ please.SceneGraph
 *please.SceneGraph* **()**
 
 Constructor function that creates an instance of the scene graph. The
-constructor accepts no arguments. To render, the **camera** property
-must be set to a camera object. Currently this is limited to
-please.PerspectiveCamera, though other types will be available in the
-future.
+constructor accepts no arguments. The graph must contain at least one
+camera to be renderable. See CameraNode docstring for more details.
 
 The **.tick()** method on SceneGraph instances is called once per frame
 (multiple render passes may occur per frame), and is responsible for
