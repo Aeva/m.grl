@@ -25,6 +25,7 @@ please.pipeline = {
     "__fps_samples" : [],
 
     // internal vars
+    "__framestart" : performance.now(),
     "__cache" : [],
     "__callbacks" : {},
     "__stopped" : true,
@@ -153,6 +154,7 @@ please.pipeline.__on_draw = function () {
     // record frame start time
     var start_time = performance.now();
     please.pipeline.__fps_samples.push(start_time);
+    please.pipeline.__framestart = start_time;
 
     // if necessary, generate the sorted list of pipeline stages
     if (please.pipeline.__dirty) {

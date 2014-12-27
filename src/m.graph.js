@@ -108,36 +108,6 @@
  */
 
 
-// [-] please.__init_ani_cache(obj)
-//
-// Adds an animation cache to an object if one does not already exist.
-// Also adds the machinery needed to clear said cache's entries.
-//
-please.__init_ani_cache = function (obj) {
-    // Create the __ani_cache object if none exists.  Cache is reset every
-    // tick, and is generated on the first get.
-    if (!obj.__ani_cache) {
-        Object.defineProperty(obj, "__ani_cache", {
-            enumerable : false,
-            writable : false,
-            value : {},
-        });
-    }
-    if (!obj.__clear_ani_cache) {
-        Object.defineProperty(obj, "__clear_ani_cache", {
-            enumerable : false,
-            writable : false,
-            value : function () {
-                for (var key in obj.__ani_cache) {
-                    obj.__ani_cache[key] = null;
-                };
-            },
-        });
-    }
-    return obj.__ani_cache;
-};
-
-
 // [+] please.make_animatable(obj, prop, default_value, proxy, lock)
 //
 // Sets up the machinery needed to make the given property on an
@@ -148,13 +118,25 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock) {
     // getter/setter is saved
     var target = proxy ? proxy : obj;
 
+    // Create the cache object if it does not yet exist.
+    if (!obj.__ani_cache) {
+        Object.defineProperty(obj, "__ani_cache", {
+            enumerable : false,
+            writable : false,
+            value : {},
+        });
+    }
+    var cache = obj.__ani_cache;
+
     // Add the property to the cache object.
-    var cache = please.__init_ani_cache(obj);
     Object.defineProperty(cache, prop, {
         enumerable: true,
         writable: true,
         value: null,
     });
+
+    // Local time stamp for cache invalidation.
+    var last_update = 0;
 
     // Local store.
     var local = default_value !== undefined ? default_value : null;
@@ -162,8 +144,10 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock) {
     // Define the getters and setters for the new property.
     var getter = function () {
         if (typeof(local) === "function") {
-            if (cache[prop] === null) {
+            // determine if the cached value is too old
+            if (cache[prop] === null || please.pipeline.__framestart > last_update) {
                 cache[prop] = local.call(obj);
+                last_update = please.pipeline.__framestart;
             }
             return cache[prop];
         }
@@ -226,8 +210,15 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
     // getter/setter is saved
     var target = proxy ? proxy : obj;
 
-    // Add the property to the cache object.
-    var cache = please.__init_ani_cache(obj);
+    // Create the cache object if it does not yet exist.
+    if (!obj.__ani_cache) {
+        Object.defineProperty(obj, "__ani_cache", {
+            enumerable : false,
+            writable : false,
+            value : {},
+        });
+    }
+    var cache = obj.__ani_cache;
 
     // Determine the swizzle handles.
     if (!swizzle || swizzle.length !== 3) {
@@ -249,6 +240,10 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
         });
     }
 
+    // Local timestamps for cache invalidation.
+    var last_focus = 0;
+    var last_channel = [0, 0, 0];
+
     // Local data stores.
     var xyz = [0, 0, 0];
     var focus = null;
@@ -264,8 +259,10 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
             }
             else {
                 if (typeof(xyz[i]) === "function") {
-                    if (cache[handles[i]] === null) {
+                    // determine if the cached value is too old
+                    if (cache[handles[i]] === null || please.pipeline.__framestart > last_channel[i]) {
                         cache[handles[i]] = xyz[i].call(obj);
+                        last_channel[i] = please.pipeline.__framestart;
                     }
                     return cache[handles[i]];
                 }
@@ -297,8 +294,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
         enumerable : true,
         get : function () {
             if (focus && typeof(focus) === "function") {
-                if (cache[prop] === null) {
+                if (cache[prop] === null || please.pipeline.__framestart > last_focus) {
                     cache[prop] = focus.call(obj);
+                    last_focus = please.pipeline.__framestart
                 }
                 return cache[prop];
             }
@@ -795,21 +793,10 @@ please.SceneGraph = function () {
                 }
             }
         }
-        else {
-            // kind of a hack, since the camera doesn't strictly need
-            // to be a child of the graph node
-            this.camera.__clear_ani_cache();
-        }
 
         // flatten the scene graph into a list (this line will soon
         // not be needed)
         this.__flat = this.__flatten();
-
-        // reset the cache on graph objects
-        ITER(i, this.__flat) {
-            var element = this.__flat[i];
-            element.__clear_ani_cache();
-        };
 
         // nodes in the z-sorting path
         this.__alpha = [];
