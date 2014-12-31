@@ -351,7 +351,7 @@ please.mix = function (lhs, rhs, a) {
         if (_lhs.length && _lhs.length === _rhs.length) {
             // Linear interpolation of two arrays:
             var new_points = [];
-            for (var i=0; i<lhs.length; i+=1) {
+            for (var i=0; i<_lhs.length; i+=1) {
                 new_points.push(_lhs[i] + a*(_rhs[i]-_lhs[i]));
             }
             return new_points;
