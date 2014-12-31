@@ -121,6 +121,46 @@ Converts from degrees to radians.
 
 
 
+please.mix
+----------
+*please.mix* **(lhs, rhs, a)**
+
+Works like the GLSL mix function: linearily interpolates between
+variables 'lhs' and 'rhs'. Variable 'a' should be a numerical value such
+that 0.0 <= a <= 1.0. The first two parameters may be numbers, arrays of
+numbers, or GraphNodes.
+
+
+please.linear_path
+------------------
+*please.linear\_path* **(start, end)**
+
+Generator, the returned function takes a single argument 'a' which is
+used as an argument for calling please.mix. The points argument passed
+to the generator is also passed along to the mix function. This is
+provided as a convinience for animation drivers.
+
+
+please.bezier
+-------------
+*please.bezier* **(points, a)**
+
+Finds a point on a multidimensional bezier curve. Argument 'points' is
+an array of anything that can be passed to the please.mix function.
+Argument 'a' is a value between 0.0 and 1.0, and represents progress
+along the curve.
+
+
+please.bezier_path
+------------------
+*please.bezier\_path* **(points)**
+
+Generator, the returned function takes a single argument 'a' which is
+used as an argument for calling please.bezier. The points argument
+passed to the generator is also passed along to the bezier function.
+This is provided as a convinience for animation drivers.
+
+
 please.uuid
 -----------
 *please.uuid* **()**

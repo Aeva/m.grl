@@ -328,6 +328,88 @@ please.radians = function (degrees) {
 };
 
 
+// [+] please.mix(lhs, rhs, a)
+//
+// Works like the GLSL mix function: linearily interpolates between
+// variables 'lhs' and 'rhs'.  Variable 'a' should be a numerical
+// value such that 0.0 <= a <= 1.0.  The first two parameters may be
+// numbers, arrays of numbers, or GraphNodes.
+//
+please.mix = function (lhs, rhs, a) {
+    if (typeof(lhs) === "number" && typeof(lhs) === typeof(rhs)) {
+        // Linear interpolation of two scalar values:
+        return lhs + a*(rhs-lhs);
+    }
+    else {
+        // We're either dealing with arrays or graph nodes, in
+        // which case we're dealing with arrays that might be
+        // stored in one of two places, so find what we actually
+        // care about:
+        var _lhs = lhs.location ? lhs.location : lhs;
+        var _rhs = rhs.location ? rhs.location : rhs;
+        
+        if (_lhs.length && _lhs.length === _rhs.length) {
+            // Linear interpolation of two arrays:
+            var new_points = [];
+            for (var i=0; i<lhs.length; i+=1) {
+                new_points.push(_lhs[i] + a*(_rhs[i]-_lhs[i]));
+            }
+            return new_points;
+        }
+    }
+    throw ("Mix operands are incompatible.");
+};
+
+
+// [+] please.linear_path(start, end)
+//
+// Generator, the returned function takes a single argument 'a' which
+// is used as an argument for calling please.mix.  The points argument
+// passed to the generator is also passed along to the mix function.
+// This is provided as a convinience for animation drivers.
+//
+please.linear_path = function (start, end) {
+    return function (a) {
+        return please.mix(start, end, a)
+    };
+};
+
+
+// [+] please.bezier(points, a)
+//
+// Finds a point on a multidimensional bezier curve.  Argument
+// 'points' is an array of anything that can be passed to the
+// please.mix function.  Argument 'a' is a value between 0.0 and 1.0,
+// and represents progress along the curve.
+//
+please.bezier = function (points, a) {
+    var lhs, rhs, new_points = [];
+    for (var i=0; i<points.length-1; i+=1) {
+        new_points.push(please.mix(points[i], points[i+1], a));
+    }
+    if (new_points.length > 1) {
+        return please.bezier(new_points, a);
+    }
+    else {
+        return new_points[0];
+    }
+};
+
+
+// [+] please.bezier_path(points)
+//
+// Generator, the returned function takes a single argument 'a' which
+// is used as an argument for calling please.bezier.  The points
+// argument passed to the generator is also passed along to the bezier
+// function.  This is provided as a convinience for animation drivers.
+//
+please.bezier_path = function (points) {
+    return function (a) {
+        return please.bezier(points, a)
+    };
+};
+
+
 // [+] please.uuid()
 //
 // Generates a Universally Unique Identifier (UUID) string, in

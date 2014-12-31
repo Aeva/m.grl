@@ -18,6 +18,20 @@ describe("Tests for m.defs.js", function () {
         expect(count).toBe(-100);
     });
 
+    it("In which please.mix is demonstrated.", function () {
+        expect(please.mix(5.0, 10.0, 0.0)).toBe(5.0);
+        expect(please.mix(5.0, 10.0, 1.0)).toBe(10.0);
+
+        
+        var mixed = please.mix([1, 10], [5, 30], 0.0);
+        expect(mixed[0]).toBe(1.0);
+        expect(mixed[1]).toBe(10.0);
+
+        var mixed = please.mix([1, 10], [5, 30], 1.0);
+        expect(mixed[0]).toBe(5.0);
+        expect(mixed[1]).toBe(30.0);
+    });
+
     it("In which please.uuid is verified to have output.", function () {
         var uuid = please.uuid();
         expect(typeof(uuid)).toBe("string");
