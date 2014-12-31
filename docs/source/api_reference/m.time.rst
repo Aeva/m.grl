@@ -57,4 +57,13 @@ please.path_driver
 ------------------
 *please.path\_driver* **(path, period, repeat, oscilate)**
 
+This function generates a driver function for animating along a path
+reterned by another generator function.
+
+.. code-block:: javascript
+
+    var path = please.linear_path(-10, 10);
+    player.location_x = please.path_driver(path, 1000, true, true);
+
+
 
