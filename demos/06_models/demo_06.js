@@ -134,7 +134,7 @@ addEventListener("mgrl_media_ready", function () {
 
     // add row of lamps in the background
     var spacing = 5;
-    var count = 10;
+    var count = 4;
     var end = count*spacing;
     var start = end*-1;
     var y = -20;

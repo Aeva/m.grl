@@ -109,6 +109,7 @@ addEventListener("mgrl_media_ready", function () {
     var count = 5;
     for (var i=0; i<count; i+=1) {
         lamp = lamp_model.instance();
+        lamp.selectable = true;
         lamp.shader.mode = 2;
         lamp.scale_x = 0.2;
         lamp.scale_z = 0.2;
@@ -168,8 +169,9 @@ addEventListener("mgrl_media_ready", function () {
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
 
-    // register a render pass with the scheduler
-    please.pipeline.add(1, "demo_06/draw", function () {
+
+    // experimental picking pass
+    please.pipeline.add(10, "beziers/pick", function () {
         // -- update uniforms
         prog.vars.time = performance.now();
         prog.vars.light_direction = light_direction;
@@ -179,8 +181,24 @@ addEventListener("mgrl_media_ready", function () {
         
         // -- draw geometry
         graph.tick();
-        graph.draw();
+        //graph.draw();
+        graph.picking_draw();
     });
+
+
+    // register a render pass with the scheduler
+    // please.pipeline.add(20, "beziers/draw", function () {
+    //     // -- update uniforms
+    //     prog.vars.time = performance.now();
+    //     prog.vars.light_direction = light_direction;
+
+    //     // -- clear the screen
+    //     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
+    //     // -- draw geometry
+    //     graph.tick();
+    //     graph.draw();
+    // });
     please.pipeline.start();
 });
 

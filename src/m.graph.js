@@ -383,6 +383,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
 //    GLSL shader variables.  Variables with non-zero defaults are be
 //    listed below.
 //
+//  - **selectable** Defaults to false.  May be set to true to allow
+//    the object to be considered for picking.
+//
 //  - **visible** Defaults to true.  May be set to false to prevent
 //    the node and its children from being drawn.
 //
@@ -472,7 +475,7 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
 // requrie the node be drawable.  The bind method is essentially
 // vestigial and should not be used.
 //
-please.graph_index = {}; 
+please.graph_index = {};
 please.GraphNode = function () {
     console.assert(this !== window);
 
@@ -542,6 +545,8 @@ please.GraphNode = function () {
     // sampler variables.
     var prog = please.gl.get_program();
     var ignore = [
+        "mgrl_picking_pass",
+        "mgrl_picking_index",
         "projection_matrix",
         "view_matrix",
     ];
@@ -577,6 +582,8 @@ please.GraphNode = function () {
     this.__is_camera = false; // set to true if the object is a camera
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__z_depth = null; // overwritten by z-sorting
+    this.selectable = false; // object can be selected via picking
+    this.__pick_index = null; // used internally for tracking picking
 };
 please.GraphNode.prototype = {
     "has_child" : function (entity) {
@@ -678,13 +685,43 @@ please.GraphNode.prototype = {
         // I guess we want the Y and not the Z value?
         this.__z_depth = position[1];
     },
+    "__set_picking_index" : function () {
+        // This function will try to descend down the graph until an
+        // ancestor is found where "selectable" is true.  It will then
+        // set a new picking index if necessary, and then propogate
+        // that value back of the graph.
+        if (this.__pick_index !== null) {
+            return this.__pick_index;
+        }
+        else if (this.selectable) {
+            // set picking index to the amount of time since the
+            // beginning of the current frame.
+            var stamp = performance.now() - please.pipeline.__framestart;
+            this.__pick_index = Math.floor(stamp*1000000);
+            return this.__pick_index;
+        }
+        else {
+            var parent = this.parent;
+            var graph = this.graph_root;
+            if (parent !== null && parent !== graph) {
+                var found = parent.__set_picking_index();
+                if (found !== null) {
+                    this.__pick_index = found;
+                    return found;
+                }
+            }
+        }
+        // fail state - don't pick the object.
+        this.__pick_index = 0;
+        return this.__pick_index;
+    },
     "__bind" : function (prog) {
         // calls this.bind if applicable.
         if (this.__drawable && typeof(this.bind) === "function") {
             this.bind();
         }
     },
-    "__draw" : function (prog) {
+    "__draw" : function (prog, picking_draw) {
         // bind uniforms and textures, then call this.draw, if
         // applicable.  The binding code is set up to ignore redundant
         // binds, so as long as the calls are sorted, this extra
@@ -705,6 +742,11 @@ please.GraphNode.prototype = {
                         }
                     }
                 }
+            }
+
+            // upload picking index value
+            if (picking_draw) {
+                prog.vars.mgrl_picking_index = this.__set_picking_index();
             }
 
             // if (self.sort_mode === "alpha") {
@@ -808,6 +850,7 @@ please.SceneGraph = function () {
         // matricies, and put things in applicable sorting paths
         ITER(i, this.__flat) {
             var element = this.__flat[i];
+            element.__picking_index = null; // reset the picking index
             if (element.__drawable) {
                 if (element.sort_mode === "alpha") {
                     this.__alpha.push(element);
@@ -828,8 +871,37 @@ please.SceneGraph = function () {
         };
     };
 
+    this.picking_draw = function () {
+        var prog = please.gl.get_program();
+        var has_pass_var = prog.vars.hasOwnProperty("mgrl_picking_pass");
+        var has_index_var = prog.vars.hasOwnProperty("mgrl_picking_index");
+        if (has_pass_var && has_index_var) {
+            prog.vars.mgrl_picking_pass = true;
+            this.draw();
+            return true;
+        }
+        else {
+            var msg = "Can't perform picking pass because either of the " +
+                "following variables are not defined or used by the shader " +
+                "program:";
+            if (!has_pass_var) {
+                msg += "\n - mgrl_picking_pass (bool)";
+                msg += "\n - mgrl_picking_index (any scalar type)";
+            }
+            console.error(msg);
+            return false;
+        }
+    };
+
     this.draw = function () {
         var prog = please.gl.get_program();
+        var draw_picking_indices;
+        if (prog.vars.hasOwnProperty("mgrl_picking_pass")) {
+            draw_picking_indices = prog.vars.mgrl_picking_pass;
+        }
+        else {
+            draw_picking_indices = false;
+        }
         if (this.camera) {
             this.camera.update_camera();
             prog.vars.projection_matrix = this.camera.projection_matrix;
@@ -844,7 +916,7 @@ please.SceneGraph = function () {
                 ITER(i, children) {
                     var child = children[i];
                     child.__bind(prog);
-                    child.__draw(prog);
+                    child.__draw(prog, draw_picking_indices);
                 }
             }
         }
@@ -864,8 +936,11 @@ please.SceneGraph = function () {
             ITER(i, this.__alpha) {
                 var child = this.__alpha[i];
                 child.__bind(prog);
-                child.__draw(prog);
+                child.__draw(prog, draw_picking_indices);
             }
+        }
+        if (prog.vars.hasOwnProperty("mgrl_picking_pass")) {
+            prog.vars.mgrl_picking_pass = false;
         }
     };
 };

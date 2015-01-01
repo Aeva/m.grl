@@ -22,6 +22,8 @@ varying vec3 light_weight;
 varying float directional_weight;
 
 
+uniform bool mgrl_picking_pass;
+uniform int mgrl_picking_index;
 
 
 // Handy function for producing pseudo-randomness.  Returns a value
@@ -120,7 +122,16 @@ void main(void) {
   float range = 30.0;
 
   vec4 final_color = mix(mixed_color, haze, clamp(falloff, 0.0, range)/range);
-  if (mode < 3.0) {
+
+  if (mgrl_picking_pass) {
+    if (mgrl_picking_index == 0) {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    }
+    else {
+      gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    }
+  }
+  else if (mode < 3.0) {
     gl_FragColor = vec4(final_color.rgb, 1.0);
   }
   else {
