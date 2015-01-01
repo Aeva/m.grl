@@ -346,7 +346,7 @@ please.mix = function (lhs, rhs, a) {
         if (_lhs.length && _lhs.length === _rhs.length) {
             // Linear interpolation of two arrays:
             var new_points = [];
-            for (var i=0; i<lhs.length; i+=1) {
+            for (var i=0; i<_lhs.length; i+=1) {
                 new_points.push(_lhs[i] + a*(_rhs[i]-_lhs[i]));
             }
             return new_points;
@@ -656,6 +656,13 @@ please.time = (function () {
 })();
 // [+] please.path_driver(path, period, repeat, oscilate)
 //
+// This function generates a driver function for animating along a
+// path reterned by another generator function.
+//
+// ```
+// var path = please.linear_path(-10, 10);
+// player.location_x = please.path_driver(path, 1000, true, true);
+// ```
 //
 please.path_driver = function (path, period, repeat, oscilate) {
     var start = performance.now();
