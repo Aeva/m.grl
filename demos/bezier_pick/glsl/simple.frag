@@ -59,9 +59,9 @@ void main(void) {
   if (mode == 1.0) {
     // use different settings for the floor
     axis = world_position.y;
-    frequency = 1.0;
-    threshold = 1.0;
-    amplitude = 0.8;
+    frequency = 0.5;   // was 1.0
+    threshold = 8.0;   // was 1.0
+    amplitude = 2.0;   // was 0.8
   }
   else {
     axis = world_position.z;

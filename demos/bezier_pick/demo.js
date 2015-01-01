@@ -124,6 +124,8 @@ addEventListener("mgrl_media_ready", function () {
 
     
     // until I add picking, here's a fun effect:
+    //controls[0].location_y = 5;
+    //controls[4].location_y = -5;
     controls[2].location_y = function () {
         return Math.sin(performance.now()/100)*10;
     };
@@ -149,10 +151,12 @@ addEventListener("mgrl_media_ready", function () {
         blob.index = i;
         blob.shader.mode = 2;
         blob.scale_x = 0.4;
-        blob.scale_y = 0.2;
+        blob.scale_y = 0.5;
         blob.scale_z = 0.4;
         blob.location = function () {
-            return lamp_path(this.index/(count-1));
+            var a = this.index/(count-1)
+            var point = lamp_path(a);
+            return point;
         }
         graph.add(blob);
         blobs.push(blob);
