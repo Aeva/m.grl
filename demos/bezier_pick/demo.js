@@ -154,6 +154,7 @@ addEventListener("mgrl_media_ready", function () {
         blob.scale_x = 0.4;
         blob.scale_y = 0.5;
         blob.scale_z = 0.4;
+        blob.selectable = true;
         blob.location = function () {
             var a = this.index/(count-1)
             var point = lamp_path(a);
