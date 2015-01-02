@@ -694,10 +694,19 @@ please.GraphNode.prototype = {
             return this.__pick_index;
         }
         else if (this.selectable) {
-            // set picking index to the amount of time since the
-            // beginning of the current frame.
+            // Set picking index to the amount of time since the
+            // beginning of the current frame.  This is kind of
+            // terrible though, so maybe we should devise some other
+            // mechanism.
             var stamp = performance.now() - please.pipeline.__framestart;
-            this.__pick_index = Math.floor(stamp*1000000);
+            var index = Math.floor(stamp*1000000);
+
+            var r = index & 255; // 255 = 2**8-1
+            var g = (index & 65280) >> 8; // 65280 = (2**8-1) << 8;
+            var b = (index & 16711680) >> 16; // 16711680 = (2**8-1) << 16;
+
+            this.__pick_index = [r/255, g/255, b/255];
+            this.__pick_index.dirty = true;
             return this.__pick_index;
         }
         else {
@@ -712,7 +721,8 @@ please.GraphNode.prototype = {
             }
         }
         // fail state - don't pick the object.
-        this.__pick_index = 0;
+        this.__pick_index = [0, 0, 0];;
+        this.__pick_index.dirty = true;
         return this.__pick_index;
     },
     "__bind" : function (prog) {
@@ -746,7 +756,10 @@ please.GraphNode.prototype = {
 
             // upload picking index value
             if (picking_draw) {
-                prog.vars.mgrl_picking_index = this.__set_picking_index();
+                var pick = this.__set_picking_index();
+                if (pick !== null) {
+                    prog.vars.mgrl_picking_index = pick;
+                }
             }
 
             // if (self.sort_mode === "alpha") {
@@ -850,7 +863,7 @@ please.SceneGraph = function () {
         // matricies, and put things in applicable sorting paths
         ITER(i, this.__flat) {
             var element = this.__flat[i];
-            element.__picking_index = null; // reset the picking index
+            element.__pick_index = null; // reset the picking index
             if (element.__drawable) {
                 if (element.sort_mode === "alpha") {
                     this.__alpha.push(element);
@@ -886,7 +899,7 @@ please.SceneGraph = function () {
                 "program:";
             if (!has_pass_var) {
                 msg += "\n - mgrl_picking_pass (bool)";
-                msg += "\n - mgrl_picking_index (any scalar type)";
+                msg += "\n - mgrl_picking_index (vec3)";
             }
             console.error(msg);
             return false;
