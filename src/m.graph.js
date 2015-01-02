@@ -723,8 +723,8 @@ please.GraphNode.prototype = {
             }
         }
         // fail state - don't pick the object.
-        this.__pick_index = [0, 0, 0];;
-        this.__pick_index.dirty = true;
+        //this.__pick_index = [0, 0, 0];;
+        //this.__pick_index.dirty = true;
         return this.__pick_index;
     },
     "__bind" : function (prog) {
@@ -761,6 +761,9 @@ please.GraphNode.prototype = {
                 var pick = this.__set_picking_index();
                 if (pick !== null) {
                     prog.vars.mgrl_picking_index = pick;
+                }
+                else {
+                    return;
                 }
             }
 
@@ -895,6 +898,7 @@ please.SceneGraph = function () {
         if (has_pass_var && has_index_var) {
             prog.vars.mgrl_picking_pass = true;
             this.draw();
+            prog.vars.mgrl_picking_pass = false;
             return true;
         }
         else {
@@ -967,9 +971,6 @@ please.SceneGraph = function () {
                 child.__bind(prog);
                 child.__draw(prog, draw_picking_indices);
             }
-        }
-        if (prog.vars.hasOwnProperty("mgrl_picking_pass")) {
-            prog.vars.mgrl_picking_pass = false;
         }
     };
 };

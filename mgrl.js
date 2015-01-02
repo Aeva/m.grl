@@ -2731,6 +2731,14 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             return gl[uni](pointer, value);
         });
         prog.vars.__defineGetter__(data.name, function () {
+            if (prog.__cache.vars[data.name] !== null) {
+                if (data.type === gl.BOOL) {
+                    return prog.__cache.vars[data.name][0];
+                }
+                else if (data.type === gl.FLOAT || data.type === gl.INT) {
+                    prog.__cache.vars[data.name][0];
+                }
+            }
             return prog.__cache.vars[data.name];
         });
         if (data.type === gl.SAMPLER_2D) {
@@ -4060,8 +4068,8 @@ please.GraphNode.prototype = {
             }
         }
         // fail state - don't pick the object.
-        this.__pick_index = [0, 0, 0];;
-        this.__pick_index.dirty = true;
+        //this.__pick_index = [0, 0, 0];;
+        //this.__pick_index.dirty = true;
         return this.__pick_index;
     },
     "__bind" : function (prog) {
@@ -4096,6 +4104,9 @@ please.GraphNode.prototype = {
                 var pick = this.__set_picking_index();
                 if (pick !== null) {
                     prog.vars.mgrl_picking_index = pick;
+                }
+                else {
+                    return;
                 }
             }
             // if (self.sort_mode === "alpha") {
@@ -4217,6 +4228,7 @@ please.SceneGraph = function () {
         if (has_pass_var && has_index_var) {
             prog.vars.mgrl_picking_pass = true;
             this.draw();
+            prog.vars.mgrl_picking_pass = false;
             return true;
         }
         else {
@@ -4286,9 +4298,6 @@ please.SceneGraph = function () {
                 child.__bind(prog);
                 child.__draw(prog, draw_picking_indices);
             }
-        }
-        if (prog.vars.hasOwnProperty("mgrl_picking_pass")) {
-            prog.vars.mgrl_picking_pass = false;
         }
     };
 };

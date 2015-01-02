@@ -106,11 +106,11 @@ addEventListener("mgrl_media_ready", function () {
     var lamp;
     var low = -10;
     var high = 10;
-    var count = 5;
+    var count = 4;
     for (var i=0; i<count; i+=1) {
         lamp = lamp_model.instance();
         lamp.selectable = true;
-        lamp.shader.mode = 2;
+        lamp.shader.mode = 3;
         lamp.scale_x = 0.2;
         lamp.scale_z = 0.2;
         lamp.location_x = please.mix(low, high, i/(count-1));
@@ -127,9 +127,9 @@ addEventListener("mgrl_media_ready", function () {
     // until I add picking, here's a fun effect:
     //controls[0].location_y = 5;
     //controls[4].location_y = -5;
-    controls[2].location_y = function () {
-        return Math.sin(performance.now()/100)*10;
-    };
+    // controls[2].location_y = function () {
+    //     return Math.sin(performance.now()/100)*10;
+    // };
 
 
     // add a character to move along the path
@@ -190,6 +190,7 @@ addEventListener("mgrl_media_ready", function () {
             // x, y, width, height, format, datatype, datasource
             var px = new Uint8Array(4);
             gl.readPixels(pick_x, pick_y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+            console.info(px);
             var found = graph.picked_node(px);
             if (found) {
                 console.info(found)
@@ -222,12 +223,39 @@ var pick_x = 0;
 var pick_y = 0;
 
 function add_picking_hook (canvas) {
-    canvas.addEventListener("click", function (event) {
+    canvas.addEventListener("mousedown", function (event) {
         window.do_pick = true;
         pick_x = event.layerX;
-        pick_y = event.layerY;
+        pick_y = canvas.height - event.layerY;
+    });
+
+    canvas.addEventListener("mouseup", function (event) {
+        if (selected) {
+            selected = null;
+        }
+    });
+
+    canvas.addEventListener("mousemove", function (event) {
+        if (selected) {
+            var old_x = pick_x;
+            var old_y = pick_y;
+            pick_x = event.layerX;
+            pick_y = canvas.height - event.layerY;
+            var dx = old_x - pick_x;
+            var dy = old_y - pick_y;
+
+            console.info(dx);
+            console.info(dy);            
+            
+            selected.location_x += dx/30;
+            selected.location_y += dy/30;
+        }
     });
 };
+
+window.addEventListener("mouseup", function () {
+    selected = null;
+});
 
 
 var FloorNode = function () {

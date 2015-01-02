@@ -101,6 +101,10 @@ void main(void) {
     float dither = rand / 3.0;
     weird = vec4(weird.r + dither, weird.g + dither, weird.b + dither, 1.0);
   }
+  else if (mode == 3.0) {
+    color_sample = vec4(1.0, 0.0, 0.0, 1.0);
+    weird = color_sample;
+  }
   else {
     // sample the color value for the models from a texture
     color_sample = pdq_phong(texture2D(diffuse_texture, local_tcoords));
@@ -124,7 +128,6 @@ void main(void) {
   vec4 final_color = mix(mixed_color, haze, clamp(falloff, 0.0, range)/range);
 
   if (mgrl_picking_pass) {
-    
     if (mgrl_picking_index == vec3(0,0,0)) {
       gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
@@ -132,10 +135,7 @@ void main(void) {
       gl_FragColor = vec4(mgrl_picking_index, 1.0);
     }
   }
-  else if (mode < 3.0) {
-    gl_FragColor = vec4(final_color.rgb, 1.0);
-  }
   else {
-    gl_FragColor = vec4(final_color.rgb, 0.75);
+    gl_FragColor = vec4(final_color.rgb, 1.0);
   }
 }
