@@ -424,6 +424,14 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         });
 
         prog.vars.__defineGetter__(data.name, function () {
+            if (prog.__cache.vars[data.name] !== null) {
+                if (data.type === gl.BOOL) {
+                    return prog.__cache.vars[data.name][0];
+                }
+                else if (data.type === gl.FLOAT || data.type === gl.INT) {
+                    prog.__cache.vars[data.name][0];
+                }
+            }
             return prog.__cache.vars[data.name];
         });
 
