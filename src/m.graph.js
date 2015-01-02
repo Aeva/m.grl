@@ -910,6 +910,18 @@ please.SceneGraph = function () {
         }
     };
 
+    this.picked_node = function (color_array) {
+        var r = color_array[0];
+        var g = color_array[1];
+        var b = color_array[2];
+        var color_index = r + g*256 + b*65536;
+        var uuid = graph.__picking_set[color_index-1];
+        if (uuid) {
+            return please.graph_index[uuid].ref
+        }
+        return null;
+    };
+
     this.draw = function () {
         var prog = please.gl.get_program();
         var draw_picking_indices;

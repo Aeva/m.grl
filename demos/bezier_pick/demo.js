@@ -154,7 +154,6 @@ addEventListener("mgrl_media_ready", function () {
         blob.scale_x = 0.4;
         blob.scale_y = 0.5;
         blob.scale_z = 0.4;
-        blob.selectable = true;
         blob.location = function () {
             var a = this.index/(count-1)
             var point = lamp_path(a);
@@ -170,9 +169,38 @@ addEventListener("mgrl_media_ready", function () {
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
 
+    add_picking_hook(canvas);
 
     // experimental picking pass
     please.pipeline.add(10, "beziers/pick", function () {
+        if (window.do_pick) {
+            window.do_pick = false;
+            // -- update uniforms
+            prog.vars.time = performance.now();
+            prog.vars.light_direction = light_direction;
+
+            // -- clear the screen
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            
+            // -- draw geometry
+            graph.tick();
+            //graph.draw();
+            graph.picking_draw();
+
+            // x, y, width, height, format, datatype, datasource
+            var px = new Uint8Array(4);
+            gl.readPixels(pick_x, pick_y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+            var found = graph.picked_node(px);
+            if (found) {
+                console.info(found)
+                window.selected = found;
+            }
+        }
+    });
+
+
+    // register a render pass with the scheduler
+    please.pipeline.add(20, "beziers/draw", function () {
         // -- update uniforms
         prog.vars.time = performance.now();
         prog.vars.light_direction = light_direction;
@@ -182,26 +210,24 @@ addEventListener("mgrl_media_ready", function () {
         
         // -- draw geometry
         graph.tick();
-        //graph.draw();
-        graph.picking_draw();
+        graph.draw();
     });
-
-
-    // register a render pass with the scheduler
-    // please.pipeline.add(20, "beziers/draw", function () {
-    //     // -- update uniforms
-    //     prog.vars.time = performance.now();
-    //     prog.vars.light_direction = light_direction;
-
-    //     // -- clear the screen
-    //     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-    //     // -- draw geometry
-    //     graph.tick();
-    //     graph.draw();
-    // });
     please.pipeline.start();
 });
+
+
+var selected = null;
+var do_pick = false;
+var pick_x = 0;
+var pick_y = 0;
+
+function add_picking_hook (canvas) {
+    canvas.addEventListener("click", function (event) {
+        window.do_pick = true;
+        pick_x = event.layerX;
+        pick_y = event.layerY;
+    });
+};
 
 
 var FloorNode = function () {
