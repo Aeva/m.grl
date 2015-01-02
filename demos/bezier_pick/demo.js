@@ -34,6 +34,7 @@ addEventListener("load", function() {
 
     // load our model files
     please.load("psycho.jta");
+    please.load("gavroche.jta");
     please.load("floor_lamp.jta");
 
     show_progress();
@@ -88,6 +89,7 @@ addEventListener("mgrl_media_ready", function () {
     // access model data
     var lamp_model = please.access("floor_lamp.jta");
     var char_model = please.access("psycho.jta");
+    var gavroche_model = please.access("gavroche.jta");
 
     // build the scene graph
     var graph = window.graph = new please.SceneGraph();
@@ -108,11 +110,14 @@ addEventListener("mgrl_media_ready", function () {
     var high = 10;
     var count = 4;
     for (var i=0; i<count; i+=1) {
-        lamp = lamp_model.instance();
+        lamp = gavroche_model.instance();
         lamp.selectable = true;
         lamp.shader.mode = 3;
-        lamp.scale_x = 0.2;
-        lamp.scale_z = 0.2;
+        //lamp.scale_x = 0.5;
+        //lamp.scale_y = 0.5;
+        lamp.rotation_z = function () {
+            return performance.now()/10;
+        };
         lamp.location_x = please.mix(low, high, i/(count-1));
         //lamp.location_y = Math.random()*30 - 10;
         lamp.selectable = true;
