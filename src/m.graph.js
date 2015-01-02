@@ -694,13 +694,15 @@ please.GraphNode.prototype = {
             return this.__pick_index;
         }
         else if (this.selectable) {
-            // Set picking index to the amount of time since the
-            // beginning of the current frame.  This is kind of
-            // terrible though, so maybe we should devise some other
-            // mechanism.
-            var stamp = performance.now() - please.pipeline.__framestart;
-            var index = Math.floor(stamp*1000000);
+            // set the picking index based on what objects the graph
+            // root understands to be selectable so far
+            var graph = this.graph_root;
+            graph.__picking_set.push(this.__id);
+            var index = graph.__picking_set.length;
 
+            // yes, this means that to go backwards, color index 'i'
+            // corresponds to graph.__picking_set[i-1]
+            
             var r = index & 255; // 255 = 2**8-1
             var g = (index & 65280) >> 8; // 65280 = (2**8-1) << 8;
             var b = (index & 16711680) >> 16; // 16711680 = (2**8-1) << 16;
@@ -818,6 +820,7 @@ please.SceneGraph = function () {
     this.__states = {};
     this.camera = null;
     this.local_matrix = mat4.create();
+    this.__picking_set = [];
 
     Object.defineProperty(this, "graph_root", {
         "configurable" : false,
@@ -888,6 +891,7 @@ please.SceneGraph = function () {
         var prog = please.gl.get_program();
         var has_pass_var = prog.vars.hasOwnProperty("mgrl_picking_pass");
         var has_index_var = prog.vars.hasOwnProperty("mgrl_picking_index");
+        this.__picking_set = [];
         if (has_pass_var && has_index_var) {
             prog.vars.mgrl_picking_pass = true;
             this.draw();
