@@ -25,6 +25,9 @@ varying float directional_weight;
 uniform bool mgrl_picking_pass;
 uniform vec3 mgrl_picking_index;
 
+// non-standard picking stuff
+uniform bool move_pick;
+
 
 // Handy function for producing pseudo-randomness.  Returns a value
 // between 0 and 1
@@ -133,6 +136,14 @@ void main(void) {
     }
     else {
       gl_FragColor = vec4(mgrl_picking_index, 1.0);
+    }
+  }
+  else if (move_pick) {
+    if (mode == 1.0) {
+      gl_FragColor = vec4(local_position/100.0+0.5, 1.0);
+    }
+    else {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
     }
   }
   else {

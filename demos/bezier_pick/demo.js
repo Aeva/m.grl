@@ -179,20 +179,28 @@ addEventListener("mgrl_media_ready", function () {
 
     add_picking_hook(canvas);
 
+
+    
+    please.pipeline.add(1, "beziers/setup", function () {
+        // -- update uniforms
+        prog.vars.time = performance.now();
+        prog.vars.light_direction = light_direction;
+        prog.vars.move_pick = false;
+       
+        // -- update graph
+        graph.tick();
+    });
+
     // experimental picking pass
     please.pipeline.add(10, "beziers/pick", function () {
-        if (window.do_pick) {
-            window.do_pick = false;
-            // -- update uniforms
-            prog.vars.time = performance.now();
-            prog.vars.light_direction = light_direction;
-
+        if (window.do_click_pick) {
             // -- clear the screen
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            // -- reset picking trigger
+            window.do_click_pick = false;
             
             // -- draw geometry
-            graph.tick();
-            //graph.draw();
             graph.picking_draw();
 
             // x, y, width, height, format, datatype, datasource
@@ -201,43 +209,59 @@ addEventListener("mgrl_media_ready", function () {
             console.info(px);
             var found = graph.picked_node(px);
             if (found) {
-                console.info(found)
                 window.selected = found;
             }
         }
-    });
+        else if (window.do_move_pick && selected) {
+            // -- clear the screen
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+            // -- reset picking trigger
+            window.do_move_pick = false;
+            
+            // -- draw geometry
+            prog.vars.move_pick = true;
+            graph.draw();
+            prog.vars.move_pick = false;
+
+            // -- use the resulting data for something
+            var px = new Uint8Array(4);
+            gl.readPixels(pick_x, pick_y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+
+            // -- adjust selected object position
+            selected.location_x = ((px[0]/255)-0.5)*100.0;
+            selected.location_y = ((px[1]/255)-0.5)*100.0;
+        }
+    });
 
     // register a render pass with the scheduler
     please.pipeline.add(20, "beziers/draw", function () {
-        // -- update uniforms
-        prog.vars.time = performance.now();
-        prog.vars.light_direction = light_direction;
-
         // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         
         // -- draw geometry
-        graph.tick();
         graph.draw();
     });
+
+    // start the drawing loop
     please.pipeline.start();
 });
 
 
 var selected = null;
-var do_pick = false;
+var do_click_pick = false;
+var do_move_pick = false;
 var pick_x = 0;
 var pick_y = 0;
 
 function add_picking_hook (canvas) {
     canvas.addEventListener("mousedown", function (event) {
-        window.do_pick = true;
+        window.do_click_pick = true;
         pick_x = event.layerX;
         pick_y = canvas.height - event.layerY;
     });
 
-    canvas.addEventListener("mouseup", function (event) {
+    window.addEventListener("mouseup", function (event) {
         if (selected) {
             selected = null;
         }
@@ -245,25 +269,12 @@ function add_picking_hook (canvas) {
 
     canvas.addEventListener("mousemove", function (event) {
         if (selected) {
-            var old_x = pick_x;
-            var old_y = pick_y;
+            do_move_pick = true;
             pick_x = event.layerX;
             pick_y = canvas.height - event.layerY;
-            var dx = old_x - pick_x;
-            var dy = old_y - pick_y;
-
-            console.info(dx);
-            console.info(dy);            
-            
-            selected.location_x += dx/30;
-            selected.location_y += dy/30;
         }
     });
 };
-
-window.addEventListener("mouseup", function () {
-    selected = null;
-});
 
 
 var FloorNode = function () {
