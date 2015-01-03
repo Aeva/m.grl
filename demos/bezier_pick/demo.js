@@ -263,8 +263,8 @@ function add_picking_hook (canvas) {
     canvas.addEventListener("mousedown", function (event) {
         window.do_click_pick = true;
         var rect = canvas.getBoundingClientRect();
-        pick_x = event.pageX - rect.left;
-        pick_y = canvas.height - (event.pageY - rect.top);
+        pick_x = event.pageX - rect.left - window.pageXOffset;
+        pick_y = canvas.height - (event.pageY - rect.top - window.pageYOffset);
     });
 
     window.addEventListener("mouseup", function (event) {
@@ -277,8 +277,8 @@ function add_picking_hook (canvas) {
         if (selected) {
             do_move_pick = true;
             var rect = canvas.getBoundingClientRect();
-            pick_x = event.pageX - rect.left;
-            pick_y = canvas.height - (event.pageY - rect.top);
+            pick_x = event.pageX - rect.left - window.pageXOffset;
+            pick_y = canvas.height - (event.pageY - rect.top - window.pageYOffset);
         }
     });
 };
