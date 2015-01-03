@@ -742,6 +742,18 @@ please.GraphNode.prototype = {
         if (this.visible && this.__drawable && typeof(this.draw) === "function") {
             var prog = please.gl.get_program();
 
+            // upload picking index value
+            if (picking_draw) {
+                var pick = this.__set_picking_index();
+                if (pick !== null) {
+                    prog.vars.mgrl_picking_index = pick;
+                }
+                else {
+                    return;
+                }
+            }
+
+            // upload shader vars
             for (var name in this.shader) {
                 if (prog.vars.hasOwnProperty(name)) {
                     var value = this.shader[name];
@@ -756,24 +768,7 @@ please.GraphNode.prototype = {
                 }
             }
 
-            // upload picking index value
-            if (picking_draw) {
-                var pick = this.__set_picking_index();
-                if (pick !== null) {
-                    prog.vars.mgrl_picking_index = pick;
-                }
-                else {
-                    return;
-                }
-            }
-
-            // if (self.sort_mode === "alpha") {
-            //     prog.vars["alpha"] = self.alpha;
-            // }
-            // else {
-            //     prog.vars["alpha"] = 1.0;
-            // }
-
+            // draw this node
             this.draw();
         }
     },
@@ -926,7 +921,7 @@ please.SceneGraph = function () {
         return null;
     };
 
-    this.draw = function () {
+    this.draw = function (exclude_test) {
         var prog = please.gl.get_program();
         var draw_picking_indices;
         if (prog.vars.hasOwnProperty("mgrl_picking_pass")) {
@@ -948,8 +943,13 @@ please.SceneGraph = function () {
                 var children = this.__states[hint];
                 ITER(i, children) {
                     var child = children[i];
-                    child.__bind(prog);
-                    child.__draw(prog, draw_picking_indices);
+                    if (exclude_test && exclude_test(child)) {
+                        continue;
+                    }
+                    else {
+                        child.__bind(prog);
+                        child.__draw(prog, draw_picking_indices);
+                    }
                 }
             }
         }
@@ -968,6 +968,9 @@ please.SceneGraph = function () {
             // draw translucent elements
             ITER(i, this.__alpha) {
                 var child = this.__alpha[i];
+                if (exclude_test && exclude_test(child)) {
+                    continue;
+                }
                 child.__bind(prog);
                 child.__draw(prog, draw_picking_indices);
             }

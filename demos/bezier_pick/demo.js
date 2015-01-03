@@ -177,10 +177,12 @@ addEventListener("mgrl_media_ready", function () {
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
 
+
+    // attach mouse events for picking
     add_picking_hook(canvas);
 
 
-    
+    // setup common render state
     please.pipeline.add(1, "beziers/setup", function () {
         // -- update uniforms
         prog.vars.time = performance.now();
@@ -190,6 +192,7 @@ addEventListener("mgrl_media_ready", function () {
         // -- update graph
         graph.tick();
     });
+
 
     // experimental picking pass
     please.pipeline.add(10, "beziers/pick", function () {
@@ -221,7 +224,7 @@ addEventListener("mgrl_media_ready", function () {
             
             // -- draw geometry
             prog.vars.move_pick = true;
-            graph.draw();
+            graph.draw(function(node) { return node.shader.mode !== 1.0; });
             prog.vars.move_pick = false;
 
             // -- use the resulting data for something
@@ -234,6 +237,7 @@ addEventListener("mgrl_media_ready", function () {
         }
     });
 
+
     // register a render pass with the scheduler
     please.pipeline.add(20, "beziers/draw", function () {
         // -- clear the screen
@@ -242,6 +246,7 @@ addEventListener("mgrl_media_ready", function () {
         // -- draw geometry
         graph.draw();
     });
+
 
     // start the drawing loop
     please.pipeline.start();
