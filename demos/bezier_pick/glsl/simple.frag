@@ -123,7 +123,7 @@ void main(void) {
   // determine cheap fog falloff stuff
   vec4 haze = vec4(.93, .93, .93, 1.0);
   float falloff = view_position.z-5.0;
-  float range = 30.0;
+  float range = 50.0;
 
   vec4 final_color = mix(mixed_color, haze, clamp(falloff, 0.0, range)/range);
 

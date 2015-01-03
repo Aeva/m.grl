@@ -9,31 +9,56 @@
   <style type="text/css">
    #headline {
      background-color: #1a5e93!important;
+     margin-bottom: 0px!important;
    }
+   
+   #demo_body {
+     position: relative;
+   }
+
+   #demo_header {
+     position: absolute;
+     top: 48px;
+     lefte: 0px;
+     width: 100%;
+     z-index: 100;
+   }
+
+   #loading_screen {
+     height: 700px!important;
+   }
+
+   #fps_counter {
+     top: 8px!important;
+     color: black!important;
+   }   
   </style>
 </head><body>
   <div id="page">
     <h1>Mondaux Graphics & Recreation Library</h1>
     <h1 id="headline">Picky Bezier</h1>
-    <div id="back_button">[ <a href="../">back to demo index</a> ]</div>
-
-    <div id="halp">Click and drag the red markers!</div>
-
-    <div id="loading_screen" class="game_screen">
-      <div id="loading_box">
-        <div id="progress">
-          <div id="progress_bar" style="width:0%;"></div>
-          <div id="percent">unknown %</div>
-        </div>
-        <div id="progress_info"></div>
+    <div id="demo_body">
+      <div id="demo_header">
+        <div id="back_button">[ <a href="../">back to demo index</a> ]</div>
+        <div id="halp">Click and drag the red markers!</div>
       </div>
-    </div>
+      
+      <div id="loading_screen" class="game_screen">
+        <div id="loading_box">
+          <div id="progress">
+            <div id="progress_bar" style="width:0%;"></div>
+            <div id="percent">unknown %</div>
+          </div>
+          <div id="progress_info"></div>
+        </div>
+      </div>
     
-    <div id="demo_area" class="game_screen">
-      <div id="fps_counter">FPS:<span id="fps">???</span></div>
-      <canvas id="gl_canvas" class="demo_area" width=840 height=630>
-        Your browser does not appear to support HTML5 canvas and/or webgl.
-      </canvas>
+      <div id="demo_area" class="game_screen">
+        <div id="fps_counter">FPS:<span id="fps">???</span></div>
+        <canvas id="gl_canvas" class="demo_area" width=840 height=700>
+          Your browser does not appear to support HTML5 canvas and/or webgl.
+        </canvas>
+      </div>
     </div>
   </div>
 

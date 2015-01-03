@@ -97,6 +97,9 @@ addEventListener("mgrl_media_ready", function () {
 
     // add a camera
     var camera = window.camera = new please.CameraNode();
+    camera.fov = please.path_driver(
+        please.bezier_path([15, 40, 55, 59, 60]),
+        5000, false, false);
     camera.look_at = vec3.fromValues(0, 0, 1);
     camera.location = [0, 15, 20];
     graph.add(camera);
@@ -106,9 +109,9 @@ addEventListener("mgrl_media_ready", function () {
     // add some control points
     var controls = window.controls = [];
     var lamp;
-    var low = -10;
-    var high = 10;
-    var count = 4;
+    var low = -14;
+    var high = 14;
+    var count = 5;
     for (var i=0; i<count; i+=1) {
         lamp = gavroche_model.instance();
         lamp.selectable = true;
@@ -151,7 +154,7 @@ addEventListener("mgrl_media_ready", function () {
 
     // add some other things to mark the path
     var blob, blobs = window.blobs = [];
-    var count = 20;
+    var count = 30;
     for (var i=0; i<count; i+=1) {
         blob = lamp_model.instance();
         blob.index = i;
