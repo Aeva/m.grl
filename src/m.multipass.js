@@ -173,7 +173,7 @@ please.pipeline.__on_draw = function () {
     if (please.pipeline.__fps_samples.length > 100) {
         var samples = please.pipeline.__fps_samples;
         var displacement = samples[samples.length-1] - samples[0];
-        var fps = samples.length * (1000/displacement); // wrong?
+        var fps = (samples.length-1) * (1000/displacement); // wrong?
         window.dispatchEvent(new CustomEvent(
             "mgrl_fps", {"detail":Math.round(fps)}));
         please.pipeline.__fps_samples = [];
