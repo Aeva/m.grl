@@ -52,8 +52,6 @@ body {
 }
 
 #fine_print {
-    position: absolute;
-    bottom: 12px;
     font-size: 12px;
     color: #888;
 }
