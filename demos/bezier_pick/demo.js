@@ -233,7 +233,7 @@ addEventListener("mgrl_media_ready", function () {
 
             // -- adjust selected object position
             selected.location_x = ((px[0]/255)-0.5)*100.0;
-            selected.location_y = ((px[1]/255)-0.5)*100.0;
+            selected.location_y = ((px[1]/255)-0.5)*100.0 + 1.0;
         }
     });
 

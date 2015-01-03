@@ -19,9 +19,16 @@
    #demo_header {
      position: absolute;
      top: 48px;
-     lefte: 0px;
-     width: 100%;
+     left: 50%;
      z-index: 100;
+     -moz-user-select: none;
+     -webkit-user-select: none;
+     -ms-user-select: none;
+   }
+
+   #demo_header > * {
+     position: relative;
+     left: -50%;
    }
 
    #loading_screen {
