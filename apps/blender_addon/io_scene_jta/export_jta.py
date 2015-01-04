@@ -134,6 +134,20 @@ class Exportable(object):
         self.scene = scene
         self.options = options
 
+    def extract_matrix_to_object(self, matrix, target={}):
+        target["position"] = dict(zip("xyz", matrix.to_translation()))
+        target["rotation"] = dict(zip("xyz", matrix.to_euler()))
+        target["scale"] = dict(zip("xyz", matrix.to_scale()))
+        return target
+
+    def format_matrix(self, matrix):
+        target_matrix = matrix.copy()
+        target_matrix.transpose()
+        matrix_builder = Float16Array(period=4)
+        for vector in target_matrix.to_4x4():
+            matrix_builder.add_vector(*vector[:])
+        return matrix_builder.export()
+
     def export(self):
         """
         This returns the basic aspects of a graph node being exported.
@@ -141,7 +155,12 @@ class Exportable(object):
         """
         parent = None
         if self.obj.parent is not None:
-            parent = self.obj.parent.name
+            if self.obj.parent.type == "ARMATURE":
+                parent = "{0}:bone:{1}".format(
+                    self.obj.parent.name, self.obj.parent_bone)
+                pass
+            else:
+                parent = self.obj.parent.name
 
         # Note other state information such as position info, texture
         # maps, etc.  State values coorespond directly to uniform
@@ -149,21 +168,14 @@ class Exportable(object):
         state = {}
 
         # Save the world matrix as used for rendering.
-        target_matrix = self.obj.matrix_world.copy()
-        target_matrix.transpose()
-        matrix_builder = Float16Array(period=4)
-        for vector in target_matrix.to_4x4():
-            matrix_builder.add_vector(*vector[:])
-        state["world_matrix"] = matrix_builder.export()
+        state["world_matrix"] = self.format_matrix(self.obj.matrix_world)
 
         # Extra values are not used in rendering, but may be used to
         # store other useful information.
         extras = {}
 
         # Note the object's coordinates and postion values in Extras.
-        extras["position"] = dict(zip("xyz", self.obj.matrix_local.to_translation()))
-        extras["rotation"] = dict(zip("xyz", self.obj.matrix_local.to_euler()))
-        extras["scale"] = dict(zip("xyz", self.obj.matrix_local.to_scale()))
+        self.extract_matrix_to_object(self.obj.matrix_local, extras)
 
         return {
             "parent" : parent,
@@ -184,7 +196,30 @@ class Rig(Exportable):
     """
     This class stores information about a rig, for export.
     """
-    pass
+    def __init__(self, selection, scene, options):
+        Exportable.__init__(self, selection, scene, options)
+        self.bones = selection.pose.bones
+
+    def create_bone_nodes(self):
+        """
+        Creates graph entries for the bone data.
+        """
+        def fake_node(bone):
+            name = "{0}:bone:{1}".format(self.obj.name, bone.name)
+            parent = self.obj.name
+            if bone.parent:
+                parent = "{0}:bone:{1}".format(self.obj.name, bone.parent.name)
+            extra = self.extract_matrix_to_object(bone.matrix)
+            state = {
+                "world_matrix" : self.format_matrix(self.obj.matrix_world),
+            }
+            blob = {
+                "parent" : parent,
+                "state" : state,
+                "extra" : extra,
+            }
+            return name, blob
+        return [fake_node(i) for i in self.bones]
 
 
 class Model(Exportable):
@@ -597,7 +632,7 @@ def save(operator, context, options={}):
     # cache the objects we're exporting
     export_meshes = []
     export_empties = []
-    export_rig = []
+    export_rigs = []
     for selection in selections:
         used_selection = False
         if selection.dupli_type == "NONE" and selection.type == "MESH":
@@ -612,7 +647,7 @@ def save(operator, context, options={}):
         
         elif selection.type == "ARMATURE":
             arma = Rig(selection, scene, options)
-            export_rig.append(arma)
+            export_rigs.append(arma)
             used_selection = True
 
         else:
@@ -644,11 +679,18 @@ def save(operator, context, options={}):
     for model in export_meshes:
         container["models"][model.obj.name] = model.export()
 
-    if export_empties:
+    if export_empties or export_rigs:
         container["empties"] = {}
+
     for empty in export_empties:
         container["empties"][empty.obj.name] = empty.export()
 
+    for rig in export_rigs:
+        container["empties"][rig.obj.name] = rig.export()
+        bones = rig.create_bone_nodes()
+        for bone_name, bone_data in bones:
+            container["empties"][bone_name] = bone_data
+    
     # add packed data if applicable
     container["packed_data"] = texture_store.export()
 
