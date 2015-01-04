@@ -125,20 +125,19 @@ class Vertex(object):
         return lhs == rhs
 
 
-class Empty(object):
+class Exportable(object):
     """
-    This class stores information about empty scene graph nodes for
-    export.
+    This class contains mechanisms for exportable objects.
     """
     def __init__(self, selection, scene, options):
         self.obj = selection
         self.scene = scene
         self.options = options
-        
+
     def export(self):
         """
-        This rturns the object for export, to be serialized elsewhere in
-        json.
+        This returns the basic aspects of a graph node being exported.
+        The return value will be serialized elsewhere.
         """
         parent = None
         if self.obj.parent is not None:
@@ -173,16 +172,30 @@ class Empty(object):
         }
 
 
-class Model(object):
+class Empty(Exportable):
+    """
+    This class stores information about empty scene graph nodes for
+    export.
+    """
+    pass
+
+
+class Rig(Exportable):
+    """
+    This class stores information about a rig, for export.
+    """
+    pass
+
+
+class Model(Exportable):
     """
     This class is used to build the "model" entries in the exported
     JTA file, and to organize references to bpy data relevant to the
     item.
     """
     def __init__(self, selection, scene, options, texture_store):
-        self.obj = selection
-        self.scene = scene
-        self.options = options
+        Exportable.__init__(self, selection, scene, options)
+
         self.texture_store = texture_store
         self.mesh = self.obj.to_mesh(
             scene, options["use_mesh_modifiers"], "PREVIEW", calc_tessface=False)
@@ -355,23 +368,7 @@ class Model(object):
         assert self.export_ready
         assert len(self.group_export.keys())
 
-        # note the name of the object's parent
-        parent = None
-        if self.obj.parent is not None:
-            parent = self.obj.parent.name
-
-        # Note other state information such as position info, texture
-        # maps, etc.  State values coorespond directly to uniform
-        # variables and textures.
-        state = {}
-
-        # Save the world matrix as used for rendering.
-        target_matrix = self.obj.matrix_world.copy()
-        target_matrix.transpose()
-        matrix_builder = Float16Array(period=4)
-        for vector in target_matrix.to_4x4():
-            matrix_builder.add_vector(*vector[:])
-        state["world_matrix"] = matrix_builder.export()
+        node_base = Exportable.export(self)
 
         # Save the active texture:
         if self.texture_count > 0:
@@ -380,30 +377,19 @@ class Model(object):
             # falling back on what the display texture probably is
             refcode = self.texture_store.refcode_for_model(self)
             if refcode:
-                state["diffuse_texture"] = {
+                node_base["state"]["diffuse_texture"] = {
                     "type" : "Sampler2D",
                     "uri" : refcode,
                 }
-
-        # Extra values are not used in rendering, but may be used to
-        # store other useful information.
-        extras = {}
-
-        # Note the object's coordinates and postion values in Extras.
-        extras["position"] = dict(zip("xyz", self.obj.matrix_local.to_translation()))
-        extras["rotation"] = dict(zip("xyz", self.obj.matrix_local.to_euler()))
-        extras["scale"] = dict(zip("xyz", self.obj.matrix_local.to_scale()))
         
         # Note the usage of smooth shading.
-        extras["smooth_normals"] = self.use_smooth
+        node_base["extra"]["smooth_normals"] = self.use_smooth
 
-        return {
-            "struct" : self.attr_struct.index,
-            "groups" : self.group_export,
-            "parent" : parent,
-            "state" : state,
-            "extra" : extras,
-        }
+        # Track ofther stuff
+        node_base["struct"] = self.attr_struct.index
+        node_base["groups"] = self.group_export
+        
+        return node_base
 
 
 class Attribute(object):
@@ -611,6 +597,7 @@ def save(operator, context, options={}):
     # cache the objects we're exporting
     export_meshes = []
     export_empties = []
+    export_rig = []
     for selection in selections:
         used_selection = False
         if selection.dupli_type == "NONE" and selection.type == "MESH":
@@ -621,6 +608,11 @@ def save(operator, context, options={}):
         elif selection.type == "EMPTY":
             empty = Empty(selection, scene, options)
             export_empties.append(empty)
+            used_selection = True
+        
+        elif selection.type == "ARMATURE":
+            arma = Rig(selection, scene, options)
+            export_rig.append(arma)
             used_selection = True
 
         else:
