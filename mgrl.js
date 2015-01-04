@@ -2990,6 +2990,7 @@ please.gl.__jta_model = function (src, uri) {
         "uri" : uri,
         "meta" : directory.meta,
         "models" : {},
+        "empties" : {},
     };
     // assert a minimum and maximum version number
     console.assert(directory.meta.jta_version >= 0.1);
@@ -3018,6 +3019,10 @@ please.gl.__jta_model = function (src, uri) {
             }
         });
     });
+    // extract empty graph nodes
+    if (directory.empties) {
+        scene.empties = please.gl__jta_extract_empties(directory.empties);
+    }
     // add a method for generating a GraphNode (or a small tree
     // thereof) for this particular model.
     scene.instance = function (model_name) {
@@ -3038,14 +3043,20 @@ please.gl.__jta_model = function (src, uri) {
                         var target = root;
                         var node = scene.instance(name);
                         var parent = model.parent;
+                        var parent_node;
                         if (parent) {
-                            resolve_inheritance(parent, scene.models[parent]);
+                            resolve_inheritance(
+                                parent,
+                                scene.models[parent] || scene.empties[parent]);
                             target = added[parent];
                         }
                         added[name] = node;
                         target.add(node);
                     }
                 };
+                please.prop_map(scene.empties, function(name, model) {
+                    resolve_inheritance(name, model);
+                });
                 please.prop_map(scene.models, function(name, model) {
                     resolve_inheritance(name, model);
                 });
@@ -3054,51 +3065,55 @@ please.gl.__jta_model = function (src, uri) {
         }
         else {
             var model = scene.models[model_name];
-            if (model) {
+            var empty = scene.empties[model_name];
+            var entity = model || empty;
+            if (entity) {
                 var node = new please.GraphNode();
-                node.__asset_hint = uri + ":" + model.__vbo_hint;
-                node.__drawable = true;
-                node.__asset = model;
-                please.prop_map(model.samplers, function(name, uri) {
-                    if (node.shader.hasOwnProperty(name)) {
-                        node.shader[name] = uri;
-                    }
-                });
-                please.prop_map(model.uniforms, function(name, value) {
-                    if (node.shader.hasOwnProperty(name)) {
-                        node.shader[name] = value;
-                    }
-                });
-                if (model.extra.position) {
-                    node.location_x = model.extra.position.x;
-                    node.location_y = model.extra.position.y;
-                    node.location_z = model.extra.position.z;
-                }
-                if (model.extra.rotation) {
-                    // need to convert from radians to degrees :P
-                    node.rotation_x = model.extra.rotation.x * 57.2957795;
-                    node.rotation_y = model.extra.rotation.y * 57.2957795;
-                    node.rotation_z = model.extra.rotation.z * 57.2957795;
-                }
-                if (model.extra.scale) {
-                    node.scale_x = model.extra.scale.x;
-                    node.scale_y = model.extra.scale.y;
-                    node.scale_z = model.extra.scale.z;
-                }
-                node.bind = function () {
-                    model.vbo.bind();
-                    model.ibo.bind();
-                };
-                node.draw = function () {
-                    for (var group_name in model.groups) if (model.groups.hasOwnProperty(group_name)) {
-                        var group = model.groups[group_name];
-                        model.ibo.draw(group.start, group.count);
+                if (model) {
+                    node.__asset_hint = uri + ":" + model.__vbo_hint;
+                    node.__asset = model;
+                    node.__drawable = true;
+                    please.prop_map(model.samplers, function(name, uri) {
+                        if (node.shader.hasOwnProperty(name)) {
+                            node.shader[name] = uri;
+                        }
+                    });
+                    please.prop_map(model.uniforms, function(name, value) {
+                        if (node.shader.hasOwnProperty(name)) {
+                            node.shader[name] = value;
+                        }
+                    });
+                    node.bind = function () {
+                        model.vbo.bind();
+                        model.ibo.bind();
                     };
-                };
+                    node.draw = function () {
+                        for (var group_name in model.groups) if (model.groups.hasOwnProperty(group_name)) {
+                            var group = model.groups[group_name];
+                            model.ibo.draw(group.start, group.count);
+                        };
+                    };
+                }
+                if (entity.extra.position) {
+                    node.location_x = entity.extra.position.x;
+                    node.location_y = entity.extra.position.y;
+                    node.location_z = entity.extra.position.z;
+                }
+                if (entity.extra.rotation) {
+                    // need to convert from radians to degrees :P
+                    node.rotation_x = entity.extra.rotation.x * 57.2957795;
+                    node.rotation_y = entity.extra.rotation.y * 57.2957795;
+                    node.rotation_z = entity.extra.rotation.z * 57.2957795;
+                }
+                if (entity.extra.scale) {
+                    node.scale_x = entity.extra.scale.x;
+                    node.scale_y = entity.extra.scale.y;
+                    node.scale_z = entity.extra.scale.z;
+                }
                 return node;
             }
             else {
-                throw("no such model in " + uri + ": " + model_name);
+                throw("no such object in " + uri + ": " + model_name);
             }
         }
     };
@@ -3198,6 +3213,18 @@ please.gl.__jta_array = function (array) {
     var blob = array.data;
     var hint = array.hint;
     return please.typed_array(blob, hint);
+};
+// Extract the empty nodes defined in the jta file.
+please.gl__jta_extract_empties = function (empty_defs) {
+    var empties = please.prop_map(empty_defs, function(name, node_def) {
+        var empty = {
+            "parent" : node_def.parent,
+            "uniforms" : {},
+            "extra" : node_def.extra,
+        };
+        return empty;
+    });
+    return empties;
 };
 // Extract the model objects defined in the jta file.
 please.gl.__jta_extract_models = function (model_defs, buffer_objects) {

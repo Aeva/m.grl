@@ -125,10 +125,59 @@ class Vertex(object):
         return lhs == rhs
 
 
+class Empty(object):
+    """
+    This class stores information about empty scene graph nodes for
+    export.
+    """
+    def __init__(self, selection, scene, options):
+        self.obj = selection
+        self.scene = scene
+        self.options = options
+        
+    def export(self):
+        """
+        This rturns the object for export, to be serialized elsewhere in
+        json.
+        """
+        parent = None
+        if self.obj.parent is not None:
+            parent = self.obj.parent.name
+
+        # Note other state information such as position info, texture
+        # maps, etc.  State values coorespond directly to uniform
+        # variables and textures.
+        state = {}
+
+        # Save the world matrix as used for rendering.
+        target_matrix = self.obj.matrix_world.copy()
+        target_matrix.transpose()
+        matrix_builder = Float16Array(period=4)
+        for vector in target_matrix.to_4x4():
+            matrix_builder.add_vector(*vector[:])
+        state["world_matrix"] = matrix_builder.export()
+
+        # Extra values are not used in rendering, but may be used to
+        # store other useful information.
+        extras = {}
+
+        # Note the object's coordinates and postion values in Extras.
+        extras["position"] = dict(zip("xyz", self.obj.matrix_local.to_translation()))
+        extras["rotation"] = dict(zip("xyz", self.obj.matrix_local.to_euler()))
+        extras["scale"] = dict(zip("xyz", self.obj.matrix_local.to_scale()))
+
+        return {
+            "parent" : parent,
+            "extra" : extras,
+            "state" : state,
+        }
+
+
 class Model(object):
     """
-    This class used to build the "model" entries in the exported JTA
-    file, and to organize references to bpy data relevant to the item.
+    This class is used to build the "model" entries in the exported
+    JTA file, and to organize references to bpy data relevant to the
+    item.
     """
     def __init__(self, selection, scene, options, texture_store):
         self.obj = selection
@@ -560,23 +609,32 @@ def save(operator, context, options={}):
     texture_store = TextureStore(options)
     
     # cache the objects we're exporting
-    export_objects = []
+    export_meshes = []
+    export_empties = []
     for selection in selections:
-        model = None
+        used_selection = False
         if selection.dupli_type == "NONE" and selection.type == "MESH":
             model = Model(selection, scene, options, texture_store)
+            export_meshes.append(model)
+            used_selection = True
+
+        elif selection.type == "EMPTY":
+            empty = Empty(selection, scene, options)
+            export_empties.append(empty)
+            used_selection = True
+
         else:
             if selection.dupli_type != "NONE":
                 print("Skipping object {0} of dupli_type {1}".format(selection, selection.dupli_type))
             if selection.type != "MESH":
                 print("Skipping non-mesh object {0}".format(selection))
-        if model:
+
+        if used_selection:
             print("Adding object {0}".format(selection.name))
-            export_objects.append(model)
         
     # determine what sort of attribute structures we'll need
     attr_sets = []
-    for model in export_objects:
+    for model in export_meshes:
         for attr in attr_sets:
             if attr.textures == model.texture_count and attr.weights == model.use_weights:
                 model.attach(attr)
@@ -591,8 +649,13 @@ def save(operator, context, options={}):
     # export everything
     for attr in attr_sets:
         container["attributes"].append(attr.export())
-    for model in export_objects:
+    for model in export_meshes:
         container["models"][model.obj.name] = model.export()
+
+    if export_empties:
+        container["empties"] = {}
+    for empty in export_empties:
+        container["empties"][empty.obj.name] = empty.export()
 
     # add packed data if applicable
     container["packed_data"] = texture_store.export()
