@@ -226,7 +226,6 @@ addEventListener("mgrl_media_ready", function () {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // draw the scene
-        graph_a.tick();
         graph_a.draw();
     });
 
@@ -259,7 +258,6 @@ addEventListener("mgrl_media_ready", function () {
          */
 
         // draw suzanne
-        graph_b.tick();
         graph_b.draw();
     });
     

@@ -78,11 +78,6 @@ again this frame), and so on.
     please.pipeline.add(10, "graph_demo/draw", function () {
        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-       // This line needs to be called once per frame, before drawing.
-       // I hope to remove the need for this, and make it implicit
-       // before the 1.0 release.
-       scene_graph.tick();
-
        // This line may be called repeatedly to draw the current
        // snapshot of the graph multiple times the same way.
        scene_graph.draw();
@@ -187,6 +182,9 @@ GraphNodes have some special properties:
    shader variables. Variables with non-zero defaults are be listed
    below.
 
+-  **selectable** Defaults to false. May be set to true to allow the
+   object to be considered for picking.
+
 -  **visible** Defaults to true. May be set to false to prevent the node
    and its children from being drawn.
 
@@ -281,6 +279,8 @@ The **.tick()** method on SceneGraph instances is called once per frame
 (multiple render passes may occur per frame), and is responsible for
 determining the world matricies for each object in the graph, caching
 the newest values of driver functions, and performs state sorting.
+**While .tick() may be called manually, it is nolonger required as the
+draw call will do it automatically**.
 
 The **.draw()** method is responsible for invoking the .draw() methods
 of all of the nodes in the graph. State sorted nodes will be invoked in
@@ -293,7 +293,6 @@ following example:
 
     please.pipeline.add(10, "graph_demo/draw", function () {
        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-       scene_graph.tick();
        scene_graph.draw();
     });
 

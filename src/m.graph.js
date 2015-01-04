@@ -77,11 +77,6 @@
  * please.pipeline.add(10, "graph_demo/draw", function () {
  *    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
  *
- *    // This line needs to be called once per frame, before drawing.
- *    // I hope to remove the need for this, and make it implicit
- *    // before the 1.0 release.
- *    scene_graph.tick();
- *
  *    // This line may be called repeatedly to draw the current
  *    // snapshot of the graph multiple times the same way.
  *    scene_graph.draw();
@@ -791,7 +786,8 @@ please.GraphNode.prototype = {
 // frame (multiple render passes may occur per frame), and is
 // responsible for determining the world matricies for each object in
 // the graph, caching the newest values of driver functions, and
-// performs state sorting.
+// performs state sorting.  **While .tick() may be called manually, it
+// is nolonger required as the draw call will do it automatically**.
 //
 // The **.draw()** method is responsible for invoking the .draw()
 // methods of all of the nodes in the graph.  State sorted nodes will
@@ -803,7 +799,6 @@ please.GraphNode.prototype = {
 // ```
 // please.pipeline.add(10, "graph_demo/draw", function () {
 //    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-//    scene_graph.tick();
 //    scene_graph.draw();
 // });
 // ```
@@ -819,6 +814,7 @@ please.SceneGraph = function () {
     this.camera = null;
     this.local_matrix = mat4.create();
     this.__picking_set = [];
+    this.__last_framestart = null;
 
     Object.defineProperty(this, "graph_root", {
         "configurable" : false,
@@ -836,6 +832,7 @@ please.SceneGraph = function () {
     };
 
     this.tick = function () {
+        this.__last_framestart = please.pipeline.__framestart;
         if (!this.camera) {
             // if no camera was set, loop through the immediate
             // children of this object and select the first camera
@@ -922,6 +919,12 @@ please.SceneGraph = function () {
     };
 
     this.draw = function (exclude_test) {
+        if (this.__last_framestart < please.pipeline.__framestart) {
+            // note, this.__last_framestart can be null, but
+            // null<positive_number will evaluate to true anyway.
+            this.tick();
+        }
+
         var prog = please.gl.get_program();
         var draw_picking_indices;
         if (prog.vars.hasOwnProperty("mgrl_picking_pass")) {

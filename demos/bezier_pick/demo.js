@@ -188,9 +188,6 @@ addEventListener("mgrl_media_ready", function () {
         prog.vars.time = performance.now();
         prog.vars.light_direction = light_direction;
         prog.vars.move_pick = false;
-       
-        // -- update graph
-        graph.tick();
     });
 
 
