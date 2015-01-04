@@ -3214,15 +3214,19 @@ please.gl.__jta_array = function (array) {
     var hint = array.hint;
     return please.typed_array(blob, hint);
 };
+// Extract common node data defined in the jta file.
+please.gl__jta_extract_common = function (node_def) {
+    return {
+        "parent" : node_def.parent,
+        "uniforms" : {},
+        "samplers" : {},
+        "extra" : node_def.extra,
+    };
+};
 // Extract the empty nodes defined in the jta file.
 please.gl__jta_extract_empties = function (empty_defs) {
-    var empties = please.prop_map(empty_defs, function(name, node_def) {
-        var empty = {
-            "parent" : node_def.parent,
-            "uniforms" : {},
-            "extra" : node_def.extra,
-        };
-        return empty;
+    var empties = please.prop_map(empty_defs, function(name, empty_def) {
+        return please.gl__jta_extract_common(empty_def);
     });
     return empties;
 };
@@ -3233,16 +3237,11 @@ please.gl.__jta_extract_models = function (model_defs, buffer_objects) {
         // singular model within a scene. All of the models in a scene
         // with similar propreties will share the same vbo (within
         // reason).
-        var model = {
-            "parent" : model_def.parent,
-            "__vbo_hint" : model_def.struct,
-            "uniforms" : {},
-            "samplers" : {},
-            "vbo" : buffer_objects[model_def.struct]['vbo'],
-            "ibo" : buffer_objects[model_def.struct]['ibo'],
-            "extra" : model_def.extra,
-            "groups" : [],
-        };
+        var model = please.gl__jta_extract_common(model_def);
+        model.__vbo_hint = model_def.struct;
+        model.vbo = buffer_objects[model_def.struct]['vbo'];
+        model.ibo = buffer_objects[model_def.struct]['ibo'];
+        model.groups = [];
         please.prop_map(model_def.groups, function(group_name, group) {
             // groups coorespond to IBOs, but also store the name of
             // relevant bone matrices.
