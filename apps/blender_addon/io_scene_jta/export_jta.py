@@ -343,6 +343,7 @@ class Model(object):
         # Note the object's coordinates and postion values in Extras.
         extras["position"] = dict(zip("xyz", self.obj.matrix_local.to_translation()))
         extras["rotation"] = dict(zip("xyz", self.obj.matrix_local.to_euler()))
+        extras["scale"] = dict(zip("xyz", self.obj.matrix_local.to_scale()))
         
         # Note the usage of smooth shading.
         extras["smooth_normals"] = self.use_smooth
