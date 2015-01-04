@@ -494,7 +494,8 @@ def save(operator, context, options={}):
     """Implement the actual exporter for JTA files."""
 
     scene = context.scene
-    # Exit edit mode before exporting, so current object states are exported properly.
+    # Exit edit mode before exporting, so current object states are
+    # exported properly.
     if bpy.ops.object.mode_set.poll():
         bpy.ops.object.mode_set(mode='OBJECT')
 
@@ -502,7 +503,17 @@ def save(operator, context, options={}):
     start_time = time.time()
 
     if options["use_selection"]:
-        selections = context.selected_objects
+        def get_selections_and_children(objects = context.selected_objects):
+            if objects:
+                selections = list(objects)
+                for obj_ in objects:
+                    if obj_ and obj_.children:
+                        selections += get_selections_and_children(obj_.children)
+                return selections
+            else:
+                return []
+
+        selections = get_selections_and_children()
     else:
         selections = scene.objects
 
