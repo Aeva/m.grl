@@ -1,0 +1,440 @@
+
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>m.graph.js &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="up" title="API Reference" href="index.html" />
+    <link rel="next" title="m.input.js" href="m.input.html" />
+    <link rel="prev" title="m.gani.js" href="m.gani.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.input.html" title="m.input.js"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="m.gani.html" title="m.gani.js"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="m-graph-js">
+<h1>m.graph.js<a class="headerlink" href="#m-graph-js" title="Permalink to this headline">¶</a></h1>
+<p>This part of the module implements the scene graph functionality for
+M.GRL. This provides a simple means of instancing 2D and 3D art assets,
+greatly simplifies rendering code, and prerforms rendering optimizations
+to have better performance than would be achieved with by rendering
+manually.</p>
+<p>Additionally, a mechanism for data binding exists on most of the
+properties of graph objects. For example, you could set the object&#8217;s
+&#8220;location_x&#8221; coordinate to be a value like &#8220;10&#8221;, or you could set it to
+be a function that returns a numerical value like &#8220;10&#8221;. This can be used
+to perform animation tasks. When a function is assigned to a property in
+such a fashion, it is called a &#8220;driver function&#8221;.</p>
+<p>Note that, being a scene graph, objects can be parented to other
+objects. When the parent moves, the child moves with it! Empty graph
+objects can be used to influence objects that draw. Between empties,
+inheritance, and driver functions, you are given the tools to implement
+animations without requiring vertex deformation.</p>
+<p>Some properties on graph nodes can be accessed either as an array or as
+individual channels. Node.location = [x,y,z] can be used to set a driver
+function for all three channels at once. The individual channels can be
+accessed, set, or assigned their own driver methods via .location_x,
+.location_y, and .location_z. Currently, .location, .rotation, and
+.scale work like this on all graph nodes. CameraNodes also have
+.look_at and .up_vector. In the future, all vec3 uniform variables
+will be accessible in this way. If a GraphNode-descended object is
+assigned to a &#8220;tripple&#8221; handle, such as the example of look_at in the
+code above, then a driver function will be automatically created to wrap
+the object&#8217;s &#8220;location&#8221; property. Note, you should avoid setting
+individual channels via the array handle - don <strong>not</strong> do &#8221;.location[0]
+= num&#8221;!</p>
+<p>Word of caution: driver functions are only called if the scene graph
+thinks it needs them for rendering! The way this is determined, is that
+driver functions associated to glsl variables are always evaluated. If
+such a driver function attempts to read from another driver function,
+then that driver is evaluated (and cached, so the value doesn&#8217;t change
+again this frame), and so on.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="c1">// A scene graph instance</span>
+<span class="kd">var</span> <span class="nx">scene_graph</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">SceneGraph</span><span class="p">();</span>
+
+<span class="c1">// A drawable graph node.  You can instance gani and image files, too!</span>
+<span class="kd">var</span> <span class="nx">character_model</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">access</span><span class="p">(</span><span class="s2">&quot;alice.jta&quot;</span><span class="p">).</span><span class="nx">instance</span><span class="p">();</span>
+<span class="nx">character_model</span><span class="p">.</span><span class="nx">rotation_z</span> <span class="o">=</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span> <span class="k">return</span> <span class="nx">performance</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span><span class="o">/</span><span class="mi">100</span><span class="p">;</span> <span class="p">};</span>
+
+<span class="c1">// The focal point of the camera</span>
+<span class="kd">var</span> <span class="nx">camera_target</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">GraphNode</span><span class="p">();</span>
+<span class="nx">camera_target</span><span class="p">.</span><span class="nx">location_z</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+
+<span class="c1">// An empty that has the previous two graph nodes as its children</span>
+<span class="c1">// The game logic would move this node.</span>
+<span class="kd">var</span> <span class="nx">character_base</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">GraphNode</span><span class="p">();</span>
+
+<span class="c1">// Populate the graph</span>
+<span class="nx">scene_graph</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">character_base</span><span class="p">);</span>
+<span class="nx">character_base</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">character_model</span><span class="p">);</span>
+<span class="nx">character_base</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">camera_target</span><span class="p">);</span>
+
+<span class="c1">// Add a camera object that automatically points at particular</span>
+<span class="c1">// graph node.  If is more than one camera in the graph, then you</span>
+<span class="c1">// will need to explicitly call the camera&#39;s &quot;activate&quot; method to</span>
+<span class="c1">// have predictable behavior.</span>
+<span class="kd">var</span> <span class="nx">camera</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">CameraNode</span><span class="p">();</span>
+<span class="nx">graph</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">camera</span><span class="p">);</span>
+<span class="nx">camera</span><span class="p">.</span><span class="nx">look_at</span> <span class="o">=</span> <span class="nx">camera_target</span><span class="p">;</span>
+<span class="nx">camera</span><span class="p">.</span><span class="nx">location</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">];</span>
+
+<span class="c1">// Register a render pass with the scheduler (see m.multipass.js)</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;graph_demo/draw&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+   <span class="nx">gl</span><span class="p">.</span><span class="nx">clear</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">COLOR_BUFFER_BIT</span> <span class="o">|</span> <span class="nx">gl</span><span class="p">.</span><span class="nx">DEPTH_BUFFER_BIT</span><span class="p">);</span>
+
+   <span class="c1">// This line may be called repeatedly to draw the current</span>
+   <span class="c1">// snapshot of the graph multiple times the same way.</span>
+   <span class="nx">scene_graph</span><span class="p">.</span><span class="nx">draw</span><span class="p">();</span>
+
+<span class="p">});</span>
+
+<span class="c1">// Register a second render pass that will also draw the scene_graph</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;graph_demo/fancy&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+
+   <span class="c1">// You can call .draw() as many times as you like per frame.</span>
+   <span class="c1">// Both of these pipeline stages are in the same &quot;frame&quot;.  You</span>
+   <span class="c1">// can take advantage of this to do post processing effects with</span>
+   <span class="c1">// the stencil buffer, shaders, and/or indirect rendering</span>
+   <span class="c1">// targets!</span>
+
+   <span class="nx">scene_graph</span><span class="p">.</span><span class="nx">draw</span><span class="p">();</span>
+
+<span class="p">});</span>
+
+<span class="c1">// Start the render loop</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">start</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="section" id="please-make-animatable">
+<h2>please.make_animatable<a class="headerlink" href="#please-make-animatable" title="Permalink to this headline">¶</a></h2>
+<p><em>please.make_animatable</em> <strong>(obj, prop, default_value, proxy, lock)</strong></p>
+<p>Sets up the machinery needed to make the given property on an object
+animatable.</p>
+</div>
+<div class="section" id="please-make-animatable-tripple">
+<h2>please.make_animatable_tripple<a class="headerlink" href="#please-make-animatable-tripple" title="Permalink to this headline">¶</a></h2>
+<p><em>please.make_animatable_tripple</em> <strong>(object, prop, swizzle,
+default_value, proxy);</strong></p>
+<p>Makes property &#8216;prop&#8217; an animatable tripple / vec3 / array with three
+items. Parameter &#8216;object&#8217; determines where the cache lives, the value of
+&#8216;this&#8217; passed to driver functions, and if proxy is unset, this also
+determines where the animatable property is written. The &#8216;prop&#8217; argument
+is the name of the property to be animatable (eg &#8216;location&#8217;). Swizzle is
+an optional string of three elements that determines the channel names
+(eg, &#8216;xyz&#8217; to produce location_x, location_y, and location_z). The
+&#8216;initial&#8217; argument determines what the property should be set to, and
+&#8216;proxy&#8217; determines an alternate object for which the properties are
+written to.</p>
+<p>As mentioned above, if an animatable tripple is passed a GraphNode, then
+an implicit driver function will be generated such that it returns the
+&#8216;location&#8217; property of the GraphNode.</p>
+<p>If the main handle (eg &#8216;location&#8217;) is assigned a driver function, then
+the swizzle handles (eg, &#8216;location_x&#8217;) will stop functioning as setters
+until the main handle is cleared. You can still assign values to the
+channels, and they will appear when the main handle&#8217;s driver function is
+removed. To clear the main handle&#8217;s driver function, set it to null.</p>
+</div>
+<div class="section" id="please-graphnode">
+<h2>please.GraphNode<a class="headerlink" href="#please-graphnode" title="Permalink to this headline">¶</a></h2>
+<p><em>please.GraphNode</em> <strong>()</strong></p>
+<p>Constructor function that creates an Empty node. The constructor accepts
+no arguments, but the created object may be configrued by adjusting its
+properties. All properties that would have a numerical value normally
+set to them may also be set as a function (called a &#8220;driver&#8221;) that
+returns a numerical value. When the scene graph&#8217;s &#8221;.tick&#8221; method is
+called, the driver functions are evaluated, and their results are cached
+for use by the scene graph&#8217;s .draw() method.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">empty</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">GraphNode</span><span class="p">();</span>
+<span class="kd">var</span> <span class="nx">empty</span><span class="p">.</span><span class="nx">rotation</span><span class="p">.</span><span class="nx">x</span> <span class="o">=</span> <span class="mi">10</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">empty</span><span class="p">.</span><span class="nx">rotation</span><span class="p">.</span><span class="nx">x</span> <span class="o">=</span> <span class="nx">fuction</span><span class="p">()</span> <span class="p">{</span> <span class="k">return</span> <span class="nx">performance</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span><span class="o">/</span><span class="mi">100</span><span class="p">;</span> <span class="p">};</span>
+</pre></div>
+</div>
+<p>Most of the time when you want to draw something with the scene graph,
+you create the GraphNodes indirectly from loaded game assets.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">character</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">access</span><span class="p">(</span><span class="s2">&quot;alice.jta&quot;</span><span class="p">).</span><span class="nx">instance</span><span class="p">();</span>
+<span class="kd">var</span> <span class="nx">sprite_animation</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">access</span><span class="p">(</span><span class="s2">&quot;particle.gani&quot;</span><span class="p">).</span><span class="nx">instance</span><span class="p">();</span>
+<span class="kd">var</span> <span class="nx">just_a_quad</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">access</span><span class="p">(</span><span class="s2">&quot;hello_world.png&quot;</span><span class="p">).</span><span class="nx">instance</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>GraphNodes have some special properties:</p>
+<ul class="simple">
+<li><strong>location</strong> Animatable tripple, used to generate the node&#8217;s local
+matrix.</li>
+<li><strong>rotation</strong> Animatable tripple, used to generate the node&#8217;s local
+matrix.</li>
+<li><strong>scale</strong> Animatable tripple, used to generate the node&#8217;s local
+matrix.</li>
+<li><strong>shader</strong> An object, automatically contains bindings for most GLSL
+shader variables. Variables with non-zero defaults are be listed
+below.</li>
+<li><strong>selectable</strong> Defaults to false. May be set to true to allow the
+object to be considered for picking.</li>
+<li><strong>visible</strong> Defaults to true. May be set to false to prevent the node
+and its children from being drawn.</li>
+<li><strong>sort_mode</strong> Defaults to &#8220;solid&#8221;, but may be set to &#8220;alpha&#8221; to
+force the object to use the z-sorting path instead of state sorting.
+This is generally slower, but is needed if for partial transparency
+from a texture to work correctly.</li>
+<li><strong>draw_type</strong> .jta model instances and empty GraphNodes default to
+&#8220;model&#8221;, while .gani and image instances default to &#8220;sprite&#8221;.
+Determines the value of the glsl uniform variable &#8220;is_transparent&#8221;.</li>
+</ul>
+<p>Additionally, each GraphNode has a &#8220;shader&#8221; property, which is an object
+containing additional animatable properties for automatically setting
+GLSL shader variables when it is drawn. The following variables have
+non-zero defaults.</p>
+<ul class="simple">
+<li><strong>shader.alpha</strong> Animatable scalar - a numerical value between 0.0
+and 1.0. Defaults to 1.0.</li>
+<li><strong>shader.world_matrix</strong> &#8220;Locked&#8221; animatable variable which by
+default contains a driver method that calculate&#8217;s the object&#8217;s world
+matrix for this frame by calculating it&#8217;s world matrix from the
+location, rotation, and scale properties, and then multiplying it
+against either the parent&#8217;s world matrix if applicable (or the
+identity matrix if not) to produce the object&#8217;s own world matrix.</li>
+<li><strong>shader.normal_matrix</strong> &#8220;Locked&#8221; animatable variable which
+calculates the normal_matrix from shader.world_matrix.</li>
+<li><strong>is_sprite</strong> &#8220;Locked&#8221; animatable scalar value. Returns true if
+this.draw_type is set to &#8220;sprite&#8221;, otherwise returns false.</li>
+<li><strong>is_transparent</strong> &#8220;Locked&#8221; animatable scalar value. Returns true if
+this.sort_mode is set to &#8220;alpha&#8221;, otherwise returns false.</li>
+</ul>
+<p>Graph nodes have the following getters for accessing graph inhertiance.
+You should avoid saving the vaules returned by these anywhere, as you
+can prevent objects from being garbage collected or accidentally create
+a reference cycle.</p>
+<ul class="simple">
+<li><strong>children</strong> This is a list of all objects that are directly parented
+to a given GraphNode instance.</li>
+<li><strong>parent</strong> This returns either null or the object for which this node
+is parented to.</li>
+<li><strong>graph_root</strong> Returns the GraphNode that is the root of the graph.
+This should be either a SceneGraph instance or a derivative thereof.</li>
+</ul>
+<p>GraphNodes also have the following methods for managing the scene graph:</p>
+<ul class="simple">
+<li><strong>has_child(entity)</strong> Returns true or false whether or not this node
+claims argument &#8216;entity&#8217; as child.</li>
+<li><strong>add(entity)</strong> Adds the passed object as a child.</li>
+<li><strong>remove(entity)</strong> Remove the given entity from this node&#8217;s children.</li>
+<li><strong>destroy()</strong> Remove the object from it&#8217;s parent, and then removes
+the reference to it from the node index.</li>
+</ul>
+<p>If you want to create your own special GraphNodes, be sure to set the
+following variables in your constructor to ensure they are unique to
+each instance.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">FancyNode</span> <span class="o">=</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="nx">please</span><span class="p">.</span><span class="nx">GraphNode</span><span class="p">.</span><span class="nx">call</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+<span class="p">};</span>
+<span class="nx">FancyNode</span><span class="p">.</span><span class="nx">prototype</span> <span class="o">=</span> <span class="nb">Object</span><span class="p">.</span><span class="nx">create</span><span class="p">(</span><span class="nx">please</span><span class="p">.</span><span class="nx">GraphNode</span><span class="p">.</span><span class="nx">prototype</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>If you want to make an Empty or a derived constructor drawable, set the
+&#8220;__drawable&#8221; property to true, and set the &#8220;draw&#8221; property to a
+function that contains your custom drawing code. Optionally, the &#8220;bind&#8221;
+property may also be set to a function. Bind is called before Draw, and
+is used to set up GL state. Bind is called regardless of if the node is
+visible, though both bind and draw requrie the node be drawable. The
+bind method is essentially vestigial and should not be used.</p>
+</div>
+<div class="section" id="please-scenegraph">
+<h2>please.SceneGraph<a class="headerlink" href="#please-scenegraph" title="Permalink to this headline">¶</a></h2>
+<p><em>please.SceneGraph</em> <strong>()</strong></p>
+<p>Constructor function that creates an instance of the scene graph. The
+constructor accepts no arguments. The graph must contain at least one
+camera to be renderable. See CameraNode docstring for more details.</p>
+<p>The <strong>.tick()</strong> method on SceneGraph instances is called once per frame
+(multiple render passes may occur per frame), and is responsible for
+determining the world matricies for each object in the graph, caching
+the newest values of driver functions, and performs state sorting.
+<strong>While .tick() may be called manually, it is nolonger required as the
+draw call will do it automatically</strong>.</p>
+<p>The <strong>.draw()</strong> method is responsible for invoking the .draw() methods
+of all of the nodes in the graph. State sorted nodes will be invoked in
+the order determined by .tick, though the z-sorted nodes will need to be
+sorted on every draw call. This method may called as many times as you
+like per frame. Normally the usage of this will look something like the
+following example:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;graph_demo/draw&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+   <span class="nx">gl</span><span class="p">.</span><span class="nx">clear</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">COLOR_BUFFER_BIT</span> <span class="o">|</span> <span class="nx">gl</span><span class="p">.</span><span class="nx">DEPTH_BUFFER_BIT</span><span class="p">);</span>
+   <span class="nx">scene_graph</span><span class="p">.</span><span class="nx">draw</span><span class="p">();</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="please-cameranode">
+<h2>please.CameraNode<a class="headerlink" href="#please-cameranode" title="Permalink to this headline">¶</a></h2>
+<p><em>please.CameraNode</em> <strong>()</strong></p>
+<p>Constructor function that creates a camera object to be put in the scene
+graph. Camera nodes support both orthographic and perspective
+projection, and almost all of their properties are animatable. The view
+matrix can be generated in one of two ways described below.</p>
+<p>To make a camera active, call it&#8217;s &#8220;activate()&#8221; method. If no camera was
+explicitly activated, then the scene graph will call the first one added
+that is an immediate child, and if no such camera still exists, then it
+will pick the first one it can find durring state sorting.</p>
+<p>The default way in which the view matrix is calculated uses the
+mat4.lookAt method from the glMatrix library. The following properties
+provide the arguments for the library call. Note that the location
+argument is missing - this is because the CameraNode&#8217;s scene graph
+coordinates are used instead.</p>
+<ul class="simple">
+<li><strong>look_at</strong> A vector of 3 values (defaults to [0, 0, 0]), null, or
+another GraphNode. This is the coordinate where the camera is pointed
+at. If this is set to null, then the CameraNode&#8217;s calculated world
+matrix is used as the view matrix.</li>
+<li><strong>up_vector</strong> A normal vector of 3 values, indicating which way is
+up (defaults to [0, 0, 1]). If set to null, [0, 0, 1] will be used
+instead</li>
+</ul>
+<p>If the look_at property is set to null, the node&#8217;s world matrix as
+generated be the scene graph will be used as the view matrix instead.</p>
+<p>One can change between orthographic and perspective projection by
+calling one of the following methods:</p>
+<ul class="simple">
+<li><strong>set_perspective()</strong></li>
+<li><strong>set_orthographic()</strong></li>
+</ul>
+<p>The following property influences how the projection matrix is generated
+when the camera is in perspective mode (default behavior).</p>
+<ul class="simple">
+<li><strong>fov</strong> Field of view, defined in degrees. Defaults to 45.</li>
+</ul>
+<p>The following properties influence how the projection matrix is
+generated when the camera is in orthographic mode. When any of these are
+set to &#8216;null&#8217; (default behavior), the bottom left corner is (0, 0), and
+the top right is (canvas_width, canvas_height).</p>
+<ul class="simple">
+<li><strong>left</strong></li>
+<li><strong>right</strong></li>
+<li><strong>bottom</strong></li>
+<li><strong>up</strong></li>
+</ul>
+<p>The following properties influence how the projection matrix is
+generated, and are common to both orthographic and perspective mode:</p>
+<ul class="simple">
+<li><strong>width</strong> Defaults to null, which indicates to use the rendering
+canvas&#8217;s width instead. For perspective rendering, width and height
+are used to calculate the screen ratio. Orthographic rendering uses
+these to calculate the top right coordinate.</li>
+<li><strong>height</strong> Defaults to null, which indicates to use the rendering
+canvas&#8217;s height instead. For perspective rendering, width and height
+are used to calculate the screen ratio. Orthographic rendering uses
+these to calculate the top right coordinate.</li>
+<li><strong>near</strong> Defaults to 0.1</li>
+<li><strong>far</strong> Defaults to 100.0</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">m.graph.js</a><ul>
+<li><a class="reference internal" href="#please-make-animatable">please.make_animatable</a></li>
+<li><a class="reference internal" href="#please-make-animatable-tripple">please.make_animatable_tripple</a></li>
+<li><a class="reference internal" href="#please-graphnode">please.GraphNode</a></li>
+<li><a class="reference internal" href="#please-scenegraph">please.SceneGraph</a></li>
+<li><a class="reference internal" href="#please-cameranode">please.CameraNode</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="m.gani.html"
+                        title="previous chapter">m.gani.js</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="m.input.html"
+                        title="next chapter">m.input.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/m.graph.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.input.html" title="m.input.js"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="m.gani.html" title="m.gani.js"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" >API Reference</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

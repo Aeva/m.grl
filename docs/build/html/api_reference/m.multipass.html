@@ -1,0 +1,186 @@
+
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>m.multipass.js &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="up" title="API Reference" href="index.html" />
+    <link rel="next" title="m.time.js" href="m.time.html" />
+    <link rel="prev" title="m.media.js" href="m.media.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.time.html" title="m.time.js"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="m.media.html" title="m.media.js"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="m-multipass-js">
+<h1>m.multipass.js<a class="headerlink" href="#m-multipass-js" title="Permalink to this headline">¶</a></h1>
+<p>This part of the module is responsible for scheduling rendering events
+that happen on every single redraw event.</p>
+<p>It allows for you to define callbacks for graphics code. The callbacks
+are given a priority value, so that they are always called in a specific
+order.</p>
+<p>In the future, m.multipass will also automatically update some uniform
+variable values to the GLSL shader program, so as to aid in the
+development of multipass rendering effects.</p>
+<p>This file stores most of its API under the <strong>please.pipeline</strong> object.</p>
+<div class="section" id="please-pipeline-add">
+<h2>please.pipeline.add<a class="headerlink" href="#please-pipeline-add" title="Permalink to this headline">¶</a></h2>
+<p><em>please.pipeline.add</em> <strong>(priority, name, callback)</strong></p>
+<p>Adds a callback to the pipeline. Priority determines the order in which
+the registered callbacks are to be called.</p>
+<p>Note that the return value for each callback is be passed as a singular
+argument to the next callback in the chain.</p>
+<p>A good convention is to put things that need to happen before rendering
+as negative numbers (they could all be -1 if the order doesn&#8217;t matter),
+and all of the rendering phases as distinct positive integers.</p>
+<p>The sprite animation system, if used, will implicitly add its own
+handler at priority -1.</p>
+<ul class="simple">
+<li><strong>priority</strong> A numerical sorting weight for this callback. The higher
+the number, the later the method will be called. Numbers below zero
+indicates the callback is non-graphical and is called before any
+rendering code.</li>
+<li><strong>name</strong> A human-readable name for the pipeline stage.</li>
+<li><strong>callback</strong> the function to be called to execute this pipeline
+stage. The return value of the previous pipeline stage is passed as
+an argument to the next pipeline stage&#8217;s callback.</li>
+</ul>
+</div>
+<div class="section" id="please-pipeline-remove">
+<h2>please.pipeline.remove<a class="headerlink" href="#please-pipeline-remove" title="Permalink to this headline">¶</a></h2>
+<p><em>please.pipeline.remove</em> <strong>(name)</strong></p>
+<p>Removes a named pipeline stage, preventing it from being rendering.</p>
+</div>
+<div class="section" id="please-pipeline-remove-above">
+<h2>please.pipeline.remove_above<a class="headerlink" href="#please-pipeline-remove-above" title="Permalink to this headline">¶</a></h2>
+<p><em>please.pipeline.remove_above</em> <strong>(priority)</strong></p>
+<p>Remove all handlers of a priority greater than or equal to the one
+passed to this method.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="c1">// removes all pipeline stages that perform rendering functionality</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">remove_above</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="please-pipeline-start">
+<h2>please.pipeline.start<a class="headerlink" href="#please-pipeline-start" title="Permalink to this headline">¶</a></h2>
+<p><em>please.pipeline.start</em> <strong>()</strong></p>
+<p>Activates the rendering pipeline.</p>
+</div>
+<div class="section" id="please-pipeline-stop">
+<h2>please.pipeline.stop<a class="headerlink" href="#please-pipeline-stop" title="Permalink to this headline">¶</a></h2>
+<p><em>please.pipeline.stop</em> <strong>()</strong></p>
+<p>Halts the rendering pipeline.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">m.multipass.js</a><ul>
+<li><a class="reference internal" href="#please-pipeline-add">please.pipeline.add</a></li>
+<li><a class="reference internal" href="#please-pipeline-remove">please.pipeline.remove</a></li>
+<li><a class="reference internal" href="#please-pipeline-remove-above">please.pipeline.remove_above</a></li>
+<li><a class="reference internal" href="#please-pipeline-start">please.pipeline.start</a></li>
+<li><a class="reference internal" href="#please-pipeline-stop">please.pipeline.stop</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="m.media.html"
+                        title="previous chapter">m.media.js</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="m.time.html"
+                        title="next chapter">m.time.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/m.multipass.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.time.html" title="m.time.js"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="m.media.html" title="m.media.js"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" >API Reference</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

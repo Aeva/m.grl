@@ -1,0 +1,191 @@
+
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>API Reference &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="next" title="m.defs.js" href="m.defs.html" />
+    <link rel="prev" title=".gani File Format Specification" href="../advanced/gani_spec.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.defs.html" title="m.defs.js"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../advanced/gani_spec.html" title=".gani File Format Specification"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="m.defs.html">m.defs.js</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-once">please.once</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-split-params">please.split_params</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-is-number">please.is_number</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-is-attr">please.is_attr</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-get-properties">please.get_properties</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-random-of">please.random_of</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-radians">please.radians</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-mix">please.mix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-linear-path">please.linear_path</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-bezier">please.bezier</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-bezier-path">please.bezier_path</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-uuid">please.uuid</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-decode-buffer">please.decode_buffer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-typed-array">please.typed_array</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="m.gani.html">m.gani.js</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="m.gani.html#please-gani-get-cache-name">please.gani.get_cache_name</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.gani.html#please-gani-on-bake-ani-frameset">please.gani.on_bake_ani_frameset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.gani.html#please-gani-build-gl-buffers">please.gani.build_gl_buffers</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="m.graph.html">m.graph.js</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="m.graph.html#please-make-animatable">please.make_animatable</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.graph.html#please-make-animatable-tripple">please.make_animatable_tripple</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.graph.html#please-graphnode">please.GraphNode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.graph.html#please-scenegraph">please.SceneGraph</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.graph.html#please-cameranode">please.CameraNode</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="m.input.html">m.input.js</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="m.input.html#please-keys-enable">please.keys.enable</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.input.html#please-keys-disable">please.keys.disable</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.input.html#please-connect">please.connect</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.input.html#please-keys-remove">please.keys.remove</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.input.html#please-keys-normalize-dvorak">please.keys.normalize_dvorak</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.input.html#please-keys-lookup-keycode">please.keys.lookup_keycode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.input.html#please-keys-cancel">please.keys.__cancel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.input.html#please-keys-full-stop">please.keys.__full_stop</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="m.media.html">m.media.js</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-set-search-path">please.set_search_path</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-load">please.load</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-access">please.access</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-media-relative-path">please.media.relative_path</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-media-get-progress">please.media.get_progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-media-push">please.media._push</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-media-pop">please.media._pop</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-media-guess-type">please.media.guess_type</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-media-xhr-helper">please.media.__xhr_helper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-media-handlers-img">please.media.handlers.img</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-media-handlers-audio">please.media.handlers.audio</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-media-handlers-text">please.media.handlers.text</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.media.html#please-media-image-instance">please.media.__image_instance</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="m.multipass.html">m.multipass.js</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="m.multipass.html#please-pipeline-add">please.pipeline.add</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.multipass.html#please-pipeline-remove">please.pipeline.remove</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.multipass.html#please-pipeline-remove-above">please.pipeline.remove_above</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.multipass.html#please-pipeline-start">please.pipeline.start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.multipass.html#please-pipeline-stop">please.pipeline.stop</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="m.time.html">m.time.js</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="m.time.html#please-postpone">please.postpone</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.time.html#please-time-schedule">please.time.schedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.time.html#please-time-remove">please.time.remove</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.time.html#please-path-driver">please.path_driver</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../advanced/gani_spec.html"
+                        title="previous chapter">.gani File Format Specification</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="m.defs.html"
+                        title="next chapter">m.defs.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/index.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.defs.html" title="m.defs.js"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="../advanced/gani_spec.html" title=".gani File Format Specification"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

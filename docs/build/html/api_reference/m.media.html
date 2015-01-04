@@ -1,0 +1,359 @@
+
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>m.media.js &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="up" title="API Reference" href="index.html" />
+    <link rel="next" title="m.multipass.js" href="m.multipass.html" />
+    <link rel="prev" title="m.input.js" href="m.input.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.multipass.html" title="m.multipass.js"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="m.input.html" title="m.input.js"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="m-media-js">
+<h1>m.media.js<a class="headerlink" href="#m-media-js" title="Permalink to this headline">¶</a></h1>
+<p>This part of the module is responsible for downloading art assets,
+performing some error handling (via placeholder sprites etc), and
+triggering callbacks.</p>
+<p>The most important methods here are <strong>please.load</strong>,
+<strong>please.set_search_path</strong>, and <strong>please.access</strong>. These methods are
+likely to be used in almost all aplications that use M.GRL, and so they
+are in the common &#8220;please&#8221; namespace. The remainder of the methods in
+this file are in the &#8220;please.media&#8221; namespace.</p>
+<div class="section" id="please-set-search-path">
+<h2>please.set_search_path<a class="headerlink" href="#please-set-search-path" title="Permalink to this headline">¶</a></h2>
+<p><em>please.set_search_path</em> <strong>(media_type, base_url)</strong></p>
+<p>Define a search path for a given asset type. This will be used to prefix
+the asset name in most cases. For example, MGRL expects all of your
+images to be in a common directory - when a .jta or .gani file requests
+a texture, the image file name in the file will be assumed to be
+relative to the path defined with this method.</p>
+<ul class="simple">
+<li><strong>media_type</strong> One of &#8220;img&#8221;, &#8220;jta&#8221;, &#8220;gani&#8221;, &#8220;audio&#8221;, &#8220;glsl&#8221;, or
+&#8220;text&#8221;.</li>
+<li><strong>base_url</strong> A url where the game assets might be found.</li>
+</ul>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">please</span><span class="p">.</span><span class="nx">set_search_path</span><span class="p">(</span><span class="s2">&quot;img&quot;</span><span class="p">,</span> <span class="s2">&quot;/assets/images/&quot;</span><span class="p">);</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">set_search_path</span><span class="p">(</span><span class="s2">&quot;jta&quot;</span><span class="p">,</span> <span class="s2">&quot;/assets/models/&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="please-load">
+<h2>please.load<a class="headerlink" href="#please-load" title="Permalink to this headline">¶</a></h2>
+<p><em>please.load</em> <strong>(asset_name, [callback=null, options={}])</strong></p>
+<p>Downloads an asset if it is not already in memory.</p>
+<ul class="simple">
+<li><strong>asset_name</strong> The URI of an asset to be downloaded, relative to the
+set search path. If the key &#8216;absolute_url&#8217; in the options object is
+true then nothing will be prepended to &#8216;asset_name&#8217;.</li>
+<li><strong>callback</strong> An optional callback to be triggered as soon as the
+asset exists in memory. Repeated calls of please.load to an asset
+already in memory will trigger a callback if one is set. This param
+may be set to null.</li>
+<li><strong>force_type</strong> when this key on the &#8216;options&#8217; parameter is set, the
+the value overrides the type that would otherwise be inferred from
+the file&#8217;s URI.</li>
+<li><strong>absolute_url</strong> when this key on the &#8216;options&#8217; parameter is set to
+true, the searchpath is bypassed, and the asset_name is treated as
+an asolute path or URL.</li>
+</ul>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">please</span><span class="p">.</span><span class="nx">set_search_path</span><span class="p">(</span><span class="s2">&quot;img&quot;</span><span class="p">,</span> <span class="s2">&quot;/assets/images/&quot;</span><span class="p">);</span>
+
+<span class="c1">// load an image relative to the search path</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">load</span><span class="p">(</span><span class="s2">&quot;hello_world.png&quot;</span><span class="p">);</span>
+
+<span class="c1">// load an image with an absolute url</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">load</span><span class="p">(</span><span class="s2">&quot;/foo.jpg&quot;</span><span class="p">,</span> <span class="kc">null</span><span class="p">,</span> <span class="p">{</span>
+    <span class="s2">&quot;absolute_url&quot;</span> <span class="o">:</span> <span class="kc">true</span><span class="p">,</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="please-access">
+<h2>please.access<a class="headerlink" href="#please-access" title="Permalink to this headline">¶</a></h2>
+<p><em>please.access</em> <strong>(asset_name[, no_error=false])</strong></p>
+<p>Access an asset. If the asset is not found, this function returns the
+hardcoded placeholder/error image. The placeholder image is defined in
+the object &#8216;please.media.errors[type]&#8217;. The &#8216;no_error&#8217; parameter
+descirbed below may be used to override this behavior.</p>
+<ul class="simple">
+<li><strong>asset_name</strong> The URI of an asset to be downloaded, relative to the
+set search path. If the key &#8216;absolute_url&#8217; in the options object is
+true then nothing will be prepended to &#8216;asset_name&#8217;.</li>
+<li><strong>no_error</strong> When this optional value is set to true, nothing is
+returned when the asset does not exist.</li>
+</ul>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">please</span><span class="p">.</span><span class="nx">set_search_path</span><span class="p">(</span><span class="s2">&quot;img&quot;</span><span class="p">,</span> <span class="s2">&quot;/assets/images/&quot;</span><span class="p">);</span>
+
+<span class="c1">// foo contains a placeholder image</span>
+<span class="kd">var</span> <span class="nx">foo</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">access</span><span class="p">(</span><span class="s2">&quot;some_image.png&quot;</span><span class="p">);</span>
+
+<span class="c1">// bar is false</span>
+<span class="kd">var</span> <span class="nx">bar</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">access</span><span class="p">(</span><span class="s2">&quot;some_image.png&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">);</span>
+
+<span class="nx">please</span><span class="p">.</span><span class="nx">load</span><span class="p">(</span><span class="s2">&quot;some_image.png&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// baz contains the image</span>
+    <span class="kd">var</span> <span class="nx">baz</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">access</span><span class="p">(</span><span class="s2">&quot;some_image.png&quot;</span><span class="p">);</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="please-media-relative-path">
+<h2>please.media.relative_path<a class="headerlink" href="#please-media-relative-path" title="Permalink to this headline">¶</a></h2>
+<p><em>please.media.relative_path</em> <strong>(type, asset_name)</strong></p>
+<p>Returns the full URL for a given named asset.</p>
+<ul class="simple">
+<li><strong>type</strong> Determines the search path to be used for the asset. If
+&#8216;type&#8217; is set to &#8220;guess&#8221;, then the type will be inferred from the
+file extension.</li>
+<li><strong>asset_name</strong> The name of an asset as it would be passed to
+please.load or please.access</li>
+</ul>
+</div>
+<div class="section" id="please-media-get-progress">
+<h2>please.media.get_progress<a class="headerlink" href="#please-media-get-progress" title="Permalink to this headline">¶</a></h2>
+<p><em>please.media.get_progress</em> <strong>()</strong></p>
+<p>Returns a progress estimation for pending downloads. You would use this
+to make some kind of loading bar. The returned object both gives a
+combined completion percentage of all pending downloads, as well as the
+individual percentages per file.</p>
+</div>
+<div class="section" id="please-media-push">
+<h2>please.media._push<a class="headerlink" href="#please-media-push" title="Permalink to this headline">¶</a></h2>
+<p><em>please.media._push</em> <strong>(req_key[, callback])</strong></p>
+<p><strong>Intended for M.GRL&#8217;s internal use only</strong>. This method is used to to
+keep track of pending downloads, and prevent redundant download
+requests. Redundant calls to this method will consolidate the callbacks.
+It returns &#8216;true&#8217; if there is no pending download, otherwise in will
+return &#8216;false&#8217; to indicate that a new download should be initiated.</p>
+<ul class="simple">
+<li><strong>req_key</strong> This is the URL of the asset being downloaded.</li>
+<li><strong>callback</strong> Callback to be triggered after the download is complete
+and the asset is ready for use.</li>
+</ul>
+</div>
+<div class="section" id="please-media-pop">
+<h2>please.media._pop<a class="headerlink" href="#please-media-pop" title="Permalink to this headline">¶</a></h2>
+<p><em>please.media._pop</em> <strong>(req_key)</strong></p>
+<p><strong>Intended for M.GRL&#8217;s internal use only</strong>. This method is called after
+an asset has finished downloading. It is responsible for triggering all
+of the callbacks (implicit first, then explicite) associated to the
+download, and may also trigger the &#8220;mgrl_media_ready&#8221; DOM event.</p>
+<ul class="simple">
+<li><strong>req_key</strong> This is the URL of the asset being downloaded.</li>
+</ul>
+</div>
+<div class="section" id="please-media-guess-type">
+<h2>please.media.guess_type<a class="headerlink" href="#please-media-guess-type" title="Permalink to this headline">¶</a></h2>
+<p><em>please.media.guess_type</em> <strong>(file_name)</strong></p>
+<p>Returns the media type associated with the file extension of the file
+name passed to this function. If the media type cannot be divined, then
+&#8216;undefined&#8217; is returned. This is mostly intended to be used internally.</p>
+</div>
+<div class="section" id="please-media-xhr-helper">
+<h2>please.media.__xhr_helper<a class="headerlink" href="#please-media-xhr-helper" title="Permalink to this headline">¶</a></h2>
+<p><em>please.media.__xhr_helper</em> <strong>(req_type, url, asset_name,
+media_callback[, user_callback])</strong></p>
+<p><strong>Intended primarily for M.GRL&#8217;s internal use</strong>. If you were to create a
+new media type, you would use this method. If you are setting out to do
+such a thing, please consider getting in touch with the maintainer as
+you might be developing a feature that we&#8217;d like.</p>
+<p>This method is used to download assets via XMLHttpRequest objects. It
+calls please.media._push to attach callbacks to pending downloads if
+they exist and to create the pending download record if they do not.</p>
+<p>If the asset is not being downloaded, then this method next creates an
+XHR object, connects to the progress event to track download progress,
+and to the loadend event to trigger the media callback needed to prepare
+some assets for use and then the user suplied callbacks once the asset
+is ready for use (these are retrieved by first calling
+please.media._pop).</p>
+<ul class="simple">
+<li><strong>req_type</strong> The XHR response type.</li>
+<li><strong>url</strong> The URL for download and req_key for <a href="#id1"><span class="problematic" id="id2">*</span></a>push and <a href="#id3"><span class="problematic" id="id4">*</span></a>pop calls.</li>
+<li><strong>asset_name</strong> The relative name of the asset being downloaded,
+passed to user callbacks so they know which asset is now (probably)
+safe to call please.access upon</li>
+<li><strong>media_callback</strong> Is passed the request object when the asset
+successfully downloads, and is responsible for creating the asset it
+memory.</li>
+<li><strong>user_callback</strong> A method to be called after the media_callback,
+if applicable, but regardless of if the - download succeeds or fails.</li>
+</ul>
+</div>
+<div class="section" id="please-media-handlers-img">
+<h2>please.media.handlers.img<a class="headerlink" href="#please-media-handlers-img" title="Permalink to this headline">¶</a></h2>
+<p><em>please.media.handlers.img</em> <strong>(url, asset_name[, callback])</strong></p>
+<p>This is the handler for the &#8220;img&#8221; media type. This is called by
+machinery activated by please.load for loading image objects, and should
+not be called directly.</p>
+<ul class="simple">
+<li><strong>url</strong> The absolute URL to be downloaded.</li>
+<li><strong>asset_name</strong> The name of the file being downloaded (or, where the
+object should reside in memory once the download completes.</li>
+<li><strong>callback</strong> Optional user callback that is triggered when the
+download is finished.</li>
+</ul>
+</div>
+<div class="section" id="please-media-handlers-audio">
+<h2>please.media.handlers.audio<a class="headerlink" href="#please-media-handlers-audio" title="Permalink to this headline">¶</a></h2>
+<p><em>please.media.handlers.audio</em> <strong>(url, asset_name[, callback])</strong></p>
+<p>This is the handler for the &#8220;audio&#8221; media type. This is called by
+machinery activated by please.load for loading audio objects, and should
+not be called directly.</p>
+<ul class="simple">
+<li><strong>url</strong> The absolute URL to be downloaded.</li>
+<li><strong>asset_name</strong> The name of the file being downloaded (or, where the
+object should reside in memory once the download completes.</li>
+<li><strong>callback</strong> Optional user callback that is triggered when the
+download is finished.</li>
+</ul>
+</div>
+<div class="section" id="please-media-handlers-text">
+<h2>please.media.handlers.text<a class="headerlink" href="#please-media-handlers-text" title="Permalink to this headline">¶</a></h2>
+<p><em>please.media.handlers.text</em> <strong>(url, asset_name[, callback])</strong></p>
+<p>This is the handler for the &#8220;text&#8221; media type. This is called by
+machinery activated by please.load for loading text objects, and should
+not be called directly.</p>
+<ul class="simple">
+<li><strong>url</strong> The absolute URL to be downloaded.</li>
+<li><strong>asset_name</strong> The name of the file being downloaded (or, where the
+object should reside in memory once the download completes.</li>
+<li><strong>callback</strong> Optional user callback that is triggered when the
+download is finished.</li>
+</ul>
+</div>
+<div class="section" id="please-media-image-instance">
+<h2>please.media.__image_instance<a class="headerlink" href="#please-media-image-instance" title="Permalink to this headline">¶</a></h2>
+<p><em>please.media.__image_instance</em> <strong>([center=false, scale=64, x=0, y=0,
+width=this.width, height=this.height, alpha=true])</strong></p>
+<p>This is not called directly, but by the &#8220;instance&#8221; method added to image
+objects. The result is a GraphNode compatible instance of the image
+which may then be used in the scene graph.</p>
+<p><strong>Warning</strong> this is a relatively new feature, and is very likely to be
+tweaked, changed, and possibly reimplemented in the future. Also, this
+function definition likely belongs in another file, so this doc string
+may not be visible at the current URL in the future.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">m.media.js</a><ul>
+<li><a class="reference internal" href="#please-set-search-path">please.set_search_path</a></li>
+<li><a class="reference internal" href="#please-load">please.load</a></li>
+<li><a class="reference internal" href="#please-access">please.access</a></li>
+<li><a class="reference internal" href="#please-media-relative-path">please.media.relative_path</a></li>
+<li><a class="reference internal" href="#please-media-get-progress">please.media.get_progress</a></li>
+<li><a class="reference internal" href="#please-media-push">please.media._push</a></li>
+<li><a class="reference internal" href="#please-media-pop">please.media._pop</a></li>
+<li><a class="reference internal" href="#please-media-guess-type">please.media.guess_type</a></li>
+<li><a class="reference internal" href="#please-media-xhr-helper">please.media.__xhr_helper</a></li>
+<li><a class="reference internal" href="#please-media-handlers-img">please.media.handlers.img</a></li>
+<li><a class="reference internal" href="#please-media-handlers-audio">please.media.handlers.audio</a></li>
+<li><a class="reference internal" href="#please-media-handlers-text">please.media.handlers.text</a></li>
+<li><a class="reference internal" href="#please-media-image-instance">please.media.__image_instance</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="m.input.html"
+                        title="previous chapter">m.input.js</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="m.multipass.html"
+                        title="next chapter">m.multipass.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/m.media.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.multipass.html" title="m.multipass.js"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="m.input.html" title="m.input.js"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" >API Reference</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

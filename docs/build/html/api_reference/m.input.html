@@ -1,0 +1,198 @@
+
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>m.input.js &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="up" title="API Reference" href="index.html" />
+    <link rel="next" title="m.media.js" href="m.media.html" />
+    <link rel="prev" title="m.graph.js" href="m.graph.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.media.html" title="m.media.js"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="m.graph.html" title="m.graph.js"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="m-input-js">
+<h1>m.input.js<a class="headerlink" href="#m-input-js" title="Permalink to this headline">¶</a></h1>
+<p>This part of the module is responsible for abstracting various input
+events in such a way that they are more flexible beyond their intended
+use. Most notably, that means wrapping the event handlers for keyboard
+events, so as to prevent rapid emission of redundant key press events.</p>
+<p>Functionality is also provided for allowing automatic mappings for
+different keyboard layouts.</p>
+<p>This file stores most of its API under the <strong>please.keys</strong> object.</p>
+<div class="section" id="please-keys-enable">
+<h2>please.keys.enable<a class="headerlink" href="#please-keys-enable" title="Permalink to this headline">¶</a></h2>
+<p><em>please.keys.enable</em> <strong>()</strong></p>
+<p>This function hooks up the necessary event handling machinery.</p>
+</div>
+<div class="section" id="please-keys-disable">
+<h2>please.keys.disable<a class="headerlink" href="#please-keys-disable" title="Permalink to this headline">¶</a></h2>
+<p><em>please.keys.disable</em> <strong>()</strong></p>
+<p>This function removes the necessary event handling machinery.</p>
+</div>
+<div class="section" id="please-connect">
+<h2>please.connect<a class="headerlink" href="#please-connect" title="Permalink to this headline">¶</a></h2>
+<p><em>please.connect</em> <strong>(char, handler, threshold)</strong></p>
+<p>Adds a keyboard binding.</p>
+</div>
+<div class="section" id="please-keys-remove">
+<h2>please.keys.remove<a class="headerlink" href="#please-keys-remove" title="Permalink to this headline">¶</a></h2>
+<p><em>please.keys.remove</em> <strong>(char)</strong></p>
+<p>Removes a keybinding set by please.keys.connect.</p>
+</div>
+<div class="section" id="please-keys-normalize-dvorak">
+<h2>please.keys.normalize_dvorak<a class="headerlink" href="#please-keys-normalize-dvorak" title="Permalink to this headline">¶</a></h2>
+<p><em>please.keys.normalize_dvorak</em> <strong>(str)</strong></p>
+<p>This function converts strings between qwerty and dvorak. This is used
+to convert keyboard events for Dvorak users to Qwerty for the purpose of
+recognizing events and having a common notation (Qwerty) for determining
+the likely physical placement of various keys.</p>
+<ul class="simple">
+<li><strong>str</strong> A string containing a string of text as if it were typed on a
+dvorak key layout.</li>
+</ul>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">asd</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">keys</span><span class="p">.</span><span class="nx">normalize_dvorak</span><span class="p">(</span><span class="s2">&quot;aoe&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="please-keys-lookup-keycode">
+<h2>please.keys.lookup_keycode<a class="headerlink" href="#please-keys-lookup-keycode" title="Permalink to this headline">¶</a></h2>
+<p><em>please.keys.lookup_keycode</em> <strong>(code)</strong></p>
+<p>This function returns a human readable identifier for a given keycode.
+This is used because string.fromCharCode does not always produce correct
+results.</p>
+<p>This function will automatically perform keyboard layout conversion, if
+the keyboard layout is appended to the document URL. Currently, only
+#dvorak is supported.</p>
+<ul class="simple">
+<li><strong>code</strong> Numerical character code value.</li>
+</ul>
+</div>
+<div class="section" id="please-keys-cancel">
+<h2>please.keys.__cancel<a class="headerlink" href="#please-keys-cancel" title="Permalink to this headline">¶</a></h2>
+<p><em>please.keys.__cancel</em> <strong>(char)</strong></p>
+<p>Forces a key to be released.</p>
+</div>
+<div class="section" id="please-keys-full-stop">
+<h2>please.keys.__full_stop<a class="headerlink" href="#please-keys-full-stop" title="Permalink to this headline">¶</a></h2>
+<p><em>please.keys.__full_stop</em> <strong>()</strong></p>
+<p>This function is called to force key-up events and clear all pending
+input timeouts. Usually this happens when the window is blurred.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">m.input.js</a><ul>
+<li><a class="reference internal" href="#please-keys-enable">please.keys.enable</a></li>
+<li><a class="reference internal" href="#please-keys-disable">please.keys.disable</a></li>
+<li><a class="reference internal" href="#please-connect">please.connect</a></li>
+<li><a class="reference internal" href="#please-keys-remove">please.keys.remove</a></li>
+<li><a class="reference internal" href="#please-keys-normalize-dvorak">please.keys.normalize_dvorak</a></li>
+<li><a class="reference internal" href="#please-keys-lookup-keycode">please.keys.lookup_keycode</a></li>
+<li><a class="reference internal" href="#please-keys-cancel">please.keys.__cancel</a></li>
+<li><a class="reference internal" href="#please-keys-full-stop">please.keys.__full_stop</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="m.graph.html"
+                        title="previous chapter">m.graph.js</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="m.media.html"
+                        title="next chapter">m.media.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/m.input.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.media.html" title="m.media.js"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="m.graph.html" title="m.graph.js"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" >API Reference</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

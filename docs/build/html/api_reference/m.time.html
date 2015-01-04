@@ -1,0 +1,165 @@
+
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>m.time.js &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="up" title="API Reference" href="index.html" />
+    <link rel="prev" title="m.multipass.js" href="m.multipass.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.multipass.html" title="m.multipass.js"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="m-time-js">
+<h1>m.time.js<a class="headerlink" href="#m-time-js" title="Permalink to this headline">¶</a></h1>
+<p>This module provides a scheduler suitable for animation, as well as some
+other handy methods pertaining to time.</p>
+<p>The please.time object is used to schedule animation updates and other
+events. Some useful methods on this singleton object are documented
+below.</p>
+<div class="section" id="please-postpone">
+<h2>please.postpone<a class="headerlink" href="#please-postpone" title="Permalink to this headline">¶</a></h2>
+<p><em>please.postpone</em> <strong>(callback)</strong></p>
+<p>Shorthand for setTimeout(callback, 0). This method is used to schedule a
+function to be called after the current execution stack finishes and the
+interpreter is idle again.</p>
+<ul class="simple">
+<li><strong>callback</strong> A function to be called relatively soon.</li>
+</ul>
+</div>
+<div class="section" id="please-time-schedule">
+<h2>please.time.schedule<a class="headerlink" href="#please-time-schedule" title="Permalink to this headline">¶</a></h2>
+<p><em>please.time.schedule</em> <strong>(callback, when)</strong></p>
+<p>This function works like setTimeout, but syncs the callbacks up only to
+the next available animation frame. This means that if the page is not
+currently visible (eg, another tab is active), then the callback will
+not be called until the page is visible again, etc.</p>
+<ul class="simple">
+<li><strong>callback</strong> A function to be called on an animation frame.</li>
+<li><strong>when</strong> Delay in milliseconds for the soonest time which callback
+may be called.</li>
+</ul>
+</div>
+<div class="section" id="please-time-remove">
+<h2>please.time.remove<a class="headerlink" href="#please-time-remove" title="Permalink to this headline">¶</a></h2>
+<p><em>please.time.remove</em> <strong>(callback)</strong></p>
+<p>Removes a pending callback from the scheduler.</p>
+<ul class="simple">
+<li><strong>callback</strong> A function that was already scheduled
+please.time.schedule.</li>
+</ul>
+</div>
+<div class="section" id="please-path-driver">
+<h2>please.path_driver<a class="headerlink" href="#please-path-driver" title="Permalink to this headline">¶</a></h2>
+<p><em>please.path_driver</em> <strong>(path, period, repeat, oscilate)</strong></p>
+<p>This function generates a driver function for animating along a path
+reterned by another generator function.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">path</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">linear_path</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">);</span>
+<span class="nx">player</span><span class="p">.</span><span class="nx">location_x</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">path_driver</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="kc">true</span><span class="p">,</span> <span class="kc">true</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">m.time.js</a><ul>
+<li><a class="reference internal" href="#please-postpone">please.postpone</a></li>
+<li><a class="reference internal" href="#please-time-schedule">please.time.schedule</a></li>
+<li><a class="reference internal" href="#please-time-remove">please.time.remove</a></li>
+<li><a class="reference internal" href="#please-path-driver">please.path_driver</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="m.multipass.html"
+                        title="previous chapter">m.multipass.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/m.time.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.multipass.html" title="m.multipass.js"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" >API Reference</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
