@@ -87,12 +87,11 @@ again this frame), and so on.
     // Register a second render pass that will also draw the scene_graph
     please.pipeline.add(20, "graph_demo/fancy", function () {
 
-       // .tick() will have been called by the previous pipeline stage,
-       // so you shouldn't call it again.  You can, however, call
-       // .draw() as many times as you like per frame.  Both of these
-       // pipeline stages are in the same "frame".  You can take
-       // advantage of this to do post processing effects with the
-       // stencil buffer, shaders, and/or indirect rendering targets!
+       // You can call .draw() as many times as you like per frame.
+       // Both of these pipeline stages are in the same "frame".  You
+       // can take advantage of this to do post processing effects with
+       // the stencil buffer, shaders, and/or indirect rendering
+       // targets!
 
        scene_graph.draw();
 
