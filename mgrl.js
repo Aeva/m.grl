@@ -3029,13 +3029,27 @@ please.gl.__jta_model = function (src, uri) {
                 return scene.instance(models[0]);
             }
             else {
-                var node = new please.GraphNode();
-                node.__asset = model;
-                node.__asset_hint = uri + ":";
+                var added = {};
+                var root = new please.GraphNode();
+                root.__asset = model;
+                root.__asset_hint = uri + ":";
+                var resolve_inheritance = function (name, model) {
+                    if (added[name] === undefined) {
+                        var target = root;
+                        var node = scene.instance(name);
+                        var parent = model.parent;
+                        if (parent) {
+                            resolve_inheritance(parent, scene.models[parent]);
+                            target = added[parent];
+                        }
+                        added[name] = node;
+                        target.add(node);
+                    }
+                };
                 please.prop_map(scene.models, function(name, model) {
-                    node.add(scene.instance(name));
+                    resolve_inheritance(name, model);
                 });
-                return node;
+                return root;
             }
         }
         else {
