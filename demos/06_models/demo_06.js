@@ -35,6 +35,9 @@ addEventListener("load", function() {
     // load our model files
     please.load("gavroche.jta");
     please.load("floor_lamp.jta");
+    
+    // test model
+    please.load("graph_test.jta");
 
     // while not strictly necessary, the progress bar will make more
     // sense if we manually queue up textures here:
@@ -93,6 +96,7 @@ addEventListener("mgrl_media_ready", function () {
     // access model data
     var gav_model = please.access("gavroche.jta");
     var lamp_model = please.access("floor_lamp.jta");
+    var test_model = please.access("graph_test.jta");
 
     // display licensing meta_data info, where applicable
     [gav_model, lamp_model].map(function (scene) {
@@ -127,9 +131,11 @@ addEventListener("mgrl_media_ready", function () {
         var progress = performance.now()/110;
         return progress*-1;
     };
-    var lamp = lamp_model.instance();
-    lamp.shader.mode = 2; // indicate this is not the floor
-    rotatoe.add(lamp);
+    //var center = lamp_model.instance();
+    var center = test_model.instance();
+    //center.scale = [1.2, 1.2, 1.2];
+    center.shader.mode = 2; // indicate this is not the floor
+    rotatoe.add(center);
     graph.add(rotatoe);
 
     // add row of lamps in the background
