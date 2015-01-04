@@ -41,15 +41,12 @@
  api, you will need to regenerate some of the documentation.
 
  Automatic generation of API documentation in Sphinx is accomplished
- with jsdoc and jsdoc-rst-template.  Both of these modules may be
- installed via *sigh* npm.
+ with whisperdoc.  This tool can be installed from here:
+ https://github.com/Aeva/whisperscope
 
-$ npm install jsdoc
-$ npm install jsdoc-rst-template
+ To regenerate the API pages, you can run this shell script:
 
- Then you can regenerate the API pages like so:
-
-$ ./autogen_api.sh
+$ sh update_docs.sh
 .
 
 
