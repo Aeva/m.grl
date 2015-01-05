@@ -207,8 +207,6 @@ class Rig(Exportable):
         def fake_node(bone):
             name = "{0}:bone:{1}".format(self.obj.name, bone.name)
             parent = self.obj.name
-            if bone.parent:
-                parent = "{0}:bone:{1}".format(self.obj.name, bone.parent.name)
 
             bone_matrix = bone.matrix * self.obj.matrix_world
             extra = self.extract_matrix_to_object(bone_matrix)
