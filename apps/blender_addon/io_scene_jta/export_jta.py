@@ -209,9 +209,11 @@ class Rig(Exportable):
             parent = self.obj.name
             if bone.parent:
                 parent = "{0}:bone:{1}".format(self.obj.name, bone.parent.name)
-            extra = self.extract_matrix_to_object(bone.matrix)
+
+            bone_matrix = bone.matrix * self.obj.matrix_world
+            extra = self.extract_matrix_to_object(bone_matrix)
             state = {
-                "world_matrix" : self.format_matrix(self.obj.matrix_world),
+                "world_matrix" : self.format_matrix(bone_matrix),
             }
             blob = {
                 "parent" : parent,
