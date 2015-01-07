@@ -1,0 +1,93 @@
+body {
+    background-color: black;
+    color: white;
+    font-family: sans-serif;
+}
+
+#bg_demo {
+    position: fixed;
+    display: block;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    background-image: url('bullshot.jpg');
+    background-position: top center;
+    background-size: auto 100%;
+}
+
+a {
+    color: #a9cc47;
+    text-decoration: none;
+}
+a:hover {
+    color: #FFF;
+}
+
+p {
+    line-height: 1.5em;
+    vertical-align: center;
+    text-align: justify;
+    text-indent: 1.5em;
+}
+
+ul {
+    text-align: left;
+    line-height: 2em;
+    vertical-align: center;
+    padding-left: 1em;
+    padding-top: 1em;
+}
+
+h1 {
+    color: #FFF;
+}
+
+.overlay {
+    background-color: rgba(56, 56, 56, 0.8);
+    padding: 8px;
+    text-align: center;
+    border-radius: 4px;
+}
+
+#nav {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-flex-flow: row wrap;
+    flex-flow: row wrap;
+    align-content: space-around;
+    
+    position: absolute;
+    top: 50%;
+    left: 20px;
+    width: 120px;
+    height: 280px;
+    margin-top: -140px;
+
+    padding-left: 0px;
+    padding-right: 0px;
+}
+
+.nav_item {
+    -webkit-flex: auto;
+    flex: auto;
+    min-width: 100px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.content {
+    display: none;
+    position: absolute;
+    top: 40px;
+    left: 50%;
+    right: 20px;
+    bottom: 40px;
+    overflow-y: auto;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.content:target {
+    display: block;
+}
