@@ -176,28 +176,19 @@ addEventListener("mgrl_media_ready", function () {
     */
 
     // build the scene graph
-    var graph_a = new please.SceneGraph();
+    var graph = new please.SceneGraph();
     var suzanne = suzanne_data.instance();
     suzanne.rotation_y = function () {
         var progress = performance.now()/110;
         return progress*-1;
     };
-    graph_a.add(suzanne);
-
-    var graph_b = new please.SceneGraph();
-    graph_b.add(suzanne_data.instance());
+    graph.add(suzanne);
 
     // setup camera_a
-    var camera_a = new please.CameraNode();
-    graph_a.add(camera_a);
-    camera_a.look_at = [0, 0, 1];
-    camera_a.location = get_camera_position;
-
-    // setup camera_b
-    var camera_b = new please.CameraNode();
-    graph_b.add(camera_b);
-    camera_b.look_at = [0, 0, 1];
-    camera_b.location = [0, 0.1, 0.1];
+    var camera = new please.CameraNode();
+    graph.add(camera);
+    camera.look_at = [0, 0, 1];
+    camera.location = get_camera_position;
 
     // lighting stuff
     var light_direction = vec3.fromValues(-1.0, 1.0, 0.0);
@@ -212,7 +203,7 @@ addEventListener("mgrl_media_ready", function () {
         prog.vars.light_direction = light_direction;
 
         // draw the scene
-        graph_a.draw();
+        graph.draw();
     }).as_texture();
 
 
@@ -223,21 +214,8 @@ addEventListener("mgrl_media_ready", function () {
         // use the last render stage as a texture
         prog.samplers.draw_pass = "demo_07/draw";
 
-
-        // A quick note / FIXME:
-
-        // I'm using the suzanne head again and zooming the camera way
-        // in to fill the screen with fragments.
-
-        // This really should just be a quad and orthographic
-        // projection to avoid confusion, but also to make the post
-        // processing phase a little faster, as well as *actually* fill
-        // the screen with fragments.
-
-
-        // draw suzanne
-
-        graph_b.draw();
+        // fill the screen with a quad
+        please.gl.splat();
     });//*/
     
     // start the drawing loop

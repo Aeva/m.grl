@@ -3111,6 +3111,34 @@ please.gl.make_quad = function (width, height, origin, draw_hint) {
     ]);
     return please.gl.vbo(6, attr_map, {"hint" : draw_hint});
 };
+// Splat fills the screen with fragments.  Useful for postprocessing
+// effects.
+please.gl.__splat_vbo = null;
+please.gl.splat = function () {
+    var prog = please.gl.__cache.current;
+    var view_matrix = mat4.create();
+    var world_matrix = mat4.create();
+    var projection_matrix = mat4.create();
+    mat4.lookAt(view_matrix,
+                [0, 0, -1], // eye
+                [0, 0, 0], // center
+                [0, 1, 0]); // up
+    mat4.ortho(projection_matrix,
+               -1, 1,
+               1, -1,
+               .1, 100);
+    view_matrix.dirty = true;
+    world_matrix.dirty = true;
+    projection_matrix.dirty = true;
+    prog.vars.view_matrix = view_matrix;
+    prog.vars.world_matrix = world_matrix;
+    prog.vars.projection_matrix = projection_matrix;
+    if (!please.gl.__splat_vbo) {
+        please.gl.__splat_vbo = please.gl.make_quad(10, 10);
+    }
+    please.gl.__splat_vbo.bind();
+    please.gl.__splat_vbo.draw();
+};
 // - m.jta.js ------------------------------------------------------------- //
 // "jta" media type handler
 please.media.search_paths.jta = "";
