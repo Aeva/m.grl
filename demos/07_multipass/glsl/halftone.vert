@@ -1,6 +1,6 @@
 
-// render pass
-uniform lowp int render_pass;
+// data mgrl automatically uploads
+uniform lowp int mgrl_pipeline_id;
 
 // matrices
 uniform mat4 world_matrix;
@@ -41,7 +41,7 @@ void main(void) {
   view_position = tmp.xyz;
 
 
-  if (render_pass == 1) {
+  if (mgrl_pipeline_id == 1) {
     // LIGHTING PASS
     vec3 k_ambient = vec3(0.1, 0.1, 0.1);
     vec3 k_diffuse = vec3(0.3, 0.1, 0.2);
@@ -50,7 +50,7 @@ void main(void) {
   }
 
 
-  else if(render_pass == 2) {
+  else if(mgrl_pipeline_id == 2) {
     // HALFTONE PASS
 
 

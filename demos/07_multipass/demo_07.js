@@ -201,54 +201,44 @@ addEventListener("mgrl_media_ready", function () {
 
     // lighting stuff
     var light_direction = vec3.fromValues(-1.0, 1.0, 0.0);
-    vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
+    vec3.normalize(light_direction, light_direction);
 
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_07/draw", function () {
-        // update uniforms
-        prog.vars.time = performance.now();
-        prog.vars.light_direction = light_direction;
-        prog.vars.render_pass = 1;
-        prog.vars.width = 512;
-        prog.vars.height = 512;
-
-        // clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // update uniforms
+        prog.vars.light_direction = light_direction;
 
         // draw the scene
         graph_a.draw();
     }).as_texture();
 
-    
+
     // add post processing pass
     please.pipeline.add(2, "demo_07/post", function () {
-        // update uniforms
-        prog.vars.render_pass = 2;
-        prog.vars.width = please.gl.canvas.width;
-        prog.vars.height = please.gl.canvas.height;
-
-        // set render target
-        prog.samplers.draw_pass = "demo_07/draw";
-
-        // setup the projection matrix
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        /*
-          A quick note / FIXME:
+        // use the last render stage as a texture
+        prog.samplers.draw_pass = "demo_07/draw";
 
-          I'm using the suzanne head again and zooming the camera way
-          in to fill the screen with fragments.
 
-          This really should just be a quad and orthographic
-          projection to avoid confusion, but also to make the post
-          processing phase a little faster, as well as *actually* fill
-          the screen with fragments.
-         */
+        // A quick note / FIXME:
+
+        // I'm using the suzanne head again and zooming the camera way
+        // in to fill the screen with fragments.
+
+        // This really should just be a quad and orthographic
+        // projection to avoid confusion, but also to make the post
+        // processing phase a little faster, as well as *actually* fill
+        // the screen with fragments.
+
 
         // draw suzanne
+
         graph_b.draw();
-    });
+    });//*/
     
     // start the drawing loop
     please.pipeline.start();

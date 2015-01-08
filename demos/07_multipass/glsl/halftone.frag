@@ -5,12 +5,13 @@ precision highp float;
 precision mediump float;
 #endif
 
+// data mgrl automatically uploads
+uniform lowp int mgrl_pipeline_id;
+uniform float mgrl_buffer_width;
+uniform float mgrl_buffer_height;
 
 // render pass
-uniform lowp int render_pass;
 uniform sampler2D draw_pass;
-uniform float width;
-uniform float height;
 
 // attributes
 varying vec3 local_position;
@@ -30,7 +31,7 @@ void main(void) {
   vec4 frag_color = vec4(1.0, 1.0, 1.0, 1.0);
 
 
-  if (render_pass == 1) {
+  if (mgrl_pipeline_id == 1) {
     // LIGHTING PASS
 
     frag_color = vec4(vec3(frag_color.rgb*light_weight), 1.0);
@@ -48,7 +49,7 @@ void main(void) {
   }
 
 
-  else if(render_pass == 2) {
+  else if(mgrl_pipeline_id == 2) {
     // HALFTONE PASS
 
     /*
@@ -63,8 +64,8 @@ void main(void) {
     // used to crop & upscale
     float margin = 100.0;
 
-    float pick_x = (gl_FragCoord.x + sin(gl_FragCoord.y/freq)*amp + margin) / (width+margin*2.0);
-    float pick_y = (gl_FragCoord.y + sin(gl_FragCoord.x/freq)*amp + margin) / (height+margin*2.0);
+    float pick_x = (gl_FragCoord.x + sin(gl_FragCoord.y/freq)*amp + margin) / (mgrl_buffer_width+margin*2.0);
+    float pick_y = (gl_FragCoord.y + sin(gl_FragCoord.x/freq)*amp + margin) / (mgrl_buffer_height+margin*2.0);
 
     vec4 color_sample = texture2D(draw_pass, vec2(pick_x, pick_y));
 

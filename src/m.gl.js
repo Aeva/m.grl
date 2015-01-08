@@ -707,10 +707,6 @@ please.gl.register_framebuffer = function (handle, _options) {
     var opt = {
         "width" : 512,
         "height" : 512,
-        "viewport_x" : 0,
-        "viewport_y" : 0,
-        "viewport_w" : null,
-        "viewport_h" : null,
         "mag_filter" : gl.NEAREST,
         "min_filter" : gl.NEAREST,
         "pixel_format" : gl.RGBA,
@@ -721,12 +717,6 @@ please.gl.register_framebuffer = function (handle, _options) {
                 opt[key] = value;
             }
         });
-    }
-    if (opt.viewport_w === null) {
-        opt.viewport_w = opt.width;
-    }
-    if (opt.viewport_h === null) {
-        opt.viewport_h = opt.height;
     }
     Object.freeze(opt);
 
@@ -772,19 +762,20 @@ please.gl.set_framebuffer = function (handle) {
         return;
     }
     please.gl.__last_fbo = handle;
+    var prog = please.gl.__cache.current;
     if (!handle) {
+        var width = prog.vars.mgrl_buffer_width = please.gl.canvas.width;
+        var height = prog.vars.mgrl_buffer_height = please.gl.canvas.height;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, please.gl.canvas.width, please.gl.canvas.height);
+        gl.viewport(0, 0, width, height);
     }
     else {
         var tex = please.gl.__cache.textures[handle];
         if (tex && tex.fbo) {
+            var width = prog.vars.mgrl_buffer_width = tex.fbo.options.width;
+            var height = prog.vars.mgrl_buffer_height = tex.fbo.options.height;
             gl.bindFramebuffer(gl.FRAMEBUFFER, tex.fbo);
-            gl.viewport(
-                tex.fbo.options.viewport_x,
-                tex.fbo.options.viewport_y,
-                tex.fbo.options.viewport_w,
-                tex.fbo.options.viewport_h);
+            gl.viewport(0, 0, width, height);
         }
         else {
             throw ("No framebuffer registered for " + handle);

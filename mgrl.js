@@ -1660,11 +1660,14 @@ please.pipeline.__on_draw = function () {
     if (please.pipeline.__dirty) {
         please.pipeline.__regen_cache();
     }
+    var prog = please.gl.__cache.current;
+    prog.vars.mgrl_frame_start = start_time;
     // render the pipeline stages
     var stage, msg = null;
     for (var i=0; i<please.pipeline.__cache.length; i+=1) {
         stage = please.pipeline.__cache[i];
         please.gl.set_framebuffer(stage.__indirect ? stage.name : null);
+        prog.vars.mgrl_pipeline_id = stage.order;
         msg = stage.callback(msg);
     }
     // reschedule the draw, if applicable
@@ -3004,10 +3007,6 @@ please.gl.register_framebuffer = function (handle, _options) {
     var opt = {
         "width" : 512,
         "height" : 512,
-        "viewport_x" : 0,
-        "viewport_y" : 0,
-        "viewport_w" : null,
-        "viewport_h" : null,
         "mag_filter" : gl.NEAREST,
         "min_filter" : gl.NEAREST,
         "pixel_format" : gl.RGBA,
@@ -3018,12 +3017,6 @@ please.gl.register_framebuffer = function (handle, _options) {
                 opt[key] = value;
             }
         });
-    }
-    if (opt.viewport_w === null) {
-        opt.viewport_w = opt.width;
-    }
-    if (opt.viewport_h === null) {
-        opt.viewport_h = opt.height;
     }
     Object.freeze(opt);
     // Create the new framebuffer
@@ -3059,19 +3052,20 @@ please.gl.set_framebuffer = function (handle) {
         return;
     }
     please.gl.__last_fbo = handle;
+    var prog = please.gl.__cache.current;
     if (!handle) {
+        var width = prog.vars.mgrl_buffer_width = please.gl.canvas.width;
+        var height = prog.vars.mgrl_buffer_height = please.gl.canvas.height;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, please.gl.canvas.width, please.gl.canvas.height);
+        gl.viewport(0, 0, width, height);
     }
     else {
         var tex = please.gl.__cache.textures[handle];
         if (tex && tex.fbo) {
+            var width = prog.vars.mgrl_buffer_width = tex.fbo.options.width;
+            var height = prog.vars.mgrl_buffer_height = tex.fbo.options.height;
             gl.bindFramebuffer(gl.FRAMEBUFFER, tex.fbo);
-            gl.viewport(
-                tex.fbo.options.viewport_x,
-                tex.fbo.options.viewport_y,
-                tex.fbo.options.viewport_w,
-                tex.fbo.options.viewport_h);
+            gl.viewport(0, 0, width, height);
         }
         else {
             throw ("No framebuffer registered for " + handle);
