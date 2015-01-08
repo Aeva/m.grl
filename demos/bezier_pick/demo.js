@@ -185,7 +185,6 @@ addEventListener("mgrl_media_ready", function () {
     // setup common render state
     please.pipeline.add(1, "beziers/setup", function () {
         // -- update uniforms
-        prog.vars.time = performance.now();
         prog.vars.light_direction = light_direction;
         prog.vars.move_pick = false;
     });
