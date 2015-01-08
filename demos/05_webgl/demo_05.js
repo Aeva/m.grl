@@ -55,6 +55,12 @@ addEventListener("mgrl_media_ready", function () {
     var prog = please.glsl("default", vert, frag);
     prog.activate();
 
+    // Normally you won't need to do this next line, but this demo
+    // doesn't use any of the machinery that would normally call for
+    // it.  Odds are, if you're using the scene graph, you don't need
+    // this line.
+    prog.attrs.vert_position.enabled = true;
+
     // the canvas element is used here to avoid hardcoding the width /
     // height values, which the fragment shader makes use of via
     // uniforms.
