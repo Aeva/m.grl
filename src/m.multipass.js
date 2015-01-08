@@ -33,7 +33,7 @@ please.pipeline = {
     "__timer" : null,
 
     // api methods
-    "add" : function (priority, name, callback) {},
+    "add" : function (priority, name, indirect, callback) {},
     "remove" : function (name) {},
     "remove_above" : function (priority) {},
     "start" : function () {},
@@ -73,6 +73,12 @@ please.pipeline = {
 //   stage.  The return value of the previous pipeline stage is passed
 //   as an argument to the next pipeline stage's callback.
 //
+// To do indirect rendering on a pipeline stage, call the
+// "as_texture(options)" method on the return result of this function.
+// The method wraps please.pipeline.add_indirect(buffer_name,
+// options).  See please.pipeline.add_indirect for more details on the
+// options object.
+//
 please.pipeline.add = function (priority, name, callback) {
     if (this.__callbacks[name] !== undefined) {
         var err = "Cannot register a callback of the same name twice.";
@@ -80,10 +86,28 @@ please.pipeline.add = function (priority, name, callback) {
         throw(err);
     }
     this.__callbacks[name] = {
+        "name" : name,
         "order" : priority,
+        "as_texture" : function (options) {
+            please.pipeline.add_indirect(name, options);
+        },
+        "__indirect" : false,
         "callback" : callback,
     };
     this.__dirty = true;
+    return this.__callbacks[name];
+};
+
+
+// [+] please.pipeline.add_indirect(buffer_name, options)
+//
+// - **options** may be omitted, currently doesn't do anything but
+//   will be used in the future.
+//
+please.pipeline.add_indirect = function (buffer_name, options) {
+    var stage = this.__callbacks[buffer_name];
+    stage.__indirect = true;
+    please.gl.register_framebuffer(buffer_name, options);
 };
 
 
@@ -161,9 +185,12 @@ please.pipeline.__on_draw = function () {
         please.pipeline.__regen_cache();
     }
 
-    var msg = null;
+    // render the pipeline stages
+    var stage, msg = null;
     ITER(i, please.pipeline.__cache) {
-        var msg = please.pipeline.__cache[i].callback(msg);
+        stage = please.pipeline.__cache[i];
+        please.gl.set_framebuffer(stage.__indirect ? stage.name : null);
+        msg = stage.callback(msg);
     }
     
     // reschedule the draw, if applicable

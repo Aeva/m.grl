@@ -1525,7 +1525,7 @@ please.pipeline = {
     "__dirty" : false,
     "__timer" : null,
     // api methods
-    "add" : function (priority, name, callback) {},
+    "add" : function (priority, name, indirect, callback) {},
     "remove" : function (name) {},
     "remove_above" : function (priority) {},
     "start" : function () {},
@@ -1562,6 +1562,12 @@ please.pipeline = {
 //   stage.  The return value of the previous pipeline stage is passed
 //   as an argument to the next pipeline stage's callback.
 //
+// To do indirect rendering on a pipeline stage, call the
+// "as_texture(options)" method on the return result of this function.
+// The method wraps please.pipeline.add_indirect(buffer_name,
+// options).  See please.pipeline.add_indirect for more details on the
+// options object.
+//
 please.pipeline.add = function (priority, name, callback) {
     if (this.__callbacks[name] !== undefined) {
         var err = "Cannot register a callback of the same name twice.";
@@ -1569,10 +1575,26 @@ please.pipeline.add = function (priority, name, callback) {
         throw(err);
     }
     this.__callbacks[name] = {
+        "name" : name,
         "order" : priority,
+        "as_texture" : function (options) {
+            please.pipeline.add_indirect(name, options);
+        },
+        "__indirect" : false,
         "callback" : callback,
     };
     this.__dirty = true;
+    return this.__callbacks[name];
+};
+// [+] please.pipeline.add_indirect(buffer_name, options)
+//
+// - **options** may be omitted, currently doesn't do anything but
+//   will be used in the future.
+//
+please.pipeline.add_indirect = function (buffer_name, options) {
+    var stage = this.__callbacks[buffer_name];
+    stage.__indirect = true;
+    please.gl.register_framebuffer(buffer_name, options);
 };
 // [+] please.pipeline.remove(name)
 //
@@ -1638,9 +1660,12 @@ please.pipeline.__on_draw = function () {
     if (please.pipeline.__dirty) {
         please.pipeline.__regen_cache();
     }
-    var msg = null;
+    // render the pipeline stages
+    var stage, msg = null;
     for (var i=0; i<please.pipeline.__cache.length; i+=1) {
-        var msg = please.pipeline.__cache[i].callback(msg);
+        stage = please.pipeline.__cache[i];
+        please.gl.set_framebuffer(stage.__indirect ? stage.name : null);
+        msg = stage.callback(msg);
     }
     // reschedule the draw, if applicable
     please.pipeline.__reschedule();
@@ -2969,6 +2994,89 @@ please.gl.ibo = function (data, options) {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.id);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
     return ibo;
+};
+// Create a new render texture
+please.gl.register_framebuffer = function (handle, _options) {
+    if (please.gl.__cache.textures[handle]) {
+        throw("Cannot register framebuffer to occupied handel: " + handle);
+    }
+    // Set the framebuffer options.
+    var opt = {
+        "width" : 512,
+        "height" : 512,
+        "viewport_x" : 0,
+        "viewport_y" : 0,
+        "viewport_w" : null,
+        "viewport_h" : null,
+        "mag_filter" : gl.NEAREST,
+        "min_filter" : gl.NEAREST,
+        "pixel_format" : gl.RGBA,
+    };
+    if (_options) {
+        please.prop_map(_options, function (key, value) {
+            if (opt.hasOwnProperty(key)) {
+                opt[key] = value;
+            }
+        });
+    }
+    if (opt.viewport_w === null) {
+        opt.viewport_w = opt.width;
+    }
+    if (opt.viewport_h === null) {
+        opt.viewport_h = opt.height;
+    }
+    Object.freeze(opt);
+    // Create the new framebuffer
+    var fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    fbo.options = opt;
+    // Create the new render texture
+    var tex = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, opt.mag_filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, opt.min_filter);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, opt.width, opt.height, 0,
+                  opt.pixel_format, gl.UNSIGNED_BYTE, null);
+    // Create the new renderbuffer
+    var render = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, render);
+    gl.renderbufferStorage(
+        gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, opt.width, opt.height);
+    gl.framebufferTexture2D(
+        gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.framebufferRenderbuffer(
+        gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, render);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    please.gl.__cache.textures[handle] = tex;
+    please.gl.__cache.textures[handle].fbo = fbo;
+};
+// Set the current render target
+please.gl.__last_fbo = null;
+please.gl.set_framebuffer = function (handle) {
+    if (handle === please.gl.__last_fbo) {
+        return;
+    }
+    please.gl.__last_fbo = handle;
+    if (!handle) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, please.gl.canvas.width, please.gl.canvas.height);
+    }
+    else {
+        var tex = please.gl.__cache.textures[handle];
+        if (tex && tex.fbo) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, tex.fbo);
+            gl.viewport(
+                tex.fbo.options.viewport_x,
+                tex.fbo.options.viewport_y,
+                tex.fbo.options.viewport_w,
+                tex.fbo.options.viewport_h);
+        }
+        else {
+            throw ("No framebuffer registered for " + handle);
+        }
+    }
 };
 // Create and return a vertex buffer object containing a square.
 please.gl.make_quad = function (width, height, origin, draw_hint) {

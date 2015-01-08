@@ -697,6 +697,102 @@ please.gl.ibo = function (data, options) {
 };
 
 
+// Create a new render texture
+please.gl.register_framebuffer = function (handle, _options) {
+    if (please.gl.__cache.textures[handle]) {
+        throw("Cannot register framebuffer to occupied handel: " + handle);
+    }
+
+    // Set the framebuffer options.
+    var opt = {
+        "width" : 512,
+        "height" : 512,
+        "viewport_x" : 0,
+        "viewport_y" : 0,
+        "viewport_w" : null,
+        "viewport_h" : null,
+        "mag_filter" : gl.NEAREST,
+        "min_filter" : gl.NEAREST,
+        "pixel_format" : gl.RGBA,
+    };
+    if (_options) {
+        please.prop_map(_options, function (key, value) {
+            if (opt.hasOwnProperty(key)) {
+                opt[key] = value;
+            }
+        });
+    }
+    if (opt.viewport_w === null) {
+        opt.viewport_w = opt.width;
+    }
+    if (opt.viewport_h === null) {
+        opt.viewport_h = opt.height;
+    }
+    Object.freeze(opt);
+
+    // Create the new framebuffer
+    var fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    fbo.options = opt;
+    
+    // Create the new render texture
+    var tex = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, opt.mag_filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, opt.min_filter);
+
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, opt.width, opt.height, 0, 
+                  opt.pixel_format, gl.UNSIGNED_BYTE, null);
+
+    // Create the new renderbuffer
+    var render = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, render);
+    gl.renderbufferStorage(
+        gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, opt.width, opt.height);
+
+    gl.framebufferTexture2D(
+        gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+
+    gl.framebufferRenderbuffer(
+        gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, render);
+
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    please.gl.__cache.textures[handle] = tex;
+    please.gl.__cache.textures[handle].fbo = fbo;
+};
+
+
+// Set the current render target
+please.gl.__last_fbo = null;
+please.gl.set_framebuffer = function (handle) {
+    if (handle === please.gl.__last_fbo) {
+        return;
+    }
+    please.gl.__last_fbo = handle;
+    if (!handle) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, please.gl.canvas.width, please.gl.canvas.height);
+    }
+    else {
+        var tex = please.gl.__cache.textures[handle];
+        if (tex && tex.fbo) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, tex.fbo);
+            gl.viewport(
+                tex.fbo.options.viewport_x,
+                tex.fbo.options.viewport_y,
+                tex.fbo.options.viewport_w,
+                tex.fbo.options.viewport_h);
+        }
+        else {
+            throw ("No framebuffer registered for " + handle);
+        }
+    }
+};
+
+
 // Create and return a vertex buffer object containing a square.
 please.gl.make_quad = function (width, height, origin, draw_hint) {
 

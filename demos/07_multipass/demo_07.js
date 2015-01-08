@@ -136,19 +136,11 @@ addEventListener("mgrl_fps", function (event) {
 
 
 addEventListener("mgrl_media_ready", function () {
-    // Clear loading screen, show canvas
+    // clear loading screen, show canvas
     document.getElementById("loading_screen").style.display = "none";
     document.getElementById("demo_area").style.display = "block";
 
-    // connect keyboard stuff
-    please.keys.enable();
-    please.keys.connect("up", key_handler);
-    please.keys.connect("left", key_handler);
-    please.keys.connect("down", key_handler);
-    please.keys.connect("right", key_handler);
-
-    // Create GL context, build shader pair
-    var canvas = document.getElementById("gl_canvas");
+    // build the GLSL shader program
     var vert = please.access("halftone.vert");
     var frag = please.access("halftone.frag");
     var prog = please.glsl("default", vert, frag);
@@ -159,6 +151,13 @@ addEventListener("mgrl_media_ready", function () {
     gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.CULL_FACE);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
+
+    // connect keyboard stuff
+    please.keys.enable();
+    please.keys.connect("up", key_handler);
+    please.keys.connect("left", key_handler);
+    please.keys.connect("down", key_handler);
+    please.keys.connect("right", key_handler);
 
     // add model
     var suzanne_data = please.access("suzanne.jta");
@@ -188,10 +187,6 @@ addEventListener("mgrl_media_ready", function () {
     var graph_b = new please.SceneGraph();
     graph_b.add(suzanne_data.instance());
 
-    // frame buffer for our first render pass
-    var buffer_size = 512;
-    register_framebuffer("demo_07/draw", buffer_size);
-
     // setup camera_a
     var camera_a = new please.CameraNode();
     graph_a.add(camera_a);
@@ -215,32 +210,26 @@ addEventListener("mgrl_media_ready", function () {
         prog.vars.time = performance.now();
         prog.vars.light_direction = light_direction;
         prog.vars.render_pass = 1;
-        prog.vars.width = buffer_size;
-        prog.vars.height = buffer_size;
-
-        // set render target
-        set_framebuffer("demo_07/draw");
-        gl.viewport(0, 0, buffer_size, buffer_size);
+        prog.vars.width = 512;
+        prog.vars.height = 512;
 
         // clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // draw the scene
         graph_a.draw();
-    });
+    }).as_texture();
 
     
     // add post processing pass
     please.pipeline.add(2, "demo_07/post", function () {
         // update uniforms
         prog.vars.render_pass = 2;
-        prog.vars.width = canvas.width;
-        prog.vars.height = canvas.height;
+        prog.vars.width = please.gl.canvas.width;
+        prog.vars.height = please.gl.canvas.height;
 
         // set render target
-        set_framebuffer(null);
         prog.samplers.draw_pass = "demo_07/draw";
-        gl.viewport(0, 0, canvas.width, canvas.height);
 
         // setup the projection matrix
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -264,56 +253,3 @@ addEventListener("mgrl_media_ready", function () {
     // start the drawing loop
     please.pipeline.start();
 });
-
-
-function register_framebuffer(handle, size) {
-    if (please.gl.__cache.textures[handle]) {
-        throw("Cannot register framebuffer to occupied handel: " + hande);
-    }
-
-    var fbo = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-
-    if (!size) {
-        size = 512;
-    }
-    fbo.size = size;
-    
-    var tex = gl.createTexture()
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, 
-                  gl.RGBA, gl.UNSIGNED_BYTE, null);
-
-    var render = gl.createRenderbuffer();
-    gl.bindRenderbuffer(gl.RENDERBUFFER, render);
-    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, size, size);
-
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, render);
-
-    gl.bindTexture(gl.TEXTURE_2D, null);
-    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-    please.gl.__cache.textures[handle] = tex;
-    please.gl.__cache.textures[handle].fbo = fbo;
-};
-
-
-function set_framebuffer(handle) {
-    if (!handle) {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    }
-    else {
-        var tex = please.gl.__cache.textures[handle];
-        if (tex && tex.fbo) {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, tex.fbo);
-        }
-        else {
-            throw ("No framebuffer registered for " + handle);
-        }
-    }
-};
