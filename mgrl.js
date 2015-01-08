@@ -2579,6 +2579,9 @@ please.gl.__build_shader = function (src, uri) {
 // program a name (for caching), and pass any number of shader objects
 // to the function.
 please.glsl = function (name /*, shader_a, shader_b,... */) {
+    if (window.gl === undefined) {
+        throw("No webgl context found.  Did you call please.gl.set_context?");
+    }
     var build_fail = "Shader could not be activated..?";
     var prog = {
         "name" : name,
@@ -2604,25 +2607,12 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     // FIXME: unbind old attributes
                 }
                 please.gl.__cache.current = this;
-                // fetching info on available attribute vars from shader:
-                var attr_count = gl.getProgramParameter(
-                    prog.id, gl.ACTIVE_ATTRIBUTES);
-                // store data about attributes
-                for (var i=0; i<attr_count; i+=1) {
-                    var attr = gl.getActiveAttrib(prog.id, i);
-                    attr.loc = gl.getAttribLocation(prog.id, attr.name);
-                    prog.attrs[attr.name] = attr;
-                    gl.enableVertexAttribArray(attr.loc);
-                }
             }
             else {
                 throw(build_fail);
             }
         },
     };
-    if (window.gl === undefined) {
-        throw("No webgl context found.  Did you call please.gl.set_context?");
-    }
     // sort through the shaders passed to this function
     var errors = [];
     for (var i=1; i< arguments.length; i+=1) {
@@ -2774,6 +2764,37 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     for (var i=0; i<uni_count; i+=1) {
         bind_uniform(gl.getActiveUniform(prog.id, i));
     }
+    // create handlers for available attributes + getter/setter for
+    // enabling/disabling them
+    var bind_attribute = function(attr) {
+        var state = false;
+        attr.loc = gl.getAttribLocation(prog.id, attr.name);
+        Object.defineProperty(attr, "enabled", {
+            enumerable: true,
+            get : function () {
+                return state;
+            },
+            set : function (value) {
+                if (Boolean(value) !== state) {
+                    state = !state;
+                    if (state) {
+                        gl.enableVertexAttribArray(attr.loc);
+                    }
+                    else {
+                        gl.disableVertexAttribArray(attr.loc);
+                    }
+                }
+            },
+        });
+        prog.attrs[attr.name] = attr;
+    };
+    // fetching info on available attribute vars from shader:
+    var attr_count = gl.getProgramParameter(prog.id, gl.ACTIVE_ATTRIBUTES);
+    // store data about attributes
+    for (var i=0; i<attr_count; i+=1) {
+        var attr = gl.getActiveAttrib(prog.id, i);
+        bind_attribute(attr);
+    }
     // leaving these commented out for now, because the error message
     // they produce is too cryptic
     //Object.freeze(prog.vars);
@@ -2807,6 +2828,18 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         },
     };
     var attr_names = please.get_properties(attr_map);
+    // This is used to automatically disable and enable attributes
+    // when neccesary
+    var setup_attrs = function (prog) {
+        for (var name in prog.attrs) {
+            if (attr_names.indexOf(name) === -1) {
+                prog.attrs[name].enabled = false;
+            }
+            else {
+                prog.attrs[name].enabled = true;
+            }
+        }
+    };
     if (attr_names.length === 1) {
         // ---- create a monolithic VBO
         var attr = attr_names[0];
@@ -2820,10 +2853,13 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             if (please.gl.__last_vbo !== this) {
                 please.gl.__last_vbo = this
                 var prog = please.gl.__cache.current;
-                if (prog && prog.hasOwnProperty(prog.attrs[attr])) {
-                    gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
-                    gl.vertexAttribPointer(
-                        prog.attrs[attr].loc, item_size, opt.type, false, 0, 0);
+                if (prog) {
+                    setup_attrs(prog);
+                    if (prog && prog.hasOwnProperty(prog.attrs[attr])) {
+                        gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
+                        gl.vertexAttribPointer(
+                            prog.attrs[attr].loc, item_size, opt.type, false, 0, 0);
+                    }
                 }
             }
         };
@@ -2873,6 +2909,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 please.gl.__last_vbo = this
                 var prog = please.gl.__cache.current;
                 if (prog) {
+                    setup_attrs(prog);
                     gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
                     for (var i=0; i<bind_order.length; i+=1) {
                         var attr = bind_order[i];
