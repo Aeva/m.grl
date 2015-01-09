@@ -2803,7 +2803,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 return state;
             },
             set : function (value) {
-                if (Boolean(value) !== state) {
+                if (value != state) {
                     state = !state;
                     if (state) {
                         gl.enableVertexAttribArray(attr.loc);
