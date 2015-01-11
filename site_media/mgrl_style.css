@@ -15,7 +15,7 @@ body {
 }
 
 a {
-    color: #bbf818;
+    color: #78b8ff;
     text-decoration: none;
 }
 a:hover {
@@ -42,7 +42,7 @@ h1 {
 }
 
 .overlay {
-    background-color: rgba(56, 56, 56, 0.8);
+    background-color: rgba(57, 51, 58, 0.8);
     padding: 8px;
     text-align: center;
     border-radius: 4px;
@@ -88,4 +88,38 @@ h1 {
 
 .content:target {
     display: block;
+}
+
+.content_flexbox {
+    position: absolute;
+    top: 60px;
+    bottom: 0px;
+    left: 20px;
+    right: 20px;
+    
+    display: -webkit-flex;
+    display: flex;
+    -webkit-flex-flow: row wrap;
+    flex-flow: row wrap;
+    align-content: space-around;
+}
+
+.content_flexbox > * {
+    -webkit-flex: auto;
+    flex: auto;
+    min-width: 100%;
+    margin: auto;
+}
+
+.fine_print > p {
+    line-height: 1em;
+    text-indent: 0px;
+    font-size: 12px;
+}
+
+.demo_link {
+    border: 1px solid #888;
+    border-radius: 8px;
+    padding-top: 1em;
+    padding-bottom: 1em;
 }
