@@ -1,6 +1,6 @@
 
 
- Mondaux Graphics & Recreation Library
+ Midnight Graphics & Recreation Library
  version < 1.0
 .
 
@@ -25,7 +25,7 @@
 .
 
 
- The Mondaux Graphics & Recreation Library (m.grl) javascript
+ The Midnight Graphics & Recreation Library (m.grl) javascript
  framework for writing games.
 
  Some basic features:
@@ -47,11 +47,4 @@
  To regenerate the API pages, you can run this shell script:
 
 $ sh update_docs.sh
-.
-
-
- "Mondaux" is pronounced like "monday".  Bad faux-french.
-
- As for "m.grl", think "riot grrl" or "perl grrl".  Only it's
- javascript instead.
 .
