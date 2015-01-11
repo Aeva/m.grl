@@ -1,7 +1,7 @@
 "use strict";
 /*
 
- Mondaux Graphics & Recreation Library Demos:
+ Midnight Graphics & Recreation Library Demos:
 
  This file demonstrates how to use M.GRL's keyboard handler.
 .

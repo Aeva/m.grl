@@ -1,7 +1,7 @@
 "use strict";
 /*
 
- Mondaux Graphics & Recreation Library Demos:
+ Midnight Graphics & Recreation Library Demos:
 
  This file is the old model loader demo, and will soon be superseeded.
 .

@@ -1,7 +1,7 @@
 "use strict";
 /*
 
- Mondaux Graphics & Recreation Library Demos:
+ Midnight Graphics & Recreation Library Demos:
 
  This file demonstrates loading a GLSL shader program, and M.GRL's
  feature for automatic binding of uniform variables.

@@ -1,6 +1,6 @@
 /*
 
- Mondaux Graphics & Recreation Library
+ Midnight Graphics & Recreation Library
  version < 1.0
 
 .

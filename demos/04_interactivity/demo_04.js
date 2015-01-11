@@ -1,7 +1,7 @@
 "use strict";
 /*
 
- Mondaux Graphics & Recreation Library Demos:
+ Midnight Graphics & Recreation Library Demos:
 
  This file builds off of the last three demos (asset management,
  keyboard control, and sprite animation) to create a simple game.

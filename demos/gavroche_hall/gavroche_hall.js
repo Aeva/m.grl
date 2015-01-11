@@ -1,7 +1,7 @@
 "use strict";
 /*
 
- Mondaux Graphics & Recreation Library Demos:
+ Midnight Graphics & Recreation Library Demos:
 
  This file - at the time of writing - is being used to test and debug
  the new JTA model loader and the scene graph.
@@ -248,7 +248,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // -- draw the scene graph
-        graph.tick();
         graph.draw();
     });
     please.pipeline.start();
