@@ -186,14 +186,18 @@ please.pipeline.__on_draw = function () {
     }
 
     var prog = please.gl.__cache.current;
-    prog.vars.mgrl_frame_start = start_time;
+    if (prog) {
+        prog.vars.mgrl_frame_start = start_time;
+    }
 
     // render the pipeline stages
     var stage, msg = null;
     ITER(i, please.pipeline.__cache) {
         stage = please.pipeline.__cache[i];
         please.gl.set_framebuffer(stage.__indirect ? stage.name : null);
-        prog.vars.mgrl_pipeline_id = stage.order;
+        if (prog) {
+            prog.vars.mgrl_pipeline_id = stage.order;
+        }
         msg = stage.callback(msg);
     }
     
