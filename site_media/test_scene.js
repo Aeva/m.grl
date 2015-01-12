@@ -23,11 +23,50 @@
  */
 
 
-var scene = {};
+var scene = {
+    // points for the camera to focus on
+    "f_points" : [
+        [-6, 0, 4],
+        [0, -6, 4],
+        [6, 0, 4],
+        [0, 6, 4],
+    ],
+
+    // positions for the camera
+    "p_points" : [
+        [-6, 19, 4.5],
+        [-19, -6, 4.5],
+        [6, -19, 4.5],
+        [19, 6, 4.5],
+    ],
+
+    // which point set to use
+    "stage" : 0,
+};
 
 
 window.change_focus = function(last_focus, next_focus) {
     console.info(" + changed focus to: " + next_focus + ", from: " + last_focus);
+
+    if (scene.focus && scene.camera) {
+        // read out current position
+        var last_f = scene.focus.location;
+        var last_p = scene.camera.location;
+
+        // read out new targets
+        var next = (scene.stage + 1) % scene.f_points.length;
+        var next_f = scene.f_points[next];
+        var next_p = scene.p_points[next];
+
+        // set up new animations
+        scene.focus.location = please.path_driver(
+            please.linear_path(last_f, next_f), 1000, false, false);
+        scene.camera.location = please.path_driver(
+            please.linear_path(last_p, next_p), 1000, false, false);
+
+        // change the stage counter
+        scene.stage = next;
+    }
 };
 
 
@@ -39,8 +78,8 @@ window.addEventListener("load", function () {
     please.load("demo.vert");
     please.load("demo.frag");
 
-    please.load("floor_lamp.png");
-    please.load("floor_lamp.jta");
+    please.load("suzanne.png");
+    please.load("suzanne.jta");
 });
 
 
@@ -62,25 +101,29 @@ addEventListener("mgrl_media_ready", function () {
     //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    // access model data
-    var lamp_model = please.access("floor_lamp.jta");
-
     // scene graph object thingy
     var graph = scene.graph = new please.SceneGraph();
     graph.add(new FloorNode());
 
-    var lamp = lamp_model.instance();
-    lamp.shader.mode = 2;
-    graph.add(lamp);
+    // access model data
+    var noun = scene.noun = please.access("suzanne.jta").instance();
+    noun.shader.mode = 2;
+    noun.scale = [4, 4, 4];
+    noun.rotation_x = 115;
+    noun.rotation_y = 180;
+    noun.rotation_z = -20;
+    noun.location_x = 2;
+    noun.location_z = -2;
+    graph.add(noun);
 
     var focus = scene.focus = new please.GraphNode();
     graph.add(focus);
-    focus.location = [-6, 0, 4];
+    focus.location = scene.f_points[scene.stage];
 
     // add a camera
     var camera = scene.camera = new please.CameraNode();
     camera.look_at = focus;
-    camera.location = [-6, 19, 4.5];
+    camera.location = scene.p_points[scene.stage];
     camera.fov = 45;
     graph.add(camera);
     camera.activate();
