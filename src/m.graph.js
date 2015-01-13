@@ -566,7 +566,6 @@ please.GraphNode = function () {
             please.make_animatable(this, name, null, this.shader);
         }
     }
-    Object.freeze(this.shader);
 
     this.visible = true;
     this.draw_type = "model"; // can be set to "sprite"
