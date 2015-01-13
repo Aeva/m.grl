@@ -71,13 +71,21 @@ window.change_focus = function(last_focus, next_focus) {
 
 
 window.addEventListener("load", function () {
+    // setup drawing context
     please.gl.set_context("bg_demo");
+
+    // set up media search paths
     please.set_search_path("glsl", "site_media/glsl");
     please.set_search_path("img", "demos/gl_assets/img/");
     please.set_search_path("jta", "demos/gl_assets/models/");
+
+    // shader sources
     please.load("demo.vert");
     please.load("demo.frag");
+    please.load("depth.vert");
+    please.load("depth.frag");
 
+    // model data to draw
     please.load("suzanne.png");
     please.load("suzanne.jta");
 });
@@ -85,9 +93,14 @@ window.addEventListener("load", function () {
 
 addEventListener("mgrl_media_ready", function () {
     // build the shader program
-    var vert = please.access("demo.vert");
-    var frag = please.access("demo.frag");
-    var prog = please.glsl("default", vert, frag);
+    var build_shader = function(name, vert_file, frag_file) {
+        var vert = please.access(vert_file);
+        var frag = please.access(frag_file);
+        return please.glsl(name, vert, frag);
+    };
+    var prog_ = build_shader("default", "demo.vert", "demo.frag");
+    var prog = build_shader("depth", "depth.vert", "depth.frag");
+
     prog.activate();
 
     // setup default state stuff    
