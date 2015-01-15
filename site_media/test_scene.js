@@ -98,11 +98,10 @@ addEventListener("mgrl_media_ready", function () {
         var frag = please.access(frag_file);
         return please.glsl(name, vert, frag);
     };
-    var prog = scene.prog1 = build_shader("default", "demo.vert", "demo.frag");
-    //var prog 
-    scene.prog2 = build_shader("depth", "depth.vert", "depth.frag");
-
+    var prog = build_shader("default", "demo.vert", "demo.frag");
     prog.activate();
+
+    build_shader("depth", "depth.vert", "depth.frag");
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
@@ -159,7 +158,22 @@ addEventListener("mgrl_media_ready", function () {
             gl.viewport(0, 0, window_w, window_h);
         }
     });
-    please.pipeline.add(10, "demo_06/draw", function () {
+    please.pipeline.add(10, "test/depth_pass", function () {
+        var prog = please.gl.get_program("depth");
+        prog.activate();
+
+        // -- clear the screen
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
+        // -- draw geometry
+        graph.draw();
+
+
+    }).as_texture();
+    please.pipeline.add(20, "demo_06/draw", function () {
+        var prog = please.gl.get_program("default");
+        prog.activate();
+
         // -- update uniforms
         prog.vars.time = performance.now();
         prog.vars.light_direction = light_direction;

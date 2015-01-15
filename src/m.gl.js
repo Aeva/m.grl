@@ -277,14 +277,16 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             var old = null;
             var prog = this;
             if (prog.ready && !prog.error) {
-                gl.useProgram(prog.id);
-                // unbind old attributes if necessary
-                if (please.gl.__cache.current !== null) {
-                    old = please.gl.__cache.current;
-                    // FIXME: unbind old attributes
+                if (please.gl.__cache.current !== this) {
+                    gl.useProgram(prog.id);
+                    // unbind old attributes if necessary
+                    if (please.gl.__cache.current !== null) {
+                        old = please.gl.__cache.current;
+                        // FIXME: unbind old attributes
+                    }
+                    // update the cache pointer
+                    please.gl.__cache.current = this;
                 }
-                // update the cache pointer
-                please.gl.__cache.current = this;
             }
             else {
                 throw(build_fail);
@@ -297,7 +299,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 window.dispatchEvent(shader_event);
 
                 ITER_PROPS(prop, old.vars) {
-                    prog.vars[prop] = old.vars[prop];
+                    if (old.vars[prop]) {
+                        prog.vars[prop] = old.vars[prop];
+                    }
                 }
             }
         },
