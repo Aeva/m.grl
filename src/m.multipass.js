@@ -87,6 +87,7 @@ please.pipeline.add = function (priority, name, callback) {
     }
     this.__callbacks[name] = {
         "name" : name,
+        "glsl_var" : please.pipeline.__glsl_name(name),
         "order" : priority,
         "as_texture" : function (options) {
             please.pipeline.add_indirect(name, options);
@@ -96,6 +97,18 @@ please.pipeline.add = function (priority, name, callback) {
     };
     this.__dirty = true;
     return this.__callbacks[name];
+};
+
+
+//
+please.pipeline.__glsl_name = function(name) {
+    if (name) {
+        // FIXME do some kind of validation
+        return name.replace("/", "_");
+    }
+    else {
+        return null;
+    }
 };
 
 
@@ -191,14 +204,21 @@ please.pipeline.__on_draw = function () {
     }
 
     // render the pipeline stages
-    var stage, msg = null;
+    var stage, msg = null, reset_name_bool = false;
     ITER(i, please.pipeline.__cache) {
         stage = please.pipeline.__cache[i];
         please.gl.set_framebuffer(stage.__indirect ? stage.name : null);
         if (prog) {
             prog.vars.mgrl_pipeline_id = stage.order;
+            if (prog.uniform_list.indexOf(stage.glsl_var) > -1) {
+                prog.vars[stage.glsl_var] = true;
+                reset_name_bool = true;
+            }
         }
         msg = stage.callback(msg);
+        if (reset_name_bool) {
+            prog.vars[stage.glsl_var] = false;
+        }
     }
     
     // reschedule the draw, if applicable

@@ -263,6 +263,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "vars" : {}, // uniform variables
         "attrs" : {}, // attribute variables
         "samplers" : {}, // sampler variables
+        "uniform_list" : [], // immutable, canonical list of uniform var names
         "__cache" : {
             // the cache records the last value set,
             "vars" : {},
@@ -273,18 +274,31 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "ready" : false,
         "error" : false,
         "activate" : function () {
+            var old = null;
             var prog = this;
             if (prog.ready && !prog.error) {
                 gl.useProgram(prog.id);
-
-                // Update cache + unbind old attrs
+                // unbind old attributes if necessary
                 if (please.gl.__cache.current !== null) {
+                    old = please.gl.__cache.current;
                     // FIXME: unbind old attributes
                 }
+                // update the cache pointer
                 please.gl.__cache.current = this;
             }
             else {
                 throw(build_fail);
+            }
+            if (old) {
+                // trigger things to be rebound if neccesary
+                var shader_event = new Event("mgrl_changed_shader");
+                shader_event.old_program = old;
+                shader_event.new_program = prog;
+                window.dispatchEvent(shader_event);
+
+                ITER_PROPS(prop, old.vars) {
+                    prog.vars[prop] = old.vars[prop];
+                }
             }
         },
     };
@@ -370,6 +384,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         // FIXME - set defaults per data type
         prog.__cache.vars[data.name] = null;
 
+        prog.uniform_list.push(data.name);
         prog.vars.__defineSetter__(data.name, function (type_array) {
             // FIXME we could do some sanity checking here, eg, making
             // sure the array length is appropriate for the expected
@@ -503,6 +518,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     // they produce is too cryptic
     //Object.freeze(prog.vars);
     //Object.freeze(prog.samplers);
+
+    // this should never be written to anyway
+    Object.freeze(prog.uniform_list);
 
     prog.ready = true;
     please.gl.__cache.programs[prog.name] = prog;    

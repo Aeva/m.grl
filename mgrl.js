@@ -1576,6 +1576,7 @@ please.pipeline.add = function (priority, name, callback) {
     }
     this.__callbacks[name] = {
         "name" : name,
+        "glsl_var" : please.pipeline.__glsl_name(name),
         "order" : priority,
         "as_texture" : function (options) {
             please.pipeline.add_indirect(name, options);
@@ -1585,6 +1586,16 @@ please.pipeline.add = function (priority, name, callback) {
     };
     this.__dirty = true;
     return this.__callbacks[name];
+};
+//
+please.pipeline.__glsl_name = function(name) {
+    if (name) {
+        // FIXME do some kind of validation
+        return name.replace("/", "_");
+    }
+    else {
+        return null;
+    }
 };
 // [+] please.pipeline.add_indirect(buffer_name, options)
 //
@@ -1665,14 +1676,21 @@ please.pipeline.__on_draw = function () {
         prog.vars.mgrl_frame_start = start_time;
     }
     // render the pipeline stages
-    var stage, msg = null;
+    var stage, msg = null, reset_name_bool = false;
     for (var i=0; i<please.pipeline.__cache.length; i+=1) {
         stage = please.pipeline.__cache[i];
         please.gl.set_framebuffer(stage.__indirect ? stage.name : null);
         if (prog) {
             prog.vars.mgrl_pipeline_id = stage.order;
+            if (prog.uniform_list.indexOf(stage.glsl_var) > -1) {
+                prog.vars[stage.glsl_var] = true;
+                reset_name_bool = true;
+            }
         }
         msg = stage.callback(msg);
+        if (reset_name_bool) {
+            prog.vars[stage.glsl_var] = false;
+        }
     }
     // reschedule the draw, if applicable
     please.pipeline.__reschedule();
@@ -2621,6 +2639,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "vars" : {}, // uniform variables
         "attrs" : {}, // attribute variables
         "samplers" : {}, // sampler variables
+        "uniform_list" : [], // immutable, canonical list of uniform var names
         "__cache" : {
             // the cache records the last value set,
             "vars" : {},
@@ -2631,17 +2650,30 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "ready" : false,
         "error" : false,
         "activate" : function () {
+            var old = null;
             var prog = this;
             if (prog.ready && !prog.error) {
                 gl.useProgram(prog.id);
-                // Update cache + unbind old attrs
+                // unbind old attributes if necessary
                 if (please.gl.__cache.current !== null) {
+                    old = please.gl.__cache.current;
                     // FIXME: unbind old attributes
                 }
+                // update the cache pointer
                 please.gl.__cache.current = this;
             }
             else {
                 throw(build_fail);
+            }
+            if (old) {
+                // trigger things to be rebound if neccesary
+                var shader_event = new Event("mgrl_changed_shader");
+                shader_event.old_program = old;
+                shader_event.new_program = prog;
+                window.dispatchEvent(shader_event);
+                for (var prop in old.vars) if (old.vars.hasOwnProperty(prop)) {
+                    prog.vars[prop] = old.vars[prop];
+                }
             }
         },
     };
@@ -2716,6 +2748,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         var is_array = uni.endsWith("v");
         // FIXME - set defaults per data type
         prog.__cache.vars[data.name] = null;
+        prog.uniform_list.push(data.name);
         prog.vars.__defineSetter__(data.name, function (type_array) {
             // FIXME we could do some sanity checking here, eg, making
             // sure the array length is appropriate for the expected
@@ -2831,6 +2864,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     // they produce is too cryptic
     //Object.freeze(prog.vars);
     //Object.freeze(prog.samplers);
+    // this should never be written to anyway
+    Object.freeze(prog.uniform_list);
     prog.ready = true;
     please.gl.__cache.programs[prog.name] = prog;
     return prog;
@@ -3691,6 +3726,24 @@ please.gl.__jta_unpack_textures = function (packed_data) {
  * please.pipeline.start();
  * ```
  */
+// Common setup for both animatable property modes.  Creates cache
+// objects and data stores
+please.__setup_ani_data = function(obj) {
+    if (!obj.__ani_cache) {
+        Object.defineProperty(obj, "__ani_cache", {
+            enumerable : false,
+            writable : false,
+            value : {},
+        });
+    }
+    if (!obj.__ani_store) {
+        Object.defineProperty(obj, "__ani_store", {
+            enumerable : false,
+            writable : false,
+            value : {},
+        });
+    }
+};
 // [+] please.make_animatable(obj, prop, default_value, proxy, lock)
 //
 // Sets up the machinery needed to make the given property on an
@@ -3701,41 +3754,43 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock) {
     // getter/setter is saved
     var target = proxy ? proxy : obj;
     // Create the cache object if it does not yet exist.
-    if (!obj.__ani_cache) {
-        Object.defineProperty(obj, "__ani_cache", {
-            enumerable : false,
-            writable : false,
-            value : {},
+    please.__setup_ani_data(obj);
+    var cache = obj.__ani_cache;
+    var store = obj.__ani_store;
+    // Add the new property to the cache object.
+    if (!cache[prop]) {
+        Object.defineProperty(cache, prop, {
+            enumerable: true,
+            writable: true,
+            value: null,
         });
     }
-    var cache = obj.__ani_cache;
-    // Add the property to the cache object.
-    Object.defineProperty(cache, prop, {
-        enumerable: true,
-        writable: true,
-        value: null,
-    });
+    if (!store[prop]) {
+        Object.defineProperty(store, prop, {
+            enumerable: true,
+            writable: true,
+            value: default_value!==undefined ? default_value : null,
+        });
+    }
     // Local time stamp for cache invalidation.
     var last_update = 0;
-    // Local store.
-    var local = default_value !== undefined ? default_value : null;
     // Define the getters and setters for the new property.
     var getter = function () {
-        if (typeof(local) === "function") {
+        if (typeof(store[prop]) === "function") {
             // determine if the cached value is too old
             if (cache[prop] === null || please.pipeline.__framestart > last_update) {
-                cache[prop] = local.call(obj);
+                cache[prop] = store[prop].call(obj);
                 last_update = please.pipeline.__framestart;
             }
             return cache[prop];
         }
         else {
-            return local;
+            return store[prop];
         }
     };
     var setter = function (value) {
         cache[prop] = null;
-        local = value;
+        store[prop] = value;
         return value;
     };
     if (!lock) {
@@ -3785,14 +3840,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
     // getter/setter is saved
     var target = proxy ? proxy : obj;
     // Create the cache object if it does not yet exist.
-    if (!obj.__ani_cache) {
-        Object.defineProperty(obj, "__ani_cache", {
-            enumerable : false,
-            writable : false,
-            value : {},
-        });
-    }
+    please.__setup_ani_data(obj);
     var cache = obj.__ani_cache;
+    var store = obj.__ani_store;
     // Determine the swizzle handles.
     if (!swizzle || swizzle.length !== 3) {
         swizzle = "xyz";
@@ -3805,38 +3855,53 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
     var cache_lines = [prop + "_focus"].concat(handles);
     for (var i=0; i<cache_lines.length; i+=1) {
         // Add cache lines for this property set.
-        Object.defineProperty(cache, cache_lines[i], {
-            enumerable: true,
-            writable: true,
-            value: null,
-        });
+        var line_name = cache_lines[i];
+        if (!cache[line_name]) {
+            Object.defineProperty(cache, line_name, {
+                enumerable: true,
+                writable: true,
+                value: null,
+            });
+        }
     }
     // Local timestamps for cache invalidation.
     var last_focus = 0;
     var last_channel = [0, 0, 0];
     // Local data stores.
-    var xyz = [0, 0, 0];
-    var focus = null;
+    if (!store[prop + "_" + swizzle]) {
+        Object.defineProperty(store, prop+"_"+swizzle, {
+            enumerable: true,
+            writable: true,
+            value: [0, 0, 0],
+        });
+    }
+    if (!store[prop + "_focus"]) {
+        Object.defineProperty(store, prop+"_focus", {
+            enumerable: true,
+            writable: true,
+            value: null,
+        });
+    }
     // Add getters and setters for the individual channels.
     var channel_getter = function (i) {
         return function () {
-            if (focus && typeof(focus) === "function") {
+            if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
                 return target[prop][i];
             }
-            else if (focus && focus.hasOwnProperty("location")) {
-                return focus.location[i];
+            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("location")) {
+                return store[prop+"_focus"].location[i];
             }
             else {
-                if (typeof(xyz[i]) === "function") {
+                if (typeof(store[prop+"_"+swizzle][i]) === "function") {
                     // determine if the cached value is too old
                     if (cache[handles[i]] === null || please.pipeline.__framestart > last_channel[i]) {
-                        cache[handles[i]] = xyz[i].call(obj);
+                        cache[handles[i]] = store[prop+"_"+swizzle][i].call(obj);
                         last_channel[i] = please.pipeline.__framestart;
                     }
                     return cache[handles[i]];
                 }
                 else {
-                    return xyz[i];
+                    return store[prop+"_"+swizzle][i];
                 }
             }
         };
@@ -3845,7 +3910,7 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
         return function(value) {
             cache[prop] = null;
             cache[handles[i]] = null;
-            xyz[i] = value;
+            store[prop+"_"+swizzle][i] = value;
             return value;
         };
     };
@@ -3860,15 +3925,15 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
     Object.defineProperty(target, prop, {
         enumerable : true,
         get : function () {
-            if (focus && typeof(focus) === "function") {
+            if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
                 if (cache[prop] === null || please.pipeline.__framestart > last_focus) {
-                    cache[prop] = focus.call(obj);
+                    cache[prop] = store[prop+"_focus"].call(obj);
                     last_focus = please.pipeline.__framestart
                 }
                 return cache[prop];
             }
-            else if (focus && focus.hasOwnProperty("location")) {
-                return focus.location;
+            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("location")) {
+                return store[prop+"_focus"].location;
             }
             else {
                 var out = [];
@@ -3884,13 +3949,13 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
         set : function (value) {
             cache[prop] = null;
             if (value === null || value === undefined) {
-                focus = null;
+                store[prop+"_focus"] = null;
             }
             else if (typeof(value) === "function") {
-                focus = value;
+                store[prop+"_focus"] = value;
             }
             else if (value.hasOwnProperty("location")) {
-                focus = value;
+                store[prop+"_focus"] = value;
             }
             else if (value.length === 3) {
                 for (var i=0; i<value.length; i+=1) {
@@ -4108,24 +4173,34 @@ please.GraphNode = function () {
         "view_matrix",
     ];
     // GLSL bindings with default driver methods:
-    this.shader = {};
-    please.make_animatable(
-        this, "world_matrix", this.__world_matrix_driver, this.shader, true);
-    please.make_animatable(
-        this, "normal_matrix", this.__normal_matrix_driver, this.shader, true);
-    // GLSLS bindings with default behaviors
-    please.make_animatable(
-        this, "alpha", 1.0, this.shader);
-    please.make_animatable(
-        this, "is_sprite", this.__is_sprite_driver, this.shader, true);
-    please.make_animatable(
-        this, "is_transparent", this.__is_transparent_driver, this.shader, true);
-    // prog.samplers is a subset of prog.vars
-    for (var name in prog.vars) if (prog.vars.hasOwnProperty(name)) {
-        if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
-            please.make_animatable(this, name, null, this.shader);
+    this.__regen_glsl_bindings = function (event) {
+        var prog = please.gl.__cache.current;
+        var old = null;
+        if (event) {
+            old = event.old_prog;
         }
-    }
+        this.shader = {};
+        please.make_animatable(
+            this, "world_matrix", this.__world_matrix_driver, this.shader, true);
+        please.make_animatable(
+            this, "normal_matrix", this.__normal_matrix_driver, this.shader, true);
+        // GLSLS bindings with default behaviors
+        please.make_animatable(
+            this, "alpha", 1.0, this.shader);
+        please.make_animatable(
+            this, "is_sprite", this.__is_sprite_driver, this.shader, true);
+        please.make_animatable(
+            this, "is_transparent", this.__is_transparent_driver, this.shader, true);
+        // prog.samplers is a subset of prog.vars
+        for (var name, i=0; i<prog.uniform_list.length; i+=1) {
+            name = prog.uniform_list[i];
+            if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
+                please.make_animatable(this, name, null, this.shader);
+            }
+        }
+    }.bind(this);
+    this.__regen_glsl_bindings();
+    window.addEventListener("mgrl_changed_shader", this.__regen_glsl_bindings);
     this.visible = true;
     this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
@@ -4178,6 +4253,8 @@ please.GraphNode.prototype = {
             children[i].__set_graph_root(null);
         }
         delete please.graph_index[this.__id];
+        window.removeEventListener(
+            "mgrl_changed_shader", this.__regen_glsl_bindings);
     },
     "__set_graph_root" : function (root) {
         // Used to recursively set the "graph root" (scene graph

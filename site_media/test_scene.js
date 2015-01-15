@@ -82,8 +82,8 @@ window.addEventListener("load", function () {
     // shader sources
     please.load("demo.vert");
     please.load("demo.frag");
-    // please.load("depth.vert");
-    // please.load("depth.frag");
+    please.load("depth.vert");
+    please.load("depth.frag");
 
     // model data to draw
     please.load("suzanne.png");
@@ -98,8 +98,9 @@ addEventListener("mgrl_media_ready", function () {
         var frag = please.access(frag_file);
         return please.glsl(name, vert, frag);
     };
-    var prog = build_shader("default", "demo.vert", "demo.frag");
-    //var prog = build_shader("depth", "depth.vert", "depth.frag");
+    var prog = scene.prog1 = build_shader("default", "demo.vert", "demo.frag");
+    //var prog 
+    scene.prog2 = build_shader("depth", "depth.vert", "depth.frag");
 
     prog.activate();
 
@@ -182,6 +183,10 @@ var FloorNode = function () {
     this.__vbo = please.gl.make_quad(100, 100);
     this.__drawable = true;
     this.shader.mode = 1; // "floor mode"
+
+    window.addEventListener("mgrl_changed_shader", function (event) {
+        this.shader.mode = 1;
+    }.bind(this));
 
     this.bind = function () {
         this.__vbo.bind();
