@@ -61,7 +61,11 @@ vec4 blur_sample(float blur) {
 
 void main(void) {
   vec2 frag_point = pick(gl_FragCoord.xy);
-  float blur = texture2D(depth_pass, frag_point).r * 20.0;
+  vec4 blur_color = texture2D(depth_pass, frag_point);
+  float blur = blur_color.r * 20.0;
+  if (blur_color.a == 0.0) {
+    blur = 20.0;
+  }
   vec4 color;
 
   if (blur >= 0.9) {
