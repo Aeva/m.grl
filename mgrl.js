@@ -2640,6 +2640,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "attrs" : {}, // attribute variables
         "samplers" : {}, // sampler variables
         "uniform_list" : [], // immutable, canonical list of uniform var names
+        "sampler_list" : [], // immutable, canonical list of sampler var names
         "__cache" : {
             // the cache records the last value set,
             "vars" : {},
@@ -2673,11 +2674,14 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 shader_event.old_program = old;
                 shader_event.new_program = prog;
                 window.dispatchEvent(shader_event);
+                // copy over defaults from the last pass
                 for (var prop in old.vars) if (old.vars.hasOwnProperty(prop)) {
                     if (old.vars[prop]) {
                         prog.vars[prop] = old.vars[prop];
                     }
                 }
+                // drop the sampler cache
+                prog.__cache.samplers = {};
             }
         },
     };
@@ -2802,6 +2806,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         });
         if (data.type === gl.SAMPLER_2D) {
             data.t_unit = sampler_uniforms.length;
+            prog.uniform_list.push(data.name);
             sampler_uniforms.push(data.name);
             data.t_symbol = gl["TEXTURE"+data.t_unit];
             if (!data.t_symbol) {

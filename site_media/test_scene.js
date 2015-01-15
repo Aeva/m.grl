@@ -84,6 +84,8 @@ window.addEventListener("load", function () {
     please.load("demo.frag");
     please.load("depth.vert");
     please.load("depth.frag");
+    please.load("bokeh.vert");
+    please.load("bokeh.frag");
 
     // model data to draw
     please.load("suzanne.png");
@@ -103,6 +105,7 @@ addEventListener("mgrl_media_ready", function () {
     prog.activate();
 
     build_shader("depth", "depth.vert", "depth.frag");
+    build_shader("bokeh", "bokeh.vert", "bokeh.frag");
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
@@ -187,21 +190,34 @@ addEventListener("mgrl_media_ready", function () {
         // -- draw geometry
         graph.draw();
 
-    })//.as_texture();
-    // please.pipeline.add(20, "demo_06/draw", function () {
-    //     var prog = please.gl.get_program("default");
-    //     prog.activate();
+    }).as_texture({width:1024, height:1024});
+    please.pipeline.add(20, "demo_06/draw", function () {
+        var prog = please.gl.get_program("default");
+        prog.activate();
 
-    //     // -- update uniforms
-    //     prog.vars.time = performance.now();
-    //     prog.vars.light_direction = light_direction;
+        // -- update uniforms
+        prog.vars.time = performance.now();
+        prog.vars.light_direction = light_direction;
 
-    //     // -- clear the screen
-    //     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        // -- clear the screen
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         
-    //     // -- draw geometry
-    //     graph.draw();
-    // });
+        // -- draw geometry
+        graph.draw();
+    }).as_texture({width:1024, height:1024});
+    please.pipeline.add(30, "test/bokeh_pass", function () {
+        var prog = please.gl.get_program("bokeh");
+        prog.activate();
+
+        prog.samplers.depth_pass = "test/depth_pass";
+        prog.samplers.color_pass = "demo_06/draw";
+
+        // -- clear the screen
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
+        // -- draw geometry
+        please.gl.splat();
+    });
 
     // start the draw loop
     please.pipeline.start();
