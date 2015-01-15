@@ -979,6 +979,9 @@ please.SceneGraph = function () {
             this.camera.update_camera();
             prog.vars.projection_matrix = this.camera.projection_matrix;
             prog.vars.view_matrix = this.camera.view_matrix;
+            prog.vars.focal_distance = this.camera.focal_distance;
+            prog.vars.depth_of_field = this.camera.depth_of_field;
+            prog.vars.depth_falloff = this.camera.depth_falloff;
         }
         else {
             throw ("The scene graph has no camera in it!");
@@ -1109,6 +1112,10 @@ please.CameraNode = function () {
     please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
     please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
 
+    ANI("focal_distance", this.__focal_distance);
+    ANI("depth_of_field", .5);
+    ANI("depth_falloff", 10);
+
     ANI("fov", 45);
 
     ANI("left", null);
@@ -1137,6 +1144,12 @@ please.CameraNode = function () {
     this.__projection_mode = "perspective";
 };
 please.CameraNode.prototype = Object.create(please.GraphNode.prototype);
+
+
+please.CameraNode.prototype.__focal_distance = function () {
+    // the distance between "look_at" and "location"
+    return vec3.distance(vec3.create(), this.location, this.look_at);
+};
 
 
 please.CameraNode.prototype.activate = function () {

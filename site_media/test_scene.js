@@ -88,6 +88,7 @@ window.addEventListener("load", function () {
     // model data to draw
     please.load("suzanne.png");
     please.load("suzanne.jta");
+    please.load("floor_lamp.jta");
 });
 
 
@@ -106,7 +107,9 @@ addEventListener("mgrl_media_ready", function () {
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
-    gl.enable(gl.CULL_FACE);
+    //gl.enable(gl.CULL_FACE);
+    gl.disable(gl.CULL_FACE);
+
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
     // enable alpha blending
@@ -129,6 +132,18 @@ addEventListener("mgrl_media_ready", function () {
     noun.location_z = -2;
     graph.add(noun);
 
+    var block, block_model = please.access("floor_lamp.jta");
+    var range = 20;
+    for (var i=0; i<5; i+=1) {
+        block = block_model.instance();
+        block.shader.mode = 2;
+
+        block.location_x = (Math.random()*range)-(range/2);
+        block.location_y = (Math.random()*range)-(range/2);
+
+        graph.add(block);
+    }
+
     var focus = scene.focus = new please.GraphNode();
     graph.add(focus);
     focus.location = scene.f_points[scene.stage];
@@ -138,6 +153,10 @@ addEventListener("mgrl_media_ready", function () {
     camera.look_at = focus;
     camera.location = scene.p_points[scene.stage];
     camera.fov = 45;
+
+    camera.depth_of_field = 4;
+    camera.depth_falloff = 5;
+
     graph.add(camera);
     camera.activate();
 
@@ -168,22 +187,21 @@ addEventListener("mgrl_media_ready", function () {
         // -- draw geometry
         graph.draw();
 
+    })//.as_texture();
+    // please.pipeline.add(20, "demo_06/draw", function () {
+    //     var prog = please.gl.get_program("default");
+    //     prog.activate();
 
-    }).as_texture();
-    please.pipeline.add(20, "demo_06/draw", function () {
-        var prog = please.gl.get_program("default");
-        prog.activate();
+    //     // -- update uniforms
+    //     prog.vars.time = performance.now();
+    //     prog.vars.light_direction = light_direction;
 
-        // -- update uniforms
-        prog.vars.time = performance.now();
-        prog.vars.light_direction = light_direction;
-
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    //     // -- clear the screen
+    //     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         
-        // -- draw geometry
-        graph.draw();
-    });
+    //     // -- draw geometry
+    //     graph.draw();
+    // });
 
     // start the draw loop
     please.pipeline.start();
