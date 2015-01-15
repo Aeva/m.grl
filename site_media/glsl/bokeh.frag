@@ -12,24 +12,24 @@ uniform sampler2D color_pass;
 
 
 // (produces awesomly bad results)
-float prng_wacky(vec2 co) {
+vec2 prng_wacky(vec2 co) {
   vec2 a = fract(co.yx * vec2(5.3983, 5.4427));
   vec2 b = fract(co.xy + vec2(21.5351, 14.3137));
   vec2 rand = co + dot(a,b);
-  return fract(rand.x + rand.y * 95.4337);
+  return fract(vec2(rand.x, rand.y) * 95.4337);
 }
 
 // alternative, basically the same as the example
-float prng_better(vec2 co) {
+vec2 prng_better(vec2 co) {
   vec2 a = fract(co.yx * vec2(5.3983, 5.4427));
   vec2 b = a.xy + vec2(21.5351, 14.3137);
   vec2 c = a + dot(a.yx, b);
-  return fract(c.x * c.y * 95.4337);
+  return fract(vec2(c.x, c.y) * 95.4337);
 }
 
 
 vec2 pick(vec2 coord) {
-  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_width);
+  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);
 }
 
 
@@ -39,10 +39,9 @@ vec2 clamp_to_screen(vec2 coord) {
 
 
 vec2 random_pick(vec2 coord, float scatter, float scale) {
-  float rand1 = prng_better(coord + scatter);
-  float rand2 = prng_better(coord - scatter);
-  float x_part = gl_FragCoord.x + (rand1*scale*2.0-scale);
-  float y_part = gl_FragCoord.y + (rand2*scale*2.0-scale);
+  vec2 rand = prng_wacky(coord + scatter);
+  float x_part = gl_FragCoord.x + (rand.x*scale*2.0-scale);
+  float y_part = gl_FragCoord.y + (rand.y*scale*2.0-scale);
   return pick(clamp_to_screen(vec2(x_part, y_part)));
 }
 
