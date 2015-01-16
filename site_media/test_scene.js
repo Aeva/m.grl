@@ -143,10 +143,11 @@ addEventListener("mgrl_media_ready", function () {
     };
 
     var steps = 8;
-    var dist = 8;
+    var dist = 10;
+    var offset = 5;
     for (var angle=0; angle<360.0; angle += 360/steps) {
-        var x = Math.cos(please.radians(angle)) * dist;
-        var y = Math.sin(please.radians(angle)) * dist;
+        var x = Math.cos(please.radians(angle+offset)) * dist;
+        var y = Math.sin(please.radians(angle+offset)) * dist;
         stamp(x,y);
     }
     
@@ -187,12 +188,13 @@ addEventListener("mgrl_media_ready", function () {
         var prog = please.gl.get_program("depth");
         prog.activate();
 
-        // -- clear the screen
+        prog.vars.bg_fill = true;
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        // -- draw geometry
-        graph.draw();
+        please.gl.splat();
 
+        prog.vars.bg_fill = false;
+        gl.clear(gl.DEPTH_BUFFER_BIT);
+        graph.draw();
     }).as_texture({width:1024, height:1024});
     please.pipeline.add(20, "demo_06/draw", function () {
         var prog = please.gl.get_program("default");
@@ -207,12 +209,11 @@ addEventListener("mgrl_media_ready", function () {
         // -- draw geometry
         graph.draw();
     }).as_texture({width:1024, height:1024});
-    please.pipeline.add(30, "test/bokeh_pass_1", function () {
+    please.pipeline.add(30, "test/bokeh_pass", function () {
         var prog = please.gl.get_program("bokeh");
         prog.activate();
 
         // update uniforms, etc
-        prog.vars.horizontal = true;
         prog.samplers.depth_pass = "test/depth_pass";
         prog.samplers.color_pass = "demo_06/draw";
 
@@ -221,19 +222,7 @@ addEventListener("mgrl_media_ready", function () {
         
         // -- draw geometry
         please.gl.splat();
-    }).as_texture({width:1024, height:1024});
-    please.pipeline.add(40, "test/bokeh_pass_2", function () {
-        // update uniforms etc
-        prog.vars.horizontal = false;
-        prog.samplers.depth_pass = "test/depth_pass";
-        prog.samplers.color_pass = "test/bokeh_pass_1";
-
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        // -- draw geometry
-        please.gl.splat();
-    });
+    })
 
     // start the draw loop
     please.pipeline.start();
