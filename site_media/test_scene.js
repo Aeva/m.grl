@@ -42,6 +42,12 @@ var scene = {
 
     // which point set to use
     "stage" : 0,
+
+    //
+    "buffer_control" : {
+        "width" : 1024,
+        "height" : 512,
+    },
 };
 
 
@@ -82,8 +88,9 @@ window.addEventListener("load", function () {
     please.load("demo.frag");
     please.load("depth.vert");
     please.load("depth.frag");
-    please.load("bokeh.vert");
+    please.load("splat.vert");
     please.load("bokeh.frag");
+    please.load("upsample.frag");
 
     // model data to draw
     please.load("suzanne.png");
@@ -103,7 +110,8 @@ addEventListener("mgrl_media_ready", function () {
     prog.activate();
 
     build_shader("depth", "depth.vert", "depth.frag");
-    build_shader("bokeh", "bokeh.vert", "bokeh.frag");
+    build_shader("bokeh", "splat.vert", "bokeh.frag");
+    build_shader("upsample", "splat.vert", "upsample.frag");
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
@@ -162,7 +170,7 @@ addEventListener("mgrl_media_ready", function () {
     camera.fov = 45;
 
     camera.depth_of_field = 4;
-    camera.depth_falloff = 5;
+    camera.depth_falloff = 10;
 
     graph.add(camera);
     camera.activate();
@@ -171,9 +179,12 @@ addEventListener("mgrl_media_ready", function () {
     var light_direction = vec3.fromValues(.25, -1.0, -.4);
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
+
     
     // register a render passes with the scheduler
     please.pipeline.add(1, "scale_window", function () {
+        // automatically change the viewport if necessary 
+
         var window_w = window.innerWidth;
         var window_h = window.innerHeight;
         var canvas_w = please.gl.canvas.width;
@@ -184,7 +195,11 @@ addEventListener("mgrl_media_ready", function () {
             gl.viewport(0, 0, window_w, window_h);
         }
     });
+
+
     please.pipeline.add(10, "test/depth_pass", function () {
+        // write out blur factor information based on depth
+
         var prog = please.gl.get_program("depth");
         prog.activate();
 
@@ -195,8 +210,12 @@ addEventListener("mgrl_media_ready", function () {
         prog.vars.bg_fill = false;
         gl.clear(gl.DEPTH_BUFFER_BIT);
         graph.draw();
-    }).as_texture({width:1024, height:1024});
+    }).as_texture(scene.buffer_control);
+
+
     please.pipeline.add(20, "demo_06/draw", function () {
+        // draw the scene normally
+
         var prog = please.gl.get_program("default");
         prog.activate();
 
@@ -208,8 +227,12 @@ addEventListener("mgrl_media_ready", function () {
         
         // -- draw geometry
         graph.draw();
-    }).as_texture({width:1024, height:1024});
+    }).as_texture(scene.buffer_control);
+
+
     please.pipeline.add(30, "test/bokeh_pass", function () {
+        // selectively blur the scene
+
         var prog = please.gl.get_program("bokeh");
         prog.activate();
 
@@ -222,7 +245,19 @@ addEventListener("mgrl_media_ready", function () {
         
         // -- draw geometry
         please.gl.splat();
-    })
+    }).as_texture(scene.buffer_control);
+
+
+    please.pipeline.add(40, "test/upsample_pass", function () {
+        // upsample the frame buffer
+
+        var prog = please.gl.get_program("upsample");
+        prog.activate();
+        prog.samplers.color_pass = "test/bokeh_pass";
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        please.gl.splat();
+    });
+
 
     // start the draw loop
     please.pipeline.start();

@@ -96,7 +96,7 @@ void main(void) {
     depth_data = vec4(0.0, 1.0, 1.0, 1.0);
   }
 
-  if (depth_data.b >= 0.05) {
+  if (depth_data.b >= 0.0) {
     color = blur(depth_data);
   }
   else {
