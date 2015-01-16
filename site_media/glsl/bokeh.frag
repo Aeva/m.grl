@@ -5,27 +5,17 @@ precision highp float;
 precision mediump float;
 #endif
 
+uniform float mgrl_frame_start;
 uniform float mgrl_buffer_width;
 uniform float mgrl_buffer_height;
 uniform sampler2D depth_pass;
 uniform sampler2D color_pass;
 
 
-// (produces awesomly bad results)
-vec2 prng_wacky(vec2 co) {
-  vec2 a = fract(co.yx * vec2(5.3983, 5.4427));
-  vec2 b = fract(co.xy + vec2(21.5351, 14.3137));
-  vec2 rand = co + dot(a,b);
-  return fract(vec2(rand.x, rand.y) * 95.4337);
-}
-
-// alternative, basically the same as the example
-vec2 prng_better(vec2 co) {
-  vec2 a = fract(co.yx * vec2(5.3983, 5.4427));
-  vec2 b = a.xy + vec2(21.5351, 14.3137);
-  vec2 c = a + dot(a.yx, b);
-  return fract(vec2(c.x, c.y) * 95.4337);
-}
+uniform bool horizontal;
+const float blur_factor = 75.0;
+const float blur_samples = 10.0;
+const vec4 clear_color_hack = vec4(.93, .93, .93, 1.0);
 
 
 vec2 pick(vec2 coord) {
@@ -33,55 +23,59 @@ vec2 pick(vec2 coord) {
 }
 
 
-vec2 clamp_to_screen(vec2 coord) {
+vec2 screen_clamp(vec2 coord) {
   return clamp(coord, vec2(0.0, 0.0), gl_FragCoord.xy);
 }
 
 
-vec2 random_pick(vec2 coord, float scatter, float scale) {
-  vec2 rand = prng_wacky(coord + scatter);
-  float x_part = gl_FragCoord.x + (rand.x*scale*2.0-scale);
-  float y_part = gl_FragCoord.y + (rand.y*scale*2.0-scale);
-  return pick(clamp_to_screen(vec2(x_part, y_part)));
-}
-
-
-vec4 blur_sample(float blur) {
-  vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+vec4 blur_sample(vec4 depth_info) {
   vec2 point;
-  float count = 0.0;
-  for (float i=0.0; i<=8.0; i+=1.0) {
-    point = random_pick(gl_FragCoord.xy, i, blur);
-    color += texture2D(color_pass, point);
-    count += 1.0;
+  vec4 check;
+  vec4 accumulate = vec4(0.0, 0.0, 0.0, 0.0);
+  float samples = 0.0;
+  float x = gl_FragCoord.x;
+  float y = gl_FragCoord.y;
+  
+  for (float i=0.0; i<blur_factor; i+=blur_factor/blur_samples) {
+    // if (horizontal) {
+    //   x = (i-blur_factor*.5)*depth_info.b;
+    //   if (x < 0.0 || x >= mgrl_buffer_width) {
+    //     continue;
+    //   }
+    // }
+    // else {
+    if (!horizontal) {
+      y = (i-blur_factor*.5)*depth_info.b;
+      if (y < 0.0 || y >= mgrl_buffer_height) {
+        continue;
+      }
+    }
+    point = pick(vec2(x, y));
+    
+    check = texture2D(depth_pass, point);
+    // if (check.r > depth_info.r || check.g < depth_info.g) {
+    //   continue;
+    // }
+
+    accumulate += texture2D(color_pass, point);
+    samples += 1.0;
   }
-  return color / count;
+
+  return accumulate / samples;
 }
 
 
 void main(void) {
   vec2 frag_point = pick(gl_FragCoord.xy);
-  vec4 blur_color = texture2D(depth_pass, frag_point);
-  float blur = blur_color.r * 20.0;
-  if (blur_color.a == 0.0) {
-    blur = 20.0;
-  }
+  vec4 depth_data = texture2D(depth_pass, frag_point);
   vec4 color;
 
-  if (blur >= 0.9) {
-    color = blur_sample(blur);
+  if (depth_data == vec4(0.0, 0.0, 0.0, 0.0)) {
+    depth_data = vec4(0.0, 1.0, 1.0, 1.0);
   }
-  else if (blur >= 0.7) {
-    color = blur_sample(blur);
-  }
-  else if (blur >= 0.5) {
-    color = blur_sample(blur);
-  }
-  else if (blur >= 0.3) {
-    color = blur_sample(blur);
-  }
-  else if (blur >= 0.1) {
-    color = blur_sample(blur);
+
+  if (depth_data.b >= 0.05) {
+    color = blur_sample(depth_data);
   }
   else {
     color = texture2D(color_pass, frag_point);

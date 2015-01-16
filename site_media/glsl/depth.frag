@@ -15,6 +15,8 @@ varying float origin;
 void main(void) {
   //float depth = gl_FragCoord.z;
 
+  float near = 0.0;
+  float far = 0.0;
   float blur = 0.0;
   float high_edge = origin + depth;
   float low_edge = origin - depth;
@@ -22,10 +24,12 @@ void main(void) {
   
   if (coord.z > high_edge) {
     blur = distance(coord.z, high_edge)/depth_falloff;
+    near = blur;
   }
   else if (coord.z < low_edge) {
     blur = distance(coord.z, low_edge)/depth_falloff;
+    far = blur;
   }
 
-  gl_FragColor = vec4(blur, blur, blur, 1.0);
+  gl_FragColor = vec4(near, far, blur, 1.0);
 }

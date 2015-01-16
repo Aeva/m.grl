@@ -46,8 +46,6 @@ var scene = {
 
 
 window.change_focus = function(last_focus, next_focus) {
-    console.info(" + changed focus to: " + next_focus + ", from: " + last_focus);
-
     if (scene.focus && scene.camera) {
         // read out current position
         var last_f = scene.focus.location;
@@ -136,17 +134,22 @@ addEventListener("mgrl_media_ready", function () {
     graph.add(noun);
 
     var block, block_model = please.access("floor_lamp.jta");
-    var range = 20;
-    for (var i=0; i<5; i+=1) {
+    var stamp = function (x, y) {
         block = block_model.instance();
         block.shader.mode = 2;
-
-        block.location_x = (Math.random()*range)-(range/2);
-        block.location_y = (Math.random()*range)-(range/2);
-
+        block.location = [x, y, 0];
+        block.scale = [.5, .5, .5];
         graph.add(block);
-    }
+    };
 
+    var steps = 8;
+    var dist = 8;
+    for (var angle=0; angle<360.0; angle += 360/steps) {
+        var x = Math.cos(please.radians(angle)) * dist;
+        var y = Math.sin(please.radians(angle)) * dist;
+        stamp(x,y);
+    }
+    
     var focus = scene.focus = new please.GraphNode();
     graph.add(focus);
     focus.location = scene.f_points[scene.stage];
@@ -196,7 +199,6 @@ addEventListener("mgrl_media_ready", function () {
         prog.activate();
 
         // -- update uniforms
-        prog.vars.time = performance.now();
         prog.vars.light_direction = light_direction;
 
         // -- clear the screen
@@ -205,12 +207,26 @@ addEventListener("mgrl_media_ready", function () {
         // -- draw geometry
         graph.draw();
     }).as_texture({width:1024, height:1024});
-    please.pipeline.add(30, "test/bokeh_pass", function () {
+    please.pipeline.add(30, "test/bokeh_pass_1", function () {
         var prog = please.gl.get_program("bokeh");
         prog.activate();
 
+        // update uniforms, etc
+        prog.vars.horizontal = true;
         prog.samplers.depth_pass = "test/depth_pass";
         prog.samplers.color_pass = "demo_06/draw";
+
+        // -- clear the screen
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
+        // -- draw geometry
+        please.gl.splat();
+    }).as_texture({width:1024, height:1024});
+    please.pipeline.add(40, "test/bokeh_pass_2", function () {
+        // update uniforms etc
+        prog.vars.horizontal = false;
+        prog.samplers.depth_pass = "test/depth_pass";
+        prog.samplers.color_pass = "test/bokeh_pass_1";
 
         // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);

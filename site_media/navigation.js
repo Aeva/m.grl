@@ -16,7 +16,6 @@ if (window.change_focus === undefined) {
             if (change_focus) {
                 change_focus(last_hash, new_hash);
             }
-            console.info(" - location hash changed to: " + new_hash);
             last_hash = new_hash;
         }
     });
