@@ -86,8 +86,8 @@ ul {
     padding-bottom: 8px;
 }
 
-.content {
-    display: none;
+#content {
+    display: block;
     position: absolute;
     top: 40px;
     left: 50%;
@@ -98,7 +98,11 @@ ul {
     padding-right: 20px;
 }
 
-.content:target {
+#content > div {
+    display: none;
+}
+
+#content > div:target {
     display: block;
 }
 
