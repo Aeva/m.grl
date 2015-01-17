@@ -1,6 +1,4 @@
 body {
-    background-color: black;
-    color: white;
     font-family: sans-serif;
 }
 
@@ -12,14 +10,6 @@ body {
     width: 100%;
     height: 100%;
     background-color: #eee;
-}
-
-a {
-    color: #78b8ff;
-    text-decoration: none;
-}
-a:hover {
-    color: #FFF;
 }
 
 p {
@@ -37,16 +27,38 @@ ul {
     padding-top: 1em;
 }
 
-h1 {
-    color: #FFF;
-}
-
 .overlay {
-    background-color: rgba(57, 51, 58, 0.8);
     padding: 8px;
     text-align: center;
     border-radius: 4px;
 }
+
+.midnight {
+    background-color: rgba(57, 51, 58, 0.8);
+    color: white;
+}
+.midnight a {
+    color: #78b8ff;
+    text-decoration: none;
+}
+.midnight a:hover {
+    color: white;
+}
+
+
+.midday {
+    background-color: rgba(200, 200, 200, 0.75);
+    color: black;
+    border: 1px solid black;
+}
+.midday a {
+    color: #0862ae;
+    text-decoration: none;
+}
+.midday a:hover {
+    color: black;
+}
+
 
 #nav {
     display: -webkit-flex;
