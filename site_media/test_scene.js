@@ -192,7 +192,6 @@ addEventListener("mgrl_media_ready", function () {
         if (window_w !== canvas_w || window_h !== canvas_h) {
             please.gl.canvas.width = window_w;
             please.gl.canvas.height = window_h;
-            gl.viewport(0, 0, window_w, window_h);
         }
     });
 

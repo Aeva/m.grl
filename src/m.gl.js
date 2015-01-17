@@ -780,6 +780,8 @@ please.gl.register_framebuffer = function (handle, _options) {
 
     please.gl.__cache.textures[handle] = tex;
     please.gl.__cache.textures[handle].fbo = fbo;
+
+    return tex;
 };
 
 

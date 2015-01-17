@@ -1582,6 +1582,7 @@ please.pipeline.add = function (priority, name, callback) {
             please.pipeline.add_indirect(name, options);
         },
         "__indirect" : false,
+        "__buffer_options" : null,
         "callback" : callback,
     };
     this.__dirty = true;
@@ -1605,7 +1606,8 @@ please.pipeline.__glsl_name = function(name) {
 please.pipeline.add_indirect = function (buffer_name, options) {
     var stage = this.__callbacks[buffer_name];
     stage.__indirect = true;
-    please.gl.register_framebuffer(buffer_name, options);
+    var tex = please.gl.register_framebuffer(buffer_name, options);
+    stage.__buffer_options = tex.fbo.options;
 };
 // [+] please.pipeline.remove(name)
 //
@@ -1685,6 +1687,17 @@ please.pipeline.__on_draw = function () {
             if (prog.uniform_list.indexOf(stage.glsl_var) > -1) {
                 prog.vars[stage.glsl_var] = true;
                 reset_name_bool = true;
+            }
+            if (stage.__buffer_options) {
+                var opt = stage.__buffer_options;
+                var width = prog.vars.mgrl_buffer_width = opt.width;
+                var height = prog.vars.mgrl_buffer_height = opt.height;
+                gl.viewport(0, 0, width, height);
+            }
+            else {
+                var width = prog.vars.mgrl_buffer_width = please.gl.canvas.width;
+                var height = prog.vars.mgrl_buffer_height = please.gl.canvas.height;
+                gl.viewport(0, 0, width, height);
             }
         }
         msg = stage.callback(msg);
@@ -3092,6 +3105,7 @@ please.gl.register_framebuffer = function (handle, _options) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     please.gl.__cache.textures[handle] = tex;
     please.gl.__cache.textures[handle].fbo = fbo;
+    return tex;
 };
 // Set the current render target
 please.gl.__last_fbo = null;
