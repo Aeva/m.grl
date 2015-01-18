@@ -1,0 +1,14 @@
+/*
+@font-face {
+    font-family: 'Inconsolata';
+    src: url('inconsolata/inconsolata.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+*/
+@font-face {
+    font-family: 'GoudyBookletter1911';
+    src: url('goudy/GoudyBookletter1911.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
