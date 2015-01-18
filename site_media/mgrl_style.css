@@ -1,6 +1,6 @@
 body {
     font-family: GoudyBookletter1911;
-    font-size: 19px;    
+    font-size: 20px;    
 }
 
 #bg_demo {
@@ -20,15 +20,16 @@ a {
 
 p {
     line-height: 1.5em;
-    vertical-align: center;
     text-align: justify;
     text-indent: 1.5em;
 }
 
 ul {
-    text-align: left;
+    -webkit-columns: 2;
+    -moz-columns: 2;
+    columns: 2;
+    text-align: center;
     line-height: 2em;
-    vertical-align: center;
     padding-left: 1em;
     padding-top: .5em;
 }
@@ -84,11 +85,6 @@ ul {
     padding-right: 0px;
 }
 
-#nav a {
-    display: block;
-    line-height: 2.75em;
-}
-
 #nav a:hover {
     border-top: 1px dotted #888;
     border-bottom: 1px dotted #888;
@@ -97,6 +93,7 @@ ul {
 }
 
 .nav_item {
+    display: block;
     -webkit-flex: auto;
     flex: auto;
     min-width: 100px;
@@ -208,7 +205,7 @@ ul {
 
 .content_flexbox {
     position: absolute;
-    top: 60px;
+    top: 108px;
     bottom: 0px;
     left: 20px;
     right: 20px;
