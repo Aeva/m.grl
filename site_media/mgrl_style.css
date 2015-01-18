@@ -9,7 +9,12 @@ body {
     left: 0px;
     width: 100%;
     height: 100%;
-    background-color: #eee;
+    background-color: #333;
+}
+
+a {
+    font-weight: bold;
+    text-decoration: none;
 }
 
 p {
@@ -39,7 +44,6 @@ ul {
 }
 .midnight a {
     color: #78b8ff;
-    text-decoration: none;
 }
 .midnight a:hover {
     color: white;
@@ -49,14 +53,13 @@ ul {
 .midday {
     background-color: rgba(200, 200, 200, 0.75);
     color: black;
-    border: 1px solid black;
 }
 .midday a {
     color: #0862ae;
-    text-decoration: none;
 }
 .midday a:hover {
     color: black;
+    background-color: rgba(255, 255, 255, 0.25);
 }
 
 
@@ -70,12 +73,26 @@ ul {
     position: absolute;
     top: 50%;
     left: 20px;
-    width: 120px;
-    height: 280px;
-    margin-top: -140px;
+    width: 140px;
+    height: 300px;
+    margin-top: -150px;
 
+    padding-top: 16px;
+    padding-bottom: 16px;
     padding-left: 0px;
     padding-right: 0px;
+}
+
+#nav a {
+    display: block;
+    line-height: 2.75em;
+}
+
+#nav a:hover {
+    border-top: 1px dotted #888;
+    border-bottom: 1px dotted #888;
+    margin-top: -1px;
+    margin-bottom: -1px;
 }
 
 .nav_item {

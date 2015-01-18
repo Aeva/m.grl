@@ -26,10 +26,10 @@
 var scene = {
     // points for the camera to focus on
     "f_points" : [
-        [-6, 0, 4],
-        [0, -6, 4],
-        [6, 0, 4],
-        [0, 6, 4],
+        [-4, 0, 4],
+        [0, -4, 4],
+        [4, 0, 4],
+        [0, 4, 4],
     ],
 
     // positions for the camera
@@ -119,7 +119,7 @@ addEventListener("mgrl_media_ready", function () {
     //gl.enable(gl.CULL_FACE);
     gl.disable(gl.CULL_FACE);
 
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clearColor(.93, .93, .93, 1.0);
 
     // enable alpha blending
     gl.enable(gl.BLEND);
