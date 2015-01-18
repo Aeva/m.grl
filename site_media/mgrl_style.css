@@ -103,6 +103,46 @@ ul {
     padding-bottom: 8px;
 }
 
+#nav_top_decoration, #nav_bottom_decoration {
+    display: block;
+    position: absolute;
+
+    top: 50%;
+    left: 20px;
+    width: 142px;
+    height: 48px;
+    margin-top: -184px;
+
+    margin-left: -1px;
+    margin-right: -1px;
+    background-image: url('img/content_top_left.png'), 
+                      url('img/content_top_right.png');
+    background-repeat: no-repeat, no-repeat;
+    background-position: left, right;
+}
+#nav_top_decoration:after, #nav_bottom_decoration:after {
+    display: block;
+    position: absolute;
+    top: 0px;
+    left: 10px;
+    right: 10px;
+    height: 48px;
+    content: " ";
+
+    background-image: url('img/content_top_fill.png');
+    background-repeat: repeat-x;
+    background-position: center;
+}
+#nav_bottom_decoration {
+    margin-top: 168px !important;
+    background-image: url('img/content_bottom_left.png'), 
+                      url('img/content_bottom_right.png') !important;
+}
+#nav_bottom_decoration:after {
+    background-image: url('img/content_bottom_fill.png') !important;
+}
+
+
 #content {
     display: block;
     position: absolute;
@@ -113,6 +153,48 @@ ul {
     overflow-y: auto;
     padding-left: 20px;
     padding-right: 20px;
+}
+
+
+#content_top_decoration, #content_bottom_decoration {
+    display: block;
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    right: 20px;
+    height: 48px;
+    margin-left: -1px;
+    margin-right: -1px;
+    background-image: url('img/content_top_center.png'),
+                      url('img/content_top_left.png'),
+                      url('img/content_top_right.png');
+    background-repeat: no-repeat, no-repeat, no-repeat;
+    background-position: center, left, right;
+}
+#content_top_decoration:after, #content_bottom_decoration:after {
+    display: block;
+    position: absolute;
+    top: 0px;
+    left: 10px;
+    right: 10px;
+    height: 48px;
+    content: " ";
+
+    background-image: url('img/content_top_fill.png');
+    background-repeat: repeat-x;
+    background-position: center;
+}
+
+
+#content_bottom_decoration {
+   top: auto !important;
+   bottom: 6px;
+   background-image: url('img/content_bottom_center.png'),
+                     url('img/content_bottom_left.png'),
+                     url('img/content_bottom_right.png') !important;
+}
+#content_bottom_decoration:after {
+    background-image: url('img/content_bottom_fill.png') !important;
 }
 
 #content > div {
