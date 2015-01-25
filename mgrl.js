@@ -2659,13 +2659,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             var prog = this;
             if (prog.ready && !prog.error) {
                 if (please.gl.__cache.current !== this) {
+                    // change shader program
                     gl.useProgram(prog.id);
-                    // unbind old attributes if necessary
-                    if (please.gl.__cache.current !== null) {
-                        old = please.gl.__cache.current;
-                        // FIXME: unbind old attributes
-                    }
                     // update the cache pointer
+                    old = please.gl.__cache.current;
                     please.gl.__cache.current = this;
                 }
             }
@@ -2681,6 +2678,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 // copy over defaults from the last pass
                 for (var prop in old.vars) if (old.vars.hasOwnProperty(prop)) {
                     if (old.vars[prop]) {
+                        if (old.vars[prop].hasOwnProperty("dirty")) {
+                            old.vars[prop].dirty = true;
+                        }
                         prog.vars[prop] = old.vars[prop];
                     }
                 }
@@ -3140,6 +3140,7 @@ please.gl.reset_viewport = function () {
             var opt = please.gl.__cache.textures[please.gl.__last_fbo].fbo.options;
             var width = prog.vars.mgrl_buffer_width = opt.width;
             var height = prog.vars.mgrl_buffer_height = opt.height;
+            console.info("(" + width + ", " + height + ")");
             gl.viewport(0, 0, width, height);
         }
     }
