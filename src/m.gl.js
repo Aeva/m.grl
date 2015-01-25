@@ -279,13 +279,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             var prog = this;
             if (prog.ready && !prog.error) {
                 if (please.gl.__cache.current !== this) {
+                    // change shader program
                     gl.useProgram(prog.id);
-                    // unbind old attributes if necessary
-                    if (please.gl.__cache.current !== null) {
-                        old = please.gl.__cache.current;
-                        // FIXME: unbind old attributes
-                    }
                     // update the cache pointer
+                    old = please.gl.__cache.current;
                     please.gl.__cache.current = this;
                 }
             }
@@ -302,12 +299,18 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 // copy over defaults from the last pass
                 ITER_PROPS(prop, old.vars) {
                     if (old.vars[prop]) {
+                        if (old.vars[prop].hasOwnProperty("dirty")) {
+                            old.vars[prop].dirty = true;
+                        }
                         prog.vars[prop] = old.vars[prop];
                     }
                 }
 
                 // drop the sampler cache
                 prog.__cache.samplers = {};
+
+                // regenerate the viewport
+                please.gl.reset_viewport();
             }
         },
     };
@@ -812,6 +815,26 @@ please.gl.set_framebuffer = function (handle) {
         }
     }
 };
+
+
+// Reset the viewport dimensions
+please.gl.reset_viewport = function () {
+    var prog = please.gl.__cache.current;
+    if (prog) {
+        if (please.gl.__last_fbo === null) {
+            var width = prog.vars.mgrl_buffer_width = please.gl.canvas.width;
+            var height = prog.vars.mgrl_buffer_height = please.gl.canvas.height;
+            gl.viewport(0, 0, width, height);
+        }
+        else {
+            var opt = please.gl.__cache.textures[please.gl.__last_fbo].fbo.options;
+            var width = prog.vars.mgrl_buffer_width = opt.width;
+            var height = prog.vars.mgrl_buffer_height = opt.height;
+            console.info("(" + width + ", " + height + ")");
+            gl.viewport(0, 0, width, height);
+        }
+    }
+}
 
 
 // Create and return a vertex buffer object containing a square.
