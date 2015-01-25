@@ -1688,21 +1688,12 @@ please.pipeline.__on_draw = function () {
                 prog.vars[stage.glsl_var] = true;
                 reset_name_bool = true;
             }
-            if (stage.__buffer_options) {
-                var opt = stage.__buffer_options;
-                var width = prog.vars.mgrl_buffer_width = opt.width;
-                var height = prog.vars.mgrl_buffer_height = opt.height;
-                gl.viewport(0, 0, width, height);
-            }
-            else {
-                var width = prog.vars.mgrl_buffer_width = please.gl.canvas.width;
-                var height = prog.vars.mgrl_buffer_height = please.gl.canvas.height;
-                gl.viewport(0, 0, width, height);
-            }
         }
         msg = stage.callback(msg);
-        if (reset_name_bool) {
-            prog.vars[stage.glsl_var] = false;
+        if (prog) {
+            if (reset_name_bool) {
+                prog.vars[stage.glsl_var] = false;
+            }
         }
     }
     // reschedule the draw, if applicable
@@ -2695,6 +2686,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 }
                 // drop the sampler cache
                 prog.__cache.samplers = {};
+                // regenerate the viewport
+                please.gl.reset_viewport();
             }
         },
     };
@@ -3134,6 +3127,23 @@ please.gl.set_framebuffer = function (handle) {
         }
     }
 };
+// Reset the viewport dimensions
+please.gl.reset_viewport = function () {
+    var prog = please.gl.__cache.current;
+    if (prog) {
+        if (please.gl.__last_fbo === null) {
+            var width = prog.vars.mgrl_buffer_width = please.gl.canvas.width;
+            var height = prog.vars.mgrl_buffer_height = please.gl.canvas.height;
+            gl.viewport(0, 0, width, height);
+        }
+        else {
+            var opt = please.gl.__cache.textures[please.gl.__last_fbo].fbo.options;
+            var width = prog.vars.mgrl_buffer_width = opt.width;
+            var height = prog.vars.mgrl_buffer_height = opt.height;
+            gl.viewport(0, 0, width, height);
+        }
+    }
+}
 // Create and return a vertex buffer object containing a square.
 please.gl.make_quad = function (width, height, origin, draw_hint) {
     if (!origin) {

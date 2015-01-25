@@ -216,21 +216,12 @@ please.pipeline.__on_draw = function () {
                 prog.vars[stage.glsl_var] = true;
                 reset_name_bool = true;
             }
-            if (stage.__buffer_options) {
-                var opt = stage.__buffer_options;
-                var width = prog.vars.mgrl_buffer_width = opt.width;
-                var height = prog.vars.mgrl_buffer_height = opt.height;
-                gl.viewport(0, 0, width, height);
-            }
-            else {
-                var width = prog.vars.mgrl_buffer_width = please.gl.canvas.width;
-                var height = prog.vars.mgrl_buffer_height = please.gl.canvas.height;
-                gl.viewport(0, 0, width, height);
-            }
         }
         msg = stage.callback(msg);
-        if (reset_name_bool) {
-            prog.vars[stage.glsl_var] = false;
+        if (prog) {
+            if (reset_name_bool) {
+                prog.vars[stage.glsl_var] = false;
+            }
         }
     }
     
