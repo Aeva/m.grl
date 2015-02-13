@@ -4940,7 +4940,7 @@ please.builder.SpriteBuilder.prototype = {
     },
 };
 // - m.prefab.js ------------------------------------------------------------ //
-// [+] please.StereoCamera
+// [+] please.StereoCamera()
 //
 // Inherits from please.CameraNode and can be used similarly.  This
 // camera defines two subcameras, accessible from the properties

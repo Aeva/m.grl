@@ -5,7 +5,7 @@ m.prefab.js
 
 please.StereoCamera
 -------------------
-*please.StereoCamera* \_\_\_\_
+*please.StereoCamera* **()**
 
 Inherits from please.CameraNode and can be used similarly. This camera
 defines two subcameras, accessible from the properties "left\_eye" and
