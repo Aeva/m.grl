@@ -11,4 +11,5 @@ API Reference
     m.input.rst
     m.media.rst
     m.multipass.rst
+    m.prefab.rst
     m.time.rst
