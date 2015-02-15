@@ -67,11 +67,11 @@ addEventListener("load", function() {
 
 function render_mode_handler(event) {
     var color_set = document.getElementById("color_options");
-    if (event.target.selectedOptions[0].value == "frame") {
-        color_set.style.display = "none";
+    if (event.target.selectedOptions[0].value == "color") {
+        color_set.style.display = "inline";
     }
     else {
-        color_set.style.display = "inline";
+        color_set.style.display = "none";
     }
 };
 
@@ -123,6 +123,9 @@ addEventListener("mgrl_media_ready", function () {
 
     // grab inputs that'll influence the shader state
     var render_mode_select = document.getElementById("render_mode");
+    var mode_active = function (mode_name) {
+        return render_mode_select.selectedOptions[0].value === mode_name;
+    }
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
@@ -222,53 +225,72 @@ addEventListener("mgrl_media_ready", function () {
     
     // Left eye render pass
     please.pipeline.add(10, "demo/left_eye", function () {
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        if (!mode_active("mono")) {
+            // -- clear the screen
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        // -- set the shader program
-        please.gl.get_program("render_pass").activate();
+            // -- set the shader program
+            please.gl.get_program("render_pass").activate();
 
-        // -- activate the camera
-        camera.left_eye.activate();
+            // -- activate the camera
+            camera.left_eye.activate();
 
-        // -- draw the geometry
-        graph.draw();
+            // -- draw the geometry
+            graph.draw();
+        }
     }).as_texture();
 
     
     // Right eye render pass
     please.pipeline.add(10, "demo/right_eye", function () {
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        if (!mode_active("mono")) {
+            // -- clear the screen
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        // -- set the shader program
-        please.gl.get_program("render_pass").activate();
+            // -- set the shader program
+            please.gl.get_program("render_pass").activate();
 
-        // -- activate the camera
-        camera.right_eye.activate();
+            // -- activate the camera
+            camera.right_eye.activate();
 
-        // -- draw the geometry
-        graph.draw();
+            // -- draw the geometry
+            graph.draw();
+        }
     }).as_texture();
 
 
     // Render the hardware-specific stereo split logic
     please.pipeline.add(20, "demo/stereo_killed_the_video_star", function () {
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        if (!mode_active("mono")) {
+            // -- clear the screen
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        // -- set the shader program
-        var prog = please.gl.get_program("stereo_pass");
-        prog.activate();
-        prog.samplers.left_eye = "demo/left_eye";
-        prog.samplers.right_eye = "demo/right_eye";
-        prog.vars.split_screen = render_mode_select.selectedOptions[0].value == "frame";
+            // -- set the shader program
+            var prog = please.gl.get_program("stereo_pass");
+            prog.activate();
+            prog.samplers.left_eye = "demo/left_eye";
+            prog.samplers.right_eye = "demo/right_eye";
+            prog.vars.split_screen = mode_active("frame");
 
-        prog.vars.left_color = window.lhs_mask;
-        prog.vars.right_color = window.rhs_mask;
+            prog.vars.left_color = window.lhs_mask;
+            prog.vars.right_color = window.rhs_mask;
 
-        // -- fullscreen quad
-        please.gl.splat();
+            // -- fullscreen quad
+            please.gl.splat();
+        }
+        else {
+            // -- clear the screen
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            
+            // -- set the shader program
+            please.gl.get_program("render_pass").activate();
+            
+            // -- activate the camera
+            camera.activate();
+            
+            // -- draw the geometry
+            graph.draw();
+        }
     });
 
 
