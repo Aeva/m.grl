@@ -45,10 +45,12 @@ please.StereoCamera = function () {
     ANI("unit_conversion", 0.001);
     this.left_eye = this._create_subcamera(-1);
     this.right_eye = this._create_subcamera(1);
-    this.add(this.left);
-    this.add(this.right);
+
+    this.add(this.left_eye);
+    this.add(this.right_eye);
 };
-please.StereoCamera._create_subcamera = function (position) {
+please.StereoCamera.prototype = Object.create(please.CameraNode.prototype);
+please.StereoCamera.prototype._create_subcamera = function (position) {
     var eye = new please.CameraNode();
 
     // This causes various animatable properties on the eye's camera
@@ -81,6 +83,12 @@ please.StereoCamera._create_subcamera = function (position) {
         return dist * unit * 0.5 * position;
     };
 
+    // The eyes should also focus automatically on whatever the parent
+    // is focusing on, if anything.
+    // eye.look_at = function () {
+    //     return this.parent.look_at;
+    // };
+    eye.look_at = [null, null, null];
+
     return eye;
 };
-please.StereoCamera.prototype = Object.create(please.GraphNode.prototype);

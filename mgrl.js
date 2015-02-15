@@ -4735,8 +4735,11 @@ please.CameraNode = function () {
         "height" : null,
     };
     this.projection_matrix = mat4.create();
-    this.view_matrix = mat4.create();
     this.__projection_mode = "perspective";
+    please.make_animatable(
+        this, "view_matrix", this.__view_matrix_driver, this, true);
+    // HAAAAAAAAAAAAAAAAAAAAAAAAACK
+    this.__ani_store.world_matrix = this.__view_matrix_driver;
 };
 please.CameraNode.prototype = Object.create(please.GraphNode.prototype);
 please.CameraNode.prototype.__focal_distance = function () {
@@ -4759,6 +4762,34 @@ please.CameraNode.prototype.set_perspective = function() {
 };
 please.CameraNode.prototype.set_orthographic = function() {
     this.__projection_mode = "orthographic";
+};
+please.CameraNode.prototype.__view_matrix_driver = function () {
+    var local_matrix = mat4.create();
+    var world_matrix = mat4.create();
+    var location = this.location;
+    var look_at = this.look_at;
+    var up_vector = this.up_vector;
+    if (this.look_at[0] !== null ||
+        this.look_at[1] !== null ||
+        this.look_at[2] !== null) {
+        mat4.lookAt(
+            local_matrix,
+            location,
+            look_at,
+            up_vector);
+    }
+    else {
+        mat4.translate(local_matrix, local_matrix, this.location);
+        mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
+        mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
+        mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
+        mat4.scale(local_matrix, local_matrix, this.scale);
+    }
+    var parent = this.parent;
+    var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
+    mat4.multiply(world_matrix, parent_matrix, local_matrix);
+    world_matrix.dirty = true;
+    return world_matrix;
 };
 please.CameraNode.prototype.update_camera = function () {
     // Calculate the arguments common to both projection functions.
@@ -4826,23 +4857,6 @@ please.CameraNode.prototype.update_camera = function () {
             this.projection_matrix.dirty = true;
         }
     }
-    // If the node is not in the graph, trigger its own __rig and __hoist methods.
-    if (this.__graph_root === null) {
-        this.__rig();
-        this.__hoist(mat4.create(),{});
-    }
-    // Now to update the view matrix, if necessary.
-    var location = this.location;
-    var look_at = this.look_at;
-    var up_vector = this.up_vector;
-    // FIXME - provide some kind of override mechanism to just use the
-    // camera's world matrix or something instead.
-    mat4.lookAt(
-        this.view_matrix,
-        location,
-        look_at,
-        up_vector);
-    this.view_matrix.dirty = true;
 };
 // - m.builder.js -------------------------------------------------------- //
 // namespace
@@ -4984,10 +4998,11 @@ please.StereoCamera = function () {
     please.make_animatable(this, "unit_conversion", 0.001);;
     this.left_eye = this._create_subcamera(-1);
     this.right_eye = this._create_subcamera(1);
-    this.add(this.left);
-    this.add(this.right);
+    this.add(this.left_eye);
+    this.add(this.right_eye);
 };
-please.StereoCamera._create_subcamera = function (position) {
+please.StereoCamera.prototype = Object.create(please.CameraNode.prototype);
+please.StereoCamera.prototype._create_subcamera = function (position) {
     var eye = new please.CameraNode();
     // This causes various animatable properties on the eye's camera
     // to be data bound to the StereoCamera that parents it
@@ -5016,9 +5031,14 @@ please.StereoCamera._create_subcamera = function (position) {
         var unit = this.parent.unit_conversion;
         return dist * unit * 0.5 * position;
     };
+    // The eyes should also focus automatically on whatever the parent
+    // is focusing on, if anything.
+    // eye.look_at = function () {
+    //     return this.parent.look_at;
+    // };
+    eye.look_at = [null, null, null];
     return eye;
 };
-please.StereoCamera.prototype = Object.create(please.GraphNode.prototype);
 // -------------------------------------------------------------------------- //
 // What follows are optional components, and may be safely removed.
 // Please tear at the perforated line.
