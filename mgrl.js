@@ -2695,16 +2695,29 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     var errors = [];
     for (var i=1; i< arguments.length; i+=1) {
         var shader = arguments[i];
-        if (shader.type == gl.VERTEX_SHADER) {
-            prog.vert = shader;
+        if (typeof(shader) === "string") {
+            shader = please.access(shader);
         }
-        if (shader.type == gl.FRAGMENT_SHADER) {
-            prog.frag = shader;
+        if (shader) {
+            if (shader.type == gl.VERTEX_SHADER) {
+                prog.vert = shader;
+            }
+            if (shader.type == gl.FRAGMENT_SHADER) {
+                prog.frag = shader;
+            }
+            if (shader.error) {
+                errors.push(shader.error);
+                build_fail += "\n\n" + shader.error;
+            }
         }
-        if (shader.error) {
-            errors.push(shader.error);
-            build_fail += "\n\n" + shader.error;
-        }
+    }
+    if (!prog.vert) {
+        throw("No vertex shader defined for shader program \"" + name + "\".\n" +
+              "Did you remember to call please.load on your vertex shader?");
+    }
+    if (!prog.frag) {
+        throw("No fragment shader defined for shader program \"" + name + "\".\n" +
+              "Did you remember to call please.load on your fragment shader?");
     }
     if (errors.length > 0) {
         prog.error = errors;
@@ -4735,8 +4748,11 @@ please.CameraNode = function () {
         "height" : null,
     };
     this.projection_matrix = mat4.create();
-    this.view_matrix = mat4.create();
     this.__projection_mode = "perspective";
+    please.make_animatable(
+        this, "view_matrix", this.__view_matrix_driver, this, true);
+    // HAAAAAAAAAAAAAAAAAAAAAAAAACK
+    this.__ani_store.world_matrix = this.__view_matrix_driver;
 };
 please.CameraNode.prototype = Object.create(please.GraphNode.prototype);
 please.CameraNode.prototype.__focal_distance = function () {
@@ -4759,6 +4775,34 @@ please.CameraNode.prototype.set_perspective = function() {
 };
 please.CameraNode.prototype.set_orthographic = function() {
     this.__projection_mode = "orthographic";
+};
+please.CameraNode.prototype.__view_matrix_driver = function () {
+    var local_matrix = mat4.create();
+    var world_matrix = mat4.create();
+    var location = this.location;
+    var look_at = this.look_at;
+    var up_vector = this.up_vector;
+    if (this.look_at[0] !== null ||
+        this.look_at[1] !== null ||
+        this.look_at[2] !== null) {
+        mat4.lookAt(
+            local_matrix,
+            location,
+            look_at,
+            up_vector);
+    }
+    else {
+        mat4.translate(local_matrix, local_matrix, this.location);
+        mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
+        mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
+        mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
+        mat4.scale(local_matrix, local_matrix, this.scale);
+    }
+    var parent = this.parent;
+    var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
+    mat4.multiply(world_matrix, parent_matrix, local_matrix);
+    world_matrix.dirty = true;
+    return world_matrix;
 };
 please.CameraNode.prototype.update_camera = function () {
     // Calculate the arguments common to both projection functions.
@@ -4826,23 +4870,6 @@ please.CameraNode.prototype.update_camera = function () {
             this.projection_matrix.dirty = true;
         }
     }
-    // If the node is not in the graph, trigger its own __rig and __hoist methods.
-    if (this.__graph_root === null) {
-        this.__rig();
-        this.__hoist(mat4.create(),{});
-    }
-    // Now to update the view matrix, if necessary.
-    var location = this.location;
-    var look_at = this.look_at;
-    var up_vector = this.up_vector;
-    // FIXME - provide some kind of override mechanism to just use the
-    // camera's world matrix or something instead.
-    mat4.lookAt(
-        this.view_matrix,
-        location,
-        look_at,
-        up_vector);
-    this.view_matrix.dirty = true;
 };
 // - m.builder.js -------------------------------------------------------- //
 // namespace
@@ -4940,6 +4967,91 @@ please.builder.SpriteBuilder.prototype = {
     },
 };
 // - m.prefab.js ------------------------------------------------------------ //
+// [+] please.StereoCamera()
+//
+// Inherits from please.CameraNode and can be used similarly.  This
+// camera defines two subcameras, accessible from the properties
+// "left_eye" and "right_eye".  Their position is determined by this
+// object's "eye_distance" property, which should correspond to
+// millimeters (defaults to 62).  The "unit_conversion" property is a
+// multiplier value, and you use it to define what "millimeters" means
+// to you.
+//
+// Ideally, the StereoCamera object should be the object that you
+// orient to change the viewpoint of both cameras, and that the sub
+// cameras themselves are what is activated for the purpose of saving
+// color buffers.  A simple pipeline can be constructed from this to
+//
+// Further usage:
+// ```
+// please.pipeline.add(10, "vr/left_eye", function () {
+//     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+//     camera.left.activate();
+//     graph.draw();
+// }).as_texture({width: 1024, height: 1024});
+//
+// please.pipeline.add(10, "vr/right_eye", function () {
+//     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+//     camera.right.activate();
+//     graph.draw();
+// }).as_texture({width: 1024, height: 1024});
+//
+// please.pipeline.add(20, "vr/display", function () {
+//     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+//     prog.samplers.left_eye = "vr/left_eye";
+//     prog.samplers.right_eye = "vr/right_eye";
+//     prog.vars.mode = 1.0; // to indicate between color split & other modes
+//     please.gl.splat();
+// });
+// ```
+//
+please.StereoCamera = function () {
+    please.CameraNode.call(this);
+    please.make_animatable(this, "eye_distance", 10.0);;
+    please.make_animatable(this, "unit_conversion", 0.001);;
+    this.left_eye = this._create_subcamera(-1);
+    this.right_eye = this._create_subcamera(1);
+    this.add(this.left_eye);
+    this.add(this.right_eye);
+};
+please.StereoCamera.prototype = Object.create(please.CameraNode.prototype);
+please.StereoCamera.prototype._create_subcamera = function (position) {
+    var eye = new please.CameraNode();
+    // This causes various animatable properties on the eye's camera
+    // to be data bound to the StereoCamera that parents it
+    var add_binding = function (property_name) {
+        eye[property_name] = function () {
+            return this[property_name];
+        }.bind(this);
+    }.bind(this);
+    ["focal_distance",
+     "depth_of_field",
+     "depth_fallof",
+     "fov",
+     "left",
+     "right",
+     "bottom",
+     "top",
+     "width",
+     "height",
+     "near",
+     "far",
+    ].map(add_binding);
+    // Now we make it so the camera's spacing from the center is set
+    // automatically.
+    eye.location_x = function () {
+        var dist = this.parent.eye_distance;
+        var unit = this.parent.unit_conversion;
+        return dist * unit * 0.5 * position;
+    };
+    // The eyes should also focus automatically on whatever the parent
+    // is focusing on, if anything.
+    // eye.look_at = function () {
+    //     return this.parent.look_at;
+    // };
+    eye.look_at = [null, null, null];
+    return eye;
+};
 // -------------------------------------------------------------------------- //
 // What follows are optional components, and may be safely removed.
 // Please tear at the perforated line.

@@ -1,7 +1,5 @@
 
 
-
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -30,7 +28,7 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
     <link rel="up" title="API Reference" href="index.html" />
-    <link rel="next" title="m.time.js" href="m.time.html" />
+    <link rel="next" title="m.prefab.js" href="m.prefab.html" />
     <link rel="prev" title="m.media.js" href="m.media.html" /> 
   </head>
   <body>
@@ -41,7 +39,7 @@
           <a href="../genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="m.time.html" title="m.time.js"
+          <a href="m.prefab.html" title="m.prefab.js"
              accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="m.media.html" title="m.media.js"
@@ -89,6 +87,18 @@ rendering code.</li>
 stage. The return value of the previous pipeline stage is passed as
 an argument to the next pipeline stage&#8217;s callback.</li>
 </ul>
+<p>To do indirect rendering on a pipeline stage, call the
+&#8220;as_texture(options)&#8221; method on the return result of this function. The
+method wraps please.pipeline.add_indirect(buffer_name, options). See
+please.pipeline.add_indirect for more details on the options object.</p>
+</div>
+<div class="section" id="please-pipeline-add-indirect">
+<h2>please.pipeline.add_indirect<a class="headerlink" href="#please-pipeline-add-indirect" title="Permalink to this headline">¶</a></h2>
+<p><em>please.pipeline.add_indirect</em> <strong>(buffer_name, options)</strong></p>
+<ul class="simple">
+<li><strong>options</strong> may be omitted, currently doesn&#8217;t do anything but will be
+used in the future.</li>
+</ul>
 </div>
 <div class="section" id="please-pipeline-remove">
 <h2>please.pipeline.remove<a class="headerlink" href="#please-pipeline-remove" title="Permalink to this headline">¶</a></h2>
@@ -127,6 +137,7 @@ passed to this method.</p>
   <ul>
 <li><a class="reference internal" href="#">m.multipass.js</a><ul>
 <li><a class="reference internal" href="#please-pipeline-add">please.pipeline.add</a></li>
+<li><a class="reference internal" href="#please-pipeline-add-indirect">please.pipeline.add_indirect</a></li>
 <li><a class="reference internal" href="#please-pipeline-remove">please.pipeline.remove</a></li>
 <li><a class="reference internal" href="#please-pipeline-remove-above">please.pipeline.remove_above</a></li>
 <li><a class="reference internal" href="#please-pipeline-start">please.pipeline.start</a></li>
@@ -139,8 +150,8 @@ passed to this method.</p>
   <p class="topless"><a href="m.media.html"
                         title="previous chapter">m.media.js</a></p>
   <h4>Next topic</h4>
-  <p class="topless"><a href="m.time.html"
-                        title="next chapter">m.time.js</a></p>
+  <p class="topless"><a href="m.prefab.html"
+                        title="next chapter">m.prefab.js</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="../_sources/api_reference/m.multipass.txt"
@@ -170,7 +181,7 @@ passed to this method.</p>
           <a href="../genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="m.time.html" title="m.time.js"
+          <a href="m.prefab.html" title="m.prefab.js"
              >next</a> |</li>
         <li class="right" >
           <a href="m.media.html" title="m.media.js"
@@ -180,7 +191,7 @@ passed to this method.</p>
       </ul>
     </div>
     <div class="footer">
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
     </div>
   </body>
 </html>
