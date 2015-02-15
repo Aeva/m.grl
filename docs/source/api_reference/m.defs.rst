@@ -121,6 +121,16 @@ Converts from degrees to radians.
 
 
 
+please.degrees
+--------------
+*please.degrees* **(radians)**
+
+Converts from radians to degrees.
+
+-  **degrees** An angular value expressed in dgersee.
+
+
+
 please.mix
 ----------
 *please.mix* **(lhs, rhs, a)**

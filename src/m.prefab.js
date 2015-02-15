@@ -16,6 +16,19 @@
 // cameras themselves are what is activated for the purpose of saving
 // color buffers.  A simple pipeline can be constructed from this to
 //
+// If the StereoCamera's "look_at" value is set to something other
+// than [null, null, null], the child CameraNode objects will
+// automatically attempt to converge on the point.  If it is desired
+// that they not converge, set the StereoCamera's "auto_converge"
+// parameter to false.  When auto convergance is left on, objects that
+// are past the focal point will appear to be "within" the screen,
+// whereas objects in front of the focal point will appear to "pop
+// out" of the screen.  If the focal point is too close to the camera,
+// you will see a cross eye effect.  **Important accessibility note**,
+// Take care that camera.focal_distance never gets too low, or you can
+// cause uneccesary eye strain on your viewer and make your program
+// inaccessible to users with convergence insufficiency.
+//
 // Further usage:
 // ```
 // var camera = new please.StereoCamera();
@@ -47,6 +60,7 @@ please.StereoCamera = function () {
     please.CameraNode.call(this);
     ANI("eye_distance", 10.0);
     ANI("unit_conversion", 0.001);
+    this.auto_converge = true;
     this.left_eye = this._create_subcamera(-1);
     this.right_eye = this._create_subcamera(1);
 
@@ -87,12 +101,20 @@ please.StereoCamera.prototype._create_subcamera = function (position) {
         return dist * unit * 0.5 * position;
     };
 
-    // The eyes should also focus automatically on whatever the parent
-    // is focusing on, if anything.
-    // eye.look_at = function () {
-    //     return this.parent.look_at;
-    // };
-    eye.look_at = [null, null, null];
+    // Automatic convergance
+    eye.rotation_z = function () {
+        if (this.parent.has_focal_point() && this.parent.auto_converge) {
+            // camera_distance, half_eye_distance
+            var angle = Math.atan2(this.location_x, this.parent.focal_distance);
+            return please.degrees(angle * -1);
+        }
+        else {
+            return 0;
+        }
+    };
 
+    // FIXME dummy this property out entirely somehow
+    eye.look_at = [null, null, null];
+    
     return eye;
 };

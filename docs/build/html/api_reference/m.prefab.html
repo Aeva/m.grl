@@ -69,6 +69,17 @@ and you use it to define what &#8220;millimeters&#8221; means to you.</p>
 change the viewpoint of both cameras, and that the sub cameras
 themselves are what is activated for the purpose of saving color
 buffers. A simple pipeline can be constructed from this to</p>
+<p>If the StereoCamera&#8217;s &#8220;look_at&#8221; value is set to something other than
+[null, null, null], the child CameraNode objects will automatically
+attempt to converge on the point. If it is desired that they not
+converge, set the StereoCamera&#8217;s &#8220;auto_converge&#8221; parameter to false.
+When auto convergance is left on, objects that are past the focal point
+will appear to be &#8220;within&#8221; the screen, whereas objects in front of the
+focal point will appear to &#8220;pop out&#8221; of the screen. If the focal point
+is too close to the camera, you will see a cross eye effect. <strong>Important
+accessibility note</strong>, Take care that camera.focal_distance never gets
+too low, or you can cause uneccesary eye strain on your viewer and make
+your program inaccessible to users with convergence insufficiency.</p>
 <p>Further usage:</p>
 <div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">camera</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">StereoCamera</span><span class="p">();</span>
 

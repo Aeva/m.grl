@@ -1152,7 +1152,12 @@ please.CameraNode.prototype = Object.create(please.GraphNode.prototype);
 
 please.CameraNode.prototype.__focal_distance = function () {
     // the distance between "look_at" and "location"
-    return vec3.distance(vec3.create(), this.location, this.look_at);
+    return vec3.distance(this.location, this.look_at);
+};
+
+
+please.CameraNode.prototype.has_focal_point = function () {
+    return this.look_at[0] !== null || this.look_at[1] !== null || this.look_at[2] !== null;
 };
 
 
@@ -1189,10 +1194,7 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
     var look_at = this.look_at;
     var up_vector = this.up_vector;
 
-    if (this.look_at[0] !== null ||
-        this.look_at[1] !== null ||
-        this.look_at[2] !== null) {
-
+    if (this.has_focal_point()) {
         mat4.lookAt(
             local_matrix,
             location,
