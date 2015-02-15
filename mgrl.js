@@ -1577,6 +1577,11 @@ please.pipeline = {
 // options).  See please.pipeline.add_indirect for more details on the
 // options object.
 //
+// A pipeline stage can be made conditional by calling
+// "skip_when(callback)" on the return result of this function, like
+// with with "as_texture."  The two may be chained, eg
+// please.pipeline.add(...).as_texture().skip_when(...).
+//
 please.pipeline.add = function (priority, name, callback) {
     if (this.__callbacks[name] !== undefined) {
         var err = "Cannot register a callback of the same name twice.";
