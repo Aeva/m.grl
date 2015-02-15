@@ -18,6 +18,10 @@
 //
 // Further usage:
 // ```
+// var camera = new please.StereoCamera();
+//
+// // ...
+//
 // please.pipeline.add(10, "vr/left_eye", function () {
 //     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 //     camera.left.activate();

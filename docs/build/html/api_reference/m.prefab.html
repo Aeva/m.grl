@@ -70,7 +70,11 @@ change the viewpoint of both cameras, and that the sub cameras
 themselves are what is activated for the purpose of saving color
 buffers. A simple pipeline can be constructed from this to</p>
 <p>Further usage:</p>
-<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;vr/left_eye&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">camera</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">StereoCamera</span><span class="p">();</span>
+
+<span class="c1">// ...</span>
+
+<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;vr/left_eye&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
     <span class="nx">gl</span><span class="p">.</span><span class="nx">clear</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">COLOR_BUFFER_BIT</span> <span class="o">|</span> <span class="nx">gl</span><span class="p">.</span><span class="nx">DEPTH_BUFFER_BIT</span><span class="p">);</span>
     <span class="nx">camera</span><span class="p">.</span><span class="nx">left</span><span class="p">.</span><span class="nx">activate</span><span class="p">();</span>
     <span class="nx">graph</span><span class="p">.</span><span class="nx">draw</span><span class="p">();</span>
