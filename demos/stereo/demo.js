@@ -46,8 +46,46 @@ addEventListener("load", function() {
     please.load("uvmap.png");
     please.load("floor_lamp.png");
 
+    // show the progress bar
     show_progress();
+
+    // set some globals we'll be using in the demo
+    window.lhs_mask = [1.0, 0.0, 0.0];
+    window.rhs_mask = [0.0, 1.0, 1.0];
+    window.lhs_mask.dirty = true;
+    window.rhs_mask.dirty = true;
+
+    // bind event hooks
+    document.getElementById("render_mode").addEventListener(
+        "change", render_mode_handler);
+    document.getElementById("lhs_color").addEventListener(
+        "change", color_pick_handler);
+    document.getElementById("rhs_color").addEventListener(
+        "change", color_pick_handler);
 });
+
+
+function render_mode_handler(event) {
+    var color_set = document.getElementById("color_options");
+    if (event.target.selectedOptions[0].value == "frame") {
+        color_set.style.display = "none";
+    }
+    else {
+        color_set.style.display = "inline";
+    }
+};
+
+
+function color_pick_handler(event) {
+    var prefix = event.target.id.slice(0, 3);
+    var part, result = [];
+    for (var i=1; i<=5; i+=2) {
+        part = event.target.value.slice(i, i+2);
+        result.push(parseInt(part, 16)/255.0);
+    }
+    window[prefix+"_mask"] = result;
+    window[prefix+"_mask"].dirty = true;
+};
 
 
 function show_progress() {
@@ -82,6 +120,9 @@ addEventListener("mgrl_media_ready", function () {
     var prog = please.glsl("render_pass", "simple.vert", "simple.frag");
     prog.activate();
     please.glsl("stereo_pass", "splat.vert", "stereo.frag");
+
+    // grab inputs that'll influence the shader state
+    var render_mode_select = document.getElementById("render_mode");
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
@@ -221,15 +262,10 @@ addEventListener("mgrl_media_ready", function () {
         prog.activate();
         prog.samplers.left_eye = "demo/left_eye";
         prog.samplers.right_eye = "demo/right_eye";
-        prog.vars.split_screen = false;
+        prog.vars.split_screen = render_mode_select.selectedOptions[0].value == "frame";
 
-        var lhs_mask = [1.0, 0.0, 0.0];
-        var rhs_mask = [0.0, 1.0, 1.0];
-        lhs_mask.dirty = true;
-        rhs_mask.dirty = true;
-  
-        prog.vars.left_color = lhs_mask;
-        prog.vars.right_color = rhs_mask;
+        prog.vars.left_color = window.lhs_mask;
+        prog.vars.right_color = window.rhs_mask;
 
         // -- fullscreen quad
         please.gl.splat();
