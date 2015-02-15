@@ -324,6 +324,15 @@ please.random_of = function(array) {
 please.radians = function (degrees) {
     return degrees*(Math.PI/180);
 };
+// [+] please.degrees(radians)
+//
+// Converts from radians to degrees.
+//
+// - **degrees** An angular value expressed in dgersee.
+//
+please.degrees = function (radians) {
+    return radians/(Math.PI/180);
+};
 // [+] please.mix(lhs, rhs, a)
 //
 // Works like the GLSL mix function: linearily interpolates between
@@ -4757,7 +4766,10 @@ please.CameraNode = function () {
 please.CameraNode.prototype = Object.create(please.GraphNode.prototype);
 please.CameraNode.prototype.__focal_distance = function () {
     // the distance between "look_at" and "location"
-    return vec3.distance(vec3.create(), this.location, this.look_at);
+    return vec3.distance(this.location, this.look_at);
+};
+please.CameraNode.prototype.has_focal_point = function () {
+    return this.look_at[0] !== null || this.look_at[1] !== null || this.look_at[2] !== null;
 };
 please.CameraNode.prototype.activate = function () {
     var graph = this.graph_root;
@@ -4782,9 +4794,7 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
     var location = this.location;
     var look_at = this.look_at;
     var up_vector = this.up_vector;
-    if (this.look_at[0] !== null ||
-        this.look_at[1] !== null ||
-        this.look_at[2] !== null) {
+    if (this.has_focal_point()) {
         mat4.lookAt(
             local_matrix,
             location,
@@ -4982,8 +4992,25 @@ please.builder.SpriteBuilder.prototype = {
 // cameras themselves are what is activated for the purpose of saving
 // color buffers.  A simple pipeline can be constructed from this to
 //
+// If the StereoCamera's "look_at" value is set to something other
+// than [null, null, null], the child CameraNode objects will
+// automatically attempt to converge on the point.  If it is desired
+// that they not converge, set the StereoCamera's "auto_converge"
+// parameter to false.  When auto convergance is left on, objects that
+// are past the focal point will appear to be "within" the screen,
+// whereas objects in front of the focal point will appear to "pop
+// out" of the screen.  If the focal point is too close to the camera,
+// you will see a cross eye effect.  **Important accessibility note**,
+// Take care that camera.focal_distance never gets too low, or you can
+// cause uneccesary eye strain on your viewer and make your program
+// inaccessible to users with convergence insufficiency.
+//
 // Further usage:
 // ```
+// var camera = new please.StereoCamera();
+//
+// // ...
+//
 // please.pipeline.add(10, "vr/left_eye", function () {
 //     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 //     camera.left.activate();
@@ -5009,6 +5036,7 @@ please.StereoCamera = function () {
     please.CameraNode.call(this);
     please.make_animatable(this, "eye_distance", 10.0);;
     please.make_animatable(this, "unit_conversion", 0.001);;
+    this.auto_converge = true;
     this.left_eye = this._create_subcamera(-1);
     this.right_eye = this._create_subcamera(1);
     this.add(this.left_eye);
@@ -5044,11 +5072,18 @@ please.StereoCamera.prototype._create_subcamera = function (position) {
         var unit = this.parent.unit_conversion;
         return dist * unit * 0.5 * position;
     };
-    // The eyes should also focus automatically on whatever the parent
-    // is focusing on, if anything.
-    // eye.look_at = function () {
-    //     return this.parent.look_at;
-    // };
+    // Automatic convergance
+    eye.rotation_z = function () {
+        if (this.parent.has_focal_point() && this.parent.auto_converge) {
+            // camera_distance, half_eye_distance
+            var angle = Math.atan2(this.location_x, this.parent.focal_distance);
+            return please.degrees(angle * -1);
+        }
+        else {
+            return 0;
+        }
+    };
+    // FIXME dummy this property out entirely somehow
     eye.look_at = [null, null, null];
     return eye;
 };

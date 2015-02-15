@@ -328,6 +328,17 @@ please.radians = function (degrees) {
 };
 
 
+// [+] please.degrees(radians)
+//
+// Converts from radians to degrees.
+//
+// - **degrees** An angular value expressed in dgersee.
+//
+please.degrees = function (radians) {
+    return radians/(Math.PI/180);
+};
+
+
 // [+] please.mix(lhs, rhs, a)
 //
 // Works like the GLSL mix function: linearily interpolates between
