@@ -2695,16 +2695,29 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     var errors = [];
     for (var i=1; i< arguments.length; i+=1) {
         var shader = arguments[i];
-        if (shader.type == gl.VERTEX_SHADER) {
-            prog.vert = shader;
+        if (typeof(shader) === "string") {
+            shader = please.access(shader);
         }
-        if (shader.type == gl.FRAGMENT_SHADER) {
-            prog.frag = shader;
+        if (shader) {
+            if (shader.type == gl.VERTEX_SHADER) {
+                prog.vert = shader;
+            }
+            if (shader.type == gl.FRAGMENT_SHADER) {
+                prog.frag = shader;
+            }
+            if (shader.error) {
+                errors.push(shader.error);
+                build_fail += "\n\n" + shader.error;
+            }
         }
-        if (shader.error) {
-            errors.push(shader.error);
-            build_fail += "\n\n" + shader.error;
-        }
+    }
+    if (!prog.vert) {
+        throw("No vertex shader defined for shader program \"" + name + "\".\n" +
+              "Did you remember to call please.load on your vertex shader?");
+    }
+    if (!prog.frag) {
+        throw("No fragment shader defined for shader program \"" + name + "\".\n" +
+              "Did you remember to call please.load on your fragment shader?");
     }
     if (errors.length > 0) {
         prog.error = errors;

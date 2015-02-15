@@ -5,7 +5,7 @@ precision highp float;
 precision mediump float;
 #endif
 
-uniform float time;
+uniform float mgrl_frame_start;
 uniform float mode;
 uniform sampler2D diffuse_texture;
 
@@ -33,7 +33,7 @@ float random_seed(vec3 co) {
 
 // Returns a value!
 float random() {
-  return random_seed(vec3(gl_FragCoord.x, gl_FragCoord.y, mod(time, 60.0)));
+  return random_seed(vec3(gl_FragCoord.x, gl_FragCoord.y, mod(mgrl_frame_start, 60.0)));
 }
 
 
@@ -79,8 +79,8 @@ void main(void) {
     // generate a procedural texture for the floor
 
     // wobble coordinates for the "weird" half
-    float wobble_x = world_position.x + sin((world_position.y+(time/5000.0))*3.0) / 2.0;
-    float wobble_y = world_position.y + sin((world_position.x+(time/5000.0))*3.0) / 2.0;
+    float wobble_x = world_position.x + sin((world_position.y+(mgrl_frame_start/5000.0))*3.0) / 2.0;
+    float wobble_y = world_position.y + sin((world_position.x+(mgrl_frame_start/5000.0))*3.0) / 2.0;
     float checker_scale = 3.0;
 
     // generate a checkerboard, mix between world coordinates and wobble coordinates

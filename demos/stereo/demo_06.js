@@ -31,6 +31,8 @@ addEventListener("load", function() {
     // load shader sources
     please.load("simple.vert");
     please.load("simple.frag");
+    please.load("splat.vert");
+    please.load("stereo.frag");
 
     // load our model files
     please.load("gavroche.jta");
@@ -77,10 +79,9 @@ addEventListener("mgrl_media_ready", function () {
 
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
-    var vert = please.access("simple.vert");
-    var frag = please.access("simple.frag");
-    var prog = please.glsl("default", vert, frag);
+    var prog = please.glsl("render_pass", "simple.vert", "simple.frag");
     prog.activate();
+    please.glsl("stereo_pass", "splat.vert", "stereo.frag");
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
@@ -173,26 +174,67 @@ addEventListener("mgrl_media_ready", function () {
     var light_direction = vec3.fromValues(.25, -1.0, -.4);
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
+    // -- update shader var for light direction
+    prog.vars.light_direction = light_direction;
     
-    // register a render pass with the scheduler
-    please.pipeline.add(1, "demo_06/draw", function () {
+    
+    // Left eye render pass
+    please.pipeline.add(10, "demo/left_eye", function () {
         // -- clear the screen
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        // -- update uniforms
-        prog.vars.time = performance.now();
-        prog.vars.light_direction = light_direction;
 
-        // if the camera is not explicitely activated, then the scene
-        // graph will attempt to pick one to use.  In this case we have
-        // only one so it doesn't matter, BUT it is generally good
-        // practice to explicitly activate the camera you want to use:
-        //camera.activate();
+        // -- set the shader program
+        please.gl.get_program("render_pass").activate();
+
+        // -- activate the camera
         camera.left_eye.activate();
-        
-        // -- draw geometry
+
+        // -- draw the geometry
         graph.draw();
+    }).as_texture();
+
+    
+    // Right eye render pass
+    please.pipeline.add(10, "demo/right_eye", function () {
+        // -- clear the screen
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // -- set the shader program
+        please.gl.get_program("render_pass").activate();
+
+        // -- activate the camera
+        camera.right_eye.activate();
+
+        // -- draw the geometry
+        graph.draw();
+    }).as_texture();
+
+
+    // Render the hardware-specific stereo split logic
+    please.pipeline.add(20, "demo/stereo_killed_the_video_star", function () {
+        // -- clear the screen
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // -- set the shader program
+        var prog = please.gl.get_program("stereo_pass");
+        prog.activate();
+        prog.samplers.left_eye = "demo/left_eye";
+        prog.samplers.right_eye = "demo/right_eye";
+        prog.vars.split_screen = false;
+
+        var lhs_mask = [1.0, 0.0, 0.0];
+        var rhs_mask = [0.0, 1.0, 1.0];
+        lhs_mask.dirty = true;
+        rhs_mask.dirty = true;
+  
+        prog.vars.left_color = lhs_mask;
+        prog.vars.right_color = rhs_mask;
+
+        // -- fullscreen quad
+        please.gl.splat();
     });
+
+
     please.pipeline.start();
 });
 
