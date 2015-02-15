@@ -79,6 +79,11 @@ please.pipeline = {
 // options).  See please.pipeline.add_indirect for more details on the
 // options object.
 //
+// A pipeline stage can be made conditional by calling
+// "skip_when(callback)" on the return result of this function, like
+// with with "as_texture."  The two may be chained, eg
+// please.pipeline.add(...).as_texture().skip_when(...).
+//
 please.pipeline.add = function (priority, name, callback) {
     if (this.__callbacks[name] !== undefined) {
         var err = "Cannot register a callback of the same name twice.";
@@ -91,9 +96,15 @@ please.pipeline.add = function (priority, name, callback) {
         "order" : priority,
         "as_texture" : function (options) {
             please.pipeline.add_indirect(name, options);
+            return this;
+        },
+        "skip_when" : function (skip_condition) {
+            this.skip_condition = skip_condition;
+            return this;
         },
         "__indirect" : false,
         "__buffer_options" : null,
+        "skip_condition" : null,
         "callback" : callback,
     };
     this.__dirty = true;
@@ -209,6 +220,11 @@ please.pipeline.__on_draw = function () {
     var stage, msg = null, reset_name_bool = false;
     ITER(i, please.pipeline.__cache) {
         stage = please.pipeline.__cache[i];
+
+        if (stage.skip_condition && stage.skip_condition()) {
+            continue;
+        }
+        
         please.gl.set_framebuffer(stage.__indirect ? stage.name : null);
         if (prog) {
             prog.vars.mgrl_pipeline_id = stage.order;

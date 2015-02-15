@@ -91,6 +91,10 @@ an argument to the next pipeline stage&#8217;s callback.</li>
 &#8220;as_texture(options)&#8221; method on the return result of this function. The
 method wraps please.pipeline.add_indirect(buffer_name, options). See
 please.pipeline.add_indirect for more details on the options object.</p>
+<p>A pipeline stage can be made conditional by calling
+&#8220;skip_when(callback)&#8221; on the return result of this function, like with
+with &#8220;as_texture.&#8221; The two may be chained, eg
+please.pipeline.add(...).as_texture().skip_when(...).</p>
 </div>
 <div class="section" id="please-pipeline-add-indirect">
 <h2>please.pipeline.add_indirect<a class="headerlink" href="#please-pipeline-add-indirect" title="Permalink to this headline">¶</a></h2>

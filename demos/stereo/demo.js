@@ -221,42 +221,48 @@ addEventListener("mgrl_media_ready", function () {
     vec3.scale(light_direction, light_direction, -1);
     // -- update shader var for light direction
     prog.vars.light_direction = light_direction;
+
     
+    // Define a skip condition callback, so that the pipeline stages
+    // for the eye buffers can be skipped completely when they are not
+    // needed.  This is useful because it also skips automatic state
+    // changes that would happen automatically to set up indirect
+    // rendering etc.
+    var skip_condition = function () {
+        return mode_active("mono");
+    };
+
     
     // Left eye render pass
     please.pipeline.add(10, "demo/left_eye", function () {
-        if (!mode_active("mono")) {
-            // -- clear the screen
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        // -- clear the screen
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-            // -- set the shader program
-            please.gl.get_program("render_pass").activate();
+        // -- set the shader program
+        please.gl.get_program("render_pass").activate();
 
-            // -- activate the camera
-            camera.left_eye.activate();
+        // -- activate the camera
+        camera.left_eye.activate();
 
-            // -- draw the geometry
-            graph.draw();
-        }
-    }).as_texture();
+        // -- draw the geometry
+        graph.draw();
+    }).as_texture().skip_when(skip_condition);
 
     
     // Right eye render pass
     please.pipeline.add(10, "demo/right_eye", function () {
-        if (!mode_active("mono")) {
-            // -- clear the screen
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        // -- clear the screen
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-            // -- set the shader program
-            please.gl.get_program("render_pass").activate();
+        // -- set the shader program
+        please.gl.get_program("render_pass").activate();
 
-            // -- activate the camera
-            camera.right_eye.activate();
+        // -- activate the camera
+        camera.right_eye.activate();
 
-            // -- draw the geometry
-            graph.draw();
-        }
-    }).as_texture();
+        // -- draw the geometry
+        graph.draw();
+    }).as_texture().skip_when(skip_condition);
 
 
     // Render the hardware-specific stereo split logic

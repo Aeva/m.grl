@@ -52,6 +52,11 @@ To do indirect rendering on a pipeline stage, call the
 method wraps please.pipeline.add\_indirect(buffer\_name, options). See
 please.pipeline.add\_indirect for more details on the options object.
 
+A pipeline stage can be made conditional by calling
+"skip\_when(callback)" on the return result of this function, like with
+with "as\_texture." The two may be chained, eg
+please.pipeline.add(...).as\_texture().skip\_when(...).
+
 
 please.pipeline.add_indirect
 ----------------------------
