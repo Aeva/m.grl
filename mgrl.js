@@ -2454,7 +2454,7 @@ please.gl = {
         "textures" : {},
     },
     // binds the rendering context
-    "set_context" : function (canvas_id) {
+    "set_context" : function (canvas_id, options) {
         if (this.canvas !== null) {
             throw("This library is not presently designed to work with multiple contexts.");
         }
@@ -2462,7 +2462,8 @@ please.gl = {
         try {
             var names = ["webgl", "experimental-webgl"];
             for (var n=0; n<names.length; n+=1) {
-                this.ctx = this.canvas.getContext(names[n]);
+                var opt = options || {};
+                this.ctx = this.canvas.getContext(names[n], opt);
                 if (this.ctx !== null) {
                     break;
                 }
@@ -2540,17 +2541,25 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
         }
     }
 };
+// Nearest power of 2
+please.gl.__nearest_power = function (num) {
+    var log_n = Math.log2(num);
+    if (Math.floor(log_n) === num) {
+        return num;
+    }
+    else {
+        return Math.pow(2, Math.ceil(log_n));
+    }
+};
 // Upscale an image to the next power of 2
 please.gl.__upscale_image = function (image_object) {
-    var wlog = Math.log2(image_object.width);
-    var hlog = Math.log2(image_object.height);
-    var w_ok = Math.floor(wlog) === wlog;
-    var h_ok = Math.floor(hlog) === hlog;
-    if (w_ok && h_ok) {
+    var w = image_object.width;
+    var h = image_object.height;
+    var next_w = please.gl.__nearest_power(w);
+    var next_h = please.gl.__nearest_power(h);
+    if (w === next_w && h === next_h) {
         return image_object;
     }
-    var next_w = Math.pow(2, Math.ceil(wlog));
-    var next_h = Math.pow(2, Math.ceil(hlog));
     var canvas = document.createElement("canvas");
     canvas.width = next_w;
     canvas.height = next_h;
@@ -3108,6 +3117,8 @@ please.gl.register_framebuffer = function (handle, _options) {
             }
         });
     }
+    opt.width = please.gl.__nearest_power(opt.width);
+    opt.height = please.gl.__nearest_power(opt.height);
     Object.freeze(opt);
     // Create the new framebuffer
     var fbo = gl.createFramebuffer();
