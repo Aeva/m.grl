@@ -23,7 +23,10 @@
 
 
 addEventListener("load", function() {
+    // create the rendering context
     please.gl.set_context("gl_canvas");
+
+    // setup asset search paths
     please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "../gl_assets/img/");
     please.set_search_path("jta", "../gl_assets/models/");
@@ -76,21 +79,17 @@ addEventListener("mgrl_media_ready", function () {
     document.getElementById("demo_area").style.display = "block";
 
     // Create GL context, build shader pair
-    var canvas = document.getElementById("gl_canvas");
-    var vert = please.access("simple.vert");
-    var frag = please.access("simple.frag");
-    var prog = please.glsl("default", vert, frag);
+    var prog = please.glsl("default", "simple.vert", "simple.frag");
     prog.activate();
 
-    // setup default state stuff    
+    // setup opengl state    
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.CULL_FACE);
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
 
     // enable alpha blending
     gl.enable(gl.BLEND);
-    //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     
     // access model data
@@ -164,10 +163,10 @@ addEventListener("mgrl_media_ready", function () {
     // add the camera to the scene graph
     graph.add(camera);
 
-    // if the camera is not explicitely activated, then the scene
+    // If the camera is not explicitely activated, then the scene
     // graph will attempt to pick one to use.  In this case we have
     // only one so it doesn't matter, BUT it is generally good
-    // practice to explicitly activate the camera you want to use:
+    // practice to activate the camera you want to use before drawing.
     camera.activate();
 
     // set up a directional light
@@ -178,7 +177,6 @@ addEventListener("mgrl_media_ready", function () {
     // register a render pass with the scheduler
     please.pipeline.add(1, "demo_06/draw", function () {
         // -- update uniforms
-        prog.vars.time = performance.now();
         prog.vars.light_direction = light_direction;
 
         // -- clear the screen
