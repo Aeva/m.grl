@@ -46,7 +46,6 @@ addEventListener("mgrl_fps", function (event) {
 
 addEventListener("mgrl_media_ready", please.once(function () {
     // Create GL context, build shader pair
-    var canvas = document.getElementById("gl_canvas");
     var prog = please.glsl("default", "simple.vert", "simple.frag");
     prog.activate();
 
@@ -69,9 +68,11 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var camera = window.camera = new please.CameraNode();
     camera.look_at = vec3.fromValues(0, 10, 2.5);
     camera.location = function () {
-        return [0.0, -14.0, 6.0];
+        return [0.0, -14.0, 8.0];
     };
-    camera.fov = 57.29; // zoom out a bit
+    //camera.fov = 57.29; // zoom out a bit
+    camera.fov = please.path_driver(
+        please.linear_path(30, 57.3), 2000, false, false);
     
     // Add the camera to the scene graph
     graph.add(camera);
@@ -82,35 +83,20 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // practice to explicitly activate the camera you want to use:
     camera.activate();
 
-    // magic number
-    var TARGET_HEIGHT = 512;
-
-    // register a render passes with the scheduler
-    please.pipeline.add(-1, "scale_window", function () {
-        // automatically change the viewport if necessary 
-
-        var window_w = window.innerWidth;
-        var window_h = window.innerHeight;
-
-        var ratio = window_w / window_h;
-        var set_h = Math.min(TARGET_HEIGHT, window.innerHeight);
-        var set_w = Math.round(set_h * ratio);
-        
-        var canvas_w = please.gl.canvas.width;
-        var canvas_h = please.gl.canvas.height;
-        if (set_w !== canvas_w || set_h !== canvas_h) {
-            please.gl.canvas.width = set_w;
-            please.gl.canvas.height = set_h;
-            gl.viewport(0, 0, set_w, set_h);
-        }
-    });
+    // Register a render passes with the scheduler.  The autoscale
+    // prefab is used to change the dimensions of the rendering canvas
+    // when it has the 'fullscreen' css class, as well as constrain
+    // the maximum height of said canvas element.  You are responsible
+    // for providing the css needed to upsample the canvas, though
+    // this project template accomplishes that for you.  See "ui.css".
+    please.pipeline.add_autoscale();
 
     // register a render pass with the scheduler
     please.pipeline.add(10, "phone/draw", function () {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        //please.gl.get_program("default").activate();
         graph.draw();
     });
-    
+
+    // start the rendering pipeline
     please.pipeline.start();
 }));

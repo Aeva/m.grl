@@ -4,6 +4,10 @@ body {
     margin: 0px;
 }
 
+canvas {
+    image-rendering: optimizeSpeed;
+}
+
 #gl_canvas.fullscreen {
     position: absolute;
     top: 0px;
@@ -11,7 +15,6 @@ body {
     width: 100%;
     height: 100%;
     z-index: 10;
-    image-rendering: optimizeSpeed;
 }
 
 #gl_canvas:not(.fullscreen) {
