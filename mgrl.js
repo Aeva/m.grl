@@ -3401,6 +3401,10 @@ please.gl.__jta_model = function (src, uri) {
                         };
                     };
                 }
+                if (entity.bone_name) {
+                    node.is_bone = true;
+                    node.bone_name = entity.bone_name;
+                }
                 if (entity.extra.position) {
                     node.location_x = entity.extra.position.x;
                     node.location_y = entity.extra.position.y;
@@ -3544,7 +3548,11 @@ please.gl__jta_extract_common = function (node_def) {
 // Extract the empty nodes defined in the jta file.
 please.gl__jta_extract_empties = function (empty_defs) {
     var empties = please.prop_map(empty_defs, function(name, empty_def) {
-        return please.gl__jta_extract_common(empty_def);
+        var dict = please.gl__jta_extract_common(empty_def);
+        if (empty_def.bone) {
+            dict.bone_name = empty_def.bone;
+        }
+        return dict;
     });
     return empties;
 };
@@ -4398,6 +4406,7 @@ please.GraphNode = function () {
     }.bind(this);
     this.__regen_glsl_bindings();
     window.addEventListener("mgrl_changed_shader", this.__regen_glsl_bindings);
+    this.is_bone = false;
     this.visible = true;
     this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
@@ -4453,6 +4462,17 @@ please.GraphNode.prototype = {
         window.removeEventListener(
             "mgrl_changed_shader", this.__regen_glsl_bindings);
     },
+    "propogate" : function (method, skip_root) {
+        // node.propogate allows you to apply a function to each child
+        // in this graph, inclusive of the node it was called on.
+        if (!skip_root) {
+            method(this);
+        }
+        var children = this.children;
+        for (var i=0; i<children.length; i+=1) {
+            children[i].propogate(method);
+        }
+    },
     "__set_graph_root" : function (root) {
         // Used to recursively set the "graph root" (scene graph
         // object) for all children of this object.
@@ -4463,11 +4483,13 @@ please.GraphNode.prototype = {
         }
     },
     "__world_matrix_driver" : function () {
+        var parent = this.parent;
         var local_matrix = mat4.create();
         var world_matrix = mat4.create();
-        mat4.fromRotationTranslation(local_matrix, this.quaternion, this.location);
+        if (this.is_bone || !(parent && parent.is_bone)) {
+            mat4.fromRotationTranslation(local_matrix, this.quaternion, this.location);
+        }
         mat4.scale(local_matrix, local_matrix, this.scale);
-        var parent = this.parent;
         var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
         mat4.multiply(world_matrix, parent_matrix, local_matrix);
         world_matrix.dirty = true;

@@ -135,6 +135,10 @@ please.gl.__jta_model = function (src, uri) {
                         };
                     };
                 }
+                if (entity.bone_name) {
+                    node.is_bone = true;
+                    node.bone_name = entity.bone_name;
+                }
                 if (entity.extra.position) {
                     node.location_x = entity.extra.position.x;
                     node.location_y = entity.extra.position.y;
@@ -291,7 +295,11 @@ please.gl__jta_extract_common = function (node_def) {
 // Extract the empty nodes defined in the jta file.
 please.gl__jta_extract_empties = function (empty_defs) {
     var empties = please.prop_map(empty_defs, function(name, empty_def) {
-        return please.gl__jta_extract_common(empty_def);
+        var dict = please.gl__jta_extract_common(empty_def);
+        if (empty_def.bone) {
+            dict.bone_name = empty_def.bone;
+        }
+        return dict;
     });
     return empties;
 };

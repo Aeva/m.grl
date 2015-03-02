@@ -134,13 +134,12 @@ class Exportable(object):
         self.scene = scene
         self.options = options
 
-    def extract_matrix_to_object(self, matrix, target={}, use_quats=False):
+    def extract_matrix_to_object(self, matrix, target=None, use_quats=False):
+        if not target:
+            target = {}
         target["position"] = dict(zip("xyz", matrix.to_translation()))
         if use_quats:
-            # using 'dabc' instead of 'abcd' because gl-matrix wants
-            # quats in 'xyzw' instead of 'wxyz'.  Unsure if the labels
-            # are supposed to map up or not.
-            target["quaternion"] = dict(zip("dabc", matrix.to_quaternion()))
+            target["quaternion"] = dict(zip("abcd", matrix.to_quaternion()))
         else:
             target["rotation"] = dict(zip("xyz", matrix.to_euler()))
         target["scale"] = dict(zip("xyz", matrix.to_scale()))
@@ -213,6 +212,8 @@ class Rig(Exportable):
         def fake_node(bone):
             name = "{0}:bone:{1}".format(self.obj.name, bone.name)
             parent = self.obj.name
+            # if bone.parent:
+            #     parent = "{0}:bone:{1}".format(self.obj.name, bone.parent.name)
 
             bone_matrix = bone.matrix * self.obj.matrix_world
             extra = self.extract_matrix_to_object(bone_matrix, use_quats=True)
@@ -223,9 +224,13 @@ class Rig(Exportable):
                 "parent" : parent,
                 "state" : state,
                 "extra" : extra,
+                "bone" : bone.name,
             }
             return name, blob
-        return [fake_node(i) for i in self.bones]
+        return [i for i in map(fake_node, self.bones)]
+        # FIXME for some reason, the return value here ends up being
+        # wrong - the 'position' value and who knows what else ends up
+        # being set to the same (arbitrary?) value
 
 
 class Model(Exportable):

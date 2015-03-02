@@ -703,6 +703,7 @@ please.GraphNode = function () {
     this.__regen_glsl_bindings();
     window.addEventListener("mgrl_changed_shader", this.__regen_glsl_bindings);
 
+    this.is_bone = false;
     this.visible = true;
     this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
@@ -779,11 +780,14 @@ please.GraphNode.prototype = {
         }
     },
     "__world_matrix_driver" : function () {
+        var parent = this.parent;
         var local_matrix = mat4.create();
         var world_matrix = mat4.create();
-        mat4.fromRotationTranslation(local_matrix, this.quaternion, this.location);
+
+        if (this.is_bone || !(parent && parent.is_bone)) {
+            mat4.fromRotationTranslation(local_matrix, this.quaternion, this.location);            
+        }
         mat4.scale(local_matrix, local_matrix, this.scale);
-        var parent = this.parent;
         var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
         mat4.multiply(world_matrix, parent_matrix, local_matrix);
         world_matrix.dirty = true;
