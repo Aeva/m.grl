@@ -404,8 +404,16 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
 //  - **location** Animatable tripple, used to generate the node's
 //    local matrix.
 //
-//  - **rotation** Animatable tripple, used to generate the node's
-//    local matrix.
+//  - **rotation** Animatable tripple, define's the object's rotation
+//    in euler notation.
+//
+//  - **quaternion** Animatable tripple, by default, it is a getter
+//    that returns the quaternion for the rotation defined on the
+//    'rotation' property.  If you set this, the 'rotation' property
+//    will be overwritten with a getter, which currently returns an
+//    error.  This is useful if you need to define something's
+//    orientation without suffering from gimbal lock.  Behind the
+//    scenes, m.grl reads from this property, not from rotation.
 //  
 //  - **scale** Animatable tripple, used to generate the node's local
 //    matrix.
@@ -762,10 +770,6 @@ please.GraphNode.prototype = {
     "__world_matrix_driver" : function () {
         var local_matrix = mat4.create();
         var world_matrix = mat4.create();
-        // var orientation = quat.create();
-        // quat.rotateX(orientation, orientation, please.radians(this.rotation_x));
-        // quat.rotateY(orientation, orientation, please.radians(this.rotation_y));
-        // quat.rotateZ(orientation, orientation, please.radians(this.rotation_z));
         mat4.fromRotationTranslation(local_matrix, this.quaternion, this.location);
         mat4.scale(local_matrix, local_matrix, this.scale);
         var parent = this.parent;
