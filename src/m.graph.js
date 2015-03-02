@@ -758,6 +758,17 @@ please.GraphNode.prototype = {
         window.removeEventListener(
             "mgrl_changed_shader", this.__regen_glsl_bindings);
     },
+    "propogate" : function (method, skip_root) {
+        // node.propogate allows you to apply a function to each child
+        // in this graph, inclusive of the node it was called on.
+        if (!skip_root) {
+            method(this);
+        }
+        var children = this.children;
+        for (var i=0; i<children.length; i+=1) {
+            children[i].propogate(method);
+        }
+    },
     "__set_graph_root" : function (root) {
         // Used to recursively set the "graph root" (scene graph
         // object) for all children of this object.
