@@ -3407,13 +3407,18 @@ please.gl.__jta_model = function (src, uri) {
                     node.location_z = entity.extra.position.z;
                 }
                 if (entity.extra.quaternion) {
+                    // My 'matrix' math lib uses 'xyzw' for quats
+                    // whereas blender prefers 'wxyz', so for the sake
+                    // of caution, mgrl uses 'abcd'.
                     node.quaternion_a = entity.extra.quaternion.a;
                     node.quaternion_b = entity.extra.quaternion.b;
                     node.quaternion_c = entity.extra.quaternion.c;
                     node.quaternion_d = entity.extra.quaternion.d;
                 }
                 else if (entity.extra.rotation) {
-                    // need to convert from radians to degrees :P
+                    // Planning on removing the need to convert to
+                    // degrees here.  The JTA format should always
+                    // store angles in degrees :P
                     node.rotation_x = please.degrees(entity.extra.rotation.x);
                     node.rotation_y = please.degrees(entity.extra.rotation.y);
                     node.rotation_z = please.degrees(entity.extra.rotation.z);
