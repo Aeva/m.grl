@@ -3406,11 +3406,17 @@ please.gl.__jta_model = function (src, uri) {
                     node.location_y = entity.extra.position.y;
                     node.location_z = entity.extra.position.z;
                 }
-                if (entity.extra.rotation) {
+                if (entity.extra.quaternion) {
+                    node.quaternion_a = entity.extra.quaternion.a;
+                    node.quaternion_b = entity.extra.quaternion.b;
+                    node.quaternion_c = entity.extra.quaternion.c;
+                    node.quaternion_d = entity.extra.quaternion.d;
+                }
+                else if (entity.extra.rotation) {
                     // need to convert from radians to degrees :P
-                    node.rotation_x = entity.extra.rotation.x * 57.2957795;
-                    node.rotation_y = entity.extra.rotation.y * 57.2957795;
-                    node.rotation_z = entity.extra.rotation.z * 57.2957795;
+                    node.rotation_x = please.degrees(entity.extra.rotation.x);
+                    node.rotation_y = please.degrees(entity.extra.rotation.y);
+                    node.rotation_z = please.degrees(entity.extra.rotation.z);
                 }
                 if (entity.extra.scale) {
                     node.scale_x = entity.extra.scale.x;
