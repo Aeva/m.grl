@@ -134,9 +134,15 @@ class Exportable(object):
         self.scene = scene
         self.options = options
 
-    def extract_matrix_to_object(self, matrix, target={}):
+    def extract_matrix_to_object(self, matrix, target={}, use_quats=False):
         target["position"] = dict(zip("xyz", matrix.to_translation()))
-        target["rotation"] = dict(zip("xyz", matrix.to_euler()))
+        if use_quats:
+            # using 'dabc' instead of 'abcd' because gl-matrix wants
+            # quats in 'xyzw' instead of 'wxyz'.  Unsure if the labels
+            # are supposed to map up or not.
+            target["quaternion"] = dict(zip("dabc", matrix.to_quaternion()))
+        else:
+            target["rotation"] = dict(zip("xyz", matrix.to_euler()))
         target["scale"] = dict(zip("xyz", matrix.to_scale()))
         return target
 
@@ -209,7 +215,7 @@ class Rig(Exportable):
             parent = self.obj.name
 
             bone_matrix = bone.matrix * self.obj.matrix_world
-            extra = self.extract_matrix_to_object(bone_matrix)
+            extra = self.extract_matrix_to_object(bone_matrix, use_quats=True)
             state = {
                 "world_matrix" : self.format_matrix(bone_matrix),
             }
