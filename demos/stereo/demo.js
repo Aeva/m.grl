@@ -194,7 +194,7 @@ addEventListener("mgrl_media_ready", function () {
         lamp.shader.mode = 2;
         lamp.location_x = x;
         lamp.location_y = y;
-        lamp.rotation_y = Math.random()*360;
+        lamp.rotation_z = Math.random()*360;
         graph.add(lamp);
     }
 
