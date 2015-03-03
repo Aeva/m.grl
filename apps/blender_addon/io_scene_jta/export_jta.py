@@ -146,6 +146,20 @@ class Exportable(object):
         target["scale"] = dict(zip("xyz", matrix.to_scale()))
         return target
 
+    def extract_bone_transforms(self, bone, world_matrix, target=None):
+        if not target:
+            target = {}
+        target["position"] = dict(zip("xyz", bone.head))
+        rotation = bone.matrix_channel.to_quaternion()# * bone.rotation_quaternion
+        #import pdb; pdb.set_trace()
+        if set(bone.rotation_mode) == set("XYZ"):
+            target["rotation"] = dict(zip("xyz", rotation.to_euler("XYZ")))
+        else:
+            target["quaternion"] = dict(zip("dabc", rotation))
+            
+        target["scale"] = dict(zip("xyz", bone.scale))
+        return target
+
     def format_matrix(self, matrix):
         target_matrix = matrix.copy()
         target_matrix.transpose()
@@ -218,18 +232,16 @@ class Rig(Exportable):
             if bone.parent:
                 rig_parent = "{0}:bone:{1}".format(self.obj.name, bone.parent.name)
 
-            bone_matrix = bone.matrix# * self.obj.matrix_world
-            extra = self.extract_matrix_to_object(bone_matrix,
-                                                  mode=bone.rotation_mode)
+            extra = self.extract_bone_transforms(bone, self.obj.matrix_world)
             state = {
-                "world_matrix" : self.format_matrix(bone_matrix),
+                "world_matrix" : self.format_matrix(self.obj.matrix_world),
             }
             blob = {
                 "parent" : parent,
                 "state" : state,
                 "extra" : extra,
                 "bone" : bone.name,
-                "parent_bone" : rig_parent,
+                "bone_parent" : rig_parent,
             }
             return name, blob
         return [i for i in map(fake_node, self.bones)]
