@@ -3367,6 +3367,17 @@ please.gl.__jta_model = function (src, uri) {
                 please.prop_map(scene.models, function(name, model) {
                     resolve_inheritance(name, model);
                 });
+                var rig = {};
+                var has_rig = false;
+                root.propogate(function (node) {
+                    if (node.is_bone) {
+                        has_rig = true;
+                        rig[node.bone_name] = node;
+                    }
+                });
+                if (has_rig) {
+                    root.armature_lookup = rig;
+                }
                 return root;
             }
         }
@@ -3404,6 +3415,7 @@ please.gl.__jta_model = function (src, uri) {
                 if (entity.bone_name) {
                     node.is_bone = true;
                     node.bone_name = entity.bone_name;
+                    node.bone_parent = entity.bone_parent;
                 }
                 if (entity.extra.position) {
                     node.location_x = entity.extra.position.x;
@@ -3551,6 +3563,7 @@ please.gl__jta_extract_empties = function (empty_defs) {
         var dict = please.gl__jta_extract_common(empty_def);
         if (empty_def.bone) {
             dict.bone_name = empty_def.bone;
+            dict.bone_parent = empty_def.bone_parent;
         }
         return dict;
     });
@@ -4487,7 +4500,8 @@ please.GraphNode.prototype = {
         var local_matrix = mat4.create();
         var world_matrix = mat4.create();
         if (this.is_bone || !(parent && parent.is_bone)) {
-            mat4.fromRotationTranslation(local_matrix, this.quaternion, this.location);
+            mat4.fromRotationTranslation(
+                local_matrix, this.quaternion, this.location);
         }
         mat4.scale(local_matrix, local_matrix, this.scale);
         var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
@@ -4962,10 +4976,14 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
             up_vector);
     }
     else {
-        mat4.translate(local_matrix, local_matrix, this.location);
-        mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
-        mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
-        mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
+        if (!(parent && parent.is_bone)) {
+            mat4.fromRotationTranslation(
+                local_matrix, this.quaternion, this.location);
+        }
+        // mat4.translate(local_matrix, local_matrix, this.location);
+        // mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
+        // mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
+        // mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
         mat4.scale(local_matrix, local_matrix, this.scale);
     }
     var parent = this.parent;

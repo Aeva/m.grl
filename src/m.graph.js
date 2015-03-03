@@ -785,7 +785,8 @@ please.GraphNode.prototype = {
         var world_matrix = mat4.create();
 
         if (this.is_bone || !(parent && parent.is_bone)) {
-            mat4.fromRotationTranslation(local_matrix, this.quaternion, this.location);            
+            mat4.fromRotationTranslation(
+                local_matrix, this.quaternion, this.location);            
         }
         mat4.scale(local_matrix, local_matrix, this.scale);
         var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
@@ -1308,10 +1309,14 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
             up_vector);
     }
     else {
-        mat4.translate(local_matrix, local_matrix, this.location);
-        mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
-        mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
-        mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
+        if (!(parent && parent.is_bone)) {
+            mat4.fromRotationTranslation(
+                local_matrix, this.quaternion, this.location);            
+        }
+        // mat4.translate(local_matrix, local_matrix, this.location);
+        // mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
+        // mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
+        // mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
         mat4.scale(local_matrix, local_matrix, this.scale);
     }
     var parent = this.parent;

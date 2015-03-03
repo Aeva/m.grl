@@ -101,6 +101,18 @@ please.gl.__jta_model = function (src, uri) {
                 please.prop_map(scene.models, function(name, model) {
                     resolve_inheritance(name, model);
                 });
+
+                var rig = {};
+                var has_rig = false;
+                root.propogate(function (node) {
+                    if (node.is_bone) {
+                        has_rig = true;
+                        rig[node.bone_name] = node;
+                    }
+                });
+                if (has_rig) {
+                    root.armature_lookup = rig;
+                }
                 return root;
             }
         }
@@ -138,6 +150,7 @@ please.gl.__jta_model = function (src, uri) {
                 if (entity.bone_name) {
                     node.is_bone = true;
                     node.bone_name = entity.bone_name;
+                    node.bone_parent = entity.bone_parent;
                 }
                 if (entity.extra.position) {
                     node.location_x = entity.extra.position.x;
@@ -298,6 +311,7 @@ please.gl__jta_extract_empties = function (empty_defs) {
         var dict = please.gl__jta_extract_common(empty_def);
         if (empty_def.bone) {
             dict.bone_name = empty_def.bone;
+            dict.bone_parent = empty_def.bone_parent;
         }
         return dict;
     });
