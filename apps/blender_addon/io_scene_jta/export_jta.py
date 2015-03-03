@@ -134,14 +134,15 @@ class Exportable(object):
         self.scene = scene
         self.options = options
 
-    def extract_matrix_to_object(self, matrix, target=None, use_quats=False):
+    def extract_matrix_to_object(self, matrix, target=None, mode="XYZ"):
         if not target:
             target = {}
         target["position"] = dict(zip("xyz", matrix.to_translation()))
-        if use_quats:
-            target["quaternion"] = dict(zip("dabc", matrix.to_quaternion()))
+        if set(mode) == set("XYZ"):
+            target["rotation"] = dict(zip("xyz", matrix.to_euler('XYZ')))
         else:
-            target["rotation"] = dict(zip("xyz", matrix.to_euler()))
+            target["quaternion"] = dict(zip("dabc", matrix.to_quaternion()))
+            
         target["scale"] = dict(zip("xyz", matrix.to_scale()))
         return target
 
@@ -180,7 +181,8 @@ class Exportable(object):
         extras = {}
 
         # Note the object's coordinates and postion values in Extras.
-        self.extract_matrix_to_object(self.obj.matrix_local, extras)
+        self.extract_matrix_to_object(self.obj.matrix_local,
+                                      extras, mode=self.obj.rotation_mode)
 
         return {
             "parent" : parent,
@@ -212,11 +214,13 @@ class Rig(Exportable):
         def fake_node(bone):
             name = "{0}:bone:{1}".format(self.obj.name, bone.name)
             parent = self.obj.name
-            # if bone.parent:
-            #     parent = "{0}:bone:{1}".format(self.obj.name, bone.parent.name)
+            rig_parent = parent
+            if bone.parent:
+                rig_parent = "{0}:bone:{1}".format(self.obj.name, bone.parent.name)
 
-            bone_matrix = bone.matrix * self.obj.matrix_world
-            extra = self.extract_matrix_to_object(bone_matrix, use_quats=True)
+            bone_matrix = bone.matrix# * self.obj.matrix_world
+            extra = self.extract_matrix_to_object(bone_matrix,
+                                                  mode=bone.rotation_mode)
             state = {
                 "world_matrix" : self.format_matrix(bone_matrix),
             }
@@ -225,6 +229,7 @@ class Rig(Exportable):
                 "state" : state,
                 "extra" : extra,
                 "bone" : bone.name,
+                "parent_bone" : rig_parent,
             }
             return name, blob
         return [i for i in map(fake_node, self.bones)]
