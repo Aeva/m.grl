@@ -176,7 +176,7 @@ addEventListener("mgrl_media_ready", function () {
     // build the scene graph
     var graph = new please.SceneGraph();
     var suzanne = suzanne_data.instance();
-    suzanne.rotation_y = function () {
+    suzanne.rotation_z = function () {
         var progress = performance.now()/110;
         return progress*-1;
     };

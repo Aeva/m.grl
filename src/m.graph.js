@@ -630,9 +630,9 @@ please.GraphNode = function () {
     // changes to euler mode.
     var as_quat = function () {
         var orientation = quat.create();
-        quat.rotateX(orientation, orientation, please.radians(this.rotation_x));
-        quat.rotateY(orientation, orientation, please.radians(this.rotation_y));
         quat.rotateZ(orientation, orientation, please.radians(this.rotation_z));
+        quat.rotateY(orientation, orientation, please.radians(this.rotation_y));
+        quat.rotateX(orientation, orientation, please.radians(this.rotation_x));
         return orientation;
     }.bind(this);
 
