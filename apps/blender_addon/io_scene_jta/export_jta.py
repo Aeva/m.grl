@@ -139,7 +139,7 @@ class Exportable(object):
             target = {}
         target["position"] = dict(zip("xyz", matrix.to_translation()))
         if use_quats:
-            target["quaternion"] = dict(zip("abcd", matrix.to_quaternion()))
+            target["quaternion"] = dict(zip("dabc", matrix.to_quaternion()))
         else:
             target["rotation"] = dict(zip("xyz", matrix.to_euler()))
         target["scale"] = dict(zip("xyz", matrix.to_scale()))
