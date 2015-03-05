@@ -510,11 +510,14 @@ please.break_curve = function(curve, target_spacing, magnitude) {
 
     var granularity = target_spacing/2.0;
     var last = null;
+    var talley = 0.0;
     var worst = pointset.reduce(function (dist, point) {
         var new_dist = last !== null ? please.distance(last, point) : 0.0;
+        talley += new_dist;
         last = point;
         return Math.max(dist, new_dist);
     }, 0.0);
+    pointset.distance = talley;
 
     if (worst > target_spacing/2.0) {
         return please.break_curve(curve, target_spacing, magnitude*2);
@@ -522,6 +525,60 @@ please.break_curve = function(curve, target_spacing, magnitude) {
     else {
         return pointset;
     }
+};
+
+
+// [+] please.merge_pointset(pointset, spacing)
+//
+// Take a given pointset (an array of coordinates, where the array has
+// a "distance" property that tells you how long it is), and produce a
+// new set of points wherein the spacing matches more or less the
+// spacing argument.
+//
+please.merge_pointset = function(pointset, target_spacing, fitting, centered) {
+    centered = centered === undefined ? true : centered;
+    if (fitting !== "shrink" && fitting !== "expand" && fitting !== "any") {
+        fitting = "any";
+    }
+    var fit_function = {
+        "any" : Math.round,
+        "shrink" : Math.ceil,
+        "expand" : Math.floor,
+    }[fitting];
+    
+    var new_set;
+    var segments = fit_function(pointset.distance/target_spacing);
+    if (segments <= 1) {
+        new_set = [pointset[0], pointset.slice(-1)[0]];
+        new_set.distance = pointset.distance;
+        return new_set;
+    }
+    var spacing = pointset.distance/segments;
+
+    new_set = centered ? [] : [pointset[0]];
+    new_set.distance = pointset.distance;
+    var check, next, dist, offset = centered ? spacing / 2.0 : 0.0;
+    for (var i=0; i<pointset.length-1; i+=1) {
+        check = pointset[i];
+        next = pointset[i+1];
+        dist = please.distance(check, next);
+        if (dist+offset >= spacing) {
+            // low = offset
+            // mid = offset + dist
+            // high = spacing
+            // alpha = (spacing-offset)/dist
+            var new_point = please.mix(check, next, (spacing-offset)/dist);
+            new_set.push(new_point);
+            offset = dist+offset - spacing;
+        }
+        else {
+            offset += dist;
+        }
+    }
+    if (!centered) {
+        new_set.push(pointset.slice(-1)[0]);
+    }
+    return new_set;
 };
 
 
