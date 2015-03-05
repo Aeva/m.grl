@@ -528,12 +528,23 @@ please.break_curve = function(curve, target_spacing, magnitude) {
 };
 
 
-// [+] please.merge_pointset(pointset, spacing)
+// [+] please.merge_pointset(pointset, spacing, fitting, centered)
 //
 // Take a given pointset (an array of coordinates, where the array has
 // a "distance" property that tells you how long it is), and produce a
 // new set of points wherein the spacing matches more or less the
 // spacing argument.
+//
+// The 'fitting' argument determines if the spacing should expand or
+// shrink if the pointset's distance does not neatly divide.  It
+// defaults to 'any' if not set or is given an invalid value, but may
+// also be set to 'shrink' or 'expand'.
+//
+// The 'centered' argument determines if the endpoints of the pointset
+// should be included or not in the returned set.  It defaults to true
+// if unset.  Basically the difference is trying to draw something of
+// X size within the area of the curve, verses dividing a data set
+// into some number of parts X distance apart.
 //
 please.merge_pointset = function(pointset, target_spacing, fitting, centered) {
     centered = centered === undefined ? true : centered;
@@ -582,13 +593,13 @@ please.merge_pointset = function(pointset, target_spacing, fitting, centered) {
 };
 
 
-// [+] please.trace_curve(curve, target_spacing, fitting, centered)
+// [+] please.trace_curve(curve, spacing, fitting, centered)
 //
 // Wraps please.break_curve and please.merge_pointset.
 //
-please.trace_curve = function (curve, target_spacing, fitting, centered) {
-    var raw_points = please.break_curve(curve, target_spacing);
-    return please.merge_pointset(raw_points, target_spacing, fitting, centered);
+please.trace_curve = function (curve, spacing, fitting, centered) {
+    var raw_points = please.break_curve(curve, spacing);
+    return please.merge_pointset(raw_points, spacing, fitting, centered);
 };
 
 

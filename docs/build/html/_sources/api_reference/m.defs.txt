@@ -141,6 +141,20 @@ that 0.0 <= a <= 1.0. The first two parameters may be numbers, arrays of
 numbers, or GraphNodes.
 
 
+please.distance
+---------------
+*please.distance* **(lhs, rhs)**
+
+Returns the distance between two items. Arguments may be numbers,
+vectors, quaternions, arrays (four or fewer elements), or graph nodes,
+provided that they both have the same number of elemnts. So, one param
+might be a graph node, and the other might be a vec3, and it would work
+fine.
+
+If you are working for sure with, say, two vectors of the same size, it
+will be marginally faster to use gl-matrix's distance methods instead.
+
+
 please.linear_path
 ------------------
 *please.linear\_path* **(start, end)**
@@ -169,6 +183,54 @@ Generator, the returned function takes a single argument 'a' which is
 used as an argument for calling please.bezier. The points argument
 passed to the generator is also passed along to the bezier function.
 This is provided as a convinience for animation drivers.
+
+
+please.path_group
+-----------------
+*please.path\_group* **(paths)**
+
+Generator, the returned function takes a single argument 'a' which is
+used as an argument, which is divided evenly between the path functions
+(such as the output of please.bezier\_path). So if you call the output
+function with a value of '0', it'll call the first path function with
+'0'. Likewise, '1' would call the last one with '1'. This is used for
+combining multiple paths together.
+
+
+please.break_curve
+------------------
+*please.break\_curve* **(curve, target\_spacing)**
+
+Takes a curve function and an arbitrary distance, and returns a list of
+points along that curve which are less than the target distance apart.
+
+
+please.merge_pointset
+---------------------
+*please.merge\_pointset* **(pointset, spacing, fitting, centered)**
+
+Take a given pointset (an array of coordinates, where the array has a
+"distance" property that tells you how long it is), and produce a new
+set of points wherein the spacing matches more or less the spacing
+argument.
+
+The 'fitting' argument determines if the spacing should expand or shrink
+if the pointset's distance does not neatly divide. It defaults to 'any'
+if not set or is given an invalid value, but may also be set to 'shrink'
+or 'expand'.
+
+The 'centered' argument determines if the endpoints of the pointset
+should be included or not in the returned set. It defaults to true if
+unset. Basically the difference is trying to draw something of X size
+within the area of the curve, verses dividing a data set into some
+number of parts X distance apart.
+
+
+please.trace_curve
+------------------
+*please.trace\_curve* **(curve, spacing, fitting, centered)**
+
+Wraps please.break\_curve and please.merge\_pointset.
 
 
 please.uuid
