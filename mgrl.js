@@ -472,6 +472,35 @@ please.path_group = function (paths) {
     }
     return path;
 };
+// [+] please.break_curve(curve, target_spacing)
+//
+// Takes a curve function and an arbitrary distance, and returns a
+// list of points along that curve which are less than the target
+// distance apart.
+//
+please.break_curve = function(curve, target_spacing, magnitude) {
+    if (magnitude === undefined) {
+        magnitude = 2;
+    }
+    var resolution = 1.0 / (curve.stops.length * magnitude);
+    var pointset = [];
+    for (var a=0.0; a<=1.0; a+=resolution) {
+        pointset.push(curve(a));
+    }
+    var granularity = target_spacing/2.0;
+    var last = null;
+    var worst = pointset.reduce(function (dist, point) {
+        var new_dist = last !== null ? please.distance(last, point) : 0.0;
+        last = point;
+        return Math.max(dist, new_dist);
+    }, 0.0);
+    if (worst > target_spacing/2.0) {
+        return please.break_curve(curve, target_spacing, magnitude*2);
+    }
+    else {
+        return pointset;
+    }
+};
 // [+] please.uuid()
 //
 // Generates a Universally Unique Identifier (UUID) string, in
