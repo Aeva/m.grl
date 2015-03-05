@@ -416,9 +416,11 @@ please.distance = function(lhs, rhs) {
 // This is provided as a convinience for animation drivers.
 //
 please.linear_path = function (start, end) {
-    return function (a) {
+    var path = function (a) {
         return please.mix(start, end, a)
     };
+    path.stops = [start, end];
+    return path;
 };
 
 
@@ -451,9 +453,41 @@ please.bezier = function (points, a) {
 // function.  This is provided as a convinience for animation drivers.
 //
 please.bezier_path = function (points) {
-    return function (a) {
+    var path = function (a) {
         return please.bezier(points, a)
     };
+    path.stops = points;
+    return path;
+};
+
+
+// [+] please.path_group(paths)
+//
+// Generator, the returned function takes a single argument 'a' which
+// is used as an argument, which is divided evenly between the path
+// functions (such as the output of please.bezier_path).  So if you
+// call the output function with a value of '0', it'll call the first
+// path function with '0'.  Likewise, '1' would call the last one with
+// '1'.  This is used for combining multiple paths together.
+//
+please.path_group = function (paths) {
+    var resolution = 1.0 / paths.length;
+    var path = function (a) {
+        var i = Math.floor(a*paths.length);
+        if (i >= paths.length) {
+            return paths.slice(-1)[0](1.0);
+        }
+        else if (i < 0.0) {
+            return paths[0](0.0);
+        }
+        var progress = a - (i*resolution);
+        return paths[i](progress/resolution);
+    };
+    path.stops = [];
+    for (var i=0; i<paths.length; i+=1) {
+        path.stops = path.stops.concat(paths[i].stops);
+    }
+    return path;
 };
 
 
