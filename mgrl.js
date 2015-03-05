@@ -363,6 +363,40 @@ please.mix = function (lhs, rhs, a) {
     }
     throw ("Mix operands are incompatible.");
 };
+// [+] please.distance(lhs, rhs)
+//
+// Returns the distance between two items.  Arguments may be numbers,
+// vectors, quaternions, arrays (four or fewer elements), or graph
+// nodes, provided that they both have the same number of elemnts.
+// So, one param might be a graph node, and the other might be a vec3,
+// and it would work fine.
+//
+// If you are working for sure with, say, two vectors of the same
+// size, it will be marginally faster to use gl-matrix's distance
+// methods instead.
+//
+please.distance = function(lhs, rhs) {
+    if (lhs.location !== undefined) {
+        lhs = lhs.location;
+    }
+    else if (typeof(lhs) === "number") {
+        lhs = [lhs];
+    }
+    if (rhs.location !== undefined) {
+        rhs = rhs.location;
+    }
+    else if (typeof(rhs) === "number") {
+        rhs = [rhs];
+    }
+    console.assert(lhs.length === rhs.length);
+    var dist = {
+        1 : function (a, b) {return Math.abs(a-b);},
+        2 : vec2.distance,
+        3 : vec3.distance,
+        4 : vec4.distance,
+    }[lhs.length];
+    return dist(lhs, rhs);
+};
 // [+] please.linear_path(start, end)
 //
 // Generator, the returned function takes a single argument 'a' which
