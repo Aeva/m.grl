@@ -582,6 +582,16 @@ please.merge_pointset = function(pointset, target_spacing, fitting, centered) {
 };
 
 
+// [+] please.trace_curve(curve, target_spacing, fitting, centered)
+//
+// Wraps please.break_curve and please.merge_pointset.
+//
+please.trace_curve = function (curve, target_spacing, fitting, centered) {
+    var raw_points = please.break_curve(curve, target_spacing);
+    return please.merge_pointset(raw_points, target_spacing, fitting, centered);
+};
+
+
 // [+] please.uuid()
 //
 // Generates a Universally Unique Identifier (UUID) string, in

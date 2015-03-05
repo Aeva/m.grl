@@ -509,8 +509,7 @@ please.break_curve = function(curve, target_spacing, magnitude) {
 // Take a given pointset (an array of coordinates, where the array has
 // a "distance" property that tells you how long it is), and produce a
 // new set of points wherein the spacing matches more or less the
-// spacing argument.  Note that please.break_curve calls this
-// automatically, so this function is mostly useful internally.
+// spacing argument.
 //
 please.merge_pointset = function(pointset, target_spacing, fitting, centered) {
     centered = centered === undefined ? true : centered;
@@ -554,6 +553,14 @@ please.merge_pointset = function(pointset, target_spacing, fitting, centered) {
         new_set.push(pointset.slice(-1)[0]);
     }
     return new_set;
+};
+// [+] please.trace_curve(curve, target_spacing, fitting, centered)
+//
+// Wraps please.break_curve and please.merge_pointset.
+//
+please.trace_curve = function (curve, target_spacing, fitting, centered) {
+    var raw_points = please.break_curve(curve, target_spacing);
+    return please.merge_pointset(raw_points, target_spacing, fitting, centered);
 };
 // [+] please.uuid()
 //
