@@ -1,0 +1,74 @@
+<!doctype html>
+<html><head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" type="text/css" href="../demo_common.css" />
+  <link rel="stylesheet" type="text/css" href="../gl_common.css" />
+  <script type="text/javascript" src="../gl-matrix.js"></script>
+  <script type="text/javascript" src="../../mgrl.js"></script>
+  <script type="text/javascript" src="demo.js"></script>
+  <style type="text/css">
+   #headline {
+     background-color: #1a5e93!important;
+     margin-bottom: 0px!important;
+   }
+   
+   #demo_body {
+     position: relative;
+   }
+
+   #demo_header {
+     position: absolute;
+     top: 48px;
+     left: 50%;
+     z-index: 100;
+     -moz-user-select: none;
+     -webkit-user-select: none;
+     -ms-user-select: none;
+   }
+
+   #demo_header > * {
+     position: relative;
+     left: -50%;
+   }
+
+   #loading_screen {
+     height: 700px!important;
+   }
+
+   #fps_counter {
+     top: 8px!important;
+     color: black!important;
+   }   
+  </style>
+</head><body>
+  <div id="page">
+    <h1>Midnight Graphics & Recreation Library</h1>
+    <h1 id="headline">Picky Bezier</h1>
+    <div id="demo_body">
+      <div id="demo_header">
+        <div id="back_button">[ <a href="../">back to demo index</a> ]</div>
+        <div id="halp">Click and drag the red markers!</div>
+      </div>
+      
+      <div id="loading_screen" class="game_screen">
+        <div id="loading_box">
+          <div id="progress">
+            <div id="progress_bar" style="width:0%;"></div>
+            <div id="percent">unknown %</div>
+          </div>
+          <div id="progress_info"></div>
+        </div>
+      </div>
+    
+      <div id="demo_area" class="game_screen">
+        <div id="fps_counter">FPS:<span id="fps">???</span></div>
+        <canvas id="gl_canvas" class="demo_area" width=840 height=700>
+          Your browser does not appear to support HTML5 canvas and/or webgl.
+        </canvas>
+      </div>
+    </div>
+  </div>
+
+  <div id="attribution_area">
+  </div>
+</body></html>
