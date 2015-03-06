@@ -166,6 +166,17 @@ variables &#8216;lhs&#8217; and &#8216;rhs&#8217;. Variable &#8216;a&#8217; shou
 that 0.0 &lt;= a &lt;= 1.0. The first two parameters may be numbers, arrays of
 numbers, or GraphNodes.</p>
 </div>
+<div class="section" id="please-distance">
+<h2>please.distance<a class="headerlink" href="#please-distance" title="Permalink to this headline">¶</a></h2>
+<p><em>please.distance</em> <strong>(lhs, rhs)</strong></p>
+<p>Returns the distance between two items. Arguments may be numbers,
+vectors, quaternions, arrays (four or fewer elements), or graph nodes,
+provided that they both have the same number of elemnts. So, one param
+might be a graph node, and the other might be a vec3, and it would work
+fine.</p>
+<p>If you are working for sure with, say, two vectors of the same size, it
+will be marginally faster to use gl-matrix&#8217;s distance methods instead.</p>
+</div>
 <div class="section" id="please-linear-path">
 <h2>please.linear_path<a class="headerlink" href="#please-linear-path" title="Permalink to this headline">¶</a></h2>
 <p><em>please.linear_path</em> <strong>(start, end)</strong></p>
@@ -189,6 +200,44 @@ along the curve.</p>
 used as an argument for calling please.bezier. The points argument
 passed to the generator is also passed along to the bezier function.
 This is provided as a convinience for animation drivers.</p>
+</div>
+<div class="section" id="please-path-group">
+<h2>please.path_group<a class="headerlink" href="#please-path-group" title="Permalink to this headline">¶</a></h2>
+<p><em>please.path_group</em> <strong>(paths)</strong></p>
+<p>Generator, the returned function takes a single argument &#8216;a&#8217; which is
+used as an argument, which is divided evenly between the path functions
+(such as the output of please.bezier_path). So if you call the output
+function with a value of &#8216;0&#8217;, it&#8217;ll call the first path function with
+&#8216;0&#8217;. Likewise, &#8216;1&#8217; would call the last one with &#8216;1&#8217;. This is used for
+combining multiple paths together.</p>
+</div>
+<div class="section" id="please-break-curve">
+<h2>please.break_curve<a class="headerlink" href="#please-break-curve" title="Permalink to this headline">¶</a></h2>
+<p><em>please.break_curve</em> <strong>(curve, target_spacing)</strong></p>
+<p>Takes a curve function and an arbitrary distance, and returns a list of
+points along that curve which are less than the target distance apart.</p>
+</div>
+<div class="section" id="please-merge-pointset">
+<h2>please.merge_pointset<a class="headerlink" href="#please-merge-pointset" title="Permalink to this headline">¶</a></h2>
+<p><em>please.merge_pointset</em> <strong>(pointset, spacing, fitting, centered)</strong></p>
+<p>Take a given pointset (an array of coordinates, where the array has a
+&#8220;distance&#8221; property that tells you how long it is), and produce a new
+set of points wherein the spacing matches more or less the spacing
+argument.</p>
+<p>The &#8216;fitting&#8217; argument determines if the spacing should expand or shrink
+if the pointset&#8217;s distance does not neatly divide. It defaults to &#8216;any&#8217;
+if not set or is given an invalid value, but may also be set to &#8216;shrink&#8217;
+or &#8216;expand&#8217;.</p>
+<p>The &#8216;centered&#8217; argument determines if the endpoints of the pointset
+should be included or not in the returned set. It defaults to true if
+unset. Basically the difference is trying to draw something of X size
+within the area of the curve, verses dividing a data set into some
+number of parts X distance apart.</p>
+</div>
+<div class="section" id="please-trace-curve">
+<h2>please.trace_curve<a class="headerlink" href="#please-trace-curve" title="Permalink to this headline">¶</a></h2>
+<p><em>please.trace_curve</em> <strong>(curve, spacing, fitting, centered)</strong></p>
+<p>Wraps please.break_curve and please.merge_pointset.</p>
 </div>
 <div class="section" id="please-uuid">
 <h2>please.uuid<a class="headerlink" href="#please-uuid" title="Permalink to this headline">¶</a></h2>
@@ -244,9 +293,14 @@ Float32Array type since javascript lacks a Float16Array type.</li>
 <li><a class="reference internal" href="#please-radians">please.radians</a></li>
 <li><a class="reference internal" href="#please-degrees">please.degrees</a></li>
 <li><a class="reference internal" href="#please-mix">please.mix</a></li>
+<li><a class="reference internal" href="#please-distance">please.distance</a></li>
 <li><a class="reference internal" href="#please-linear-path">please.linear_path</a></li>
 <li><a class="reference internal" href="#please-bezier">please.bezier</a></li>
 <li><a class="reference internal" href="#please-bezier-path">please.bezier_path</a></li>
+<li><a class="reference internal" href="#please-path-group">please.path_group</a></li>
+<li><a class="reference internal" href="#please-break-curve">please.break_curve</a></li>
+<li><a class="reference internal" href="#please-merge-pointset">please.merge_pointset</a></li>
+<li><a class="reference internal" href="#please-trace-curve">please.trace_curve</a></li>
 <li><a class="reference internal" href="#please-uuid">please.uuid</a></li>
 <li><a class="reference internal" href="#please-decode-buffer">please.decode_buffer</a></li>
 <li><a class="reference internal" href="#please-typed-array">please.typed_array</a></li>

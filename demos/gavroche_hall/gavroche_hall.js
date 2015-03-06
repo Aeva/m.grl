@@ -99,7 +99,10 @@ function key_handler(state, key) {
 
 
 addEventListener("load", function() {
+    // set the opengl context
     please.gl.set_context("gl_canvas");
+
+    // configure asset search paths
     please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "../gl_assets/img/");
     please.set_search_path("jta", "../gl_assets/models/");
@@ -133,16 +136,14 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
-    var vert = please.access("simple.vert");
-    var frag = please.access("simple.frag");
-    var prog = please.glsl("default", vert, frag);
+    var prog = please.glsl("default", "simple.vert", "simple.frag");
     prog.activate();
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.CULL_FACE);
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
 
     // blending stuff
     gl.enable(gl.BLEND);

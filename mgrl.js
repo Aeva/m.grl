@@ -363,6 +363,40 @@ please.mix = function (lhs, rhs, a) {
     }
     throw ("Mix operands are incompatible.");
 };
+// [+] please.distance(lhs, rhs)
+//
+// Returns the distance between two items.  Arguments may be numbers,
+// vectors, quaternions, arrays (four or fewer elements), or graph
+// nodes, provided that they both have the same number of elemnts.
+// So, one param might be a graph node, and the other might be a vec3,
+// and it would work fine.
+//
+// If you are working for sure with, say, two vectors of the same
+// size, it will be marginally faster to use gl-matrix's distance
+// methods instead.
+//
+please.distance = function(lhs, rhs) {
+    if (lhs.location !== undefined) {
+        lhs = lhs.location;
+    }
+    else if (typeof(lhs) === "number") {
+        lhs = [lhs];
+    }
+    if (rhs.location !== undefined) {
+        rhs = rhs.location;
+    }
+    else if (typeof(rhs) === "number") {
+        rhs = [rhs];
+    }
+    console.assert(lhs.length === rhs.length);
+    var dist = {
+        1 : function (a, b) {return Math.abs(a-b);},
+        2 : vec2.distance,
+        3 : vec3.distance,
+        4 : vec4.distance,
+    }[lhs.length];
+    return dist(lhs, rhs);
+};
 // [+] please.linear_path(start, end)
 //
 // Generator, the returned function takes a single argument 'a' which
@@ -371,9 +405,11 @@ please.mix = function (lhs, rhs, a) {
 // This is provided as a convinience for animation drivers.
 //
 please.linear_path = function (start, end) {
-    return function (a) {
+    var path = function (a) {
         return please.mix(start, end, a)
     };
+    path.stops = [start, end];
+    return path;
 };
 // [+] please.bezier(points, a)
 //
@@ -402,9 +438,140 @@ please.bezier = function (points, a) {
 // function.  This is provided as a convinience for animation drivers.
 //
 please.bezier_path = function (points) {
-    return function (a) {
+    var path = function (a) {
         return please.bezier(points, a)
     };
+    path.stops = points;
+    return path;
+};
+// [+] please.path_group(paths)
+//
+// Generator, the returned function takes a single argument 'a' which
+// is used as an argument, which is divided evenly between the path
+// functions (such as the output of please.bezier_path).  So if you
+// call the output function with a value of '0', it'll call the first
+// path function with '0'.  Likewise, '1' would call the last one with
+// '1'.  This is used for combining multiple paths together.
+//
+please.path_group = function (paths) {
+    var resolution = 1.0 / paths.length;
+    var path = function (a) {
+        var i = Math.floor(a*paths.length);
+        if (i >= paths.length) {
+            return paths.slice(-1)[0](1.0);
+        }
+        else if (i < 0.0) {
+            return paths[0](0.0);
+        }
+        var progress = a - (i*resolution);
+        return paths[i](progress/resolution);
+    };
+    path.stops = [];
+    for (var i=0; i<paths.length; i+=1) {
+        path.stops = path.stops.concat(paths[i].stops);
+    }
+    return path;
+};
+// [+] please.break_curve(curve, target_spacing)
+//
+// Takes a curve function and an arbitrary distance, and returns a
+// list of points along that curve which are less than the target
+// distance apart.
+//
+please.break_curve = function(curve, target_spacing, magnitude) {
+    if (magnitude === undefined) {
+        magnitude = 2;
+    }
+    var resolution = 1.0 / (curve.stops.length * magnitude);
+    var pointset = [];
+    for (var a=0.0; a<=1.0; a+=resolution) {
+        pointset.push(curve(a));
+    }
+    var granularity = target_spacing/2.0;
+    var last = null;
+    var talley = 0.0;
+    var worst = pointset.reduce(function (dist, point) {
+        var new_dist = last !== null ? please.distance(last, point) : 0.0;
+        talley += new_dist;
+        last = point;
+        return Math.max(dist, new_dist);
+    }, 0.0);
+    pointset.distance = talley;
+    if (worst > target_spacing/2.0) {
+        return please.break_curve(curve, target_spacing, magnitude*2);
+    }
+    else {
+        return pointset;
+    }
+};
+// [+] please.merge_pointset(pointset, spacing, fitting, centered)
+//
+// Take a given pointset (an array of coordinates, where the array has
+// a "distance" property that tells you how long it is), and produce a
+// new set of points wherein the spacing matches more or less the
+// spacing argument.
+//
+// The 'fitting' argument determines if the spacing should expand or
+// shrink if the pointset's distance does not neatly divide.  It
+// defaults to 'any' if not set or is given an invalid value, but may
+// also be set to 'shrink' or 'expand'.
+//
+// The 'centered' argument determines if the endpoints of the pointset
+// should be included or not in the returned set.  It defaults to true
+// if unset.  Basically the difference is trying to draw something of
+// X size within the area of the curve, verses dividing a data set
+// into some number of parts X distance apart.
+//
+please.merge_pointset = function(pointset, target_spacing, fitting, centered) {
+    centered = centered === undefined ? true : centered;
+    if (fitting !== "shrink" && fitting !== "expand" && fitting !== "any") {
+        fitting = "any";
+    }
+    var fit_function = {
+        "any" : Math.round,
+        "shrink" : Math.ceil,
+        "expand" : Math.floor,
+    }[fitting];
+    var new_set;
+    var segments = fit_function(pointset.distance/target_spacing);
+    if (segments <= 1) {
+        new_set = [pointset[0], pointset.slice(-1)[0]];
+        new_set.distance = pointset.distance;
+        return new_set;
+    }
+    var spacing = pointset.distance/segments;
+    new_set = centered ? [] : [pointset[0]];
+    new_set.distance = pointset.distance;
+    var check, next, dist, offset = centered ? spacing / 2.0 : 0.0;
+    for (var i=0; i<pointset.length-1; i+=1) {
+        check = pointset[i];
+        next = pointset[i+1];
+        dist = please.distance(check, next);
+        if (dist+offset >= spacing) {
+            // low = offset
+            // mid = offset + dist
+            // high = spacing
+            // alpha = (spacing-offset)/dist
+            var new_point = please.mix(check, next, (spacing-offset)/dist);
+            new_set.push(new_point);
+            offset = dist+offset - spacing;
+        }
+        else {
+            offset += dist;
+        }
+    }
+    if (!centered) {
+        new_set.push(pointset.slice(-1)[0]);
+    }
+    return new_set;
+};
+// [+] please.trace_curve(curve, spacing, fitting, centered)
+//
+// Wraps please.break_curve and please.merge_pointset.
+//
+please.trace_curve = function (curve, spacing, fitting, centered) {
+    var raw_points = please.break_curve(curve, spacing);
+    return please.merge_pointset(raw_points, spacing, fitting, centered);
 };
 // [+] please.uuid()
 //
@@ -2500,6 +2667,26 @@ please.gl = {
         }
     },
 };
+// [+] please.set_clear_color(red, green, blue, alpha)
+//
+// This function wraps gl.clearColor.  You should use this version if
+// you want mgrl to automatically set the "mgrl_clear_color" uniform
+// in your shader program.
+//
+please.set_clear_color = function (red, green, blue, alpha) {
+    var channels = [red, green, blue, alpha];
+    var defaults = [0.0, 0.0, 0.0, 1.0];
+    var color = channels.map(function (channel, i) {
+        return channel === undefined ? defaults[i] : channel;
+    });
+    var prog = please.gl.__cache.current;
+    if (prog) {
+        prog.vars.mgrl_clear_color = color;
+    }
+    if (window.gl) {
+        gl.clearColor.apply(gl, color);
+    }
+}
 // Helper function for creating texture objects from the asset cache.
 // Implies please.load etc:
 please.gl.get_texture = function (uri, use_placeholder, no_error) {
@@ -3347,6 +3534,17 @@ please.gl.__jta_model = function (src, uri) {
                 please.prop_map(scene.models, function(name, model) {
                     resolve_inheritance(name, model);
                 });
+                var rig = {};
+                var has_rig = false;
+                root.propogate(function (node) {
+                    if (node.is_bone) {
+                        has_rig = true;
+                        rig[node.bone_name] = node;
+                    }
+                });
+                if (has_rig) {
+                    root.armature_lookup = rig;
+                }
                 return root;
             }
         }
@@ -3381,16 +3579,32 @@ please.gl.__jta_model = function (src, uri) {
                         };
                     };
                 }
+                if (entity.bone_name) {
+                    node.is_bone = true;
+                    node.bone_name = entity.bone_name;
+                    node.bone_parent = entity.bone_parent;
+                }
                 if (entity.extra.position) {
                     node.location_x = entity.extra.position.x;
                     node.location_y = entity.extra.position.y;
                     node.location_z = entity.extra.position.z;
                 }
-                if (entity.extra.rotation) {
-                    // need to convert from radians to degrees :P
-                    node.rotation_x = entity.extra.rotation.x * 57.2957795;
-                    node.rotation_y = entity.extra.rotation.y * 57.2957795;
-                    node.rotation_z = entity.extra.rotation.z * 57.2957795;
+                if (entity.extra.quaternion) {
+                    // My 'matrix' math lib uses 'xyzw' for quats
+                    // whereas blender prefers 'wxyz', so for the sake
+                    // of caution, mgrl uses 'abcd'.
+                    node.quaternion_a = entity.extra.quaternion.a;
+                    node.quaternion_b = entity.extra.quaternion.b;
+                    node.quaternion_c = entity.extra.quaternion.c;
+                    node.quaternion_d = entity.extra.quaternion.d;
+                }
+                else if (entity.extra.rotation) {
+                    // Planning on removing the need to convert to
+                    // degrees here.  The JTA format should always
+                    // store angles in degrees :P
+                    node.rotation_x = please.degrees(entity.extra.rotation.x);
+                    node.rotation_y = please.degrees(entity.extra.rotation.y);
+                    node.rotation_z = please.degrees(entity.extra.rotation.z);
                 }
                 if (entity.extra.scale) {
                     node.scale_x = entity.extra.scale.x;
@@ -3513,7 +3727,12 @@ please.gl__jta_extract_common = function (node_def) {
 // Extract the empty nodes defined in the jta file.
 please.gl__jta_extract_empties = function (empty_defs) {
     var empties = please.prop_map(empty_defs, function(name, empty_def) {
-        return please.gl__jta_extract_common(empty_def);
+        var dict = please.gl__jta_extract_common(empty_def);
+        if (empty_def.bone) {
+            dict.bone_name = empty_def.bone;
+            dict.bone_parent = empty_def.bone_parent;
+        }
+        return dict;
     });
     return empties;
 };
@@ -3916,7 +4135,7 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock) {
 // driver function is removed.  To clear the main handle's driver
 // function, set it to null.
 //
-please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
+please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, write_hook) {
     // obj is the value of this, but proxy determines where the
     // getter/setter is saved
     var target = proxy ? proxy : obj;
@@ -3925,7 +4144,7 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
     var cache = obj.__ani_cache;
     var store = obj.__ani_store;
     // Determine the swizzle handles.
-    if (!swizzle || swizzle.length !== 3) {
+    if (!swizzle) {
         swizzle = "xyz";
     }
     var handles = [];
@@ -3992,6 +4211,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
             cache[prop] = null;
             cache[handles[i]] = null;
             store[prop+"_"+swizzle][i] = value;
+            if (typeof(write_hook) === "function") {
+                write_hook(target, prop, obj);
+            }
             return value;
         };
     };
@@ -4043,6 +4265,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
                     target[handles[i]] = value[i];
                 }
             }
+            if (typeof(write_hook) === "function") {
+                write_hook(target, prop, obj);
+            }
             return value;
         },
     });
@@ -4083,8 +4308,16 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
 //  - **location** Animatable tripple, used to generate the node's
 //    local matrix.
 //
-//  - **rotation** Animatable tripple, used to generate the node's
-//    local matrix.
+//  - **rotation** Animatable tripple, define's the object's rotation
+//    in euler notation.
+//
+//  - **quaternion** Animatable tripple, by default, it is a getter
+//    that returns the quaternion for the rotation defined on the
+//    'rotation' property.  If you set this, the 'rotation' property
+//    will be overwritten with a getter, which currently returns an
+//    error.  This is useful if you need to define something's
+//    orientation without suffering from gimbal lock.  Behind the
+//    scenes, m.grl reads from this property, not from rotation.
 //  
 //  - **scale** Animatable tripple, used to generate the node's local
 //    matrix.
@@ -4242,8 +4475,79 @@ please.GraphNode = function () {
         },
     });
     please.make_animatable_tripple(this, "location", "xyz", [0, 0, 0]);
-    please.make_animatable_tripple(this, "rotation", "xyz", [0, 0, 0]);
     please.make_animatable_tripple(this, "scale", "xyz", [1, 1, 1]);
+    // The rotation animatable property is represented in euler
+    // rotation, whereas the quaternion animatable property is
+    // represented in, well, quaternions.  Which one is used is
+    // determined by which was set last.  When one is set, the other's
+    // value is quietly overwritten with a driver that provides the
+    // same information.
+    var rotation_mode = null;
+    // This method is used to clear the animation cache for both the
+    // rotation and quaternion properties.
+    var clear_caches = function () {
+        var cache = this.__ani_cache;
+        cache["rotation_focus"] = null;
+        cache["rotation_x"] = null;
+        cache["rotation_y"] = null;
+        cache["rotation_z"] = null;
+        cache["quaternion_focus"] = null;
+        cache["quaternion_a"] = null;
+        cache["quaternion_b"] = null;
+        cache["quaternion_c"] = null;
+        cache["quaternion_d"] = null;
+    }.bind(this);
+    // This method is used to set the value for a given animatable
+    // property without triggering the write hook.
+    var side_set = function (prop, value) {
+        var store = this.__ani_store;
+        store[prop + "_focus"] = value;
+    }.bind(this);
+    // This method is used to set the "focus" store of an animatable
+    // tripple if it matches a particular value.
+    var side_clear = function (prop, value) {
+        var store = this.__ani_store;
+        var ref = prop + "_focus";
+        if (store[ref] === value) {
+            store[ref] = null;
+        }
+    }.bind(this);
+    // A getter that is set to the rotation property when the mode
+    // changes to quaternion mode.
+    var as_euler = function () {
+        throw("I don't know how to translate from quaternions to euler " +
+              "rotations :( I am sorry :( :( :(");
+    }.bind(this);
+    // A getter that is set to the quaternion property wthen the mode
+    // changes to euler mode.
+    var as_quat = function () {
+        var orientation = quat.create();
+        quat.rotateZ(orientation, orientation, please.radians(this.rotation_z));
+        quat.rotateY(orientation, orientation, please.radians(this.rotation_y));
+        quat.rotateX(orientation, orientation, please.radians(this.rotation_x));
+        return orientation;
+    }.bind(this);
+    // Called after the animatable property's setter to 
+    var rotation_hook = function (target, prop, obj) {
+        if (prop !== rotation_mode) {
+            rotation_mode = prop;
+            clear_caches();
+            if (prop === "rotation") {
+                side_clear("rotation", as_euler);
+                side_set("quaternion", as_quat);
+            }
+            else if (prop === "quaternion") {
+                side_clear("quaternion", as_quat);
+                side_set("rotation", as_euler);
+            }
+        }
+    };
+    please.make_animatable_tripple(
+        this, "rotation", "xyz", [0, 0, 0], null, rotation_hook);
+    please.make_animatable_tripple(
+        this, "quaternion", "abcd", [0, 0, 0, 1], null, rotation_hook);
+    // make degrees the default handle
+    this.rotation = [0, 0, 0];
     // Automatically databind to the shader program's uniform and
     // sampler variables.
     var prog = please.gl.get_program();
@@ -4282,6 +4586,7 @@ please.GraphNode = function () {
     }.bind(this);
     this.__regen_glsl_bindings();
     window.addEventListener("mgrl_changed_shader", this.__regen_glsl_bindings);
+    this.is_bone = false;
     this.visible = true;
     this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
@@ -4337,6 +4642,17 @@ please.GraphNode.prototype = {
         window.removeEventListener(
             "mgrl_changed_shader", this.__regen_glsl_bindings);
     },
+    "propogate" : function (method, skip_root) {
+        // node.propogate allows you to apply a function to each child
+        // in this graph, inclusive of the node it was called on.
+        if (!skip_root) {
+            method(this);
+        }
+        var children = this.children;
+        for (var i=0; i<children.length; i+=1) {
+            children[i].propogate(method);
+        }
+    },
     "__set_graph_root" : function (root) {
         // Used to recursively set the "graph root" (scene graph
         // object) for all children of this object.
@@ -4347,14 +4663,14 @@ please.GraphNode.prototype = {
         }
     },
     "__world_matrix_driver" : function () {
+        var parent = this.parent;
         var local_matrix = mat4.create();
         var world_matrix = mat4.create();
-        mat4.translate(local_matrix, local_matrix, this.location);
-        mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
-        mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
-        mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
+        if (this.is_bone || !(parent && parent.is_bone)) {
+            mat4.fromRotationTranslation(
+                local_matrix, this.quaternion, this.location);
+        }
         mat4.scale(local_matrix, local_matrix, this.scale);
-        var parent = this.parent;
         var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
         mat4.multiply(world_matrix, parent_matrix, local_matrix);
         world_matrix.dirty = true;
@@ -4827,10 +5143,14 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
             up_vector);
     }
     else {
-        mat4.translate(local_matrix, local_matrix, this.location);
-        mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
-        mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
-        mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
+        if (!(parent && parent.is_bone)) {
+            mat4.fromRotationTranslation(
+                local_matrix, this.quaternion, this.location);
+        }
+        // mat4.translate(local_matrix, local_matrix, this.location);
+        // mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
+        // mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
+        // mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
         mat4.scale(local_matrix, local_matrix, this.scale);
     }
     var parent = this.parent;
@@ -5111,6 +5431,44 @@ please.StereoCamera.prototype._create_subcamera = function (position) {
     // FIXME dummy this property out entirely somehow
     eye.look_at = [null, null, null];
     return eye;
+};
+// [+] please.pipeline.add_autoscale(max_height)
+//
+// Use this to add a pipeline stage which, when the rendering canvas
+// has the "fullscreen" class, will automatically scale the canvas to
+// conform to the window's screen ratio, making the assumption that
+// css is then used to scale up the canvas element.  The optional
+// 'max_height' value can be passed to determine what the maximum
+// height of the element may be.  This defaults to 512, though a power
+// of two is not required.
+//
+// One can override the max_height option by setting the "max_height"
+// attribute on the canvas object.
+//
+please.pipeline.add_autoscale = function (max_height) {
+    var skip_condition = function () {
+        var canvas = please.gl.canvas;
+        return !canvas || !canvas.classList.contains("fullscreen");
+    };
+    please.pipeline.add(-1, "mgrl/autoscale", function () {
+        // automatically change the viewport if necessary
+        var canvas = please.gl.canvas;
+        if (canvas.max_height === undefined) {
+            canvas.max_height = max_height ? max_height : 512;
+        }
+        var window_w = window.innerWidth;
+        var window_h = window.innerHeight;
+        var ratio = window_w / window_h;
+        var set_h = Math.min(canvas.max_height, window.innerHeight);
+        var set_w = Math.round(set_h * ratio);
+        var canvas_w = canvas.width;
+        var canvas_h = canvas.height;
+        if (set_w !== canvas_w || set_h !== canvas_h) {
+            canvas.width = set_w;
+            canvas.height = set_h;
+            gl.viewport(0, 0, set_w, set_h);
+        }
+    }).skip_when(skip_condition);
 };
 // -------------------------------------------------------------------------- //
 // What follows are optional components, and may be safely removed.

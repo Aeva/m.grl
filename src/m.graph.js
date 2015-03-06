@@ -220,7 +220,7 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock) {
 // driver function is removed.  To clear the main handle's driver
 // function, set it to null.
 //
-please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
+please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, write_hook) {
     // obj is the value of this, but proxy determines where the
     // getter/setter is saved
     var target = proxy ? proxy : obj;
@@ -231,7 +231,7 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
     var store = obj.__ani_store;
 
     // Determine the swizzle handles.
-    if (!swizzle || swizzle.length !== 3) {
+    if (!swizzle) {
         swizzle = "xyz";
     }
     var handles = [];
@@ -302,6 +302,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
             cache[prop] = null;
             cache[handles[i]] = null;
             store[prop+"_"+swizzle][i] = value;
+            if (typeof(write_hook) === "function") {
+                write_hook(target, prop, obj);
+            }
             return value;
         };
     };
@@ -355,6 +358,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
                     target[handles[i]] = value[i];
                 }
             }
+            if (typeof(write_hook) === "function") {
+                write_hook(target, prop, obj);
+            }
             return value;
         },
     });
@@ -398,8 +404,16 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy) {
 //  - **location** Animatable tripple, used to generate the node's
 //    local matrix.
 //
-//  - **rotation** Animatable tripple, used to generate the node's
-//    local matrix.
+//  - **rotation** Animatable tripple, define's the object's rotation
+//    in euler notation.
+//
+//  - **quaternion** Animatable tripple, by default, it is a getter
+//    that returns the quaternion for the rotation defined on the
+//    'rotation' property.  If you set this, the 'rotation' property
+//    will be overwritten with a getter, which currently returns an
+//    error.  This is useful if you need to define something's
+//    orientation without suffering from gimbal lock.  Behind the
+//    scenes, m.grl reads from this property, not from rotation.
 //  
 //  - **scale** Animatable tripple, used to generate the node's local
 //    matrix.
@@ -563,8 +577,88 @@ please.GraphNode = function () {
     });
 
     please.make_animatable_tripple(this, "location", "xyz", [0, 0, 0]);
-    please.make_animatable_tripple(this, "rotation", "xyz", [0, 0, 0]);
     please.make_animatable_tripple(this, "scale", "xyz", [1, 1, 1]);
+
+    // The rotation animatable property is represented in euler
+    // rotation, whereas the quaternion animatable property is
+    // represented in, well, quaternions.  Which one is used is
+    // determined by which was set last.  When one is set, the other's
+    // value is quietly overwritten with a driver that provides the
+    // same information.
+    var rotation_mode = null;
+    
+    // This method is used to clear the animation cache for both the
+    // rotation and quaternion properties.
+    var clear_caches = function () {
+        var cache = this.__ani_cache;
+        cache["rotation_focus"] = null;
+        cache["rotation_x"] = null;
+        cache["rotation_y"] = null;
+        cache["rotation_z"] = null;
+        cache["quaternion_focus"] = null;
+        cache["quaternion_a"] = null;
+        cache["quaternion_b"] = null;
+        cache["quaternion_c"] = null;
+        cache["quaternion_d"] = null;
+    }.bind(this);
+
+    // This method is used to set the value for a given animatable
+    // property without triggering the write hook.
+    var side_set = function (prop, value) {
+        var store = this.__ani_store;
+        store[prop + "_focus"] = value;
+    }.bind(this);
+
+    // This method is used to set the "focus" store of an animatable
+    // tripple if it matches a particular value.
+    var side_clear = function (prop, value) {
+        var store = this.__ani_store;
+        var ref = prop + "_focus";
+        if (store[ref] === value) {
+            store[ref] = null;
+        }
+    }.bind(this);
+
+    // A getter that is set to the rotation property when the mode
+    // changes to quaternion mode.
+    var as_euler = function () {
+        throw("I don't know how to translate from quaternions to euler " +
+              "rotations :( I am sorry :( :( :(");
+    }.bind(this);
+
+    // A getter that is set to the quaternion property wthen the mode
+    // changes to euler mode.
+    var as_quat = function () {
+        var orientation = quat.create();
+        quat.rotateZ(orientation, orientation, please.radians(this.rotation_z));
+        quat.rotateY(orientation, orientation, please.radians(this.rotation_y));
+        quat.rotateX(orientation, orientation, please.radians(this.rotation_x));
+        return orientation;
+    }.bind(this);
+
+    // Called after the animatable property's setter to 
+    var rotation_hook = function (target, prop, obj) {
+        if (prop !== rotation_mode) {
+            rotation_mode = prop;
+            clear_caches();
+            if (prop === "rotation") {
+                side_clear("rotation", as_euler);
+                side_set("quaternion", as_quat);
+            }
+            else if (prop === "quaternion") {
+                side_clear("quaternion", as_quat);
+                side_set("rotation", as_euler);
+            }
+        }
+    };
+    
+    please.make_animatable_tripple(
+        this, "rotation", "xyz", [0, 0, 0], null, rotation_hook);
+    please.make_animatable_tripple(
+        this, "quaternion", "abcd", [0, 0, 0, 1], null, rotation_hook);
+
+    // make degrees the default handle
+    this.rotation = [0, 0, 0];
 
     // Automatically databind to the shader program's uniform and
     // sampler variables.
@@ -609,6 +703,7 @@ please.GraphNode = function () {
     this.__regen_glsl_bindings();
     window.addEventListener("mgrl_changed_shader", this.__regen_glsl_bindings);
 
+    this.is_bone = false;
     this.visible = true;
     this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
@@ -664,6 +759,17 @@ please.GraphNode.prototype = {
         window.removeEventListener(
             "mgrl_changed_shader", this.__regen_glsl_bindings);
     },
+    "propogate" : function (method, skip_root) {
+        // node.propogate allows you to apply a function to each child
+        // in this graph, inclusive of the node it was called on.
+        if (!skip_root) {
+            method(this);
+        }
+        var children = this.children;
+        for (var i=0; i<children.length; i+=1) {
+            children[i].propogate(method);
+        }
+    },
     "__set_graph_root" : function (root) {
         // Used to recursively set the "graph root" (scene graph
         // object) for all children of this object.
@@ -674,14 +780,15 @@ please.GraphNode.prototype = {
         }
     },
     "__world_matrix_driver" : function () {
+        var parent = this.parent;
         var local_matrix = mat4.create();
         var world_matrix = mat4.create();
-        mat4.translate(local_matrix, local_matrix, this.location);
-        mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
-        mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
-        mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
+
+        if (this.is_bone || !(parent && parent.is_bone)) {
+            mat4.fromRotationTranslation(
+                local_matrix, this.quaternion, this.location);            
+        }
         mat4.scale(local_matrix, local_matrix, this.scale);
-        var parent = this.parent;
         var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
         mat4.multiply(world_matrix, parent_matrix, local_matrix);
         world_matrix.dirty = true;
@@ -1202,10 +1309,14 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
             up_vector);
     }
     else {
-        mat4.translate(local_matrix, local_matrix, this.location);
-        mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
-        mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
-        mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
+        if (!(parent && parent.is_bone)) {
+            mat4.fromRotationTranslation(
+                local_matrix, this.quaternion, this.location);            
+        }
+        // mat4.translate(local_matrix, local_matrix, this.location);
+        // mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
+        // mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
+        // mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
         mat4.scale(local_matrix, local_matrix, this.scale);
     }
     var parent = this.parent;

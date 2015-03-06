@@ -107,6 +107,18 @@ your program inaccessible to users with convergence insufficiency.</p>
 </pre></div>
 </div>
 </div>
+<div class="section" id="please-pipeline-add-autoscale">
+<h2>please.pipeline.add_autoscale<a class="headerlink" href="#please-pipeline-add-autoscale" title="Permalink to this headline">¶</a></h2>
+<p><em>please.pipeline.add_autoscale</em> <strong>(max_height)</strong></p>
+<p>Use this to add a pipeline stage which, when the rendering canvas has
+the &#8220;fullscreen&#8221; class, will automatically scale the canvas to conform
+to the window&#8217;s screen ratio, making the assumption that css is then
+used to scale up the canvas element. The optional &#8216;max_height&#8217; value
+can be passed to determine what the maximum height of the element may
+be. This defaults to 512, though a power of two is not required.</p>
+<p>One can override the max_height option by setting the &#8220;max_height&#8221;
+attribute on the canvas object.</p>
+</div>
 </div>
 
 
@@ -119,6 +131,7 @@ your program inaccessible to users with convergence insufficiency.</p>
   <ul>
 <li><a class="reference internal" href="#">m.prefab.js</a><ul>
 <li><a class="reference internal" href="#please-stereocamera">please.StereoCamera</a></li>
+<li><a class="reference internal" href="#please-pipeline-add-autoscale">please.pipeline.add_autoscale</a></li>
 </ul>
 </li>
 </ul>

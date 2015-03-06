@@ -74,6 +74,28 @@ please.gl = {
 };
 
 
+// [+] please.set_clear_color(red, green, blue, alpha)
+//
+// This function wraps gl.clearColor.  You should use this version if
+// you want mgrl to automatically set the "mgrl_clear_color" uniform
+// in your shader program.
+//
+please.set_clear_color = function (red, green, blue, alpha) {
+    var channels = [red, green, blue, alpha];
+    var defaults = [0.0, 0.0, 0.0, 1.0];
+    var color = channels.map(function (channel, i) {
+        return channel === undefined ? defaults[i] : channel;
+    });
+    var prog = please.gl.__cache.current;
+    if (prog) {
+        prog.vars.mgrl_clear_color = color;
+    }
+    if (window.gl) {
+        gl.clearColor.apply(gl, color);
+    }
+}
+
+
 // Helper function for creating texture objects from the asset cache.
 // Implies please.load etc:
 please.gl.get_texture = function (uri, use_placeholder, no_error) {

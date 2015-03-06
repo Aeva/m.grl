@@ -29,7 +29,7 @@
     <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
     <link rel="up" title="API Reference" href="index.html" />
     <link rel="next" title="m.input.js" href="m.input.html" />
-    <link rel="prev" title="m.gani.js" href="m.gani.html" /> 
+    <link rel="prev" title="m.gl.js" href="m.gl.html" /> 
   </head>
   <body>
     <div class="related">
@@ -42,7 +42,7 @@
           <a href="m.input.html" title="m.input.js"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="m.gani.html" title="m.gani.js"
+          <a href="m.gl.html" title="m.gl.js"
              accesskey="P">previous</a> |</li>
         <li><a href="../index.html">Contents</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
@@ -202,8 +202,15 @@ you create the GraphNodes indirectly from loaded game assets.</p>
 <ul class="simple">
 <li><strong>location</strong> Animatable tripple, used to generate the node&#8217;s local
 matrix.</li>
-<li><strong>rotation</strong> Animatable tripple, used to generate the node&#8217;s local
-matrix.</li>
+<li><strong>rotation</strong> Animatable tripple, define&#8217;s the object&#8217;s rotation in
+euler notation.</li>
+<li><strong>quaternion</strong> Animatable tripple, by default, it is a getter that
+returns the quaternion for the rotation defined on the &#8216;rotation&#8217;
+property. If you set this, the &#8216;rotation&#8217; property will be
+overwritten with a getter, which currently returns an error. This is
+useful if you need to define something&#8217;s orientation without
+suffering from gimbal lock. Behind the scenes, m.grl reads from this
+property, not from rotation.</li>
 <li><strong>scale</strong> Animatable tripple, used to generate the node&#8217;s local
 matrix.</li>
 <li><strong>shader</strong> An object, automatically contains bindings for most GLSL
@@ -388,8 +395,8 @@ these to calculate the top right coordinate.</li>
 </ul>
 
   <h4>Previous topic</h4>
-  <p class="topless"><a href="m.gani.html"
-                        title="previous chapter">m.gani.js</a></p>
+  <p class="topless"><a href="m.gl.html"
+                        title="previous chapter">m.gl.js</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="m.input.html"
                         title="next chapter">m.input.js</a></p>
@@ -425,7 +432,7 @@ these to calculate the top right coordinate.</li>
           <a href="m.input.html" title="m.input.js"
              >next</a> |</li>
         <li class="right" >
-          <a href="m.gani.html" title="m.gani.js"
+          <a href="m.gl.html" title="m.gl.js"
              >previous</a> |</li>
         <li><a href="../index.html">Contents</a> &raquo;</li>
           <li><a href="index.html" >API Reference</a> &raquo;</li> 

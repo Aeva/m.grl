@@ -70,20 +70,17 @@ addEventListener("mgrl_media_ready", function () {
 
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
-    var vert = please.access("simple.vert");
-    var frag = please.access("simple.frag");
-    var prog = please.glsl("default", vert, frag);
+    var prog = please.glsl("default", "simple.vert", "simple.frag");
     prog.activate();
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.CULL_FACE);
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
 
     // enable alpha blending
     gl.enable(gl.BLEND);
-    //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     
     // access model data
@@ -108,36 +105,28 @@ addEventListener("mgrl_media_ready", function () {
     
     // add some control points
     var controls = window.controls = [];
-    var lamp;
+    var point;
     var low = -14;
     var high = 14;
     var count = 5;
     for (var i=0; i<count; i+=1) {
-        lamp = gavroche_model.instance();
-        lamp.selectable = true;
-        lamp.shader.mode = 3;
-        //lamp.scale_x = 0.5;
-        //lamp.scale_y = 0.5;
-        lamp.rotation_z = function () {
+        point = gavroche_model.instance();
+        point.selectable = true;
+        point.shader.mode = 3;
+        //point.scale_x = 0.5;
+        //point.scale_y = 0.5;
+        point.rotation_z = function () {
             return performance.now()/10;
         };
-        lamp.location_x = please.mix(low, high, i/(count-1));
-        //lamp.location_y = Math.random()*30 - 10;
-        lamp.selectable = true;
-        graph.add(lamp);
-        controls.push(lamp);
+        point.location_x = please.mix(low, high, i/(count-1));
+        //point.location_y = Math.random()*30 - 10;
+        point.selectable = true;
+        graph.add(point);
+        controls.push(point);
     }
 
-    // bezier curve formed by the lamp positions
-    var lamp_path = please.bezier_path(controls);
-
-    
-    // until I add picking, here's a fun effect:
-    //controls[0].location_y = 5;
-    //controls[4].location_y = -5;
-    // controls[2].location_y = function () {
-    //     return Math.sin(performance.now()/100)*10;
-    // };
+    // bezier curve formed by the control point positions
+    var bezier_path = please.bezier_path(controls);
 
 
     // add a character to move along the path
@@ -149,7 +138,7 @@ addEventListener("mgrl_media_ready", function () {
     avatar.location_z = function () { return Math.sin(performance.now()/200) + 3; };
     avatar.rotation_z = please.path_driver(
         please.linear_path(0, 360), 1000, true, false);
-    player.location = please.path_driver(lamp_path, 2000, true, true);
+    player.location = please.path_driver(bezier_path, 2000, true, true);
 
 
     // add some other things to mark the path
@@ -164,7 +153,7 @@ addEventListener("mgrl_media_ready", function () {
         blob.scale_z = 0.4;
         blob.location = function () {
             var a = this.index/(count-1)
-            var point = lamp_path(a);
+            var point = bezier_path(a);
             return point;
         }
         graph.add(blob);

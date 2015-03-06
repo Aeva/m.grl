@@ -101,6 +101,18 @@ please.gl.__jta_model = function (src, uri) {
                 please.prop_map(scene.models, function(name, model) {
                     resolve_inheritance(name, model);
                 });
+
+                var rig = {};
+                var has_rig = false;
+                root.propogate(function (node) {
+                    if (node.is_bone) {
+                        has_rig = true;
+                        rig[node.bone_name] = node;
+                    }
+                });
+                if (has_rig) {
+                    root.armature_lookup = rig;
+                }
                 return root;
             }
         }
@@ -135,16 +147,32 @@ please.gl.__jta_model = function (src, uri) {
                         };
                     };
                 }
+                if (entity.bone_name) {
+                    node.is_bone = true;
+                    node.bone_name = entity.bone_name;
+                    node.bone_parent = entity.bone_parent;
+                }
                 if (entity.extra.position) {
                     node.location_x = entity.extra.position.x;
                     node.location_y = entity.extra.position.y;
                     node.location_z = entity.extra.position.z;
                 }
-                if (entity.extra.rotation) {
-                    // need to convert from radians to degrees :P
-                    node.rotation_x = entity.extra.rotation.x * 57.2957795;
-                    node.rotation_y = entity.extra.rotation.y * 57.2957795;
-                    node.rotation_z = entity.extra.rotation.z * 57.2957795;
+                if (entity.extra.quaternion) {
+                    // My 'matrix' math lib uses 'xyzw' for quats
+                    // whereas blender prefers 'wxyz', so for the sake
+                    // of caution, mgrl uses 'abcd'.
+                    node.quaternion_a = entity.extra.quaternion.a;
+                    node.quaternion_b = entity.extra.quaternion.b;
+                    node.quaternion_c = entity.extra.quaternion.c;
+                    node.quaternion_d = entity.extra.quaternion.d;
+                }
+                else if (entity.extra.rotation) {
+                    // Planning on removing the need to convert to
+                    // degrees here.  The JTA format should always
+                    // store angles in degrees :P
+                    node.rotation_x = please.degrees(entity.extra.rotation.x);
+                    node.rotation_y = please.degrees(entity.extra.rotation.y);
+                    node.rotation_z = please.degrees(entity.extra.rotation.z);
                 }
                 if (entity.extra.scale) {
                     node.scale_x = entity.extra.scale.x;
@@ -280,7 +308,12 @@ please.gl__jta_extract_common = function (node_def) {
 // Extract the empty nodes defined in the jta file.
 please.gl__jta_extract_empties = function (empty_defs) {
     var empties = please.prop_map(empty_defs, function(name, empty_def) {
-        return please.gl__jta_extract_common(empty_def);
+        var dict = please.gl__jta_extract_common(empty_def);
+        if (empty_def.bone) {
+            dict.bone_name = empty_def.bone;
+            dict.bone_parent = empty_def.bone_parent;
+        }
+        return dict;
     });
     return empties;
 };

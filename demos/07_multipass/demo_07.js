@@ -141,16 +141,14 @@ addEventListener("mgrl_media_ready", function () {
     document.getElementById("demo_area").style.display = "block";
 
     // build the GLSL shader program
-    var vert = please.access("halftone.vert");
-    var frag = please.access("halftone.frag");
-    var prog = please.glsl("default", vert, frag);
+    var prog = please.glsl("default", "halftone.vert", "halftone.frag");
     prog.activate();
 
     // setup default state stuff    
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.CULL_FACE);
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
 
     // connect keyboard stuff
     please.keys.enable();
@@ -178,7 +176,7 @@ addEventListener("mgrl_media_ready", function () {
     // build the scene graph
     var graph = new please.SceneGraph();
     var suzanne = suzanne_data.instance();
-    suzanne.rotation_y = function () {
+    suzanne.rotation_z = function () {
         var progress = performance.now()/110;
         return progress*-1;
     };

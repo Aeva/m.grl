@@ -134,9 +134,9 @@ addEventListener("mgrl_media_ready", function () {
     var noun = scene.noun = please.access("suzanne.jta").instance();
     noun.shader.mode = 2;
     noun.scale = [4, 4, 4];
-    noun.rotation_x = 115;
-    noun.rotation_y = 180;
-    noun.rotation_z = -20;
+    noun.rotation_x = 63;
+    noun.rotation_y = 18;
+    noun.rotation_z = 171;
     noun.location_x = 2;
     noun.location_z = -2;
     graph.add(noun);

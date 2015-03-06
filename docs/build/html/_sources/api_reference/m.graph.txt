@@ -171,8 +171,16 @@ GraphNodes have some special properties:
 -  **location** Animatable tripple, used to generate the node's local
    matrix.
 
--  **rotation** Animatable tripple, used to generate the node's local
-   matrix.
+-  **rotation** Animatable tripple, define's the object's rotation in
+   euler notation.
+
+-  **quaternion** Animatable tripple, by default, it is a getter that
+   returns the quaternion for the rotation defined on the 'rotation'
+   property. If you set this, the 'rotation' property will be
+   overwritten with a getter, which currently returns an error. This is
+   useful if you need to define something's orientation without
+   suffering from gimbal lock. Behind the scenes, m.grl reads from this
+   property, not from rotation.
 
 -  **scale** Animatable tripple, used to generate the node's local
    matrix.

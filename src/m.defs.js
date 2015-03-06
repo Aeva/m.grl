@@ -372,6 +372,42 @@ please.mix = function (lhs, rhs, a) {
 };
 
 
+// [+] please.distance(lhs, rhs)
+//
+// Returns the distance between two items.  Arguments may be numbers,
+// vectors, quaternions, arrays (four or fewer elements), or graph
+// nodes, provided that they both have the same number of elemnts.
+// So, one param might be a graph node, and the other might be a vec3,
+// and it would work fine.
+//
+// If you are working for sure with, say, two vectors of the same
+// size, it will be marginally faster to use gl-matrix's distance
+// methods instead.
+//
+please.distance = function(lhs, rhs) {
+    if (lhs.location !== undefined) {
+        lhs = lhs.location;
+    }
+    else if (typeof(lhs) === "number") {
+        lhs = [lhs];
+    }
+    if (rhs.location !== undefined) {
+        rhs = rhs.location;
+    }
+    else if (typeof(rhs) === "number") {
+        rhs = [rhs];
+    }
+    console.assert(lhs.length === rhs.length);
+    var dist = {
+        1 : function (a, b) {return Math.abs(a-b);},
+        2 : vec2.distance,
+        3 : vec3.distance,
+        4 : vec4.distance,
+    }[lhs.length];
+    return dist(lhs, rhs);
+};
+
+
 // [+] please.linear_path(start, end)
 //
 // Generator, the returned function takes a single argument 'a' which
@@ -380,9 +416,11 @@ please.mix = function (lhs, rhs, a) {
 // This is provided as a convinience for animation drivers.
 //
 please.linear_path = function (start, end) {
-    return function (a) {
+    var path = function (a) {
         return please.mix(start, end, a)
     };
+    path.stops = [start, end];
+    return path;
 };
 
 
@@ -415,9 +453,153 @@ please.bezier = function (points, a) {
 // function.  This is provided as a convinience for animation drivers.
 //
 please.bezier_path = function (points) {
-    return function (a) {
+    var path = function (a) {
         return please.bezier(points, a)
     };
+    path.stops = points;
+    return path;
+};
+
+
+// [+] please.path_group(paths)
+//
+// Generator, the returned function takes a single argument 'a' which
+// is used as an argument, which is divided evenly between the path
+// functions (such as the output of please.bezier_path).  So if you
+// call the output function with a value of '0', it'll call the first
+// path function with '0'.  Likewise, '1' would call the last one with
+// '1'.  This is used for combining multiple paths together.
+//
+please.path_group = function (paths) {
+    var resolution = 1.0 / paths.length;
+    var path = function (a) {
+        var i = Math.floor(a*paths.length);
+        if (i >= paths.length) {
+            return paths.slice(-1)[0](1.0);
+        }
+        else if (i < 0.0) {
+            return paths[0](0.0);
+        }
+        var progress = a - (i*resolution);
+        return paths[i](progress/resolution);
+    };
+    path.stops = [];
+    for (var i=0; i<paths.length; i+=1) {
+        path.stops = path.stops.concat(paths[i].stops);
+    }
+    return path;
+};
+
+
+// [+] please.break_curve(curve, target_spacing)
+//
+// Takes a curve function and an arbitrary distance, and returns a
+// list of points along that curve which are less than the target
+// distance apart.
+//
+please.break_curve = function(curve, target_spacing, magnitude) {
+    if (magnitude === undefined) {
+        magnitude = 2;
+    }
+    var resolution = 1.0 / (curve.stops.length * magnitude);
+
+    var pointset = [];
+    for (var a=0.0; a<=1.0; a+=resolution) {
+        pointset.push(curve(a));
+    }
+
+    var granularity = target_spacing/2.0;
+    var last = null;
+    var talley = 0.0;
+    var worst = pointset.reduce(function (dist, point) {
+        var new_dist = last !== null ? please.distance(last, point) : 0.0;
+        talley += new_dist;
+        last = point;
+        return Math.max(dist, new_dist);
+    }, 0.0);
+    pointset.distance = talley;
+
+    if (worst > target_spacing/2.0) {
+        return please.break_curve(curve, target_spacing, magnitude*2);
+    }
+    else {
+        return pointset;
+    }
+};
+
+
+// [+] please.merge_pointset(pointset, spacing, fitting, centered)
+//
+// Take a given pointset (an array of coordinates, where the array has
+// a "distance" property that tells you how long it is), and produce a
+// new set of points wherein the spacing matches more or less the
+// spacing argument.
+//
+// The 'fitting' argument determines if the spacing should expand or
+// shrink if the pointset's distance does not neatly divide.  It
+// defaults to 'any' if not set or is given an invalid value, but may
+// also be set to 'shrink' or 'expand'.
+//
+// The 'centered' argument determines if the endpoints of the pointset
+// should be included or not in the returned set.  It defaults to true
+// if unset.  Basically the difference is trying to draw something of
+// X size within the area of the curve, verses dividing a data set
+// into some number of parts X distance apart.
+//
+please.merge_pointset = function(pointset, target_spacing, fitting, centered) {
+    centered = centered === undefined ? true : centered;
+    if (fitting !== "shrink" && fitting !== "expand" && fitting !== "any") {
+        fitting = "any";
+    }
+    var fit_function = {
+        "any" : Math.round,
+        "shrink" : Math.ceil,
+        "expand" : Math.floor,
+    }[fitting];
+    
+    var new_set;
+    var segments = fit_function(pointset.distance/target_spacing);
+    if (segments <= 1) {
+        new_set = [pointset[0], pointset.slice(-1)[0]];
+        new_set.distance = pointset.distance;
+        return new_set;
+    }
+    var spacing = pointset.distance/segments;
+
+    new_set = centered ? [] : [pointset[0]];
+    new_set.distance = pointset.distance;
+    var check, next, dist, offset = centered ? spacing / 2.0 : 0.0;
+    for (var i=0; i<pointset.length-1; i+=1) {
+        check = pointset[i];
+        next = pointset[i+1];
+        dist = please.distance(check, next);
+        if (dist+offset >= spacing) {
+            // low = offset
+            // mid = offset + dist
+            // high = spacing
+            // alpha = (spacing-offset)/dist
+            var new_point = please.mix(check, next, (spacing-offset)/dist);
+            new_set.push(new_point);
+            offset = dist+offset - spacing;
+        }
+        else {
+            offset += dist;
+        }
+    }
+    if (!centered) {
+        new_set.push(pointset.slice(-1)[0]);
+    }
+    return new_set;
+};
+
+
+// [+] please.trace_curve(curve, spacing, fitting, centered)
+//
+// Wraps please.break_curve and please.merge_pointset.
+//
+please.trace_curve = function (curve, spacing, fitting, centered) {
+    var raw_points = please.break_curve(curve, spacing);
+    return please.merge_pointset(raw_points, spacing, fitting, centered);
 };
 
 
