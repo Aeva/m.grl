@@ -147,40 +147,30 @@ class Exportable(object):
         return target
 
     def extract_bone_transforms(self, bone, world_matrix, target=None):
-        #begin cargo code
+        if not target:
+            target = {}
 
         matrix = bone.matrix
+        flip = 1
         if bone.parent:
             parent_matrix = bone.parent.matrix
             matrix = parent_matrix.inverted() * matrix
+            # Using the unreal exporter as a reference; they negate
+            # the x/y/z parts of the quaternions to flip the
+            # handedness.  I'm not sure if this is needed for m.grl,
+            # so will likely remove this at some point.
             
+            #flip = -1
         head = matrix.to_translation()
-        #import pdb; pdb.set_trace()
         rotation = matrix.to_quaternion().normalized()
-
-        if bone.parent:
-            rotation.x *= -1
-            rotation.y *= -1
-            rotation.z *= -1
-            # head.x *= -1
-            # head.y *= -1
-            
-        # end cargo code
         
-        if not target:
-            target = {}
-        
-        #target["position"] = dict(zip("xyz", bone.head))
         target["position"] = dict(zip("xyz", head))
-        #rotation = bone.matrix_channel.to_quaternion()# * bone.rotation_quaternion
-
-        # if set(bone.rotation_mode) == set("XYZ"):
-        #     target["rotation"] = dict(zip("xyz", rotation.to_euler("XYZ")))
-        # else:
-        #      target["quaternion"] = dict(zip("dabc", rotation))
-
-        target["quaternion"] = dict(zip("dabc", rotation))
-            
+        target["quaternion"] = {
+            "x" : rotation.x * flip,
+            "y" : rotation.y * flip,
+            "z" : rotation.z * flip,
+            "w" : rotation.w,
+        }
         target["scale"] = dict(zip("xyz", bone.scale))
         return target
 
