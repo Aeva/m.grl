@@ -353,7 +353,7 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
             else if (value.hasOwnProperty("location")) {
                 store[prop+"_focus"] = value;
             }
-            else if (value.length === 3) {
+            else if (value.length) {
                 for (var i=0; i<value.length; i+=1) {
                     target[handles[i]] = value[i];
                 }

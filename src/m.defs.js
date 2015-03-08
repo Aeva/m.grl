@@ -497,33 +497,60 @@ please.path_group = function (paths) {
 // list of points along that curve which are less than the target
 // distance apart.
 //
-please.break_curve = function(curve, target_spacing, magnitude) {
-    if (magnitude === undefined) {
-        magnitude = 2;
-    }
-    var resolution = 1.0 / (curve.stops.length * magnitude);
-
-    var pointset = [];
-    for (var a=0.0; a<=1.0; a+=resolution) {
-        pointset.push(curve(a));
-    }
-
-    var granularity = target_spacing/2.0;
-    var last = null;
-    var talley = 0.0;
-    var worst = pointset.reduce(function (dist, point) {
-        var new_dist = last !== null ? please.distance(last, point) : 0.0;
-        talley += new_dist;
-        last = point;
-        return Math.max(dist, new_dist);
-    }, 0.0);
-    pointset.distance = talley;
-
-    if (worst > target_spacing/2.0) {
-        return please.break_curve(curve, target_spacing, magnitude*2);
+please.break_curve = function (curve, spacing, low, high, ends, memo) {
+    var points = [];
+    points.distance = 0.0;
+    if (arguments.length === 2) {
+        var cuts = curve.stops.length;
+        var steps = 1.0/cuts;
+        var start = 0.0;
+        var found, last=null;
+        memo = {};
+        for (var i, i=0; i<cuts; i+=1) {
+            found = please.break_curve(
+                curve, spacing, start, start+steps, null, memo);
+            for (var k=0; k<found.length; k+=1) {
+                if (found[k] !== last) {
+                    last = found[k];
+                    points.push(found[k]);
+                }
+            }
+            points.distance += found.distance;
+            start += steps;
+        }
+        return points;
     }
     else {
-        return pointset;
+        var mid = ((high-low)*0.5) + low;
+
+#define LOOKUP(a) memo[a] !== undefined ? memo[a] : curve(a)
+        
+        if (!ends) {
+            points = [LOOKUP(low), LOOKUP(mid), LOOKUP(high)];
+        }
+        else {
+            points = [ends[0], LOOKUP(mid), ends[1]];
+        }
+
+#undef LOOKUP
+
+        var check = function (points, start, stop) {
+            var dist = please.distance(points[0], points[1]);
+            if (dist > spacing * .8) {
+                return please.break_curve(
+                    curve, spacing, start, stop, points, memo);
+            }
+            else {
+                points.distance = dist;
+                return points;
+            }
+        };
+        
+        var lhs = check([points[0], points[1]], low, mid);
+        var rhs = check([points[1], points[2]], mid, high);
+        points = lhs.concat(rhs);
+        points.distance = lhs.distance + rhs.distance;
+        return points;
     }
 };
 
