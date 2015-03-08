@@ -151,24 +151,17 @@ class Exportable(object):
             target = {}
 
         matrix = bone.matrix
-        flip = 1
         if bone.parent:
             parent_matrix = bone.parent.matrix
             matrix = parent_matrix.inverted() * matrix
-            # Using the unreal exporter as a reference; they negate
-            # the x/y/z parts of the quaternions to flip the
-            # handedness.  I'm not sure if this is needed for m.grl,
-            # so will likely remove this at some point.
-            
-            #flip = -1
         head = matrix.to_translation()
         rotation = matrix.to_quaternion().normalized()
         
         target["position"] = dict(zip("xyz", head))
         target["quaternion"] = {
-            "x" : rotation.x * flip,
-            "y" : rotation.y * flip,
-            "z" : rotation.z * flip,
+            "x" : rotation.x,
+            "y" : rotation.y,
+            "z" : rotation.z,
             "w" : rotation.w,
         }
         target["scale"] = dict(zip("xyz", bone.scale))
