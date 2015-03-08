@@ -147,15 +147,39 @@ class Exportable(object):
         return target
 
     def extract_bone_transforms(self, bone, world_matrix, target=None):
+        #begin cargo code
+
+        matrix = bone.matrix
+        if bone.parent:
+            parent_matrix = bone.parent.matrix
+            matrix = parent_matrix.inverted() * matrix
+            
+        head = matrix.to_translation()
+        #import pdb; pdb.set_trace()
+        rotation = matrix.to_quaternion().normalized()
+
+        if bone.parent:
+            rotation.x *= -1
+            rotation.y *= -1
+            rotation.z *= -1
+            # head.x *= -1
+            # head.y *= -1
+            
+        # end cargo code
+        
         if not target:
             target = {}
-        target["position"] = dict(zip("xyz", bone.head))
-        rotation = bone.matrix_channel.to_quaternion()# * bone.rotation_quaternion
-        #import pdb; pdb.set_trace()
-        if set(bone.rotation_mode) == set("XYZ"):
-            target["rotation"] = dict(zip("xyz", rotation.to_euler("XYZ")))
-        else:
-            target["quaternion"] = dict(zip("dabc", rotation))
+        
+        #target["position"] = dict(zip("xyz", bone.head))
+        target["position"] = dict(zip("xyz", head))
+        #rotation = bone.matrix_channel.to_quaternion()# * bone.rotation_quaternion
+
+        # if set(bone.rotation_mode) == set("XYZ"):
+        #     target["rotation"] = dict(zip("xyz", rotation.to_euler("XYZ")))
+        # else:
+        #      target["quaternion"] = dict(zip("dabc", rotation))
+
+        target["quaternion"] = dict(zip("dabc", rotation))
             
         target["scale"] = dict(zip("xyz", bone.scale))
         return target
@@ -231,6 +255,7 @@ class Rig(Exportable):
             rig_parent = parent
             if bone.parent:
                 rig_parent = "{0}:bone:{1}".format(self.obj.name, bone.parent.name)
+                parent = rig_parent
 
             extra = self.extract_bone_transforms(bone, self.obj.matrix_world)
             state = {
