@@ -3616,10 +3616,10 @@ please.gl.__jta_model = function (src, uri) {
                     // My 'matrix' math lib uses 'xyzw' for quats
                     // whereas blender prefers 'wxyz', so for the sake
                     // of caution, mgrl uses 'abcd'.
-                    node.quaternion_a = entity.extra.quaternion.a;
-                    node.quaternion_b = entity.extra.quaternion.b;
-                    node.quaternion_c = entity.extra.quaternion.c;
-                    node.quaternion_d = entity.extra.quaternion.d;
+                    node.quaternion_x = entity.extra.quaternion.x;
+                    node.quaternion_y = entity.extra.quaternion.y;
+                    node.quaternion_z = entity.extra.quaternion.z;
+                    node.quaternion_w = entity.extra.quaternion.w;
                 }
                 else if (entity.extra.rotation) {
                     // Planning on removing the need to convert to
@@ -4515,10 +4515,10 @@ please.GraphNode = function () {
         cache["rotation_y"] = null;
         cache["rotation_z"] = null;
         cache["quaternion_focus"] = null;
-        cache["quaternion_a"] = null;
-        cache["quaternion_b"] = null;
-        cache["quaternion_c"] = null;
-        cache["quaternion_d"] = null;
+        cache["quaternion_x"] = null;
+        cache["quaternion_y"] = null;
+        cache["quaternion_z"] = null;
+        cache["quaternion_w"] = null;
     }.bind(this);
     // This method is used to set the value for a given animatable
     // property without triggering the write hook.
@@ -4568,7 +4568,7 @@ please.GraphNode = function () {
     please.make_animatable_tripple(
         this, "rotation", "xyz", [0, 0, 0], null, rotation_hook);
     please.make_animatable_tripple(
-        this, "quaternion", "abcd", [0, 0, 0, 1], null, rotation_hook);
+        this, "quaternion", "xyzw", [0, 0, 0, 1], null, rotation_hook);
     // make degrees the default handle
     this.rotation = [0, 0, 0];
     // Automatically databind to the shader program's uniform and
@@ -4689,10 +4689,8 @@ please.GraphNode.prototype = {
         var parent = this.parent;
         var local_matrix = mat4.create();
         var world_matrix = mat4.create();
-        if (this.is_bone || !(parent && parent.is_bone)) {
-            mat4.fromRotationTranslation(
-                local_matrix, this.quaternion, this.location);
-        }
+        mat4.fromRotationTranslation(
+            local_matrix, this.quaternion, this.location);
         mat4.scale(local_matrix, local_matrix, this.scale);
         var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
         mat4.multiply(world_matrix, parent_matrix, local_matrix);
