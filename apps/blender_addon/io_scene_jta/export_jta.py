@@ -146,16 +146,19 @@ class Exportable(object):
         target["scale"] = dict(zip("xyz", matrix.to_scale()))
         return target
 
-    def extract_bone_transforms(self, bone, world_matrix, target=None):
+    def extract_bone_transforms(self, bone, armature, target=None):
         if not target:
             target = {}
 
         matrix = bone.matrix
+        #import pdb; pdb.set_trace()
         if bone.parent:
             parent_matrix = bone.parent.matrix
-            matrix = parent_matrix.inverted() * matrix
-        head = matrix.to_translation()
-        rotation = matrix.to_quaternion().normalized()
+            matrix = parent_matrix.inverted() * matrix        
+        # head = matrix.to_translation()
+        # rotation = matrix.to_quaternion().normalized()
+        head, rotation, scale = matrix.decompose()
+        #import pdb; pdb.set_trace()
         
         target["position"] = dict(zip("xyz", head))
         target["quaternion"] = {
@@ -164,7 +167,7 @@ class Exportable(object):
             "z" : rotation.z,
             "w" : rotation.w,
         }
-        target["scale"] = dict(zip("xyz", bone.scale))
+        target["scale"] = dict(zip("xyz", scale))
         return target
 
     def format_matrix(self, matrix):
@@ -181,11 +184,12 @@ class Exportable(object):
         The return value will be serialized elsewhere.
         """
         parent = None
-        if self.obj.parent is not None:
+        local_matrix = self.obj.matrix_local
+        if self.obj.parent:
             if self.obj.parent.type == "ARMATURE":
                 parent = "{0}:bone:{1}".format(
                     self.obj.parent.name, self.obj.parent_bone)
-                pass
+                local_matrix = self.obj.matrix_basis
             else:
                 parent = self.obj.parent.name
 
@@ -199,11 +203,8 @@ class Exportable(object):
 
         # Extra values are not used in rendering, but may be used to
         # store other useful information.
-        extras = {}
-
-        # Note the object's coordinates and postion values in Extras.
-        self.extract_matrix_to_object(self.obj.matrix_local,
-                                      extras, mode=self.obj.rotation_mode)
+        extras = self.extract_matrix_to_object(
+            local_matrix, mode=self.obj.rotation_mode)
 
         return {
             "parent" : parent,
@@ -240,7 +241,7 @@ class Rig(Exportable):
                 rig_parent = "{0}:bone:{1}".format(self.obj.name, bone.parent.name)
                 parent = rig_parent
 
-            extra = self.extract_bone_transforms(bone, self.obj.matrix_world)
+            extra = self.extract_bone_transforms(bone, self.obj)
             state = {
                 "world_matrix" : self.format_matrix(self.obj.matrix_world),
             }
