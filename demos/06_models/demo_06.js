@@ -46,6 +46,7 @@ addEventListener("load", function() {
     // sense if we manually queue up textures here:
     please.load("uvmap.png");
     please.load("floor_lamp.png");
+    please.load("mr_squeegee_feet.jta");
 
     show_progress();
 });
@@ -95,17 +96,18 @@ addEventListener("mgrl_media_ready", function () {
     // access model data
     var gav_model = please.access("gavroche.jta");
     var lamp_model = please.access("floor_lamp.jta");
+    var test_model = please.access("mr_squeegee_feet.jta");
     //var test_model = please.access("graph_test.jta");
 
     // display licensing meta_data info, where applicable
-    [gav_model, lamp_model].map(function (scene) {
-        var target = document.getElementById("attribution_area");
-        target.style.display = "block";
-        var div = scene.get_license_html();
-        if (div) {
-            target.appendChild(div);
-        }
-    });
+    // [gav_model, lamp_model].map(function (scene) {
+    //     var target = document.getElementById("attribution_area");
+    //     target.style.display = "block";
+    //     var div = scene.get_license_html();
+    //     if (div) {
+    //         target.appendChild(div);
+    //     }
+    // });
 
     // build the scene graph
     var graph = window.graph = new please.SceneGraph();
@@ -119,21 +121,31 @@ addEventListener("mgrl_media_ready", function () {
         [0, 5, 0],
     ];
     for (var i=0; i<coords.length; i+=1) {
-        var gav = gav_model.instance();
-        gav.shader.mode = 3; // mode 2 + translucent
-        gav.sort_mode = "alpha";
+        var gav;
+        if (i < 3) {
+            gav = gav_model.instance();
+            gav.shader.mode = 3; // mode 2 + translucent
+            gav.sort_mode = "alpha";
+            gav.rotation_z = Math.random()*360;
+        }
+        else {
+            gav = test_model.instance();
+            gav.scale = [1.0, 1.0, 1.0];
+            gav.propogate(function(node) {
+                node.shader.mode = 2; // indicate this is not the floor
+            });
+            gav.rotation_z = please.path_driver(
+                please.linear_path(360, 0), 5000, true, false);
+        }
         gav.location = coords[i];
-        gav.rotation_z = Math.random()*360;
         rotatoe.add(gav);
     }
     rotatoe.rotation_z = function () {
         var progress = performance.now()/110;
         return progress*-1;
     };
-    var center = lamp_model.instance();
-    //var center = test_model.instance();
-    //center.scale = [1.2, 1.2, 1.2];
-    center.shader.mode = 2; // indicate this is not the floor
+    var center = window.test = lamp_model.instance();
+    center.shader.mode = 2;
     rotatoe.add(center);
     graph.add(rotatoe);
 
@@ -148,7 +160,7 @@ addEventListener("mgrl_media_ready", function () {
         lamp.shader.mode = 2;
         lamp.location_x = x;
         lamp.location_y = y;
-        lamp.rotation_y = Math.random()*360;
+        lamp.rotation_z = Math.random()*360;
         graph.add(lamp);
     }
 

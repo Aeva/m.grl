@@ -141,23 +141,39 @@ class Exportable(object):
         if set(mode) == set("XYZ"):
             target["rotation"] = dict(zip("xyz", matrix.to_euler('XYZ')))
         else:
-            target["quaternion"] = dict(zip("dabc", matrix.to_quaternion()))
+            rotation = matrix.to_quaternion()
+            target["quaternion"] = {
+                "x" : rotation.x,
+                "y" : rotation.y,
+                "z" : rotation.z,
+                "w" : rotation.w,
+            }
             
         target["scale"] = dict(zip("xyz", matrix.to_scale()))
         return target
 
-    def extract_bone_transforms(self, bone, world_matrix, target=None):
+    def extract_bone_transforms(self, bone, armature, target=None):
         if not target:
             target = {}
-        target["position"] = dict(zip("xyz", bone.head))
-        rotation = bone.matrix_channel.to_quaternion()# * bone.rotation_quaternion
+
+        matrix = bone.matrix
+        if bone.parent:
+            parent_matrix = bone.parent.matrix
+            parent_matrix *= mathutils.Matrix.Translation(
+                mathutils.Vector([0, bone.parent.length, 0]))
+            matrix = parent_matrix.inverted() * matrix        
+        matrix *= mathutils.Matrix.Translation(mathutils.Vector([0,bone.length,0]))
+        head, rotation, scale = matrix.decompose()
         #import pdb; pdb.set_trace()
-        if set(bone.rotation_mode) == set("XYZ"):
-            target["rotation"] = dict(zip("xyz", rotation.to_euler("XYZ")))
-        else:
-            target["quaternion"] = dict(zip("dabc", rotation))
-            
-        target["scale"] = dict(zip("xyz", bone.scale))
+        
+        target["position"] = dict(zip("xyz", head))
+        target["quaternion"] = {
+            "x" : rotation.x,
+            "y" : rotation.y,
+            "z" : rotation.z,
+            "w" : rotation.w,
+        }
+        target["scale"] = dict(zip("xyz", scale))
         return target
 
     def format_matrix(self, matrix):
@@ -174,11 +190,13 @@ class Exportable(object):
         The return value will be serialized elsewhere.
         """
         parent = None
-        if self.obj.parent is not None:
+        local_matrix = self.obj.matrix_local
+        if self.obj.parent:
             if self.obj.parent.type == "ARMATURE":
                 parent = "{0}:bone:{1}".format(
                     self.obj.parent.name, self.obj.parent_bone)
-                pass
+                #local_matrix = self.obj.matrix_basis
+                local_matrix = self.obj.matrix_parent_inverse * self.obj.matrix_basis
             else:
                 parent = self.obj.parent.name
 
@@ -192,11 +210,8 @@ class Exportable(object):
 
         # Extra values are not used in rendering, but may be used to
         # store other useful information.
-        extras = {}
-
-        # Note the object's coordinates and postion values in Extras.
-        self.extract_matrix_to_object(self.obj.matrix_local,
-                                      extras, mode=self.obj.rotation_mode)
+        extras = self.extract_matrix_to_object(
+            local_matrix, mode=self.obj.rotation_mode)
 
         return {
             "parent" : parent,
@@ -231,8 +246,9 @@ class Rig(Exportable):
             rig_parent = parent
             if bone.parent:
                 rig_parent = "{0}:bone:{1}".format(self.obj.name, bone.parent.name)
+                parent = rig_parent
 
-            extra = self.extract_bone_transforms(bone, self.obj.matrix_world)
+            extra = self.extract_bone_transforms(bone, self.obj)
             state = {
                 "world_matrix" : self.format_matrix(self.obj.matrix_world),
             }
@@ -618,6 +634,10 @@ def save(operator, context, options={}):
 
     scale_matrix = mathutils.Matrix.Scale(options["global_scale"], 4)
 
+    # call the update thing for good measure
+    scene.update()
+
+    
     # The variable 'container' is where we will structure the data to
     # be exported.  This will conclude with it being encoded as json.
     container = {}

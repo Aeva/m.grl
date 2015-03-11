@@ -123,6 +123,10 @@ void main(void) {
   if (mode < 3.0) {
     gl_FragColor = vec4(final_color.rgb, 1.0);
   }
+  else if (mode == 5.0) {
+    float base_color = 0.4 + specular_weight;
+    gl_FragColor = vec4(base_color, base_color, base_color, 1.0);
+  }
   else {
     gl_FragColor = vec4(final_color.rgb, 0.75);
   }
