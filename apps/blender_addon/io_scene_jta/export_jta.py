@@ -141,7 +141,13 @@ class Exportable(object):
         if set(mode) == set("XYZ"):
             target["rotation"] = dict(zip("xyz", matrix.to_euler('XYZ')))
         else:
-            target["quaternion"] = dict(zip("dabc", matrix.to_quaternion()))
+            rotation = matrix.to_quaternion()
+            target["quaternion"] = {
+                "x" : rotation.x,
+                "y" : rotation.y,
+                "z" : rotation.z,
+                "w" : rotation.w,
+            }
             
         target["scale"] = dict(zip("xyz", matrix.to_scale()))
         return target
@@ -151,12 +157,12 @@ class Exportable(object):
             target = {}
 
         matrix = bone.matrix
-        #import pdb; pdb.set_trace()
         if bone.parent:
             parent_matrix = bone.parent.matrix
+            parent_matrix *= mathutils.Matrix.Translation(
+                mathutils.Vector([0, bone.parent.length, 0]))
             matrix = parent_matrix.inverted() * matrix        
-        # head = matrix.to_translation()
-        # rotation = matrix.to_quaternion().normalized()
+        matrix *= mathutils.Matrix.Translation(mathutils.Vector([0,bone.length,0]))
         head, rotation, scale = matrix.decompose()
         #import pdb; pdb.set_trace()
         
@@ -189,7 +195,8 @@ class Exportable(object):
             if self.obj.parent.type == "ARMATURE":
                 parent = "{0}:bone:{1}".format(
                     self.obj.parent.name, self.obj.parent_bone)
-                local_matrix = self.obj.matrix_basis
+                #local_matrix = self.obj.matrix_basis
+                local_matrix = self.obj.matrix_parent_inverse * self.obj.matrix_basis
             else:
                 parent = self.obj.parent.name
 
