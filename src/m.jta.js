@@ -158,9 +158,6 @@ please.gl.__jta_model = function (src, uri) {
                     node.location_z = entity.extra.position.z;
                 }
                 if (entity.extra.quaternion) {
-                    // My 'matrix' math lib uses 'xyzw' for quats
-                    // whereas blender prefers 'wxyz', so for the sake
-                    // of caution, mgrl uses 'abcd'.
                     node.quaternion_x = entity.extra.quaternion.x;
                     node.quaternion_y = entity.extra.quaternion.y;
                     node.quaternion_z = entity.extra.quaternion.z;
