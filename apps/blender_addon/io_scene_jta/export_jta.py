@@ -176,7 +176,7 @@ class Exportable(object):
 
         matrix = bone.matrix
         if bone.parent:
-            matrix = invert_bone(bone.parent) * matrix        
+            matrix = invert_bone(bone.parent) * matrix
         matrix *= bone_transform(bone)
         head, rotation, scale = matrix.decompose()
         
