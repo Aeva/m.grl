@@ -210,8 +210,9 @@ class Exportable(object):
                 bone_name = self.obj.parent_bone
                 parent = "{0}:bone:{1}".format(self.obj.parent.name, bone_name)
                 pose = self.obj.parent.pose.bones[bone_name]
-                local_matrix = self.obj.matrix_parent_inverse * \
-                               self.obj.matrix_basis
+                # local_matrix = self.obj.matrix_parent_inverse * \
+                #                self.obj.matrix_basis
+                local_matrix = invert_bone(pose) * self.obj.matrix_world
             else:
                 parent = self.obj.parent.name
 
