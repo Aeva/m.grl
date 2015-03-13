@@ -32,24 +32,6 @@ import bpy_extras.io_utils
 import numpy
 
 
-def bone_transform(bone, direction=1):
-    """
-    Returns the transformation matrix to move a bone's length along
-    the Y axis.
-    """
-    vec = mathutils.Vector([0, bone.length * direction, 0])
-    return mathutils.Matrix.Translation(vec)
-
-
-def invert_bone(bone):
-    """
-    Returns the inverse of a bone's matrix, but relative to the
-    (tail?) instead of the (head?).
-    """
-    matrix = bone.matrix * bone_transform(bone)
-    return matrix.inverted()
-
-
 class Base64Array(object):
     """
     Implements the machinery needed to encode arrays to base64 encoded
@@ -176,8 +158,7 @@ class Exportable(object):
 
         matrix = bone.matrix
         if bone.parent:
-            matrix = invert_bone(bone.parent) * matrix
-        matrix *= bone_transform(bone)
+            matrix = bone.parent.matrix.inverted() * matrix
         head, rotation, scale = matrix.decompose()
         
         target["position"] = dict(zip("xyz", head))
@@ -210,9 +191,7 @@ class Exportable(object):
                 bone_name = self.obj.parent_bone
                 parent = "{0}:bone:{1}".format(self.obj.parent.name, bone_name)
                 pose = self.obj.parent.pose.bones[bone_name]
-                # local_matrix = self.obj.matrix_parent_inverse * \
-                #                self.obj.matrix_basis
-                local_matrix = invert_bone(pose) * self.obj.matrix_world
+                local_matrix = pose.matrix.inverted() * self.obj.matrix_world
             else:
                 parent = self.obj.parent.name
 
