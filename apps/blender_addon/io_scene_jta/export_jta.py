@@ -32,6 +32,19 @@ import bpy_extras.io_utils
 import numpy
 
 
+def format_matrix(matrix):
+    """
+    Formats a Blender matrix object for export, and transposes it so
+    gl-matrix can use it correctly.
+    """
+    target_matrix = matrix.copy()
+    target_matrix.transpose()
+    matrix_builder = Float16Array(period=4)
+    for vector in target_matrix.to_4x4():
+        matrix_builder.add_vector(*vector[:])
+    return matrix_builder.export()
+
+
 class Base64Array(object):
     """
     Implements the machinery needed to encode arrays to base64 encoded
@@ -152,33 +165,6 @@ class Exportable(object):
         target["scale"] = dict(zip("xyz", matrix.to_scale()))
         return target
 
-    def extract_bone_transforms(self, bone, armature, target=None):
-        if not target:
-            target = {}
-
-        matrix = bone.matrix
-        if bone.parent:
-            matrix = bone.parent.matrix.inverted() * matrix
-        head, rotation, scale = matrix.decompose()
-        
-        target["position"] = dict(zip("xyz", head))
-        target["quaternion"] = {
-            "x" : rotation.x,
-            "y" : rotation.y,
-            "z" : rotation.z,
-            "w" : rotation.w,
-        }
-        target["scale"] = dict(zip("xyz", scale))
-        return target
-
-    def format_matrix(self, matrix):
-        target_matrix = matrix.copy()
-        target_matrix.transpose()
-        matrix_builder = Float16Array(period=4)
-        for vector in target_matrix.to_4x4():
-            matrix_builder.add_vector(*vector[:])
-        return matrix_builder.export()
-
     def export(self):
         """
         This returns the basic aspects of a graph node being exported.
@@ -201,7 +187,7 @@ class Exportable(object):
         state = {}
 
         # Save the world matrix as used for rendering.
-        state["world_matrix"] = self.format_matrix(self.obj.matrix_world)
+        state["world_matrix"] = format_matrix(self.obj.matrix_world)
 
         # Extra values are not used in rendering, but may be used to
         # store other useful information.
@@ -223,42 +209,76 @@ class Empty(Exportable):
     pass
 
 
+class Bone(object):
+    """
+    This class stores information about the bones in a rig.
+    """
+
+    def __init__(self, bone, rig):
+        self.rig = rig
+        self.bone = bone
+        self.name = self.get_name()
+        parent_bone = self.get_name(bone.parent) if bone.parent else None
+        self.parent = parent_bone or self.rig.name
+
+        # FIXME the state object is deprecated and should be removed.
+        state = {
+            "world_matrix" : format_matrix(bone.matrix),
+        }
+        
+        self.data = {
+            "parent" : self.parent,
+            "state" : state,
+            "extra" : self.get_transforms(),
+            "bone" : self.bone.name,
+            "bone_parent" : parent_bone,
+        }
+
+    def get_name(self, bone=None, rig=None):
+        """
+        Formats the name of the bone for m.grl
+        """
+        if not bone:
+            bone = self.bone
+        if not rig:
+            rig = self.rig
+        return "{0}:bone:{1}".format(rig.name, bone.name)
+
+    def get_transforms(self, bone=None, armature=None, target=None):
+        """
+        Returns the position, rotation, and scale vectors.  Rotation is
+        expressed in quaternions.
+        """
+        if not (bone or armature):
+            bone = self.bone
+            armature = self.rig
+            
+        if not target:
+            target = {}
+
+        matrix = bone.matrix
+        if bone.parent:
+            matrix = bone.parent.matrix.inverted() * matrix
+        head, rotation, scale = matrix.decompose()
+        
+        target["position"] = dict(zip("xyz", head))
+        target["quaternion"] = {
+            "x" : rotation.x,
+            "y" : rotation.y,
+            "z" : rotation.z,
+            "w" : rotation.w,
+        }
+        target["scale"] = dict(zip("xyz", scale))
+        return target
+
+
 class Rig(Exportable):
     """
-    This class stores information about a rig, for export.
+    This class stores information about a rig.
     """
     def __init__(self, selection, scene, options):
         Exportable.__init__(self, selection, scene, options)
-        self.bones = selection.pose.bones
-
-    def create_bone_nodes(self):
-        """
-        Creates graph entries for the bone data.
-        """
-        def fake_node(bone):
-            name = "{0}:bone:{1}".format(self.obj.name, bone.name)
-            parent = self.obj.name
-            rig_parent = parent
-            if bone.parent:
-                rig_parent = "{0}:bone:{1}".format(self.obj.name, bone.parent.name)
-                parent = rig_parent
-
-            extra = self.extract_bone_transforms(bone, self.obj)
-            state = {
-                "world_matrix" : self.format_matrix(self.obj.matrix_world),
-            }
-            blob = {
-                "parent" : parent,
-                "state" : state,
-                "extra" : extra,
-                "bone" : bone.name,
-                "bone_parent" : rig_parent,
-            }
-            return name, blob
-        return [i for i in map(fake_node, self.bones)]
-        # FIXME for some reason, the return value here ends up being
-        # wrong - the 'position' value and who knows what else ends up
-        # being set to the same (arbitrary?) value
+        self.bones = [Bone(bone, self.obj) for bone in selection.pose.bones]
 
 
 class Model(Exportable):
@@ -730,9 +750,8 @@ def save(operator, context, options={}):
 
     for rig in export_rigs:
         container["empties"][rig.obj.name] = rig.export()
-        bones = rig.create_bone_nodes()
-        for bone_name, bone_data in bones:
-            container["empties"][bone_name] = bone_data
+        for bone in rig.bones:
+            container["empties"][bone.name] = bone.data
     
     # add packed data if applicable
     container["packed_data"] = texture_store.export()
