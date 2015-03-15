@@ -792,7 +792,11 @@ def save(operator, context, options={}):
         for action in bpy.data.actions:
             name = action.name
             start, stop = map(int, action.frame_range)
-            container["ani"][name] = []
+            container["ani"][name] = {
+                "duration" : frame_to_time(stop - start),
+                "repeat" : False,
+                "track" : [],
+            }
 
             # figure out where the keyframes are
             frames = [start, stop]
@@ -833,7 +837,7 @@ def save(operator, context, options={}):
                         "frame" : frame_to_time(frame),
                         "updates" : updates,
                     }
-                    container["ani"][name].append(keyframe)
+                    container["ani"][name]["track"].append(keyframe)
                     
     
     # add packed data if applicable
