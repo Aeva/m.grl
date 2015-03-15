@@ -45,6 +45,14 @@ def format_matrix(matrix):
     return matrix_builder.export()
 
 
+def frame_to_time(frame_number):
+    """
+    Returns the timestamp for a give frame number.
+    """
+    raw_time = frame_number / bpy.context.scene.render.fps
+    return raw_time
+
+
 class Base64Array(object):
     """
     Implements the machinery needed to encode arrays to base64 encoded
@@ -218,8 +226,8 @@ class Bone(object):
         self.rig = rig
         self.bone = bone
         self.name = self.get_name()
-        parent_bone = self.get_name(bone.parent) if bone.parent else None
-        self.parent = parent_bone or self.rig.name
+        self.parent_bone = self.get_name(bone.parent) if bone.parent else None
+        self.parent = self.parent_bone or self.rig.name
 
         # FIXME the state object is deprecated and should be removed.
         state = {
@@ -229,10 +237,11 @@ class Bone(object):
         self.data = {
             "parent" : self.parent,
             "state" : state,
-            "extra" : self.get_transforms(),
+            "extra" : None,
             "bone" : self.bone.name,
-            "bone_parent" : parent_bone,
+            "bone_parent" : self.parent_bone,
         }
+        self.regen_transforms()
 
     def get_name(self, bone=None, rig=None):
         """
@@ -244,7 +253,7 @@ class Bone(object):
             rig = self.rig
         return "{0}:bone:{1}".format(rig.name, bone.name)
 
-    def get_transforms(self, bone=None, armature=None, target=None):
+    def regen_transforms(self, bone=None, armature=None, target=None):
         """
         Returns the position, rotation, and scale vectors.  Rotation is
         expressed in quaternions.
@@ -269,8 +278,29 @@ class Bone(object):
             "w" : rotation.w,
         }
         target["scale"] = dict(zip("xyz", scale))
+        self.data['extra'] = target
         return target
 
+    def updates_since(self, reference):
+        """
+        Compares the output of regen_transforms with that cached from a
+        different keyframe to see if anything has changed.  If so, the
+        different fields are returned in a new dictionary.  Returns
+        None if nothing was changed.
+        """
+        updates = {}
+        target = self.regen_transforms()
+        changed = []
+        for prop in ["position", "quaternion", "scale"]:
+            for channel in target[prop].keys():
+                old_value = round(reference[prop][channel], 5)
+                new_value = round(target[prop][channel], 5)
+                if not old_value == new_value:
+                    changed.append(prop)
+                    break
+        for prop in changed:
+            updates[prop] = target[prop]
+        return updates
 
 class Rig(Exportable):
     """
@@ -736,22 +766,75 @@ def save(operator, context, options={}):
             attr_sets.append(attr)
             model.attach(attr)
 
-    # export everything
+    # export renderable data
     for attr in attr_sets:
         container["attributes"].append(attr.export())
     for model in export_meshes:
         container["models"][model.obj.name] = model.export()
 
+    # create object for empties and bones
     if export_empties or export_rigs:
         container["empties"] = {}
 
+    # export empties
     for empty in export_empties:
         container["empties"][empty.obj.name] = empty.export()
 
+    # export bones
     for rig in export_rigs:
         container["empties"][rig.obj.name] = rig.export()
         for bone in rig.bones:
             container["empties"][bone.name] = bone.data
+
+    # export keyframes, if applicable
+    if len(bpy.data.actions):
+        container["ani"] = {}
+        for action in bpy.data.actions:
+            name = action.name
+            start, stop = map(int, action.frame_range)
+            container["ani"][name] = []
+
+            # figure out where the keyframes are
+            frames = [start, stop]
+            for fcurve in action.fcurves:
+                for point in fcurve.keyframe_points:
+                    frames.append(int(point.co.x))
+            frames = list(set(frames))
+            frames.sort()
+
+            # for each frame, find the set of all objects with
+            # changes.  Note, I think this is not the correct way to
+            # do this.
+            cache = {}
+            first = True
+            for frame in frames:
+                scene.frame_set(frame)
+                updates = {}
+                # check bones for updates
+                for rig in export_rigs:
+                    for bone in rig.bones:
+                        if first:
+                            changed = bone.regen_transforms()
+                            updates[bone.name] = changed
+                            cache[bone.name] = changed
+                        else:
+                            changed = bone.updates_since(cache[bone.name])
+                            if changed:
+                                updates[bone.name] = changed
+                                for key, value in changed.items():
+                                    cache[bone.name][key] = value
+
+                # check objecs for updates
+                ## FIXME: keyframes for objects not supported yet"
+
+                first = False
+                if updates:
+                    keyframe = {
+                        "frame" : frame_to_time(frame),
+                        "updates" : updates,
+                    }
+                    container["ani"][name].append(keyframe)
+                    
     
     # add packed data if applicable
     container["packed_data"] = texture_store.export()
