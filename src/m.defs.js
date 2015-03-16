@@ -360,12 +360,18 @@ please.mix = function (lhs, rhs, a) {
         var _rhs = rhs.location ? rhs.location : rhs;
         
         if (_lhs.length && _lhs.length === _rhs.length) {
-            // Linear interpolation of two arrays:
-            var new_points = [];
-            for (var i=0; i<_lhs.length; i+=1) {
-                new_points.push(_lhs[i] + a*(_rhs[i]-_lhs[i]));
+            if (_lhs.length === 4) {
+                // Linear interpolation of two quaternions:
+                return quat.slerp(quat.create(), _lhs, _rhs, a);
             }
-            return new_points;
+            else {
+                // Linear interpolation of two arrays:
+                var new_points = [];
+                for (var i=0; i<_lhs.length; i+=1) {
+                    new_points.push(_lhs[i] + a*(_rhs[i]-_lhs[i]));
+                }
+                return new_points;
+            }
         }
     }
     throw ("Mix operands are incompatible.");

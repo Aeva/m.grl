@@ -32,6 +32,27 @@ import bpy_extras.io_utils
 import numpy
 
 
+def format_matrix(matrix):
+    """
+    Formats a Blender matrix object for export, and transposes it so
+    gl-matrix can use it correctly.
+    """
+    target_matrix = matrix.copy()
+    target_matrix.transpose()
+    matrix_builder = Float16Array(period=4)
+    for vector in target_matrix.to_4x4():
+        matrix_builder.add_vector(*vector[:])
+    return matrix_builder.export()
+
+
+def frame_to_time(frame_number):
+    """
+    Returns the timestamp for a give frame number.
+    """
+    raw_time = frame_number / bpy.context.scene.render.fps
+    return raw_time
+
+
 class Base64Array(object):
     """
     Implements the machinery needed to encode arrays to base64 encoded
@@ -152,38 +173,6 @@ class Exportable(object):
         target["scale"] = dict(zip("xyz", matrix.to_scale()))
         return target
 
-    def extract_bone_transforms(self, bone, armature, target=None):
-        if not target:
-            target = {}
-
-        matrix = bone.matrix
-        if bone.parent:
-            parent_matrix = bone.parent.matrix
-            parent_matrix *= mathutils.Matrix.Translation(
-                mathutils.Vector([0, bone.parent.length, 0]))
-            matrix = parent_matrix.inverted() * matrix        
-        matrix *= mathutils.Matrix.Translation(mathutils.Vector([0,bone.length,0]))
-        head, rotation, scale = matrix.decompose()
-        #import pdb; pdb.set_trace()
-        
-        target["position"] = dict(zip("xyz", head))
-        target["quaternion"] = {
-            "x" : rotation.x,
-            "y" : rotation.y,
-            "z" : rotation.z,
-            "w" : rotation.w,
-        }
-        target["scale"] = dict(zip("xyz", scale))
-        return target
-
-    def format_matrix(self, matrix):
-        target_matrix = matrix.copy()
-        target_matrix.transpose()
-        matrix_builder = Float16Array(period=4)
-        for vector in target_matrix.to_4x4():
-            matrix_builder.add_vector(*vector[:])
-        return matrix_builder.export()
-
     def export(self):
         """
         This returns the basic aspects of a graph node being exported.
@@ -193,10 +182,10 @@ class Exportable(object):
         local_matrix = self.obj.matrix_local
         if self.obj.parent:
             if self.obj.parent.type == "ARMATURE":
-                parent = "{0}:bone:{1}".format(
-                    self.obj.parent.name, self.obj.parent_bone)
-                #local_matrix = self.obj.matrix_basis
-                local_matrix = self.obj.matrix_parent_inverse * self.obj.matrix_basis
+                bone_name = self.obj.parent_bone
+                parent = "{0}:bone:{1}".format(self.obj.parent.name, bone_name)
+                pose = self.obj.parent.pose.bones[bone_name]
+                local_matrix = pose.matrix.inverted() * self.obj.matrix_world
             else:
                 parent = self.obj.parent.name
 
@@ -206,7 +195,7 @@ class Exportable(object):
         state = {}
 
         # Save the world matrix as used for rendering.
-        state["world_matrix"] = self.format_matrix(self.obj.matrix_world)
+        state["world_matrix"] = format_matrix(self.obj.matrix_world)
 
         # Extra values are not used in rendering, but may be used to
         # store other useful information.
@@ -228,42 +217,98 @@ class Empty(Exportable):
     pass
 
 
+class Bone(object):
+    """
+    This class stores information about the bones in a rig.
+    """
+
+    def __init__(self, bone, rig):
+        self.rig = rig
+        self.bone = bone
+        self.name = self.get_name()
+        self.parent_bone = self.get_name(bone.parent) if bone.parent else None
+        self.parent = self.parent_bone or self.rig.name
+
+        # FIXME the state object is deprecated and should be removed.
+        state = {
+            "world_matrix" : format_matrix(bone.matrix),
+        }
+        
+        self.data = {
+            "parent" : self.parent,
+            "state" : state,
+            "extra" : None,
+            "bone" : self.bone.name,
+            "bone_parent" : self.parent_bone,
+        }
+        self.regen_transforms()
+
+    def get_name(self, bone=None, rig=None):
+        """
+        Formats the name of the bone for m.grl
+        """
+        if not bone:
+            bone = self.bone
+        if not rig:
+            rig = self.rig
+        return "{0}:bone:{1}".format(rig.name, bone.name)
+
+    def regen_transforms(self, bone=None, armature=None, target=None):
+        """
+        Returns the position, rotation, and scale vectors.  Rotation is
+        expressed in quaternions.
+        """
+        if not (bone or armature):
+            bone = self.bone
+            armature = self.rig
+            
+        if not target:
+            target = {}
+
+        matrix = bone.matrix
+        if bone.parent:
+            matrix = bone.parent.matrix.inverted() * matrix
+        head, rotation, scale = matrix.decompose()
+        
+        target["position"] = dict(zip("xyz", head))
+        target["quaternion"] = {
+            "x" : rotation.x,
+            "y" : rotation.y,
+            "z" : rotation.z,
+            "w" : rotation.w,
+        }
+        target["scale"] = dict(zip("xyz", scale))
+        self.data['extra'] = target
+        return target
+
+    def updates_since(self, reference):
+        """
+        Compares the output of regen_transforms with that cached from a
+        different keyframe to see if anything has changed.  If so, the
+        different fields are returned in a new dictionary.  Returns
+        None if nothing was changed.
+        """
+        updates = {}
+        target = self.regen_transforms()
+        changed = []
+        for prop in ["position", "quaternion", "scale"]:
+            for channel in target[prop].keys():
+                old_value = round(reference[prop][channel], 5)
+                new_value = round(target[prop][channel], 5)
+                if not old_value == new_value:
+                    changed.append(prop)
+                    break
+        for prop in changed:
+            updates[prop] = target[prop]
+        return updates
+
 class Rig(Exportable):
     """
-    This class stores information about a rig, for export.
+    This class stores information about a rig.
     """
     def __init__(self, selection, scene, options):
         Exportable.__init__(self, selection, scene, options)
-        self.bones = selection.pose.bones
-
-    def create_bone_nodes(self):
-        """
-        Creates graph entries for the bone data.
-        """
-        def fake_node(bone):
-            name = "{0}:bone:{1}".format(self.obj.name, bone.name)
-            parent = self.obj.name
-            rig_parent = parent
-            if bone.parent:
-                rig_parent = "{0}:bone:{1}".format(self.obj.name, bone.parent.name)
-                parent = rig_parent
-
-            extra = self.extract_bone_transforms(bone, self.obj)
-            state = {
-                "world_matrix" : self.format_matrix(self.obj.matrix_world),
-            }
-            blob = {
-                "parent" : parent,
-                "state" : state,
-                "extra" : extra,
-                "bone" : bone.name,
-                "bone_parent" : rig_parent,
-            }
-            return name, blob
-        return [i for i in map(fake_node, self.bones)]
-        # FIXME for some reason, the return value here ends up being
-        # wrong - the 'position' value and who knows what else ends up
-        # being set to the same (arbitrary?) value
+        self.bones = [Bone(bone, self.obj) for bone in selection.pose.bones]
 
 
 class Model(Exportable):
@@ -721,23 +766,81 @@ def save(operator, context, options={}):
             attr_sets.append(attr)
             model.attach(attr)
 
-    # export everything
+    # export renderable data
     for attr in attr_sets:
         container["attributes"].append(attr.export())
     for model in export_meshes:
         container["models"][model.obj.name] = model.export()
 
+    # create object for empties and bones
     if export_empties or export_rigs:
         container["empties"] = {}
 
+    # export empties
     for empty in export_empties:
         container["empties"][empty.obj.name] = empty.export()
 
+    # export bones
     for rig in export_rigs:
         container["empties"][rig.obj.name] = rig.export()
-        bones = rig.create_bone_nodes()
-        for bone_name, bone_data in bones:
-            container["empties"][bone_name] = bone_data
+        for bone in rig.bones:
+            container["empties"][bone.name] = bone.data
+
+    # export keyframes, if applicable
+    if len(bpy.data.actions):
+        container["ani"] = {}
+
+        # FIXME actions should be cut out into their own class
+        for action in bpy.data.actions:
+            name = action.name
+            start, stop = map(int, action.frame_range)
+            container["ani"][name] = {
+                "duration" : frame_to_time(stop - start),
+                "repeat" : False,
+                "track" : [],
+            }
+
+            # figure out where the keyframes are
+            frames = [start, stop]
+            for fcurve in action.fcurves:
+                for point in fcurve.keyframe_points:
+                    frames.append(int(point.co.x))
+            frames = list(set(frames))
+            frames.sort()
+
+            # for each frame, find the set of all objects with
+            # changes.  Note, I think this is not the correct way to
+            # do this.
+            cache = {}
+            first = True
+            for frame in frames:
+                scene.frame_set(frame)
+                updates = {}
+                # check bones for updates
+                for rig in export_rigs:
+                    for bone in rig.bones:
+                        if first:
+                            changed = bone.regen_transforms()
+                            updates[bone.name] = changed
+                            cache[bone.name] = changed
+                        else:
+                            changed = bone.updates_since(cache[bone.name])
+                            if changed:
+                                updates[bone.name] = changed
+                                for key, value in changed.items():
+                                    cache[bone.name][key] = value
+
+                # check objecs for updates
+                ## FIXME: keyframes for objects not supported yet"
+
+                first = False
+                if updates:
+                    keyframe = {
+                        "frame" : frame_to_time(frame),
+                        "updates" : updates,
+                    }
+                    container["ani"][name]["track"].append(keyframe)
+                    
     
     # add packed data if applicable
     container["packed_data"] = texture_store.export()

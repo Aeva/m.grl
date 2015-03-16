@@ -129,13 +129,15 @@ addEventListener("mgrl_media_ready", function () {
             gav.rotation_z = Math.random()*360;
         }
         else {
-            gav = test_model.instance();
+            gav = window.test_rig = test_model.instance();
             gav.scale = [1.0, 1.0, 1.0];
             gav.propogate(function(node) {
                 node.shader.mode = 2; // indicate this is not the floor
             });
             gav.rotation_z = please.path_driver(
                 please.linear_path(360, 0), 5000, true, false);
+            gav.actions.shitty_walk.data.repeat = true;
+            gav.actions.shitty_walk();
         }
         gav.location = coords[i];
         rotatoe.add(gav);
