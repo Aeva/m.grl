@@ -789,6 +789,8 @@ def save(operator, context, options={}):
     # export keyframes, if applicable
     if len(bpy.data.actions):
         container["ani"] = {}
+
+        # FIXME actions should be cut out into their own class
         for action in bpy.data.actions:
             name = action.name
             start, stop = map(int, action.frame_range)
