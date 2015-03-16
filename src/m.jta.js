@@ -62,6 +62,11 @@ please.gl.__jta_model = function (src, uri) {
         scene.empties = please.gl__jta_extract_empties(directory.empties);
     }
 
+    // extract keyframe data
+    if (directory.ani) {
+        scene.actions = please.gl.__jta_extract_keyframes(directory.ani);
+    }
+
     // add a method for generating a GraphNode (or a small tree
     // thereof) for this particular model.
     scene.instance = function (model_name) {
@@ -112,6 +117,9 @@ please.gl.__jta_model = function (src, uri) {
                 });
                 if (has_rig) {
                     root.armature_lookup = rig;
+                }
+                if (scene.actions) {
+                    please.gl.__jta_pdq_ani_handler(root, scene.actions);
                 }
                 return root;
             }
@@ -192,6 +200,103 @@ please.gl.__jta_model = function (src, uri) {
     return scene;
 };
 
+
+// This is to just see something working for now.  Will replace it
+// later with something else.
+please.gl.__jta_pdq_ani_handler = function (node, actions) {
+    node.actions = {};
+
+    var make_frame_handler = function(action) {
+        var frame = 0;
+        return function handler_method (now) {
+            if (frame >= action.track.length-1) {
+                // edge case for when we hit the last frame
+                if (action.repeat) {
+                    frame = 0;
+                }
+                else {
+                    console.info("stopped");
+                    return;
+                }
+            }
+
+            // frame data
+            var next = action.track[frame];
+            var after = action.track[frame+1]; // assumes greater than 1 frame
+            var trigger = (after.start - next.start) * 1000;
+
+            // setup driver methods here
+            ITER_PROPS(lookup, next.updates) {
+                // HACK
+                var local_name = lookup.slice(lookup.indexOf(":bone:") + 6);
+                var bone = node.armature_lookup[local_name];
+                if (bone) {
+                    var low = next.updates[lookup];
+                    var high = after.updates[lookup];
+                    ITER_PROPS(prop, low) {
+                        var local_prop = prop;
+                        if (prop === "position") {
+                            local_prop = "location";
+                        }
+                        
+                        bone[local_prop] = low[prop];
+                        if (high && high[prop]) {
+                            var lhs = bone[local_prop];
+                            var rhs = high[prop];
+                            bone[local_prop] = please.path_driver(
+                                please.linear_path(lhs, rhs), trigger, false, false);
+                        }
+                    }
+                }
+            }
+
+            // move the frame counter and maybe reschedule
+            frame += 1;
+            please.time.schedule(handler_method, trigger);
+        };
+    };
+    
+    please.prop_map(actions, function(action_name, action) {
+        node.actions[action_name] = function() {
+            var handler = make_frame_handler(action);
+            please.time.schedule(handler, 0.0);
+        };
+        node.actions[action_name].data = action;
+    });
+};
+
+
+// Reads the raw animation data defined in the jta file and returns a
+// similar object tree.  The main difference is instead of storing
+// vectors and quats as dictionaries of their channels to values, the
+// result is vec3 or quat objects as defined in gl-matrix.
+please.gl.__jta_extract_keyframes = function (data) {
+    var animations = please.prop_map(data, function (name, data) {
+        var action = {};
+        action.track = [];
+        action.repeat = data.repeat || false;
+        action.duration = data.duration;
+        for (var i=0; i<data.track.length; i+=1) {
+            var ref = data.track[i];
+            var frame = {};
+            frame.start = ref.frame;
+            frame.updates = please.prop_map(ref.updates, function(bone_name, val) {
+                var node_data = please.prop_map(val, function (property, defs) {
+                    if (["position", "scale", "rotation"].indexOf(property) > -1) {
+                        return vec3.fromValues(defs.x, defs.y, defs.z);
+                    }
+                    else if (property === "quaternion") {
+                        return quat.fromValues(defs.x, defs.y, defs.z, defs.w);
+                    }
+                });
+                return node_data;
+            });
+            action.track.push(frame);
+        }
+        return action;
+    });
+    return animations;
+};
 
 // Create an html snippet from the licensing metadata, if applicable
 please.gl.__jta_metadata_html = function (scene) {
