@@ -144,7 +144,7 @@ please.time.add_score = function (node, action_name, frame_set) {
         var frame = null;
         var seek = transpired;
         for (var i=next_frame; i<action.frames.length; i+=1) {
-            seek += action.frames[i].speed;
+            seek += action.frames[i].speed / action.speed;
             if (delta < seek) {
                 transpired = seek;
                 frame = action.frames[i];
@@ -157,7 +157,7 @@ please.time.add_score = function (node, action_name, frame_set) {
         
         if (frame) {
             // animation in progress
-            frame.callback(frame.speed);
+            frame.callback(frame.speed / action.speed);
             please.time.schedule(frame_handler, transpired - delta);
         }
         else if (action.repeat) {
@@ -179,7 +179,7 @@ please.time.add_score = function (node, action_name, frame_set) {
             // just call the last frame and don't schedule any more
             // updates.
             var frame = action.frames.slice(-1);
-            frame.callback(frame.speed);
+            frame.callback(frame.speed / action.speed);
         }
     };
     
