@@ -275,3 +275,38 @@ binary data.
 
 
 
+please.make_animatable
+----------------------
+*please.make\_animatable* **(obj, prop, default\_value, proxy, lock)**
+
+Sets up the machinery needed to make the given property on an object
+animatable.
+
+
+please.make_animatable_tripple
+------------------------------
+*please.make\_animatable\_tripple* **(object, prop, swizzle,
+default\_value, proxy);**
+
+Makes property 'prop' an animatable tripple / vec3 / array with three
+items. Parameter 'object' determines where the cache lives, the value of
+'this' passed to driver functions, and if proxy is unset, this also
+determines where the animatable property is written. The 'prop' argument
+is the name of the property to be animatable (eg 'location'). Swizzle is
+an optional string of three elements that determines the channel names
+(eg, 'xyz' to produce location\_x, location\_y, and location\_z). The
+'initial' argument determines what the property should be set to, and
+'proxy' determines an alternate object for which the properties are
+written to.
+
+As mentioned above, if an animatable tripple is passed a GraphNode, then
+an implicit driver function will be generated such that it returns the
+'location' property of the GraphNode.
+
+If the main handle (eg 'location') is assigned a driver function, then
+the swizzle handles (eg, 'location\_x') will stop functioning as setters
+until the main handle is cleared. You can still assign values to the
+channels, and they will appear when the main handle's driver function is
+removed. To clear the main handle's driver function, set it to null.
+
+

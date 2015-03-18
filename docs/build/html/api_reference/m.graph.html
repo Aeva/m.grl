@@ -147,35 +147,6 @@ again this frame), and so on.</p>
 <span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">start</span><span class="p">();</span>
 </pre></div>
 </div>
-<div class="section" id="please-make-animatable">
-<h2>please.make_animatable<a class="headerlink" href="#please-make-animatable" title="Permalink to this headline">¶</a></h2>
-<p><em>please.make_animatable</em> <strong>(obj, prop, default_value, proxy, lock)</strong></p>
-<p>Sets up the machinery needed to make the given property on an object
-animatable.</p>
-</div>
-<div class="section" id="please-make-animatable-tripple">
-<h2>please.make_animatable_tripple<a class="headerlink" href="#please-make-animatable-tripple" title="Permalink to this headline">¶</a></h2>
-<p><em>please.make_animatable_tripple</em> <strong>(object, prop, swizzle,
-default_value, proxy);</strong></p>
-<p>Makes property &#8216;prop&#8217; an animatable tripple / vec3 / array with three
-items. Parameter &#8216;object&#8217; determines where the cache lives, the value of
-&#8216;this&#8217; passed to driver functions, and if proxy is unset, this also
-determines where the animatable property is written. The &#8216;prop&#8217; argument
-is the name of the property to be animatable (eg &#8216;location&#8217;). Swizzle is
-an optional string of three elements that determines the channel names
-(eg, &#8216;xyz&#8217; to produce location_x, location_y, and location_z). The
-&#8216;initial&#8217; argument determines what the property should be set to, and
-&#8216;proxy&#8217; determines an alternate object for which the properties are
-written to.</p>
-<p>As mentioned above, if an animatable tripple is passed a GraphNode, then
-an implicit driver function will be generated such that it returns the
-&#8216;location&#8217; property of the GraphNode.</p>
-<p>If the main handle (eg &#8216;location&#8217;) is assigned a driver function, then
-the swizzle handles (eg, &#8216;location_x&#8217;) will stop functioning as setters
-until the main handle is cleared. You can still assign values to the
-channels, and they will appear when the main handle&#8217;s driver function is
-removed. To clear the main handle&#8217;s driver function, set it to null.</p>
-</div>
 <div class="section" id="please-graphnode">
 <h2>please.GraphNode<a class="headerlink" href="#please-graphnode" title="Permalink to this headline">¶</a></h2>
 <p><em>please.GraphNode</em> <strong>()</strong></p>
@@ -385,8 +356,6 @@ these to calculate the top right coordinate.</li>
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">m.graph.js</a><ul>
-<li><a class="reference internal" href="#please-make-animatable">please.make_animatable</a></li>
-<li><a class="reference internal" href="#please-make-animatable-tripple">please.make_animatable_tripple</a></li>
 <li><a class="reference internal" href="#please-graphnode">please.GraphNode</a></li>
 <li><a class="reference internal" href="#please-scenegraph">please.SceneGraph</a></li>
 <li><a class="reference internal" href="#please-cameranode">please.CameraNode</a></li>
