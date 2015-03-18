@@ -211,6 +211,16 @@ function with a value of &#8216;0&#8217;, it&#8217;ll call the first path functi
 &#8216;0&#8217;. Likewise, &#8216;1&#8217; would call the last one with &#8216;1&#8217;. This is used for
 combining multiple paths together.</p>
 </div>
+<div class="section" id="please-path-driver">
+<h2>please.path_driver<a class="headerlink" href="#please-path-driver" title="Permalink to this headline">¶</a></h2>
+<p><em>please.path_driver</em> <strong>(path, period, repeat, oscilate)</strong></p>
+<p>This function generates a driver function for animating along a path
+reterned by another generator function.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">path</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">linear_path</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">);</span>
+<span class="nx">player</span><span class="p">.</span><span class="nx">location_x</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">path_driver</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="kc">true</span><span class="p">,</span> <span class="kc">true</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
 <div class="section" id="please-break-curve">
 <h2>please.break_curve<a class="headerlink" href="#please-break-curve" title="Permalink to this headline">¶</a></h2>
 <p><em>please.break_curve</em> <strong>(curve, target_spacing)</strong></p>
@@ -327,6 +337,7 @@ removed. To clear the main handle&#8217;s driver function, set it to null.</p>
 <li><a class="reference internal" href="#please-bezier">please.bezier</a></li>
 <li><a class="reference internal" href="#please-bezier-path">please.bezier_path</a></li>
 <li><a class="reference internal" href="#please-path-group">please.path_group</a></li>
+<li><a class="reference internal" href="#please-path-driver">please.path_driver</a></li>
 <li><a class="reference internal" href="#please-break-curve">please.break_curve</a></li>
 <li><a class="reference internal" href="#please-merge-pointset">please.merge_pointset</a></li>
 <li><a class="reference internal" href="#please-trace-curve">please.trace_curve</a></li>

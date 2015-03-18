@@ -478,6 +478,50 @@ please.path_group = function (paths) {
     }
     return path;
 };
+// [+] please.path_driver(path, period, repeat, oscilate)
+//
+// This function generates a driver function for animating along a
+// path reterned by another generator function.
+//
+// ```
+// var path = please.linear_path(-10, 10);
+// player.location_x = please.path_driver(path, 1000, true, true);
+// ```
+//
+please.path_driver = function (path, period, repeat, oscilate) {
+    var start = performance.now();
+    var generated = null;
+    // non-repeating driver
+    if (!repeat) {
+        generated = function () {
+            var stamp = performance.now();
+            if (stamp < start+period) {
+                return path((stamp-start)/period);
+            }
+            else {
+                return path(1.0);
+            }
+        };
+    }
+    // repeating driver
+    else {
+        generated = function () {
+            var stamp = window.performance.now();
+            var flow = (stamp-start)/period;
+            var a = flow - Math.floor(flow);
+            if (oscilate && Math.floor(flow)%2 === 0) {
+                // reverse direction
+                var a = 1.0 - a;
+            }
+            return path(a);
+        };
+    }
+    // add a restart method to the generated function
+    generated.restart = function () {
+        start = performance.now();
+    };
+    return generated;
+};
 // [+] please.break_curve(curve, target_spacing)
 //
 // Takes a curve function and an arbitrary distance, and returns a
@@ -1102,50 +1146,6 @@ please.time.__schedule_handler = function () {
             }
         };
     }
-};
-// [+] please.path_driver(path, period, repeat, oscilate)
-//
-// This function generates a driver function for animating along a
-// path reterned by another generator function.
-//
-// ```
-// var path = please.linear_path(-10, 10);
-// player.location_x = please.path_driver(path, 1000, true, true);
-// ```
-//
-please.path_driver = function (path, period, repeat, oscilate) {
-    var start = performance.now();
-    var generated = null;
-    // non-repeating driver
-    if (!repeat) {
-        generated = function () {
-            var stamp = performance.now();
-            if (stamp < start+period) {
-                return path((stamp-start)/period);
-            }
-            else {
-                return path(1.0);
-            }
-        };
-    }
-    // repeating driver
-    else {
-        generated = function () {
-            var stamp = window.performance.now();
-            var flow = (stamp-start)/period;
-            var a = flow - Math.floor(flow);
-            if (oscilate && Math.floor(flow)%2 === 0) {
-                // reverse direction
-                var a = 1.0 - a;
-            }
-            return path(a);
-        };
-    }
-    // add a restart method to the generated function
-    generated.restart = function () {
-        start = performance.now();
-    };
-    return generated;
 };
 // - m.media.js ------------------------------------------------------------- //
 /* [+] 
