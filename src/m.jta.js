@@ -336,13 +336,6 @@ please.gl.__jta_pdq_ani_handler = function (node, actions) {
 // vectors and quats as dictionaries of their channels to values, the
 // result is vec3 or quat objects as defined in gl-matrix.
 please.gl.__jta_extract_keyframes = function (data) {
-    var prior_values = {};
-    var attr_constants = [
-        "location",
-        "quaternion",
-        "scale",
-    ];
-
     var animations = please.prop_map(data, function (name, data) {
         var action = {};
         action.track = [];
@@ -364,18 +357,6 @@ please.gl.__jta_extract_keyframes = function (data) {
                 if (node_data["position"]) {
                     node_data["location"] = node_data["position"];
                     node_data["position"] = undefined;
-                }
-                if (prior_values[bone_name] === undefined) {
-                    prior_values[bone_name] = {};
-                    ITER(k, attr_constants) {
-                        var attr = attr_constants[i];
-                        prior_values[bone_name][attr] = node_data[attr];
-                    }
-                }
-                else {
-                    ITER(k, attr_constants) {
-                        DEFAULT(node_data[attr], prior_values[bone_name][attr]);
-                    }
                 }
                 return node_data;
             });
