@@ -53,3 +53,12 @@ Removes a pending callback from the scheduler.
 
 
 
+please.time.add_score
+---------------------
+*please.time.add\_score* **(graph\_node, action\_name, frame\_set)**
+
+Adds an animation "action" to a graph node, and sets up any needed
+animation machinery if it is not already present. Usually you will not
+be calling this function directly.
+
+

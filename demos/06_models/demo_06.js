@@ -136,8 +136,8 @@ addEventListener("mgrl_media_ready", function () {
             });
             gav.rotation_z = please.path_driver(
                 please.linear_path(360, 0), 5000, true, false);
-            gav.actions.shitty_walk.data.repeat = true;
-            gav.actions.shitty_walk();
+            gav.actions.shitty_walk.repeat = true;
+            gav.play("shitty_walk");
         }
         gav.location = coords[i];
         rotatoe.add(gav);

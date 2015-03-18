@@ -117,7 +117,7 @@ please.time.__schedule_handler = function () {
 // animation machinery if it is not already present.  Usually you will
 // not be calling this function directly.
 //
-please.time.add_score = function (graph_node, action_name, frame_set) {
+please.time.add_score = function (node, action_name, frame_set) {
     var next_frame; // last frame number called
     var transpired; // amount of animation played so far
     var start_time = null; // timestamp for when the current animation started
@@ -132,7 +132,7 @@ please.time.add_score = function (graph_node, action_name, frame_set) {
     // frame_handler is used to schedule update events
     var frame_handler = function frame_handler (render_start) {
         var action = node.actions[current_ani];
-        var delta = render_start - current_ani; // time since the animation started
+        var delta = render_start - start_time; // time since the animation started
 
         // Note: 'delta' is distinct from 'transpired'.  'transpired'
         // tracks the sum of the frame delays for the frames that are
@@ -144,39 +144,42 @@ please.time.add_score = function (graph_node, action_name, frame_set) {
         var frame = null;
         var seek = transpired;
         for (var i=next_frame; i<action.frames.length; i+=1) {
-            seek += actions.frames[i].speed;
+            seek += action.frames[i].speed;
             if (delta < seek) {
                 transpired = seek;
-                frame = actions.frames[i];
+                frame = action.frames[i];
+                next_frame = i+1;
             }
             else {
-                next_frame = i;
                 break;
             }
         }
         
         if (frame) {
             // animation in progress
-            frame.callback();
+            frame.callback(frame.speed);
             please.time.schedule(frame_handler, transpired - delta);
         }
         else if (action.repeat) {
             // animation finished, repeat.
             reset();
-            frame_handler(render_start);
+            please.time.schedule(frame_handler, 0);
+            //frame_handler(render_start);
         }
         else if (action.queue && node.actions[action.queue]) {
             // animatino finished, doesn't repeat, defines an action
             // to play afterwards, so play that.
             reset();
             current_action = action.queue;
-            frame_handler(render_start);
+            please.time.schedule(frame_handler, 0);
+            //frame_handler(render_start);
         }
         else {
             // animation finished, spill-over action specified, so
             // just call the last frame and don't schedule any more
             // updates.
-            action.frames[action.frames.length-1].callback(1.0);
+            var frame = action.frames.slice(-1);
+            frame.callback(frame.speed);
         }
     };
     

@@ -119,7 +119,9 @@ please.gl.__jta_model = function (src, uri) {
                     root.armature_lookup = rig;
                 }
                 if (scene.actions) {
-                    please.gl.__jta_pdq_ani_handler(root, scene.actions);
+                    please.prop_map(scene.actions, function(name, data) {
+                        please.gl.__jta_add_action(root, name, data);
+                    });
                 }
                 return root;
             }
@@ -198,6 +200,69 @@ please.gl.__jta_model = function (src, uri) {
 
     console.info("Done loading " + uri + " ...?");
     return scene;
+};
+
+
+// Hook up the animation events to the object.
+please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
+
+    // this method finds an object within the root graph node by a
+    // given name
+    var find_object = function(export_id) {
+        var local_id = export_id;
+        var bone_index = export_id.indexOf(":bone:")
+        if (bone_index > -1) {
+            local_id = export_id.slice(bone_index + 6);
+        }
+        return root_node.armature_lookup[local_id];
+    };
+
+    var attr_constants = [
+        "location",
+        "rotation",
+        "scale",
+    ];
+
+    // this method creates the frame-ready callback that sets up the
+    // driver functions for animation.
+    var make_frame_callback = function(start_updates, end_updates) {
+        return function(speed) {
+            ITER_PROPS(object_id, start_updates) {
+                var node = find_object(object_id);
+                if (node) {
+                    var obj_start = start_updates[object_id];
+                    var obj_end = end_updates[object_id];
+                    ITER(i, attr_constants) {
+                        var attr = attr_constants[i];
+                        if (obj_start[attr]) {
+                            node[attr] = obj_start[attr]
+                        }
+                        if (obj_end[attr]) {
+                            var lhs = node[attr];
+                            var rhs = obj_end[attr];
+                            var path = please.linear_path(lhs, rhs)
+                            node[attr] = please.path_driver(path, speed);
+                        }
+                    }
+                }
+            }
+        };
+    };
+
+    // this bit cycles through the exported frame data from blender
+    // and produces a set of frame callbacks for mgrl's animation system.
+    var frame_set = [];
+    for (var low, high, i=0; i<raw_data.track.length-1; i+=1) {
+        low = raw_data.track[i];
+        high = raw_data.track[i+1];
+        
+        frame_set.push({
+            "speed" : (high.start - low.start) * 1000,
+            "callback" : make_frame_callback(low.updates, high.updates),
+        });
+    }
+    
+    please.time.add_score(root_node, action_name, frame_set);
 };
 
 
@@ -289,6 +354,10 @@ please.gl.__jta_extract_keyframes = function (data) {
                         return quat.fromValues(defs.x, defs.y, defs.z, defs.w);
                     }
                 });
+                if (node_data["position"]) {
+                    node_data["location"] = node_data["position"];
+                    node_data["position"] = undefined;
+                }
                 return node_data;
             });
             action.track.push(frame);

@@ -1153,7 +1153,7 @@ please.time.__schedule_handler = function () {
 // animation machinery if it is not already present.  Usually you will
 // not be calling this function directly.
 //
-please.time.add_score = function (graph_node, action_name, frame_set) {
+please.time.add_score = function (node, action_name, frame_set) {
     var next_frame; // last frame number called
     var transpired; // amount of animation played so far
     var start_time = null; // timestamp for when the current animation started
@@ -1166,7 +1166,7 @@ please.time.add_score = function (graph_node, action_name, frame_set) {
     // frame_handler is used to schedule update events
     var frame_handler = function frame_handler (render_start) {
         var action = node.actions[current_ani];
-        var delta = render_start - current_ani; // time since the animation started
+        var delta = render_start - start_time; // time since the animation started
         // Note: 'delta' is distinct from 'transpired'.  'transpired'
         // tracks the sum of the frame delays for the frames that are
         // already current or expired, whereas 'delta' is just the
@@ -1176,38 +1176,41 @@ please.time.add_score = function (graph_node, action_name, frame_set) {
         var frame = null;
         var seek = transpired;
         for (var i=next_frame; i<action.frames.length; i+=1) {
-            seek += actions.frames[i].speed;
+            seek += action.frames[i].speed;
             if (delta < seek) {
                 transpired = seek;
-                frame = actions.frames[i];
+                frame = action.frames[i];
+                next_frame = i+1;
             }
             else {
-                next_frame = i;
                 break;
             }
         }
         if (frame) {
             // animation in progress
-            frame.callback();
+            frame.callback(frame.speed);
             please.time.schedule(frame_handler, transpired - delta);
         }
         else if (action.repeat) {
             // animation finished, repeat.
             reset();
-            frame_handler(render_start);
+            please.time.schedule(frame_handler, 0);
+            //frame_handler(render_start);
         }
         else if (action.queue && node.actions[action.queue]) {
             // animatino finished, doesn't repeat, defines an action
             // to play afterwards, so play that.
             reset();
             current_action = action.queue;
-            frame_handler(render_start);
+            please.time.schedule(frame_handler, 0);
+            //frame_handler(render_start);
         }
         else {
             // animation finished, spill-over action specified, so
             // just call the last frame and don't schedule any more
             // updates.
-            action.frames[action.frames.length-1].callback(1.0);
+            var frame = action.frames.slice(-1);
+            frame.callback(frame.speed);
         }
     };
     // start_animation is mixed into node objects as node.start
@@ -3919,7 +3922,9 @@ please.gl.__jta_model = function (src, uri) {
                     root.armature_lookup = rig;
                 }
                 if (scene.actions) {
-                    please.gl.__jta_pdq_ani_handler(root, scene.actions);
+                    please.prop_map(scene.actions, function(name, data) {
+                        please.gl.__jta_add_action(root, name, data);
+                    });
                 }
                 return root;
             }
@@ -3996,6 +4001,61 @@ please.gl.__jta_model = function (src, uri) {
     };
     console.info("Done loading " + uri + " ...?");
     return scene;
+};
+// Hook up the animation events to the object.
+please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
+    // this method finds an object within the root graph node by a
+    // given name
+    var find_object = function(export_id) {
+        var local_id = export_id;
+        var bone_index = export_id.indexOf(":bone:")
+        if (bone_index > -1) {
+            local_id = export_id.slice(bone_index + 6);
+        }
+        return root_node.armature_lookup[local_id];
+    };
+    var attr_constants = [
+        "location",
+        "rotation",
+        "scale",
+    ];
+    // this method creates the frame-ready callback that sets up the
+    // driver functions for animation.
+    var make_frame_callback = function(start_updates, end_updates) {
+        return function(speed) {
+            for (var object_id in start_updates) if (start_updates.hasOwnProperty(object_id)) {
+                var node = find_object(object_id);
+                if (node) {
+                    var obj_start = start_updates[object_id];
+                    var obj_end = end_updates[object_id];
+                    for (var i=0; i<attr_constants.length; i+=1) {
+                        var attr = attr_constants[i];
+                        if (obj_start[attr]) {
+                            node[attr] = obj_start[attr]
+                        }
+                        if (obj_end[attr]) {
+                            var lhs = node[attr];
+                            var rhs = obj_end[attr];
+                            var path = please.linear_path(lhs, rhs)
+                            node[attr] = please.path_driver(path, speed);
+                        }
+                    }
+                }
+            }
+        };
+    };
+    // this bit cycles through the exported frame data from blender
+    // and produces a set of frame callbacks for mgrl's animation system.
+    var frame_set = [];
+    for (var low, high, i=0; i<raw_data.track.length-1; i+=1) {
+        low = raw_data.track[i];
+        high = raw_data.track[i+1];
+        frame_set.push({
+            "speed" : (high.start - low.start) * 1000,
+            "callback" : make_frame_callback(low.updates, high.updates),
+        });
+    }
+    please.time.add_score(root_node, action_name, frame_set);
 };
 // This is to just see something working for now.  Will replace it
 // later with something else.
@@ -4077,6 +4137,10 @@ please.gl.__jta_extract_keyframes = function (data) {
                         return quat.fromValues(defs.x, defs.y, defs.z, defs.w);
                     }
                 });
+                if (node_data["position"]) {
+                    node_data["location"] = node_data["position"];
+                    node_data["position"] = undefined;
+                }
                 return node_data;
             });
             action.track.push(frame);
