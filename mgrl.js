@@ -4008,7 +4008,7 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
     // given name
     var find_object = function(export_id) {
         var local_id = export_id;
-        var bone_index = export_id.indexOf(":bone:")
+        var bone_index = export_id.indexOf(":bone:");
         if (bone_index > -1) {
             local_id = export_id.slice(bone_index + 6);
         }
@@ -4024,20 +4024,19 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
     var make_frame_callback = function(start_updates, end_updates) {
         return function(speed) {
             for (var object_id in start_updates) if (start_updates.hasOwnProperty(object_id)) {
-                var node = find_object(object_id);
-                if (node) {
-                    var obj_start = start_updates[object_id];
-                    var obj_end = end_updates[object_id];
-                    for (var i=0; i<attr_constants.length; i+=1) {
-                        var attr = attr_constants[i];
-                        if (obj_start[attr]) {
-                            node[attr] = obj_start[attr]
-                        }
-                        if (obj_end[attr]) {
-                            var lhs = node[attr];
-                            var rhs = obj_end[attr];
-                            var path = please.linear_path(lhs, rhs)
-                            node[attr] = please.path_driver(path, speed);
+                var obj_start = start_updates[object_id];
+                var obj_end = end_updates[object_id];
+                if (obj_start && obj_end) {
+                    var node = find_object(object_id);
+                    if (node) {
+                        for (var i=0; i<attr_constants.length; i+=1) {
+                            var attr = attr_constants[i];
+                            if (obj_start[attr] && obj_end[attr]) {
+                                var lhs = obj_start[attr];
+                                var rhs = obj_end[attr];
+                                var path = please.linear_path(lhs, rhs)
+                                node[attr] = please.path_driver(path, speed);
+                            }
                         }
                     }
                 }
