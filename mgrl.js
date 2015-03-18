@@ -1147,6 +1147,102 @@ please.time.__schedule_handler = function () {
         };
     }
 };
+// [+] please.time.add_score(graph_node, action_name, frame_set)
+//
+// Adds an animation "action" to a graph node, and sets up any needed
+// animation machinery if it is not already present.  Usually you will
+// not be calling this function directly.
+//
+please.time.add_score = function (graph_node, action_name, frame_set) {
+    var next_frame; // last frame number called
+    var transpired; // amount of animation played so far
+    var start_time = null; // timestamp for when the current animation started
+    var current_ani = null; // current action
+    var reset = function () {
+        next_frame = 0;
+        transpired = 0;
+        start_time = performance.now();
+    };
+    // frame_handler is used to schedule update events
+    var frame_handler = function frame_handler (render_start) {
+        var action = node.actions[current_ani];
+        var delta = render_start - current_ani; // time since the animation started
+        // Note: 'delta' is distinct from 'transpired'.  'transpired'
+        // tracks the sum of the frame delays for the frames that are
+        // already current or expired, whereas 'delta' is just the
+        // absolute amount of time between when the action first
+        // started vs when the current render pass first started.
+        // Find what frame we are on, if applicable
+        var frame = null;
+        var seek = transpired;
+        for (var i=next_frame; i<action.frames.length; i+=1) {
+            seek += actions.frames[i].speed;
+            if (delta < seek) {
+                transpired = seek;
+                frame = actions.frames[i];
+            }
+            else {
+                next_frame = i;
+                break;
+            }
+        }
+        if (frame) {
+            // animation in progress
+            frame.callback();
+            please.time.schedule(frame_handler, transpired - delta);
+        }
+        else if (action.repeat) {
+            // animation finished, repeat.
+            reset();
+            frame_handler(render_start);
+        }
+        else if (action.queue && node.actions[action.queue]) {
+            // animatino finished, doesn't repeat, defines an action
+            // to play afterwards, so play that.
+            reset();
+            current_action = action.queue;
+            frame_handler(render_start);
+        }
+        else {
+            // animation finished, spill-over action specified, so
+            // just call the last frame and don't schedule any more
+            // updates.
+            action.frames[action.frames.length-1].callback(1.0);
+        }
+    };
+    // start_animation is mixed into node objects as node.start
+    var start_animation = function (action_name) {
+        if (node.actions[action_name]) {
+            reset();
+            current_ani = action_name;
+            please.time.schedule(frame_handler, 0);
+        }
+        else {
+            console.warn("No such animation on object: " + action_name);
+        }
+    };
+    // stop_animation is mixed into node objects as node.stop
+    var stop_animation = function () {
+        start_time = null;
+        current_ani = null;
+        please.time.remove(frame_handler);
+    };
+    // connect animation machinery if the node lacks it
+    if (!node.actions) {
+        node.actions = {};
+        node.play = start_animation;
+        node.stop = stop_animation;
+    }
+    // add the new action definition if the node lacks it
+    if (!node.actions[action_name]) {
+        var action = {};
+        please.make_animatable(action, "speed", 1, null, false);
+        action.frames = frame_set;
+        action.repeat = false;
+        action.queue = null;
+        node.actions[action_name] = action;
+    }
+};
 // - m.media.js ------------------------------------------------------------- //
 /* [+] 
  * 
