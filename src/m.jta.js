@@ -219,7 +219,7 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
 
     var attr_constants = [
         "location",
-        "rotation",
+        "quaternion",
         "scale",
     ];
 

@@ -1155,47 +1155,31 @@ please.time.__schedule_handler = function () {
 //
 please.time.add_score = function (node, action_name, frame_set) {
     var next_frame; // last frame number called
-    var transpired; // amount of animation played so far
-    var start_time = null; // timestamp for when the current animation started
     var current_ani = null; // current action
     var reset = function () {
         next_frame = 0;
-        transpired = 0;
-        start_time = performance.now();
     };
     // frame_handler is used to schedule update events
     var frame_handler = function frame_handler (render_start) {
         var action = node.actions[current_ani];
-        var delta = render_start - start_time; // time since the animation started
         // Note: 'delta' is distinct from 'transpired'.  'transpired'
         // tracks the sum of the frame delays for the frames that are
         // already current or expired, whereas 'delta' is just the
         // absolute amount of time between when the action first
         // started vs when the current render pass first started.
         // Find what frame we are on, if applicable
-        var frame = null;
-        var seek = transpired;
-        for (var i=next_frame; i<action.frames.length; i+=1) {
-            seek += action.frames[i].speed / action.speed;
-            if (delta < seek) {
-                transpired = seek;
-                frame = action.frames[i];
-                next_frame = i+1;
-            }
-            else {
-                break;
-            }
-        }
+        var frame = action.frames[next_frame];
+        next_frame += 1;
         if (frame) {
             // animation in progress
-            frame.callback(frame.speed / action.speed);
-            please.time.schedule(frame_handler, transpired - delta);
+            var delay = frame.speed / action.speed;
+            frame.callback(delay);
+            please.time.schedule(frame_handler, delay);
         }
         else if (action.repeat) {
             // animation finished, repeat.
             reset();
             please.time.schedule(frame_handler, 0);
-            //frame_handler(render_start);
         }
         else if (action.queue && node.actions[action.queue]) {
             // animatino finished, doesn't repeat, defines an action
@@ -1203,7 +1187,6 @@ please.time.add_score = function (node, action_name, frame_set) {
             reset();
             current_action = action.queue;
             please.time.schedule(frame_handler, 0);
-            //frame_handler(render_start);
         }
         else {
             // animation finished, spill-over action specified, so
@@ -1226,7 +1209,6 @@ please.time.add_score = function (node, action_name, frame_set) {
     };
     // stop_animation is mixed into node objects as node.stop
     var stop_animation = function () {
-        start_time = null;
         current_ani = null;
         please.time.remove(frame_handler);
     };
@@ -4016,7 +3998,7 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
     };
     var attr_constants = [
         "location",
-        "rotation",
+        "quaternion",
         "scale",
     ];
     // this method creates the frame-ready callback that sets up the
