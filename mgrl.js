@@ -353,7 +353,7 @@ please.mix = function (lhs, rhs, a) {
         var _lhs = lhs.location ? lhs.location : lhs;
         var _rhs = rhs.location ? rhs.location : rhs;
         if (_lhs.length && _lhs.length === _rhs.length) {
-            if (_lhs.length === 4) {
+            if (_lhs.length === 4 && !(_lhs.not_quat || _rhs.not_quat)) {
                 // Linear interpolation of two quaternions:
                 return quat.slerp(quat.create(), _lhs, _rhs, a);
             }
@@ -1176,23 +1176,34 @@ please.time.__schedule_handler = function () {
 please.time.add_score = function (node, action_name, frame_set) {
     var next_frame; // last frame number called
     var current_ani = null; // current action
+    var expected_next = null; // expected time stamp for the next frame
     var reset = function () {
         next_frame = 0;
+        expected_next= null;
     };
     // frame_handler is used to schedule update events
     var frame_handler = function frame_handler (render_start) {
         var action = node.actions[current_ani];
-        // Note: 'delta' is distinct from 'transpired'.  'transpired'
-        // tracks the sum of the frame delays for the frames that are
-        // already current or expired, whereas 'delta' is just the
-        // absolute amount of time between when the action first
-        // started vs when the current render pass first started.
         // Find what frame we are on, if applicable
         var frame = action.frames[next_frame];
         next_frame += 1;
+        var late = 0;
+        if (expected_next != null && render_start > expected_next) {
+            late = render_start - expected_next;
+            while (late > (frame.speed / action.speed)) {
+                if (next_frame < action.frames.length-1) {
+                    var frame = action.frames[next_frame];
+                    next_frame += 1;
+                    late = 0;
+                }
+                else {
+                    break;
+                }
+            }
+        }
         if (frame) {
             // animation in progress
-            var delay = frame.speed / action.speed;
+            var delay = (frame.speed / action.speed) - late;
             frame.callback(delay);
             please.time.schedule(frame_handler, delay);
         }
