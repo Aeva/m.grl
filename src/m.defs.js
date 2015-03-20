@@ -360,7 +360,7 @@ please.mix = function (lhs, rhs, a) {
         var _rhs = rhs.location ? rhs.location : rhs;
         
         if (_lhs.length && _lhs.length === _rhs.length) {
-            if (_lhs.length === 4) {
+            if (_lhs.length === 4 && !(_lhs.not_quat || _rhs.not_quat)) {
                 // Linear interpolation of two quaternions:
                 return quat.slerp(quat.create(), _lhs, _rhs, a);
             }
