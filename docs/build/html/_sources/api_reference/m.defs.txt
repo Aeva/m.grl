@@ -211,6 +211,30 @@ reterned by another generator function.
 
 
 
+please.oscillating_driver
+-------------------------
+*please.oscillating\_driver* **(start, end, time)**
+
+Shorthand for this:
+
+.. code-block:: javascript
+
+    please.path_driver(please.linear_path(start, end), time, true, true);
+
+
+
+please.repeating_driver
+-----------------------
+*please.repeating\_driver* **(start, end, time)**
+
+Shorthand for this:
+
+.. code-block:: javascript
+
+    please.path_driver(please.linear_path(start, end), time, true, false);
+
+
+
 please.break_curve
 ------------------
 *please.break\_curve* **(curve, target\_spacing)**

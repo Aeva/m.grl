@@ -522,6 +522,26 @@ please.path_driver = function (path, period, repeat, oscilate) {
     };
     return generated;
 };
+// [+] please.oscillating_driver(start, end, time)
+//
+// Shorthand for this:
+// ```
+// please.path_driver(please.linear_path(start, end), time, true, true);
+// ```
+//
+please.oscillating_driver = function (start, end, time) {
+    return please.path_driver(please.linear_path(start, end), time, true, true)
+};
+// [+] please.repeating_driver(start, end, time)
+//
+// Shorthand for this:
+// ```
+// please.path_driver(please.linear_path(start, end), time, true, false);
+// ```
+//
+please.repeating_driver = function (start, end, time) {
+    return please.path_driver(please.linear_path(start, end), time, true, false)
+};
 // [+] please.break_curve(curve, target_spacing)
 //
 // Takes a curve function and an arbitrary distance, and returns a

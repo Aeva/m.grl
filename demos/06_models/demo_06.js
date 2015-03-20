@@ -134,8 +134,7 @@ addEventListener("mgrl_media_ready", function () {
             gav.propogate(function(node) {
                 node.shader.mode = 2; // indicate this is not the floor
             });
-            gav.rotation_z = please.path_driver(
-                please.linear_path(360, 0), 5000, true, false);
+            gav.rotation_z = please.repeating_driver(360, 0, 5000);
             gav.actions.shitty_walk.repeat = true;
             gav.play("shitty_walk");
         }
