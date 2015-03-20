@@ -138,11 +138,13 @@ please.time.add_score = function (node, action_name, frame_set) {
         var late = 0;
         if (expected_next != null && render_start > expected_next) {
             late = render_start - expected_next;
-            while (late > (frame.speed / action.speed)) {
-                if (next_frame < action.frames.length-1) {                    
+            var check_length = (frame.speed / action.speed);
+            while (late > check_length) {
+                if (next_frame < action.frames.length-1) {
+                    late -= check_length;
                     var frame = action.frames[next_frame];
+                    check_length = (frame.speed / action.speed);
                     next_frame += 1;
-                    late = 0;
                 }
                 else {
                     break;
@@ -152,9 +154,10 @@ please.time.add_score = function (node, action_name, frame_set) {
         
         if (frame) {
             // animation in progress
-            var delay = (frame.speed / action.speed) - late;
-            frame.callback(delay);
-            please.time.schedule(frame_handler, delay);
+            var delay = (frame.speed / action.speed);
+            var skip = late ? (late / delay) : null;
+            frame.callback(delay, skip);
+            please.time.schedule(frame_handler, delay-late);
         }
         else if (action.repeat) {
             // animation finished, repeat.

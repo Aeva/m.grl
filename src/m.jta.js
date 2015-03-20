@@ -226,7 +226,7 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
     // this method creates the frame-ready callback that sets up the
     // driver functions for animation.
     var make_frame_callback = function(start_updates, end_updates) {
-        return function(speed) {
+        return function(speed, skip_to) {
             ITER_PROPS(object_id, start_updates) {
                 var obj_start = start_updates[object_id];
                 var obj_end = end_updates[object_id];
@@ -238,6 +238,9 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
                             if (obj_start[attr] && obj_end[attr]) {
                                 var lhs = obj_start[attr];
                                 var rhs = obj_end[attr];
+                                if (skip_to) {
+                                    lhs = please.mix(lhs, rhs, skip_to);
+                                }
                                 var path = please.linear_path(lhs, rhs)
                                 node[attr] = please.path_driver(path, speed);
                             }

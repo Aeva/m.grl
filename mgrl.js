@@ -1196,11 +1196,13 @@ please.time.add_score = function (node, action_name, frame_set) {
         var late = 0;
         if (expected_next != null && render_start > expected_next) {
             late = render_start - expected_next;
-            while (late > (frame.speed / action.speed)) {
+            var check_length = (frame.speed / action.speed);
+            while (late > check_length) {
                 if (next_frame < action.frames.length-1) {
+                    late -= check_length;
                     var frame = action.frames[next_frame];
+                    check_length = (frame.speed / action.speed);
                     next_frame += 1;
-                    late = 0;
                 }
                 else {
                     break;
@@ -1209,9 +1211,10 @@ please.time.add_score = function (node, action_name, frame_set) {
         }
         if (frame) {
             // animation in progress
-            var delay = (frame.speed / action.speed) - late;
-            frame.callback(delay);
-            please.time.schedule(frame_handler, delay);
+            var delay = (frame.speed / action.speed);
+            var skip = late ? (late / delay) : null;
+            frame.callback(delay, skip);
+            please.time.schedule(frame_handler, delay-late);
         }
         else if (action.repeat) {
             // animation finished, repeat.
@@ -4041,7 +4044,7 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
     // this method creates the frame-ready callback that sets up the
     // driver functions for animation.
     var make_frame_callback = function(start_updates, end_updates) {
-        return function(speed) {
+        return function(speed, skip_to) {
             for (var object_id in start_updates) if (start_updates.hasOwnProperty(object_id)) {
                 var obj_start = start_updates[object_id];
                 var obj_end = end_updates[object_id];
@@ -4053,6 +4056,9 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
                             if (obj_start[attr] && obj_end[attr]) {
                                 var lhs = obj_start[attr];
                                 var rhs = obj_end[attr];
+                                if (skip_to) {
+                                    lhs = please.mix(lhs, rhs, skip_to);
+                                }
                                 var path = please.linear_path(lhs, rhs)
                                 node[attr] = please.path_driver(path, speed);
                             }
