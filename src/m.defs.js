@@ -346,6 +346,12 @@ please.degrees = function (radians) {
 // value such that 0.0 <= a <= 1.0.  The first two parameters may be
 // numbers, arrays of numbers, or GraphNodes.
 //
+// If both 'lhs' and 'rhs' are of length four, this method will assume
+// them to represent quaternions, and use 'SLERP' interpolation
+// instead of linear interpolation.  To avoid this for non-quaternion
+// vec4's, set the property "not_quat" on one or both elements to
+// true.
+//
 please.mix = function (lhs, rhs, a) {
     if (typeof(lhs) === "number" && typeof(lhs) === typeof(rhs)) {
         // Linear interpolation of two scalar values:

@@ -165,6 +165,10 @@ for more information.</p>
 variables &#8216;lhs&#8217; and &#8216;rhs&#8217;. Variable &#8216;a&#8217; should be a numerical value such
 that 0.0 &lt;= a &lt;= 1.0. The first two parameters may be numbers, arrays of
 numbers, or GraphNodes.</p>
+<p>If both &#8216;lhs&#8217; and &#8216;rhs&#8217; are of length four, this method will assume them
+to represent quaternions, and use &#8216;SLERP&#8217; interpolation instead of
+linear interpolation. To avoid this for non-quaternion vec4&#8217;s, set the
+property &#8220;not_quat&#8221; on one or both elements to true.</p>
 </div>
 <div class="section" id="please-distance">
 <h2>please.distance<a class="headerlink" href="#please-distance" title="Permalink to this headline">¶</a></h2>

@@ -140,6 +140,11 @@ variables 'lhs' and 'rhs'. Variable 'a' should be a numerical value such
 that 0.0 <= a <= 1.0. The first two parameters may be numbers, arrays of
 numbers, or GraphNodes.
 
+If both 'lhs' and 'rhs' are of length four, this method will assume them
+to represent quaternions, and use 'SLERP' interpolation instead of
+linear interpolation. To avoid this for non-quaternion vec4's, set the
+property "not\_quat" on one or both elements to true.
+
 
 please.distance
 ---------------
