@@ -4075,7 +4075,7 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
         low = raw_data.track[i];
         high = raw_data.track[i+1];
         frame_set.push({
-            "speed" : (high.start - low.start) * 1000,
+            "speed" : (high.start - low.start),
             "callback" : make_frame_callback(low.updates, high.updates),
         });
     }

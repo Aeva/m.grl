@@ -50,7 +50,7 @@ def frame_to_time(frame_number):
     Returns the timestamp for a give frame number.
     """
     raw_time = frame_number / bpy.context.scene.render.fps
-    return raw_time
+    return raw_time * 1000.0
 
 
 class Base64Array(object):
