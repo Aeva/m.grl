@@ -146,7 +146,7 @@ please.media.__AnimationInstance = function (animation_data) {
     // updated
     var advance = function (time_stamp) {
         if (!time_stamp) {
-            time_stamp = please.time.now;
+            time_stamp = please.time.__last_frame;
         }
         var progress = time_stamp - ani.__start_time;
         var frame = ani.get_current_frame(progress);
@@ -179,7 +179,7 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // play function starts the animation sequence
     ani.play = function () {
-        ani.__start_time = please.time.now;
+        ani.__start_time = please.time.__last_frame;
         ani.__frame_pointer = 0;
         advance(ani.__start_time);
     };
@@ -187,7 +187,7 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // reset the animation 
     ani.reset = function (start_frame) {
-        ani.__start_time = please.time.now;
+        ani.__start_time = please.time.__last_frame;
         ani.__frame_pointer = 0;
         if (start_frame) {
             ani.__frame_pointer = start_frame;
