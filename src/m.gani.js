@@ -455,7 +455,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                     var datum = params[k+2];
                     var name = names[k];
                     if (please.is_attr(datum)) {
-                        sprite[name] = datum;
+                        sprite[name] = datum.toLowerCase();
                     }
                     else {
                         if (k > 0 && k < 5) {
@@ -509,7 +509,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             
             // default values for attributes
             if (params[0].startsWith("DEFAULT")) {
-                var attr_name = params[0].slice(7);
+                var attr_name = params[0].slice(7).toLowerCase();
                 var datum = params[1];
                 if (please.is_number(params[1])) {
                     datum = Number(datum);
@@ -646,57 +646,110 @@ please.media.__AnimationData = function (gani_text, uri) {
         if (alpha) {
             node.sort_mode = "alpha";
         }
-        node.gani = this.create();
-        if (!node.gani.data.ibo) {
-            // build the VBO and IBO for this animation.
-            please.gani.build_gl_buffers(node.gani.data);
-        }
-        // this is called when the animation "loops back" to another animation
-        node.gani.on_change_reel = function (ani, new_ani) {
-        };
 
-        node.bind = function () {
-            node.gani.data.vbo.bind();
-            node.gani.data.ibo.bind();
+        // cache of gani data
+        node.__ganis = {};
+        node.__current_gani = null;
+        node.__current_frame = null;
+
+        // The .add_gani method can be used to load additional
+        // animations on to a gani graph node.  This is useful for
+        // things like characters.
+        node.add_gani = function (resource) {
+            if (typeof(resource) === "string") {
+                resource = please.access(resource);
+            }
+            // We just want 'resource', since we don't need any of the
+            // animation machinery and won't be state tracking on the
+            // gani object.
+            var ani_name = resource.__uri;
+            if (!node.__ganis[ani_name]) {
+                node.__ganis[ani_name] = resource;
+                
+                if (!resource.ibo) {
+                    // build the VBO and IBO for this animation.
+                    please.gani.build_gl_buffers(resource);
+                }
+
+                // Bind new attributes
+                please.prop_map(resource.attrs, function (name, value) {
+                    if (!node[name]) {
+                        node[name] = value;
+                        //please.make_animatable(node, name, value);
+                    }
+                });
+
+                // Bind direction handle
+                if (!this.dir) {
+                    please.make_animatable(this, "dir", 0);
+                }
+
+                // Generate the frameset for the animation.
+                var score = resource.frames.map(function (frame) {
+                    return {
+                        "speed" : frame.wait,
+                        "callback" : function (speed, skip_to) {
+                            // FIXME play frame.sound
+                            node.__current_frame = frame;
+                            node.__current_gani = resource;
+                        },
+                    };
+                });
+                
+                // add the action for this animation
+                please.time.add_score(node, ani_name, score);
+
+                // configure the new action
+                var action = node.actions[ani_name];
+                action.repeat = resource.looping;
+                //action.queue = resource.setbackto; // not sure about this
+            }
         };
-        
+        node.add_gani(this);
+
+
+        // draw function for the animation
         node.draw = function () {
-            if (node.sort_mode === "alpha") {
-                gl.depthMask(false);
-            }
-            else {
-                var offset_factor = -1;
-                var offset_units = -2;
-                gl.enable(gl.POLYGON_OFFSET_FILL);
-            }
-            var prog = please.gl.get_program();
-            var ibo = node.gani.data.ibo;
-
-            var frame_ptr = node.gani.__frame_pointer;
-            var direction = node.gani.data.single_dir ? 0 : node.gani.dir;
-            var frame = node.gani.data.frames[frame_ptr].data[direction];
+            var frame = node.__current_frame;
+            var resource = node.__current_gani;
             if (frame) {
-                for (var i=0; i<frame.length; i+=1) {
-                    //if (i >= 1) { break; }
-                    var blit = frame[i];
-                    var attr = node.gani.data.sprites[blit.sprite].resource.toLowerCase();;
-                    var asset_name = node.gani.attrs[attr]
+                if (node.sort_mode === "alpha") {
+                    gl.depthMask(false);
+                }
+                else {
+                    var offset_factor = -1;
+                    var offset_units = -2;
+                    gl.enable(gl.POLYGON_OFFSET_FILL);
+                }
+                resource.vbo.bind();
+                resource.ibo.bind();
+
+                var ibo = resource.ibo;
+                
+                var dir = resource.single_dir ? 0 : node.dir;
+                var draw_set = frame.data[dir];
+                ITER(i, draw_set) {
+                    var blit = draw_set[i];
+                    var attr = resource.sprites[blit.sprite].resource;
+                    //var asset_name = resource.attrs[attr];
+                    var asset_name = node[attr];
                     var asset = please.access(asset_name, null);
                     if (asset) {
                         asset.scale_filter = "NEAREST";
                     }
+                    var prog = please.gl.get_program();
                     prog.samplers["diffuse_texture"] = asset_name;
                     if (node.sort_mode !== "alpha") {
                         gl.polygonOffset(offset_factor, offset_units*i);
                     }
                     ibo.draw(blit.ibo_start, blit.ibo_total);
                 }
-            }
-            if (node.sort_mode === "alpha") {
-                gl.depthMask(true);
-            }
-            else {
-                gl.disable(gl.POLYGON_OFFSET_FILL);
+                if (node.sort_mode === "alpha") {
+                    gl.depthMask(true);
+                }
+                else {
+                    gl.disable(gl.POLYGON_OFFSET_FILL);
+                }
             }
         };
         return node;

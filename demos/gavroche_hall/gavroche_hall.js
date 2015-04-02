@@ -163,7 +163,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
         }
     });
 
-    var graph = new please.SceneGraph();
+    var graph = window.graph = new please.SceneGraph();
     var level_node = level_data.instance();
     var char_avatar = char_data.instance();
     char_avatar.shader.alpha = .75;
@@ -193,13 +193,13 @@ addEventListener("mgrl_media_ready", please.once(function () {
             var entity = please.access(ani).instance(false);
             entity.rotation_x = 90;
             entity.location = [x, y, 0];
-            entity.gani.dir = Math.floor(Math.random()*4);
-            entity.gani.play();
+            entity.dir = Math.floor(Math.random()*4);
+            entity.play("./" + ani);
             graph.add(entity);
             if (pick === 0) {
                 var coin_n = Math.floor(Math.random()*5);
                 var coin = ["gold", "silver", "copper", "emerald", "ruby"][coin_n];
-                entity.gani.attrs.coin = "misc/"+coin+"_coin.png";
+                entity.coin = "misc/"+coin+"_coin.png";
                 entity.sort_mode = "alpha";
             }
             else {
@@ -207,8 +207,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
                 var hair = ["messy", "mohawk", "princess"][hair_n];
                 var dress_n = Math.floor(Math.random()*3);
                 var dress = ["green", "princess", "red"][dress_n];
-                entity.gani.attrs.hair = "hair/"+hair+".png";
-                entity.gani.attrs.body = "outfits/"+dress+"_dress.png";
+                entity.hair = "hair/"+hair+".png";
+                entity.body = "outfits/"+dress+"_dress.png";
             }
         }
     }
