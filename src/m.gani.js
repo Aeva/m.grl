@@ -86,9 +86,82 @@ please.gani = {
 };
 
 
+/**
+ * Determines if the string contains only a number:
+ * @function 
+ * @memberOf mgrl.defs
+ *
+ * @param {Object} param
+
+ * An object to be tested to see if it is a Number or a String that
+ * may be parsed as a Number.
+ *
+ * @return {Boolean} Boolean value.
+ *
+ * @example
+ * please.gani.is_number_def(10); // return true
+ * please.gani.is_number_def("42"); // return true
+ * please.gani.is_number_def("one hundred"); // return false
+ * please.gani.is_number_def({}); // return false
+ */
+
+
+// [+] please.gani.is\_number\_def(param)
+//
+// **DEPRECATED** this method will likely be renamed in the future,
+// or removed all together if .gani parsing functionality is spun off
+// into its own library.
+//
+// **Warning** the name of this method is misleading - it is intended
+// to determine if a block of text in a .gani file refers to a number.
+//
+// This method returns true if the parameter passed to it is either a
+// number object or a string that contains only numerical characters.
+// Otherwise, false is returned.
+//
+// - **param** Some object, presumably a string or a number.
+//
+please.gani.is_number_def = function (param) {
+    if (typeof(param) === "number") {
+        return true;
+    }
+    else if (typeof(param) === "string") {
+        var found = param.match(/^\d+$/i);
+        return (found !== null && found.length === 1);
+    }
+    else {
+        return false;
+    }
+};
+
+
+// [+] please.gani.is\_attr(param)
+//
+// **DEPRECATED** this method will likely be renamed in the future,
+// or removed all together if .gani parsing functionality is spun off
+// into its own library.
+//
+// Determines if a string passed to it describes a valid gani
+// attribute name.  Returns true or false.
+//
+// - **param** A string that might refer to a .gani attribute
+// something else.
+//
+please.gani.is_attr = function (param) {
+    if (typeof(param) === "string") {
+        var found = param.match(/^[A-Za-z]+[0-9A-Za-z]*$/);
+        return (found !== null && found.length === 1);
+    }
+    else {
+        return false;
+    }
+};
+
+
 // Function returns Animation Instance object.  AnimationData.create()
 // wraps this function, so you don't need to use it directly.
 please.media.__AnimationInstance = function (animation_data) {
+    console.info("DEPRECATION WARNING: old gani instancing functionality to be removed in a future update.\nGani parsing and non-webgl rendering functionality will eventually be pulled out into its own library to be used by m.grl.  Please use .instance() instead of .create() to create animation instances with the scene graph.");
     var ani = {
         "data" : animation_data,
         "__attrs" : {},
@@ -130,7 +203,7 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // This is used to bind an object's proprety to an "attribute".
     var bind_or_copy = function (object, key, value) {
-        if (please.is_gani_attr(value)) {
+        if (please.gani.is_attr(value)) {
             var getter = function () {
                 return ani.__attrs[value];
             };
@@ -454,7 +527,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                 ITER(k, names) {
                     var datum = params[k+2];
                     var name = names[k];
-                    if (please.is_gani_attr(datum)) {
+                    if (please.gani.is_attr(datum)) {
                         sprite[name] = datum.toLowerCase();
                     }
                     else {
@@ -494,7 +567,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             // setbackto setting
             if (params[0] === "SETBACKTO") {
                 ani.continuous = false;
-                if (please.is_gani_number(params[1])) {
+                if (please.gani.is_number_def(params[1])) {
                     ani.setbackto = Number(params[1]);
                 }
                 else {
@@ -511,7 +584,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             if (params[0].startsWith("DEFAULT")) {
                 var attr_name = params[0].slice(7).toLowerCase();
                 var datum = params[1];
-                if (please.is_gani_number(params[1])) {
+                if (please.gani.is_number_def(params[1])) {
                     datum = Number(datum);
                 }
                 ani.attrs[attr_name] = datum;
@@ -557,7 +630,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             ITER(n, names) {
                 var name = names[n];
                 var datum = chunks[n];
-                if (please.is_gani_attr(datum)) {
+                if (please.gani.is_attr(datum)) {
                     sprite[name] = datum;
                 }
                 else {
@@ -591,7 +664,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
                 else if (params[0] === "PLAYSOUND") {
                     var sound_file = params[1];
-                    if (!please.is_gani_attr(sound_file)) {
+                    if (!please.gani.is_attr(sound_file)) {
                         ani.__resources[sound_file] = true;
                     }
                     frame.sound = {

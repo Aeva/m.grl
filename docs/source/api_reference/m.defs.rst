@@ -56,41 +56,6 @@ trimmed from the resulting tokens before they are returned in an array.
 
 
 
-please.is\_number
------------------
-*please.is\_number* **(param)**
-
-**DEPRECATED** this method will likely be renamed in the future, or
-removed all together if .gani parsing functionality is spun off into its
-own library.
-
-**Warning** the name of this method is misleading - it is intended to
-determine if a block of text in a .gani file refers to a number.
-
-This method returns true if the parameter passed to it is either a
-number object or a string that contains only numerical characters.
-Otherwise, false is returned.
-
--  **param** Some object, presumably a string or a number.
-
-
-
-please.is\_attr
----------------
-*please.is\_attr* **(param)**
-
-**DEPRECATED** this method will likely be renamed in the future, or
-removed all together if .gani parsing functionality is spun off into its
-own library.
-
-Determines if a string passed to it describes a valid gani attribute
-name. Returns true or false.
-
--  **param** A string that might refer to a .gani attribute something
-   else.
-
-
-
 please.get\_properties
 ----------------------
 *please.get\_properties* **(obj)**
