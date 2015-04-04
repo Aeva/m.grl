@@ -2903,8 +2903,12 @@ please.media.__AnimationData = function (gani_text, uri) {
             // animation machinery and won't be state tracking on the
             // gani object.
             var ani_name = resource.__uri;
-            if (!node.__ganis[ani_name]) {
-                node.__ganis[ani_name] = resource;
+            var action_name = ani_name.split("/").slice(-1)[0];
+            if (action_name.endsWith(".gani")) {
+                action_name = action_name.slice(0, -5);
+            }
+            if (!node.__ganis[action_name]) {
+                node.__ganis[action_name] = resource;
                 if (!resource.ibo) {
                     // build the VBO and IBO for this animation.
                     please.gani.build_gl_buffers(resource);
@@ -2932,9 +2936,9 @@ please.media.__AnimationData = function (gani_text, uri) {
                     };
                 });
                 // add the action for this animation
-                please.time.add_score(node, ani_name, score);
+                please.time.add_score(node, action_name, score);
                 // configure the new action
-                var action = node.actions[ani_name];
+                var action = node.actions[action_name];
                 action.repeat = resource.looping;
                 //action.queue = resource.setbackto; // not sure about this
             }
