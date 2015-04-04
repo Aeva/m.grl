@@ -120,6 +120,7 @@ addEventListener("load", function() {
     please.load("psycho.jta");
     please.load("coin.gani");
     please.load("walk.gani");
+    please.load("idle.gani");
     show_progress();
 });
 
@@ -163,7 +164,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
         }
     });
 
-    var graph = new please.SceneGraph();
+    var graph = window.graph = new please.SceneGraph();
     var level_node = level_data.instance();
     var char_avatar = char_data.instance();
     char_avatar.shader.alpha = .75;
@@ -189,17 +190,38 @@ addEventListener("mgrl_media_ready", please.once(function () {
         for (var x=-12+stagger; x<=12; x+=2) {
             //for (var x=0; x==0; x+=2) {
             var pick = Math.floor(Math.random()*3);
-            var ani = pick===0? "coin.gani" : "walk.gani";
-            var entity = please.access(ani).instance(false);
+            var action = pick===0? "coin" : "walk";
+            var entity = please.access(action + ".gani").instance(false);
+            if (action === "walk") {
+                entity.add_gani("idle.gani");
+                entity.state = Math.floor(Math.random()*4);
+                entity.updater = function () {
+                    this.state = (this.state + 1) % 4;
+                    if (this.state === 0) {
+                        if (Math.round(Math.random())) {
+                            this.dir = (this.dir + 1) % 4;
+                        }
+                        else {
+                            this.dir = (this.dir - 1) % 4;
+                        }
+                        this.play("idle");
+                    }
+                    else if (this.state === 1) {
+                        this.play("walk");
+                    }
+                    please.time.schedule(this.updater, Math.random()*5000+500);
+                }.bind(entity);
+                entity.updater();
+            }
             entity.rotation_x = 90;
             entity.location = [x, y, 0];
-            entity.gani.dir = Math.floor(Math.random()*4);
-            entity.gani.play();
+            entity.dir = Math.floor(Math.random()*4);
+            entity.play(action);
             graph.add(entity);
             if (pick === 0) {
                 var coin_n = Math.floor(Math.random()*5);
                 var coin = ["gold", "silver", "copper", "emerald", "ruby"][coin_n];
-                entity.gani.attrs.coin = "misc/"+coin+"_coin.png";
+                entity.coin = "misc/"+coin+"_coin.png";
                 entity.sort_mode = "alpha";
             }
             else {
@@ -207,8 +229,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
                 var hair = ["messy", "mohawk", "princess"][hair_n];
                 var dress_n = Math.floor(Math.random()*3);
                 var dress = ["green", "princess", "red"][dress_n];
-                entity.gani.attrs.hair = "hair/"+hair+".png";
-                entity.gani.attrs.body = "outfits/"+dress+"_dress.png";
+                entity.hair = "hair/"+hair+".png";
+                entity.body = "outfits/"+dress+"_dress.png";
             }
         }
     }

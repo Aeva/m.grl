@@ -12,6 +12,14 @@
  */
 
 
+// Stores events for the scheduler.
+please.time = {
+    "__pending" : [],
+    "__times" : [],
+    "__last_frame" : performance.now(),
+};
+
+
 // [+] please.postpone(callback)
 //
 // Shorthand for setTimeout(callback, 0).  This method is used to
@@ -27,145 +35,183 @@ please.postpone = function (callback) {
 };
 
 
-please.time = (function () {
-    var batch = {
-        "__pending" : [],
-        "__times" : [],
-        "now" : performance.now(),
-
-        "schedule" : function (callback, when) {},
-        "remove" : function (callback) {},
-    };
-    var dirty = false;
-    var pipe_id = "m.ani.js/batch";
-
-
-    // [+] please.time.schedule(callback, when)
-    //
-    // This function works like setTimeout, but syncs the callbacks up
-    // only to the next available animation frame.  This means that if
-    // the page is not currently visible (eg, another tab is active),
-    // then the callback will not be called until the page is visible
-    // again, etc.
-    //
-    // - **callback** A function to be called on an animation frame.
-    //
-    // - **when** Delay in milliseconds for the soonest time which 
-    //   callback may be called.
-    // 
-    batch.schedule = function (callback, when) {
-        when = batch.now + when;
-        var i = batch.__pending.indexOf(callback);
-        if (i > -1) {
-            batch.__times[i] = when;
-        }
-        else {
-            batch.__pending.push(callback);
-            batch.__times.push(when);
-            if (!dirty) {
-                dirty = true;
-                
-                // register a pipeline stage if it doesn't exist
-                if (please.pipeline.__callbacks[pipe_id] === undefined) {
-                    please.pipeline.add(-1, pipe_id, frame_handler);
-                }
-            }
-        }
-    };
-
-
-    // [+] please.time.remove(callback)
-    //
-    // Removes a pending callback from the scheduler.
-    //
-    // - **callback** A function that was already scheduled 
-    //   please.time.schedule.
-    //
-    batch.remove = function (callback) {
-        var i = batch.__pending.indexOf(callback);
-        if (i > -1) {
-            batch.__pending.splice(i, 1);
-            batch.__times.splice(i, 1);
-        }
-    };
-
-
-    var frame_handler= function () {
-        if (batch.__pending.length > 0) {
-            var stamp = performance.now();
-            batch.now = stamp;
-
-            var pending = batch.__pending;
-            var times = batch.__times;
-            batch.__pending = [];
-            batch.__times = [];
-            var updates = 0;
-            ITER(i, pending) {
-                var callback = pending[i];
-                var when = times[i];
-                if (when <= stamp) {
-                    updates += 1;                
-                    callback(stamp);
-                }
-                else {
-                    batch.__pending.push(callback);
-                    batch.__times.push(when);
-                }
-            };
-        }
-    };
-
-
-    return batch;
-})();
-
-
-// [+] please.path_driver(path, period, repeat, oscilate)
+// [+] please.time.schedule(callback, when)
 //
-// This function generates a driver function for animating along a
-// path reterned by another generator function.
+// This function works like setTimeout, but syncs the callbacks up
+// only to the next available animation frame.  This means that if
+// the page is not currently visible (eg, another tab is active),
+// then the callback will not be called until the page is visible
+// again, etc.
 //
-// ```
-// var path = please.linear_path(-10, 10);
-// player.location_x = please.path_driver(path, 1000, true, true);
-// ```
+// - **callback** A function to be called on an animation frame.
 //
-please.path_driver = function (path, period, repeat, oscilate) {
-    var start = performance.now();
-    var generated = null;
+// - **when** Delay in milliseconds for the soonest time which 
+//   callback may be called.
+// 
+please.time.schedule = function (callback, when) {
+    when = please.time.__last_frame + when;
+    var i = please.time.__pending.indexOf(callback);
+    if (i > -1) {
+        please.time.__times[i] = when;
+    }
+    else {
+        please.time.__pending.push(callback);
+        please.time.__times.push(when);
 
-    // non-repeating driver
-    if (!repeat) {
-        generated = function () {
-            var stamp = performance.now();
-            if (stamp < start+period) {
-                return path((stamp-start)/period);
+        // register a pipeline stage if it doesn't exist
+        var pipe_id = "m.grl/scheduler"
+        if (please.pipeline.__callbacks[pipe_id] === undefined) {
+            please.pipeline.add(-1, pipe_id, please.time.__schedule_handler);
+        }
+    }
+};
+
+
+// [+] please.time.remove(callback)
+//
+// Removes a pending callback from the scheduler.
+//
+// - **callback** A function that was already scheduled 
+//   please.time.schedule.
+//
+please.time.remove = function (callback) {
+    var i = please.time.__pending.indexOf(callback);
+    if (i > -1) {
+        please.time.__pending.splice(i, 1);
+        please.time.__times.splice(i, 1);
+    }
+};
+
+
+// This hooks into the event loop and determines when pending events
+// should be called.
+please.time.__schedule_handler = function () {
+    if (please.time.__pending.length > 0) {
+        var stamp = performance.now();
+        please.time.__last_frame = stamp;
+
+        var pending = please.time.__pending;
+        var times = please.time.__times;
+        please.time.__pending = [];
+        please.time.__times = [];
+        var updates = 0;
+        ITER(i, pending) {
+            var callback = pending[i];
+            var when = times[i];
+            if (when <= stamp) {
+                updates += 1;                
+                callback(stamp);
             }
             else {
-                return path(1.0);
+                please.time.__pending.push(callback);
+                please.time.__times.push(when);
             }
         };
     }
+};
 
-    // repeating driver
-    else {
-        generated = function () {
-            var stamp = window.performance.now();
-            var flow = (stamp-start)/period;
-            var a = flow - Math.floor(flow);
 
-            if (oscilate && Math.floor(flow)%2 === 0) {
-                // reverse direction
-                var a = 1.0 - a;
-            }
+// [+] please.time.add_score(graph_node, action_name, frame_set)
+//
+// Adds an animation "action" to a graph node, and sets up any needed
+// animation machinery if it is not already present.  Usually you will
+// not be calling this function directly.
+//
+please.time.add_score = function (node, action_name, frame_set) {
+    var next_frame; // last frame number called
+    var current_ani = null; // current action
+    var expected_next = null; // expected time stamp for the next frame
 
-            return path(a);
-        };
-    }
-
-    // add a restart method to the generated function
-    generated.restart = function () {
-        start = performance.now();
+    var reset = function () {
+        next_frame = 0;
+        expected_next= null;
     };
-    return generated;
+
+    // frame_handler is used to schedule update events
+    var frame_handler = function frame_handler (render_start) {
+        var action = node.actions[current_ani];
+
+        // Find what frame we are on, if applicable
+        var frame = action.frames[next_frame];
+        next_frame += 1;
+
+        var late = 0;
+        if (expected_next != null && render_start > expected_next) {
+            late = render_start - expected_next;
+            var check_length = (frame.speed / action.speed);
+            while (late > check_length) {
+                if (next_frame < action.frames.length-1) {
+                    late -= check_length;
+                    var frame = action.frames[next_frame];
+                    check_length = (frame.speed / action.speed);
+                    next_frame += 1;
+                }
+                else {
+                    break;
+                }
+            }
+        }
+        
+        if (frame) {
+            // animation in progress
+            var delay = (frame.speed / action.speed);
+            var skip = late ? (late / delay) : null;
+            frame.callback(delay, skip);
+            please.time.schedule(frame_handler, delay-late);
+        }
+        else if (action.repeat) {
+            // animation finished, repeat.
+            reset();
+            please.time.schedule(frame_handler, 0);
+        }
+        else if (action.queue && node.actions[action.queue]) {
+            // animatino finished, doesn't repeat, defines an action
+            // to play afterwards, so play that.
+            reset();
+            current_action = action.queue;
+            please.time.schedule(frame_handler, 0);
+        }
+        else {
+            // animation finished, spill-over action specified, so
+            // just call the last frame and don't schedule any more
+            // updates.
+            var frame = action.frames.slice(-1);
+            frame.callback(frame.speed / action.speed);
+        }
+    };
+    
+    // start_animation is mixed into node objects as node.start
+    var start_animation = function (action_name) {
+        if (node.actions[action_name]) {
+            reset();
+            current_ani = action_name;
+            please.time.schedule(frame_handler, 0);
+        }
+        else {
+            console.warn("No such animation on object: " + action_name);
+        }
+    };
+
+    // stop_animation is mixed into node objects as node.stop
+    var stop_animation = function () {
+        current_ani = null;
+        please.time.remove(frame_handler);
+    };
+
+    // connect animation machinery if the node lacks it
+    if (!node.actions) { 
+        node.actions = {};
+        node.play = start_animation;
+        node.stop = stop_animation;
+    }
+
+    // add the new action definition if the node lacks it
+    if (!node.actions[action_name]) {
+        var action = {};
+        please.make_animatable(action, "speed", 1, null, false);
+        action.frames = frame_set;
+        action.repeat = false;
+        action.queue = null;
+        node.actions[action_name] = action;
+    }
 };

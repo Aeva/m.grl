@@ -87,6 +87,34 @@ never utilized and probably never will be.</p>
 parser. The ani parameter provides access to the frame data and
 calculated sprite offsets and attribute names.</p>
 </div>
+<div class="section" id="please-gani-is-number-def">
+<h2>please.gani.is_number_def<a class="headerlink" href="#please-gani-is-number-def" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gani.is_number_def</em> <strong>(param)</strong></p>
+<p><strong>DEPRECATED</strong> this method will likely be renamed in the future, or
+removed all together if .gani parsing functionality is spun off into its
+own library.</p>
+<p><strong>Warning</strong> the name of this method is misleading - it is intended to
+determine if a block of text in a .gani file refers to a number.</p>
+<p>This method returns true if the parameter passed to it is either a
+number object or a string that contains only numerical characters.
+Otherwise, false is returned.</p>
+<ul class="simple">
+<li><strong>param</strong> Some object, presumably a string or a number.</li>
+</ul>
+</div>
+<div class="section" id="please-gani-is-attr">
+<h2>please.gani.is_attr<a class="headerlink" href="#please-gani-is-attr" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gani.is_attr</em> <strong>(param)</strong></p>
+<p><strong>DEPRECATED</strong> this method will likely be renamed in the future, or
+removed all together if .gani parsing functionality is spun off into its
+own library.</p>
+<p>Determines if a string passed to it describes a valid gani attribute
+name. Returns true or false.</p>
+<ul class="simple">
+<li><strong>param</strong> A string that might refer to a .gani attribute something
+else.</li>
+</ul>
+</div>
 <div class="section" id="please-gani-build-gl-buffers">
 <h2>please.gani.build_gl_buffers<a class="headerlink" href="#please-gani-build-gl-buffers" title="Permalink to this headline">¶</a></h2>
 <p><em>please.gani.build_gl_buffers</em> <strong>(ani)</strong></p>
@@ -107,6 +135,8 @@ object.</p>
 <li><a class="reference internal" href="#">m.gani.js</a><ul>
 <li><a class="reference internal" href="#please-gani-get-cache-name">please.gani.get_cache_name</a></li>
 <li><a class="reference internal" href="#please-gani-on-bake-ani-frameset">please.gani.on_bake_ani_frameset</a></li>
+<li><a class="reference internal" href="#please-gani-is-number-def">please.gani.is_number_def</a></li>
+<li><a class="reference internal" href="#please-gani-is-attr">please.gani.is_attr</a></li>
 <li><a class="reference internal" href="#please-gani-build-gl-buffers">please.gani.build_gl_buffers</a></li>
 </ul>
 </li>

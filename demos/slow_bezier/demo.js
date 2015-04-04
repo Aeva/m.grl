@@ -136,8 +136,7 @@ addEventListener("mgrl_media_ready", function () {
     player.add(avatar);
     avatar.shader.mode = 2;
     avatar.location_z = function () { return Math.sin(performance.now()/200) + 3; };
-    avatar.rotation_z = please.path_driver(
-        please.linear_path(0, 360), 1000, true, false);
+    avatar.rotation_z = please.repeating_driver(0, 360, 1000);
     player.location = please.path_driver(bezier_path, 2000, true, true);
 
 

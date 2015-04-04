@@ -47,6 +47,41 @@ parser. The ani parameter provides access to the frame data and
 calculated sprite offsets and attribute names.
 
 
+please.gani.is\_number\_def
+---------------------------
+*please.gani.is\_number\_def* **(param)**
+
+**DEPRECATED** this method will likely be renamed in the future, or
+removed all together if .gani parsing functionality is spun off into its
+own library.
+
+**Warning** the name of this method is misleading - it is intended to
+determine if a block of text in a .gani file refers to a number.
+
+This method returns true if the parameter passed to it is either a
+number object or a string that contains only numerical characters.
+Otherwise, false is returned.
+
+-  **param** Some object, presumably a string or a number.
+
+
+
+please.gani.is\_attr
+--------------------
+*please.gani.is\_attr* **(param)**
+
+**DEPRECATED** this method will likely be renamed in the future, or
+removed all together if .gani parsing functionality is spun off into its
+own library.
+
+Determines if a string passed to it describes a valid gani attribute
+name. Returns true or false.
+
+-  **param** A string that might refer to a .gani attribute something
+   else.
+
+
+
 please.gani.build\_gl\_buffers
 ------------------------------
 *please.gani.build\_gl\_buffers* **(ani)**

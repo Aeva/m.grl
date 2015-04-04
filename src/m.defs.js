@@ -225,77 +225,6 @@ please.split_params = function (line, delim) {
 };
 
 
-/**
- * Determines if the string contains only a number:
- * @function 
- * @memberOf mgrl.defs
- *
- * @param {Object} param
-
- * An object to be tested to see if it is a Number or a String that
- * may be parsed as a Number.
- *
- * @return {Boolean} Boolean value.
- *
- * @example
- * please.is_number(10); // return true
- * please.is_number("42"); // return true
- * please.is_number("one hundred"); // return false
- * please.is_number({}); // return false
- */
-
-// [+] please.is\_number(param)
-//
-// **DEPRECATED** this method will likely be renamed in the future,
-// or removed all together if .gani parsing functionality is spun off
-// into its own library.
-//
-// **Warning** the name of this method is misleading - it is intended
-// to determine if a block of text in a .gani file refers to a number.
-//
-// This method returns true if the parameter passed to it is either a
-// number object or a string that contains only numerical characters.
-// Otherwise, false is returned.
-//
-// - **param** Some object, presumably a string or a number.
-//
-please.is_number = function (param) {
-    if (typeof(param) === "number") {
-        return true;
-    }
-    else if (typeof(param) === "string") {
-        var found = param.match(/^\d+$/i);
-        return (found !== null && found.length === 1);
-    }
-    else {
-        return false;
-    }
-};
-
-
-// [+] please.is\_attr(param)
-//
-// **DEPRECATED** this method will likely be renamed in the future,
-// or removed all together if .gani parsing functionality is spun off
-// into its own library.
-//
-// Determines if a string passed to it describes a valid gani
-// attribute name.  Returns true or false.
-//
-// - **param** A string that might refer to a .gani attribute
-// something else.
-//
-please.is_attr = function (param) {
-    if (typeof(param) === "string") {
-        var found = param.match(/^[A-Z]+[0-9A-Z]*$/);
-        return (found !== null && found.length === 1);
-    }
-    else {
-        return false;
-    }
-};
-
-
 // [+] please.get\_properties(obj)
 //
 // A name alias for Object.getOwnPropertyNames.  These are both the
@@ -346,6 +275,12 @@ please.degrees = function (radians) {
 // value such that 0.0 <= a <= 1.0.  The first two parameters may be
 // numbers, arrays of numbers, or GraphNodes.
 //
+// If both 'lhs' and 'rhs' are of length four, this method will assume
+// them to represent quaternions, and use 'SLERP' interpolation
+// instead of linear interpolation.  To avoid this for non-quaternion
+// vec4's, set the property "not_quat" on one or both elements to
+// true.
+//
 please.mix = function (lhs, rhs, a) {
     if (typeof(lhs) === "number" && typeof(lhs) === typeof(rhs)) {
         // Linear interpolation of two scalar values:
@@ -360,7 +295,7 @@ please.mix = function (lhs, rhs, a) {
         var _rhs = rhs.location ? rhs.location : rhs;
         
         if (_lhs.length && _lhs.length === _rhs.length) {
-            if (_lhs.length === 4) {
+            if (_lhs.length === 4 && !(_lhs.not_quat || _rhs.not_quat)) {
                 // Linear interpolation of two quaternions:
                 return quat.slerp(quat.create(), _lhs, _rhs, a);
             }
@@ -494,6 +429,81 @@ please.path_group = function (paths) {
         path.stops = path.stops.concat(paths[i].stops);
     }
     return path;
+};
+
+
+// [+] please.path_driver(path, period, repeat, oscilate)
+//
+// This function generates a driver function for animating along a
+// path reterned by another generator function.
+//
+// ```
+// var path = please.linear_path(-10, 10);
+// player.location_x = please.path_driver(path, 1000, true, true);
+// ```
+//
+please.path_driver = function (path, period, repeat, oscilate) {
+    var start = performance.now();
+    var generated = null;
+
+    // non-repeating driver
+    if (!repeat) {
+        generated = function () {
+            var stamp = performance.now();
+            if (stamp < start+period) {
+                return path((stamp-start)/period);
+            }
+            else {
+                return path(1.0);
+            }
+        };
+    }
+
+    // repeating driver
+    else {
+        generated = function () {
+            var stamp = window.performance.now();
+            var flow = (stamp-start)/period;
+            var a = flow - Math.floor(flow);
+
+            if (oscilate && Math.floor(flow)%2 === 0) {
+                // reverse direction
+                var a = 1.0 - a;
+            }
+
+            return path(a);
+        };
+    }
+
+    // add a restart method to the generated function
+    generated.restart = function () {
+        start = performance.now();
+    };
+    return generated;
+};
+
+
+// [+] please.oscillating_driver(start, end, time)
+//
+// Shorthand for this:
+// ```
+// please.path_driver(please.linear_path(start, end), time, true, true);
+// ```
+//
+please.oscillating_driver = function (start, end, time) {
+    return please.path_driver(please.linear_path(start, end), time, true, true)
+};
+
+
+// [+] please.repeating_driver(start, end, time)
+//
+// Shorthand for this:
+// ```
+// please.path_driver(please.linear_path(start, end), time, true, false);
+// ```
+//
+please.repeating_driver = function (start, end, time) {
+    return please.path_driver(please.linear_path(start, end), time, true, false)
 };
 
 
@@ -795,5 +805,278 @@ please.typed_array = function (raw, hint) {
     }
     else if (hint == "Uint32Array") {
         return new Uint32Array(please.decode_buffer(raw));
+    }
+};
+
+
+// Common setup for both animatable property modes.  Creates cache
+// objects and data stores
+please.__setup_ani_data = function(obj) {
+    if (!obj.__ani_cache) {
+        Object.defineProperty(obj, "__ani_cache", {
+            enumerable : false,
+            writable : false,
+            value : {},
+        });
+    }
+    if (!obj.__ani_store) {
+        Object.defineProperty(obj, "__ani_store", {
+            enumerable : false,
+            writable : false,
+            value : {},
+        });
+    }
+};
+
+
+// [+] please.make_animatable(obj, prop, default_value, proxy, lock, write_hook)
+//
+// Sets up the machinery needed to make the given property on an
+// object animatable.
+//
+please.make_animatable = function(obj, prop, default_value, proxy, lock, write_hook) {
+    // obj is the value of this, but proxy determines where the
+    // getter/setter is saved
+    var target = proxy ? proxy : obj;
+
+    // Create the cache object if it does not yet exist.
+    please.__setup_ani_data(obj);    
+    var cache = obj.__ani_cache;
+    var store = obj.__ani_store;
+
+    // Add the new property to the cache object.
+    if (!cache[prop]) {
+        Object.defineProperty(cache, prop, {
+            enumerable: true,
+            writable: true,
+            value: null,
+        });
+    }
+    if (!store[prop]) {
+        Object.defineProperty(store, prop, {
+            enumerable: true,
+            writable: true,
+            value: default_value!==undefined ? default_value : null,
+        });
+    }
+
+    // Local time stamp for cache invalidation.
+    var last_update = 0;
+
+    // Define the getters and setters for the new property.
+    var getter = function () {
+        if (typeof(store[prop]) === "function") {
+            // determine if the cached value is too old
+            if (cache[prop] === null || please.pipeline.__framestart > last_update) {
+                cache[prop] = store[prop].call(obj);
+                last_update = please.pipeline.__framestart;
+            }
+            return cache[prop];
+        }
+        else {
+            return store[prop];
+        }
+    };
+    var setter = function (value) {
+        cache[prop] = null;
+        store[prop] = value;
+        if (typeof(write_hook) === "function") {
+            write_hook(target, prop, obj);
+        }
+        return value;
+    };
+
+    if (!lock) {
+        Object.defineProperty(target, prop, {
+            enumerable: true,
+            get : getter,
+            set : setter,
+        });
+    }
+    else {
+        Object.defineProperty(target, prop, {
+            enumerable: true,
+            get : getter,
+            set : function (value) {
+                return value;
+            },
+        });
+    }
+};
+
+
+// [+] please.make_animatable_tripple(object, prop, swizzle, default_value, proxy, write_hook);
+//
+// Makes property 'prop' an animatable tripple / vec3 / array with
+// three items.  Parameter 'object' determines where the cache lives,
+// the value of 'this' passed to driver functions, and if proxy is
+// unset, this also determines where the animatable property is
+// written.  The 'prop' argument is the name of the property to be
+// animatable (eg 'location').  Swizzle is an optional string of three
+// elements that determines the channel names (eg, 'xyz' to produce
+// location_x, location_y, and location_z).  The 'initial' argument
+// determines what the property should be set to, and 'proxy'
+// determines an alternate object for which the properties are written
+// to.
+//
+// As mentioned above, if an animatable tripple is passed a GraphNode,
+// then an implicit driver function will be generated such that it
+// returns the 'location' property of the GraphNode.
+//
+// If the main handle (eg 'location') is assigned a driver function,
+// then the swizzle handles (eg, 'location_x') will stop functioning
+// as setters until the main handle is cleared.  You can still assign
+// values to the channels, and they will appear when the main handle's
+// driver function is removed.  To clear the main handle's driver
+// function, set it to null.
+//
+please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, write_hook) {
+    // obj is the value of this, but proxy determines where the
+    // getter/setter is saved
+    var target = proxy ? proxy : obj;
+
+    // Create the cache object if it does not yet exist.
+    please.__setup_ani_data(obj);    
+    var cache = obj.__ani_cache;
+    var store = obj.__ani_store;
+
+    // Determine the swizzle handles.
+    if (!swizzle) {
+        swizzle = "xyz";
+    }
+    var handles = [];
+    for (var i=0; i<swizzle.length; i+=1) {
+        handles.push(prop + "_" + swizzle[i]);
+    }
+
+    // Determine cache object entries.
+    var cache_lines = [prop + "_focus"].concat(handles);
+    for (var i=0; i<cache_lines.length; i+=1) {
+        // Add cache lines for this property set.
+        var line_name = cache_lines[i];
+        if (!cache[line_name]) {
+            Object.defineProperty(cache, line_name, {
+                enumerable: true,
+                writable: true,
+                value: null,
+            });
+        }
+    }
+
+    // Local timestamps for cache invalidation.
+    var last_focus = 0;
+    var last_channel = [0, 0, 0];
+
+    // Local data stores.
+    if (!store[prop + "_" + swizzle]) {
+        Object.defineProperty(store, prop+"_"+swizzle, {
+            enumerable: true,
+            writable: true,
+            value: [0, 0, 0],
+        });
+    }
+    if (!store[prop + "_focus"]) {
+        Object.defineProperty(store, prop+"_focus", {
+            enumerable: true,
+            writable: true,
+            value: null,
+        });
+    }
+
+    // Add getters and setters for the individual channels.
+    var channel_getter = function (i) {
+        return function () {
+            if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
+                return target[prop][i];
+            }
+            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("location")) {
+                return store[prop+"_focus"].location[i];
+            }
+            else {
+                if (typeof(store[prop+"_"+swizzle][i]) === "function") {
+                    // determine if the cached value is too old
+                    if (cache[handles[i]] === null || please.pipeline.__framestart > last_channel[i]) {
+                        cache[handles[i]] = store[prop+"_"+swizzle][i].call(obj);
+                        last_channel[i] = please.pipeline.__framestart;
+                    }
+                    return cache[handles[i]];
+                }
+                else {
+                    return store[prop+"_"+swizzle][i];
+                }
+            }
+        };
+    };
+    var channel_setter = function (i) {
+        return function(value) {
+            cache[prop] = null;
+            cache[handles[i]] = null;
+            store[prop+"_"+swizzle][i] = value;
+            if (typeof(write_hook) === "function") {
+                write_hook(target, prop, obj);
+            }
+            return value;
+        };
+    };
+    for (var i=0; i<handles.length; i+=1) {
+        Object.defineProperty(target, handles[i], {
+            enumerable : true,
+            get : channel_getter(i),
+            set : channel_setter(i),
+        });
+    }
+    
+    
+    // Getter and setter for the tripple object itself.
+    Object.defineProperty(target, prop, {
+        enumerable : true,
+        get : function () {
+            if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
+                if (cache[prop] === null || please.pipeline.__framestart > last_focus) {
+                    cache[prop] = store[prop+"_focus"].call(obj);
+                    last_focus = please.pipeline.__framestart
+                }
+                return cache[prop];
+            }
+            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("location")) {
+                return store[prop+"_focus"].location;
+            }
+            else {
+                var out = [];
+                // FIXME maybe do something to make the all of the
+                // properties except 'dirty' immutable.
+                for (var i=0; i<handles.length; i+=1) {
+                    out.push(target[handles[i]]);
+                }
+                out.dirty = true;
+                return out;
+            }
+        },
+        set : function (value) {
+            cache[prop] = null;
+            if (value === null || value === undefined) {
+                store[prop+"_focus"] = null;
+            }
+            else if (typeof(value) === "function") {
+                store[prop+"_focus"] = value;
+            }
+            else if (value.hasOwnProperty("location")) {
+                store[prop+"_focus"] = value;
+            }
+            else if (value.length) {
+                for (var i=0; i<value.length; i+=1) {
+                    target[handles[i]] = value[i];
+                }
+            }
+            if (typeof(write_hook) === "function") {
+                write_hook(target, prop, obj);
+            }
+            return value;
+        },
+    });
+
+    // Finaly, set the inital value if applicable.
+    if (initial) {
+        target[prop] = initial;
     }
 };

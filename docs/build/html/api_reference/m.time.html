@@ -89,15 +89,12 @@ may be called.</li>
 please.time.schedule.</li>
 </ul>
 </div>
-<div class="section" id="please-path-driver">
-<h2>please.path_driver<a class="headerlink" href="#please-path-driver" title="Permalink to this headline">¶</a></h2>
-<p><em>please.path_driver</em> <strong>(path, period, repeat, oscilate)</strong></p>
-<p>This function generates a driver function for animating along a path
-reterned by another generator function.</p>
-<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">path</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">linear_path</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">);</span>
-<span class="nx">player</span><span class="p">.</span><span class="nx">location_x</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">path_driver</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="kc">true</span><span class="p">,</span> <span class="kc">true</span><span class="p">);</span>
-</pre></div>
-</div>
+<div class="section" id="please-time-add-score">
+<h2>please.time.add_score<a class="headerlink" href="#please-time-add-score" title="Permalink to this headline">¶</a></h2>
+<p><em>please.time.add_score</em> <strong>(graph_node, action_name, frame_set)</strong></p>
+<p>Adds an animation &#8220;action&#8221; to a graph node, and sets up any needed
+animation machinery if it is not already present. Usually you will not
+be calling this function directly.</p>
 </div>
 </div>
 
@@ -113,7 +110,7 @@ reterned by another generator function.</p>
 <li><a class="reference internal" href="#please-postpone">please.postpone</a></li>
 <li><a class="reference internal" href="#please-time-schedule">please.time.schedule</a></li>
 <li><a class="reference internal" href="#please-time-remove">please.time.remove</a></li>
-<li><a class="reference internal" href="#please-path-driver">please.path_driver</a></li>
+<li><a class="reference internal" href="#please-time-add-score">please.time.add_score</a></li>
 </ul>
 </li>
 </ul>

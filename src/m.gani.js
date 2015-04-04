@@ -86,9 +86,82 @@ please.gani = {
 };
 
 
+/**
+ * Determines if the string contains only a number:
+ * @function 
+ * @memberOf mgrl.defs
+ *
+ * @param {Object} param
+
+ * An object to be tested to see if it is a Number or a String that
+ * may be parsed as a Number.
+ *
+ * @return {Boolean} Boolean value.
+ *
+ * @example
+ * please.gani.is_number_def(10); // return true
+ * please.gani.is_number_def("42"); // return true
+ * please.gani.is_number_def("one hundred"); // return false
+ * please.gani.is_number_def({}); // return false
+ */
+
+
+// [+] please.gani.is\_number\_def(param)
+//
+// **DEPRECATED** this method will likely be renamed in the future,
+// or removed all together if .gani parsing functionality is spun off
+// into its own library.
+//
+// **Warning** the name of this method is misleading - it is intended
+// to determine if a block of text in a .gani file refers to a number.
+//
+// This method returns true if the parameter passed to it is either a
+// number object or a string that contains only numerical characters.
+// Otherwise, false is returned.
+//
+// - **param** Some object, presumably a string or a number.
+//
+please.gani.is_number_def = function (param) {
+    if (typeof(param) === "number") {
+        return true;
+    }
+    else if (typeof(param) === "string") {
+        var found = param.match(/^\d+$/i);
+        return (found !== null && found.length === 1);
+    }
+    else {
+        return false;
+    }
+};
+
+
+// [+] please.gani.is\_attr(param)
+//
+// **DEPRECATED** this method will likely be renamed in the future,
+// or removed all together if .gani parsing functionality is spun off
+// into its own library.
+//
+// Determines if a string passed to it describes a valid gani
+// attribute name.  Returns true or false.
+//
+// - **param** A string that might refer to a .gani attribute
+// something else.
+//
+please.gani.is_attr = function (param) {
+    if (typeof(param) === "string") {
+        var found = param.match(/^[A-Za-z]+[0-9A-Za-z]*$/);
+        return (found !== null && found.length === 1);
+    }
+    else {
+        return false;
+    }
+};
+
+
 // Function returns Animation Instance object.  AnimationData.create()
 // wraps this function, so you don't need to use it directly.
 please.media.__AnimationInstance = function (animation_data) {
+    console.info("DEPRECATION WARNING: old gani instancing functionality to be removed in a future update.\nGani parsing and non-webgl rendering functionality will eventually be pulled out into its own library to be used by m.grl.  Please use .instance() instead of .create() to create animation instances with the scene graph.");
     var ani = {
         "data" : animation_data,
         "__attrs" : {},
@@ -130,7 +203,7 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // This is used to bind an object's proprety to an "attribute".
     var bind_or_copy = function (object, key, value) {
-        if (please.is_attr(value)) {
+        if (please.gani.is_attr(value)) {
             var getter = function () {
                 return ani.__attrs[value];
             };
@@ -146,7 +219,7 @@ please.media.__AnimationInstance = function (animation_data) {
     // updated
     var advance = function (time_stamp) {
         if (!time_stamp) {
-            time_stamp = please.time.now;
+            time_stamp = please.time.__last_frame;
         }
         var progress = time_stamp - ani.__start_time;
         var frame = ani.get_current_frame(progress);
@@ -179,7 +252,7 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // play function starts the animation sequence
     ani.play = function () {
-        ani.__start_time = please.time.now;
+        ani.__start_time = please.time.__last_frame;
         ani.__frame_pointer = 0;
         advance(ani.__start_time);
     };
@@ -187,7 +260,7 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // reset the animation 
     ani.reset = function (start_frame) {
-        ani.__start_time = please.time.now;
+        ani.__start_time = please.time.__last_frame;
         ani.__frame_pointer = 0;
         if (start_frame) {
             ani.__frame_pointer = start_frame;
@@ -454,8 +527,8 @@ please.media.__AnimationData = function (gani_text, uri) {
                 ITER(k, names) {
                     var datum = params[k+2];
                     var name = names[k];
-                    if (please.is_attr(datum)) {
-                        sprite[name] = datum;
+                    if (please.gani.is_attr(datum)) {
+                        sprite[name] = datum.toLowerCase();
                     }
                     else {
                         if (k > 0 && k < 5) {
@@ -494,7 +567,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             // setbackto setting
             if (params[0] === "SETBACKTO") {
                 ani.continuous = false;
-                if (please.is_number(params[1])) {
+                if (please.gani.is_number_def(params[1])) {
                     ani.setbackto = Number(params[1]);
                 }
                 else {
@@ -509,9 +582,9 @@ please.media.__AnimationData = function (gani_text, uri) {
             
             // default values for attributes
             if (params[0].startsWith("DEFAULT")) {
-                var attr_name = params[0].slice(7);
+                var attr_name = params[0].slice(7).toLowerCase();
                 var datum = params[1];
-                if (please.is_number(params[1])) {
+                if (please.gani.is_number_def(params[1])) {
                     datum = Number(datum);
                 }
                 ani.attrs[attr_name] = datum;
@@ -557,7 +630,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             ITER(n, names) {
                 var name = names[n];
                 var datum = chunks[n];
-                if (please.is_attr(datum)) {
+                if (please.gani.is_attr(datum)) {
                     sprite[name] = datum;
                 }
                 else {
@@ -591,7 +664,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
                 else if (params[0] === "PLAYSOUND") {
                     var sound_file = params[1];
-                    if (!please.is_attr(sound_file)) {
+                    if (!please.gani.is_attr(sound_file)) {
                         ani.__resources[sound_file] = true;
                     }
                     frame.sound = {
@@ -646,57 +719,128 @@ please.media.__AnimationData = function (gani_text, uri) {
         if (alpha) {
             node.sort_mode = "alpha";
         }
-        node.gani = this.create();
-        if (!node.gani.data.ibo) {
-            // build the VBO and IBO for this animation.
-            please.gani.build_gl_buffers(node.gani.data);
-        }
-        // this is called when the animation "loops back" to another animation
-        node.gani.on_change_reel = function (ani, new_ani) {
-        };
 
-        node.bind = function () {
-            node.gani.data.vbo.bind();
-            node.gani.data.ibo.bind();
+        // cache of gani data
+        node.__ganis = {};
+        node.__current_gani = null;
+        node.__current_frame = null;
+
+        // The .add_gani method can be used to load additional
+        // animations on to a gani graph node.  This is useful for
+        // things like characters.
+        node.add_gani = function (resource) {
+            if (typeof(resource) === "string") {
+                resource = please.access(resource);
+            }
+            // We just want 'resource', since we don't need any of the
+            // animation machinery and won't be state tracking on the
+            // gani object.
+            var ani_name = resource.__uri;
+            var action_name = ani_name.split("/").slice(-1)[0];
+            if (action_name.endsWith(".gani")) {
+                action_name = action_name.slice(0, -5);
+            }
+            if (!node.__ganis[action_name]) {
+                node.__ganis[action_name] = resource;
+                
+                if (!resource.ibo) {
+                    // build the VBO and IBO for this animation.
+                    please.gani.build_gl_buffers(resource);
+                }
+
+                // Bind new attributes
+                please.prop_map(resource.attrs, function (name, value) {
+                    if (!node[name]) {
+                        node[name] = value;
+                        //please.make_animatable(node, name, value);
+                    }
+                });
+
+                // Bind direction handle
+                if (!node.hasOwnProperty("dir")) {
+                    var write_hook = function (target, prop, obj) {
+                        var cache = obj.__ani_cache;
+                        var store = obj.__ani_store;
+                        var old_value = store[prop];
+
+                        var new_value = Math.floor(old_value % 4);
+                        if (new_value < 0) {
+                            new_value += 4;
+                        }
+                        if (new_value !== old_value) {
+                            cache[prop] = null;
+                            store[prop] = new_value;
+                        }
+                    };
+                    please.make_animatable(node, "dir", 0, null, null, write_hook);
+                }
+
+                // Generate the frameset for the animation.
+                var score = resource.frames.map(function (frame) {
+                    return {
+                        "speed" : frame.wait,
+                        "callback" : function (speed, skip_to) {
+                            // FIXME play frame.sound
+                            node.__current_frame = frame;
+                            node.__current_gani = resource;
+                        },
+                    };
+                });
+                
+                // add the action for this animation
+                please.time.add_score(node, action_name, score);
+
+                // configure the new action
+                var action = node.actions[action_name];
+                action.repeat = resource.looping;
+                //action.queue = resource.setbackto; // not sure about this
+            }
         };
-        
+        node.add_gani(this);
+
+
+        // draw function for the animation
         node.draw = function () {
-            if (node.sort_mode === "alpha") {
-                gl.depthMask(false);
-            }
-            else {
-                var offset_factor = -1;
-                var offset_units = -2;
-                gl.enable(gl.POLYGON_OFFSET_FILL);
-            }
-            var prog = please.gl.get_program();
-            var ibo = node.gani.data.ibo;
-
-            var frame_ptr = node.gani.__frame_pointer;
-            var direction = node.gani.data.single_dir ? 0 : node.gani.dir;
-            var frame = node.gani.data.frames[frame_ptr].data[direction];
+            var frame = node.__current_frame;
+            var resource = node.__current_gani;
             if (frame) {
-                for (var i=0; i<frame.length; i+=1) {
-                    //if (i >= 1) { break; }
-                    var blit = frame[i];
-                    var attr = node.gani.data.sprites[blit.sprite].resource.toLowerCase();;
-                    var asset_name = node.gani.attrs[attr]
+                if (node.sort_mode === "alpha") {
+                    gl.depthMask(false);
+                }
+                else {
+                    var offset_factor = -1;
+                    var offset_units = -2;
+                    gl.enable(gl.POLYGON_OFFSET_FILL);
+                }
+                resource.vbo.bind();
+                resource.ibo.bind();
+
+                var ibo = resource.ibo;
+                
+                var dir = resource.single_dir ? 0 : node.dir;
+                var draw_set = frame.data[dir];
+                ITER(i, draw_set) {
+                    var blit = draw_set[i];
+                    var attr = resource.sprites[blit.sprite].resource;
+                    //var asset_name = resource.attrs[attr];
+                    var asset_name = node[attr];
                     var asset = please.access(asset_name, null);
                     if (asset) {
                         asset.scale_filter = "NEAREST";
                     }
+                    var prog = please.gl.get_program();
                     prog.samplers["diffuse_texture"] = asset_name;
                     if (node.sort_mode !== "alpha") {
                         gl.polygonOffset(offset_factor, offset_units*i);
                     }
                     ibo.draw(blit.ibo_start, blit.ibo_total);
                 }
-            }
-            if (node.sort_mode === "alpha") {
-                gl.depthMask(true);
-            }
-            else {
-                gl.disable(gl.POLYGON_OFFSET_FILL);
+                if (node.sort_mode === "alpha") {
+                    gl.depthMask(true);
+                }
+                else {
+                    gl.disable(gl.POLYGON_OFFSET_FILL);
+                }
             }
         };
         return node;

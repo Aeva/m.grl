@@ -56,41 +56,6 @@ trimmed from the resulting tokens before they are returned in an array.
 
 
 
-please.is\_number
------------------
-*please.is\_number* **(param)**
-
-**DEPRECATED** this method will likely be renamed in the future, or
-removed all together if .gani parsing functionality is spun off into its
-own library.
-
-**Warning** the name of this method is misleading - it is intended to
-determine if a block of text in a .gani file refers to a number.
-
-This method returns true if the parameter passed to it is either a
-number object or a string that contains only numerical characters.
-Otherwise, false is returned.
-
--  **param** Some object, presumably a string or a number.
-
-
-
-please.is\_attr
----------------
-*please.is\_attr* **(param)**
-
-**DEPRECATED** this method will likely be renamed in the future, or
-removed all together if .gani parsing functionality is spun off into its
-own library.
-
-Determines if a string passed to it describes a valid gani attribute
-name. Returns true or false.
-
--  **param** A string that might refer to a .gani attribute something
-   else.
-
-
-
 please.get\_properties
 ----------------------
 *please.get\_properties* **(obj)**
@@ -139,6 +104,11 @@ Works like the GLSL mix function: linearily interpolates between
 variables 'lhs' and 'rhs'. Variable 'a' should be a numerical value such
 that 0.0 <= a <= 1.0. The first two parameters may be numbers, arrays of
 numbers, or GraphNodes.
+
+If both 'lhs' and 'rhs' are of length four, this method will assume them
+to represent quaternions, and use 'SLERP' interpolation instead of
+linear interpolation. To avoid this for non-quaternion vec4's, set the
+property "not\_quat" on one or both elements to true.
 
 
 please.distance
@@ -195,6 +165,44 @@ used as an argument, which is divided evenly between the path functions
 function with a value of '0', it'll call the first path function with
 '0'. Likewise, '1' would call the last one with '1'. This is used for
 combining multiple paths together.
+
+
+please.path_driver
+------------------
+*please.path\_driver* **(path, period, repeat, oscilate)**
+
+This function generates a driver function for animating along a path
+reterned by another generator function.
+
+.. code-block:: javascript
+
+    var path = please.linear_path(-10, 10);
+    player.location_x = please.path_driver(path, 1000, true, true);
+
+
+
+please.oscillating_driver
+-------------------------
+*please.oscillating\_driver* **(start, end, time)**
+
+Shorthand for this:
+
+.. code-block:: javascript
+
+    please.path_driver(please.linear_path(start, end), time, true, true);
+
+
+
+please.repeating_driver
+-----------------------
+*please.repeating\_driver* **(start, end, time)**
+
+Shorthand for this:
+
+.. code-block:: javascript
+
+    please.path_driver(please.linear_path(start, end), time, true, false);
+
 
 
 please.break_curve
@@ -273,5 +281,40 @@ binary data.
    Float32Array type since javascript lacks a Float16Array type.
 
 
+
+
+please.make_animatable
+----------------------
+*please.make\_animatable* **(obj, prop, default\_value, proxy, lock)**
+
+Sets up the machinery needed to make the given property on an object
+animatable.
+
+
+please.make_animatable_tripple
+------------------------------
+*please.make\_animatable\_tripple* **(object, prop, swizzle,
+default\_value, proxy);**
+
+Makes property 'prop' an animatable tripple / vec3 / array with three
+items. Parameter 'object' determines where the cache lives, the value of
+'this' passed to driver functions, and if proxy is unset, this also
+determines where the animatable property is written. The 'prop' argument
+is the name of the property to be animatable (eg 'location'). Swizzle is
+an optional string of three elements that determines the channel names
+(eg, 'xyz' to produce location\_x, location\_y, and location\_z). The
+'initial' argument determines what the property should be set to, and
+'proxy' determines an alternate object for which the properties are
+written to.
+
+As mentioned above, if an animatable tripple is passed a GraphNode, then
+an implicit driver function will be generated such that it returns the
+'location' property of the GraphNode.
+
+If the main handle (eg 'location') is assigned a driver function, then
+the swizzle handles (eg, 'location\_x') will stop functioning as setters
+until the main handle is cleared. You can still assign values to the
+channels, and they will appear when the main handle's driver function is
+removed. To clear the main handle's driver function, set it to null.
 
 

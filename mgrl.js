@@ -232,72 +232,6 @@ please.split_params = function (line, delim) {
     }
     return params;
 };
-/**
- * Determines if the string contains only a number:
- * @function 
- * @memberOf mgrl.defs
- *
- * @param {Object} param
-
- * An object to be tested to see if it is a Number or a String that
- * may be parsed as a Number.
- *
- * @return {Boolean} Boolean value.
- *
- * @example
- * please.is_number(10); // return true
- * please.is_number("42"); // return true
- * please.is_number("one hundred"); // return false
- * please.is_number({}); // return false
- */
-// [+] please.is\_number(param)
-//
-// **DEPRECATED** this method will likely be renamed in the future,
-// or removed all together if .gani parsing functionality is spun off
-// into its own library.
-//
-// **Warning** the name of this method is misleading - it is intended
-// to determine if a block of text in a .gani file refers to a number.
-//
-// This method returns true if the parameter passed to it is either a
-// number object or a string that contains only numerical characters.
-// Otherwise, false is returned.
-//
-// - **param** Some object, presumably a string or a number.
-//
-please.is_number = function (param) {
-    if (typeof(param) === "number") {
-        return true;
-    }
-    else if (typeof(param) === "string") {
-        var found = param.match(/^\d+$/i);
-        return (found !== null && found.length === 1);
-    }
-    else {
-        return false;
-    }
-};
-// [+] please.is\_attr(param)
-//
-// **DEPRECATED** this method will likely be renamed in the future,
-// or removed all together if .gani parsing functionality is spun off
-// into its own library.
-//
-// Determines if a string passed to it describes a valid gani
-// attribute name.  Returns true or false.
-//
-// - **param** A string that might refer to a .gani attribute
-// something else.
-//
-please.is_attr = function (param) {
-    if (typeof(param) === "string") {
-        var found = param.match(/^[A-Z]+[0-9A-Z]*$/);
-        return (found !== null && found.length === 1);
-    }
-    else {
-        return false;
-    }
-};
 // [+] please.get\_properties(obj)
 //
 // A name alias for Object.getOwnPropertyNames.  These are both the
@@ -340,6 +274,12 @@ please.degrees = function (radians) {
 // value such that 0.0 <= a <= 1.0.  The first two parameters may be
 // numbers, arrays of numbers, or GraphNodes.
 //
+// If both 'lhs' and 'rhs' are of length four, this method will assume
+// them to represent quaternions, and use 'SLERP' interpolation
+// instead of linear interpolation.  To avoid this for non-quaternion
+// vec4's, set the property "not_quat" on one or both elements to
+// true.
+//
 please.mix = function (lhs, rhs, a) {
     if (typeof(lhs) === "number" && typeof(lhs) === typeof(rhs)) {
         // Linear interpolation of two scalar values:
@@ -353,7 +293,7 @@ please.mix = function (lhs, rhs, a) {
         var _lhs = lhs.location ? lhs.location : lhs;
         var _rhs = rhs.location ? rhs.location : rhs;
         if (_lhs.length && _lhs.length === _rhs.length) {
-            if (_lhs.length === 4) {
+            if (_lhs.length === 4 && !(_lhs.not_quat || _rhs.not_quat)) {
                 // Linear interpolation of two quaternions:
                 return quat.slerp(quat.create(), _lhs, _rhs, a);
             }
@@ -477,6 +417,70 @@ please.path_group = function (paths) {
         path.stops = path.stops.concat(paths[i].stops);
     }
     return path;
+};
+// [+] please.path_driver(path, period, repeat, oscilate)
+//
+// This function generates a driver function for animating along a
+// path reterned by another generator function.
+//
+// ```
+// var path = please.linear_path(-10, 10);
+// player.location_x = please.path_driver(path, 1000, true, true);
+// ```
+//
+please.path_driver = function (path, period, repeat, oscilate) {
+    var start = performance.now();
+    var generated = null;
+    // non-repeating driver
+    if (!repeat) {
+        generated = function () {
+            var stamp = performance.now();
+            if (stamp < start+period) {
+                return path((stamp-start)/period);
+            }
+            else {
+                return path(1.0);
+            }
+        };
+    }
+    // repeating driver
+    else {
+        generated = function () {
+            var stamp = window.performance.now();
+            var flow = (stamp-start)/period;
+            var a = flow - Math.floor(flow);
+            if (oscilate && Math.floor(flow)%2 === 0) {
+                // reverse direction
+                var a = 1.0 - a;
+            }
+            return path(a);
+        };
+    }
+    // add a restart method to the generated function
+    generated.restart = function () {
+        start = performance.now();
+    };
+    return generated;
+};
+// [+] please.oscillating_driver(start, end, time)
+//
+// Shorthand for this:
+// ```
+// please.path_driver(please.linear_path(start, end), time, true, true);
+// ```
+//
+please.oscillating_driver = function (start, end, time) {
+    return please.path_driver(please.linear_path(start, end), time, true, true)
+};
+// [+] please.repeating_driver(start, end, time)
+//
+// Shorthand for this:
+// ```
+// please.path_driver(please.linear_path(start, end), time, true, false);
+// ```
+//
+please.repeating_driver = function (start, end, time) {
+    return please.path_driver(please.linear_path(start, end), time, true, false)
 };
 // [+] please.break_curve(curve, target_spacing)
 //
@@ -755,6 +759,259 @@ please.typed_array = function (raw, hint) {
         return new Uint32Array(please.decode_buffer(raw));
     }
 };
+// Common setup for both animatable property modes.  Creates cache
+// objects and data stores
+please.__setup_ani_data = function(obj) {
+    if (!obj.__ani_cache) {
+        Object.defineProperty(obj, "__ani_cache", {
+            enumerable : false,
+            writable : false,
+            value : {},
+        });
+    }
+    if (!obj.__ani_store) {
+        Object.defineProperty(obj, "__ani_store", {
+            enumerable : false,
+            writable : false,
+            value : {},
+        });
+    }
+};
+// [+] please.make_animatable(obj, prop, default_value, proxy, lock, write_hook)
+//
+// Sets up the machinery needed to make the given property on an
+// object animatable.
+//
+please.make_animatable = function(obj, prop, default_value, proxy, lock, write_hook) {
+    // obj is the value of this, but proxy determines where the
+    // getter/setter is saved
+    var target = proxy ? proxy : obj;
+    // Create the cache object if it does not yet exist.
+    please.__setup_ani_data(obj);
+    var cache = obj.__ani_cache;
+    var store = obj.__ani_store;
+    // Add the new property to the cache object.
+    if (!cache[prop]) {
+        Object.defineProperty(cache, prop, {
+            enumerable: true,
+            writable: true,
+            value: null,
+        });
+    }
+    if (!store[prop]) {
+        Object.defineProperty(store, prop, {
+            enumerable: true,
+            writable: true,
+            value: default_value!==undefined ? default_value : null,
+        });
+    }
+    // Local time stamp for cache invalidation.
+    var last_update = 0;
+    // Define the getters and setters for the new property.
+    var getter = function () {
+        if (typeof(store[prop]) === "function") {
+            // determine if the cached value is too old
+            if (cache[prop] === null || please.pipeline.__framestart > last_update) {
+                cache[prop] = store[prop].call(obj);
+                last_update = please.pipeline.__framestart;
+            }
+            return cache[prop];
+        }
+        else {
+            return store[prop];
+        }
+    };
+    var setter = function (value) {
+        cache[prop] = null;
+        store[prop] = value;
+        if (typeof(write_hook) === "function") {
+            write_hook(target, prop, obj);
+        }
+        return value;
+    };
+    if (!lock) {
+        Object.defineProperty(target, prop, {
+            enumerable: true,
+            get : getter,
+            set : setter,
+        });
+    }
+    else {
+        Object.defineProperty(target, prop, {
+            enumerable: true,
+            get : getter,
+            set : function (value) {
+                return value;
+            },
+        });
+    }
+};
+// [+] please.make_animatable_tripple(object, prop, swizzle, default_value, proxy, write_hook);
+//
+// Makes property 'prop' an animatable tripple / vec3 / array with
+// three items.  Parameter 'object' determines where the cache lives,
+// the value of 'this' passed to driver functions, and if proxy is
+// unset, this also determines where the animatable property is
+// written.  The 'prop' argument is the name of the property to be
+// animatable (eg 'location').  Swizzle is an optional string of three
+// elements that determines the channel names (eg, 'xyz' to produce
+// location_x, location_y, and location_z).  The 'initial' argument
+// determines what the property should be set to, and 'proxy'
+// determines an alternate object for which the properties are written
+// to.
+//
+// As mentioned above, if an animatable tripple is passed a GraphNode,
+// then an implicit driver function will be generated such that it
+// returns the 'location' property of the GraphNode.
+//
+// If the main handle (eg 'location') is assigned a driver function,
+// then the swizzle handles (eg, 'location_x') will stop functioning
+// as setters until the main handle is cleared.  You can still assign
+// values to the channels, and they will appear when the main handle's
+// driver function is removed.  To clear the main handle's driver
+// function, set it to null.
+//
+please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, write_hook) {
+    // obj is the value of this, but proxy determines where the
+    // getter/setter is saved
+    var target = proxy ? proxy : obj;
+    // Create the cache object if it does not yet exist.
+    please.__setup_ani_data(obj);
+    var cache = obj.__ani_cache;
+    var store = obj.__ani_store;
+    // Determine the swizzle handles.
+    if (!swizzle) {
+        swizzle = "xyz";
+    }
+    var handles = [];
+    for (var i=0; i<swizzle.length; i+=1) {
+        handles.push(prop + "_" + swizzle[i]);
+    }
+    // Determine cache object entries.
+    var cache_lines = [prop + "_focus"].concat(handles);
+    for (var i=0; i<cache_lines.length; i+=1) {
+        // Add cache lines for this property set.
+        var line_name = cache_lines[i];
+        if (!cache[line_name]) {
+            Object.defineProperty(cache, line_name, {
+                enumerable: true,
+                writable: true,
+                value: null,
+            });
+        }
+    }
+    // Local timestamps for cache invalidation.
+    var last_focus = 0;
+    var last_channel = [0, 0, 0];
+    // Local data stores.
+    if (!store[prop + "_" + swizzle]) {
+        Object.defineProperty(store, prop+"_"+swizzle, {
+            enumerable: true,
+            writable: true,
+            value: [0, 0, 0],
+        });
+    }
+    if (!store[prop + "_focus"]) {
+        Object.defineProperty(store, prop+"_focus", {
+            enumerable: true,
+            writable: true,
+            value: null,
+        });
+    }
+    // Add getters and setters for the individual channels.
+    var channel_getter = function (i) {
+        return function () {
+            if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
+                return target[prop][i];
+            }
+            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("location")) {
+                return store[prop+"_focus"].location[i];
+            }
+            else {
+                if (typeof(store[prop+"_"+swizzle][i]) === "function") {
+                    // determine if the cached value is too old
+                    if (cache[handles[i]] === null || please.pipeline.__framestart > last_channel[i]) {
+                        cache[handles[i]] = store[prop+"_"+swizzle][i].call(obj);
+                        last_channel[i] = please.pipeline.__framestart;
+                    }
+                    return cache[handles[i]];
+                }
+                else {
+                    return store[prop+"_"+swizzle][i];
+                }
+            }
+        };
+    };
+    var channel_setter = function (i) {
+        return function(value) {
+            cache[prop] = null;
+            cache[handles[i]] = null;
+            store[prop+"_"+swizzle][i] = value;
+            if (typeof(write_hook) === "function") {
+                write_hook(target, prop, obj);
+            }
+            return value;
+        };
+    };
+    for (var i=0; i<handles.length; i+=1) {
+        Object.defineProperty(target, handles[i], {
+            enumerable : true,
+            get : channel_getter(i),
+            set : channel_setter(i),
+        });
+    }
+    // Getter and setter for the tripple object itself.
+    Object.defineProperty(target, prop, {
+        enumerable : true,
+        get : function () {
+            if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
+                if (cache[prop] === null || please.pipeline.__framestart > last_focus) {
+                    cache[prop] = store[prop+"_focus"].call(obj);
+                    last_focus = please.pipeline.__framestart
+                }
+                return cache[prop];
+            }
+            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("location")) {
+                return store[prop+"_focus"].location;
+            }
+            else {
+                var out = [];
+                // FIXME maybe do something to make the all of the
+                // properties except 'dirty' immutable.
+                for (var i=0; i<handles.length; i+=1) {
+                    out.push(target[handles[i]]);
+                }
+                out.dirty = true;
+                return out;
+            }
+        },
+        set : function (value) {
+            cache[prop] = null;
+            if (value === null || value === undefined) {
+                store[prop+"_focus"] = null;
+            }
+            else if (typeof(value) === "function") {
+                store[prop+"_focus"] = value;
+            }
+            else if (value.hasOwnProperty("location")) {
+                store[prop+"_focus"] = value;
+            }
+            else if (value.length) {
+                for (var i=0; i<value.length; i+=1) {
+                    target[handles[i]] = value[i];
+                }
+            }
+            if (typeof(write_hook) === "function") {
+                write_hook(target, prop, obj);
+            }
+            return value;
+        },
+    });
+    // Finaly, set the inital value if applicable.
+    if (initial) {
+        target[prop] = initial;
+    }
+};
 // - m.time.js -------------------------------------------------------------- //
 /* [+]
  *
@@ -766,6 +1023,12 @@ please.typed_array = function (raw, hint) {
  * documented below.
  *
  */
+// Stores events for the scheduler.
+please.time = {
+    "__pending" : [],
+    "__times" : [],
+    "__last_frame" : performance.now(),
+};
 // [+] please.postpone(callback)
 //
 // Shorthand for setTimeout(callback, 0).  This method is used to
@@ -779,129 +1042,168 @@ please.postpone = function (callback) {
         window.setTimeout(callback, 0);
     }
 };
-please.time = (function () {
-    var batch = {
-        "__pending" : [],
-        "__times" : [],
-        "now" : performance.now(),
-        "schedule" : function (callback, when) {},
-        "remove" : function (callback) {},
-    };
-    var dirty = false;
-    var pipe_id = "m.ani.js/batch";
-    // [+] please.time.schedule(callback, when)
-    //
-    // This function works like setTimeout, but syncs the callbacks up
-    // only to the next available animation frame.  This means that if
-    // the page is not currently visible (eg, another tab is active),
-    // then the callback will not be called until the page is visible
-    // again, etc.
-    //
-    // - **callback** A function to be called on an animation frame.
-    //
-    // - **when** Delay in milliseconds for the soonest time which 
-    //   callback may be called.
-    // 
-    batch.schedule = function (callback, when) {
-        when = batch.now + when;
-        var i = batch.__pending.indexOf(callback);
-        if (i > -1) {
-            batch.__times[i] = when;
-        }
-        else {
-            batch.__pending.push(callback);
-            batch.__times.push(when);
-            if (!dirty) {
-                dirty = true;
-                // register a pipeline stage if it doesn't exist
-                if (please.pipeline.__callbacks[pipe_id] === undefined) {
-                    please.pipeline.add(-1, pipe_id, frame_handler);
-                }
-            }
-        }
-    };
-    // [+] please.time.remove(callback)
-    //
-    // Removes a pending callback from the scheduler.
-    //
-    // - **callback** A function that was already scheduled 
-    //   please.time.schedule.
-    //
-    batch.remove = function (callback) {
-        var i = batch.__pending.indexOf(callback);
-        if (i > -1) {
-            batch.__pending.splice(i, 1);
-            batch.__times.splice(i, 1);
-        }
-    };
-    var frame_handler= function () {
-        if (batch.__pending.length > 0) {
-            var stamp = performance.now();
-            batch.now = stamp;
-            var pending = batch.__pending;
-            var times = batch.__times;
-            batch.__pending = [];
-            batch.__times = [];
-            var updates = 0;
-            for (var i=0; i<pending.length; i+=1) {
-                var callback = pending[i];
-                var when = times[i];
-                if (when <= stamp) {
-                    updates += 1;
-                    callback(stamp);
-                }
-                else {
-                    batch.__pending.push(callback);
-                    batch.__times.push(when);
-                }
-            };
-        }
-    };
-    return batch;
-})();
-// [+] please.path_driver(path, period, repeat, oscilate)
+// [+] please.time.schedule(callback, when)
 //
-// This function generates a driver function for animating along a
-// path reterned by another generator function.
+// This function works like setTimeout, but syncs the callbacks up
+// only to the next available animation frame.  This means that if
+// the page is not currently visible (eg, another tab is active),
+// then the callback will not be called until the page is visible
+// again, etc.
 //
-// ```
-// var path = please.linear_path(-10, 10);
-// player.location_x = please.path_driver(path, 1000, true, true);
-// ```
+// - **callback** A function to be called on an animation frame.
 //
-please.path_driver = function (path, period, repeat, oscilate) {
-    var start = performance.now();
-    var generated = null;
-    // non-repeating driver
-    if (!repeat) {
-        generated = function () {
-            var stamp = performance.now();
-            if (stamp < start+period) {
-                return path((stamp-start)/period);
+// - **when** Delay in milliseconds for the soonest time which 
+//   callback may be called.
+// 
+please.time.schedule = function (callback, when) {
+    when = please.time.__last_frame + when;
+    var i = please.time.__pending.indexOf(callback);
+    if (i > -1) {
+        please.time.__times[i] = when;
+    }
+    else {
+        please.time.__pending.push(callback);
+        please.time.__times.push(when);
+        // register a pipeline stage if it doesn't exist
+        var pipe_id = "m.grl/scheduler"
+        if (please.pipeline.__callbacks[pipe_id] === undefined) {
+            please.pipeline.add(-1, pipe_id, please.time.__schedule_handler);
+        }
+    }
+};
+// [+] please.time.remove(callback)
+//
+// Removes a pending callback from the scheduler.
+//
+// - **callback** A function that was already scheduled 
+//   please.time.schedule.
+//
+please.time.remove = function (callback) {
+    var i = please.time.__pending.indexOf(callback);
+    if (i > -1) {
+        please.time.__pending.splice(i, 1);
+        please.time.__times.splice(i, 1);
+    }
+};
+// This hooks into the event loop and determines when pending events
+// should be called.
+please.time.__schedule_handler = function () {
+    if (please.time.__pending.length > 0) {
+        var stamp = performance.now();
+        please.time.__last_frame = stamp;
+        var pending = please.time.__pending;
+        var times = please.time.__times;
+        please.time.__pending = [];
+        please.time.__times = [];
+        var updates = 0;
+        for (var i=0; i<pending.length; i+=1) {
+            var callback = pending[i];
+            var when = times[i];
+            if (when <= stamp) {
+                updates += 1;
+                callback(stamp);
             }
             else {
-                return path(1.0);
+                please.time.__pending.push(callback);
+                please.time.__times.push(when);
             }
         };
     }
-    // repeating driver
-    else {
-        generated = function () {
-            var stamp = window.performance.now();
-            var flow = (stamp-start)/period;
-            var a = flow - Math.floor(flow);
-            if (oscilate && Math.floor(flow)%2 === 0) {
-                // reverse direction
-                var a = 1.0 - a;
-            }
-            return path(a);
-        };
-    }
-    // add a restart method to the generated function
-    generated.restart = function () {
-        start = performance.now();
+};
+// [+] please.time.add_score(graph_node, action_name, frame_set)
+//
+// Adds an animation "action" to a graph node, and sets up any needed
+// animation machinery if it is not already present.  Usually you will
+// not be calling this function directly.
+//
+please.time.add_score = function (node, action_name, frame_set) {
+    var next_frame; // last frame number called
+    var current_ani = null; // current action
+    var expected_next = null; // expected time stamp for the next frame
+    var reset = function () {
+        next_frame = 0;
+        expected_next= null;
     };
-    return generated;
+    // frame_handler is used to schedule update events
+    var frame_handler = function frame_handler (render_start) {
+        var action = node.actions[current_ani];
+        // Find what frame we are on, if applicable
+        var frame = action.frames[next_frame];
+        next_frame += 1;
+        var late = 0;
+        if (expected_next != null && render_start > expected_next) {
+            late = render_start - expected_next;
+            var check_length = (frame.speed / action.speed);
+            while (late > check_length) {
+                if (next_frame < action.frames.length-1) {
+                    late -= check_length;
+                    var frame = action.frames[next_frame];
+                    check_length = (frame.speed / action.speed);
+                    next_frame += 1;
+                }
+                else {
+                    break;
+                }
+            }
+        }
+        if (frame) {
+            // animation in progress
+            var delay = (frame.speed / action.speed);
+            var skip = late ? (late / delay) : null;
+            frame.callback(delay, skip);
+            please.time.schedule(frame_handler, delay-late);
+        }
+        else if (action.repeat) {
+            // animation finished, repeat.
+            reset();
+            please.time.schedule(frame_handler, 0);
+        }
+        else if (action.queue && node.actions[action.queue]) {
+            // animatino finished, doesn't repeat, defines an action
+            // to play afterwards, so play that.
+            reset();
+            current_action = action.queue;
+            please.time.schedule(frame_handler, 0);
+        }
+        else {
+            // animation finished, spill-over action specified, so
+            // just call the last frame and don't schedule any more
+            // updates.
+            var frame = action.frames.slice(-1);
+            frame.callback(frame.speed / action.speed);
+        }
+    };
+    // start_animation is mixed into node objects as node.start
+    var start_animation = function (action_name) {
+        if (node.actions[action_name]) {
+            reset();
+            current_ani = action_name;
+            please.time.schedule(frame_handler, 0);
+        }
+        else {
+            console.warn("No such animation on object: " + action_name);
+        }
+    };
+    // stop_animation is mixed into node objects as node.stop
+    var stop_animation = function () {
+        current_ani = null;
+        please.time.remove(frame_handler);
+    };
+    // connect animation machinery if the node lacks it
+    if (!node.actions) {
+        node.actions = {};
+        node.play = start_animation;
+        node.stop = stop_animation;
+    }
+    // add the new action definition if the node lacks it
+    if (!node.actions[action_name]) {
+        var action = {};
+        please.make_animatable(action, "speed", 1, null, false);
+        action.frames = frame_set;
+        action.repeat = false;
+        action.queue = null;
+        node.actions[action_name] = action;
+    }
 };
 // - m.media.js ------------------------------------------------------------- //
 /* [+] 
@@ -2022,9 +2324,76 @@ please.gani = {
     "build_gl_buffers" : function (animation_data) {
     },
 };
+/**
+ * Determines if the string contains only a number:
+ * @function 
+ * @memberOf mgrl.defs
+ *
+ * @param {Object} param
+
+ * An object to be tested to see if it is a Number or a String that
+ * may be parsed as a Number.
+ *
+ * @return {Boolean} Boolean value.
+ *
+ * @example
+ * please.gani.is_number_def(10); // return true
+ * please.gani.is_number_def("42"); // return true
+ * please.gani.is_number_def("one hundred"); // return false
+ * please.gani.is_number_def({}); // return false
+ */
+// [+] please.gani.is\_number\_def(param)
+//
+// **DEPRECATED** this method will likely be renamed in the future,
+// or removed all together if .gani parsing functionality is spun off
+// into its own library.
+//
+// **Warning** the name of this method is misleading - it is intended
+// to determine if a block of text in a .gani file refers to a number.
+//
+// This method returns true if the parameter passed to it is either a
+// number object or a string that contains only numerical characters.
+// Otherwise, false is returned.
+//
+// - **param** Some object, presumably a string or a number.
+//
+please.gani.is_number_def = function (param) {
+    if (typeof(param) === "number") {
+        return true;
+    }
+    else if (typeof(param) === "string") {
+        var found = param.match(/^\d+$/i);
+        return (found !== null && found.length === 1);
+    }
+    else {
+        return false;
+    }
+};
+// [+] please.gani.is\_attr(param)
+//
+// **DEPRECATED** this method will likely be renamed in the future,
+// or removed all together if .gani parsing functionality is spun off
+// into its own library.
+//
+// Determines if a string passed to it describes a valid gani
+// attribute name.  Returns true or false.
+//
+// - **param** A string that might refer to a .gani attribute
+// something else.
+//
+please.gani.is_attr = function (param) {
+    if (typeof(param) === "string") {
+        var found = param.match(/^[A-Za-z]+[0-9A-Za-z]*$/);
+        return (found !== null && found.length === 1);
+    }
+    else {
+        return false;
+    }
+};
 // Function returns Animation Instance object.  AnimationData.create()
 // wraps this function, so you don't need to use it directly.
 please.media.__AnimationInstance = function (animation_data) {
+    console.info("DEPRECATION WARNING: old gani instancing functionality to be removed in a future update.\nGani parsing and non-webgl rendering functionality will eventually be pulled out into its own library to be used by m.grl.  Please use .instance() instead of .create() to create animation instances with the scene graph.");
     var ani = {
         "data" : animation_data,
         "__attrs" : {},
@@ -2061,7 +2430,7 @@ please.media.__AnimationInstance = function (animation_data) {
     });
     // This is used to bind an object's proprety to an "attribute".
     var bind_or_copy = function (object, key, value) {
-        if (please.is_attr(value)) {
+        if (please.gani.is_attr(value)) {
             var getter = function () {
                 return ani.__attrs[value];
             };
@@ -2075,7 +2444,7 @@ please.media.__AnimationInstance = function (animation_data) {
     // updated
     var advance = function (time_stamp) {
         if (!time_stamp) {
-            time_stamp = please.time.now;
+            time_stamp = please.time.__last_frame;
         }
         var progress = time_stamp - ani.__start_time;
         var frame = ani.get_current_frame(progress);
@@ -2106,13 +2475,13 @@ please.media.__AnimationInstance = function (animation_data) {
     };
     // play function starts the animation sequence
     ani.play = function () {
-        ani.__start_time = please.time.now;
+        ani.__start_time = please.time.__last_frame;
         ani.__frame_pointer = 0;
         advance(ani.__start_time);
     };
     // reset the animation 
     ani.reset = function (start_frame) {
-        ani.__start_time = please.time.now;
+        ani.__start_time = please.time.__last_frame;
         ani.__frame_pointer = 0;
         if (start_frame) {
             ani.__frame_pointer = start_frame;
@@ -2351,8 +2720,8 @@ please.media.__AnimationData = function (gani_text, uri) {
                 for (var k=0; k<names.length; k+=1) {
                     var datum = params[k+2];
                     var name = names[k];
-                    if (please.is_attr(datum)) {
-                        sprite[name] = datum;
+                    if (please.gani.is_attr(datum)) {
+                        sprite[name] = datum.toLowerCase();
                     }
                     else {
                         if (k > 0 && k < 5) {
@@ -2386,7 +2755,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             // setbackto setting
             if (params[0] === "SETBACKTO") {
                 ani.continuous = false;
-                if (please.is_number(params[1])) {
+                if (please.gani.is_number_def(params[1])) {
                     ani.setbackto = Number(params[1]);
                 }
                 else {
@@ -2400,9 +2769,9 @@ please.media.__AnimationData = function (gani_text, uri) {
             }
             // default values for attributes
             if (params[0].startsWith("DEFAULT")) {
-                var attr_name = params[0].slice(7);
+                var attr_name = params[0].slice(7).toLowerCase();
                 var datum = params[1];
-                if (please.is_number(params[1])) {
+                if (please.gani.is_number_def(params[1])) {
                     datum = Number(datum);
                 }
                 ani.attrs[attr_name] = datum;
@@ -2441,7 +2810,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             for (var n=0; n<names.length; n+=1) {
                 var name = names[n];
                 var datum = chunks[n];
-                if (please.is_attr(datum)) {
+                if (please.gani.is_attr(datum)) {
                     sprite[name] = datum;
                 }
                 else {
@@ -2474,7 +2843,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
                 else if (params[0] === "PLAYSOUND") {
                     var sound_file = params[1];
-                    if (!please.is_attr(sound_file)) {
+                    if (!please.gani.is_attr(sound_file)) {
                         ani.__resources[sound_file] = true;
                     }
                     frame.sound = {
@@ -2522,54 +2891,115 @@ please.media.__AnimationData = function (gani_text, uri) {
         if (alpha) {
             node.sort_mode = "alpha";
         }
-        node.gani = this.create();
-        if (!node.gani.data.ibo) {
-            // build the VBO and IBO for this animation.
-            please.gani.build_gl_buffers(node.gani.data);
-        }
-        // this is called when the animation "loops back" to another animation
-        node.gani.on_change_reel = function (ani, new_ani) {
+        // cache of gani data
+        node.__ganis = {};
+        node.__current_gani = null;
+        node.__current_frame = null;
+        // The .add_gani method can be used to load additional
+        // animations on to a gani graph node.  This is useful for
+        // things like characters.
+        node.add_gani = function (resource) {
+            if (typeof(resource) === "string") {
+                resource = please.access(resource);
+            }
+            // We just want 'resource', since we don't need any of the
+            // animation machinery and won't be state tracking on the
+            // gani object.
+            var ani_name = resource.__uri;
+            var action_name = ani_name.split("/").slice(-1)[0];
+            if (action_name.endsWith(".gani")) {
+                action_name = action_name.slice(0, -5);
+            }
+            if (!node.__ganis[action_name]) {
+                node.__ganis[action_name] = resource;
+                if (!resource.ibo) {
+                    // build the VBO and IBO for this animation.
+                    please.gani.build_gl_buffers(resource);
+                }
+                // Bind new attributes
+                please.prop_map(resource.attrs, function (name, value) {
+                    if (!node[name]) {
+                        node[name] = value;
+                        //please.make_animatable(node, name, value);
+                    }
+                });
+                // Bind direction handle
+                if (!node.hasOwnProperty("dir")) {
+                    var write_hook = function (target, prop, obj) {
+                        var cache = obj.__ani_cache;
+                        var store = obj.__ani_store;
+                        var old_value = store[prop];
+                        var new_value = Math.floor(old_value % 4);
+                        if (new_value < 0) {
+                            new_value += 4;
+                        }
+                        if (new_value !== old_value) {
+                            cache[prop] = null;
+                            store[prop] = new_value;
+                        }
+                    };
+                    please.make_animatable(node, "dir", 0, null, null, write_hook);
+                }
+                // Generate the frameset for the animation.
+                var score = resource.frames.map(function (frame) {
+                    return {
+                        "speed" : frame.wait,
+                        "callback" : function (speed, skip_to) {
+                            // FIXME play frame.sound
+                            node.__current_frame = frame;
+                            node.__current_gani = resource;
+                        },
+                    };
+                });
+                // add the action for this animation
+                please.time.add_score(node, action_name, score);
+                // configure the new action
+                var action = node.actions[action_name];
+                action.repeat = resource.looping;
+                //action.queue = resource.setbackto; // not sure about this
+            }
         };
-        node.bind = function () {
-            node.gani.data.vbo.bind();
-            node.gani.data.ibo.bind();
-        };
+        node.add_gani(this);
+        // draw function for the animation
         node.draw = function () {
-            if (node.sort_mode === "alpha") {
-                gl.depthMask(false);
-            }
-            else {
-                var offset_factor = -1;
-                var offset_units = -2;
-                gl.enable(gl.POLYGON_OFFSET_FILL);
-            }
-            var prog = please.gl.get_program();
-            var ibo = node.gani.data.ibo;
-            var frame_ptr = node.gani.__frame_pointer;
-            var direction = node.gani.data.single_dir ? 0 : node.gani.dir;
-            var frame = node.gani.data.frames[frame_ptr].data[direction];
+            var frame = node.__current_frame;
+            var resource = node.__current_gani;
             if (frame) {
-                for (var i=0; i<frame.length; i+=1) {
-                    //if (i >= 1) { break; }
-                    var blit = frame[i];
-                    var attr = node.gani.data.sprites[blit.sprite].resource.toLowerCase();;
-                    var asset_name = node.gani.attrs[attr]
+                if (node.sort_mode === "alpha") {
+                    gl.depthMask(false);
+                }
+                else {
+                    var offset_factor = -1;
+                    var offset_units = -2;
+                    gl.enable(gl.POLYGON_OFFSET_FILL);
+                }
+                resource.vbo.bind();
+                resource.ibo.bind();
+                var ibo = resource.ibo;
+                var dir = resource.single_dir ? 0 : node.dir;
+                var draw_set = frame.data[dir];
+                for (var i=0; i<draw_set.length; i+=1) {
+                    var blit = draw_set[i];
+                    var attr = resource.sprites[blit.sprite].resource;
+                    //var asset_name = resource.attrs[attr];
+                    var asset_name = node[attr];
                     var asset = please.access(asset_name, null);
                     if (asset) {
                         asset.scale_filter = "NEAREST";
                     }
+                    var prog = please.gl.get_program();
                     prog.samplers["diffuse_texture"] = asset_name;
                     if (node.sort_mode !== "alpha") {
                         gl.polygonOffset(offset_factor, offset_units*i);
                     }
                     ibo.draw(blit.ibo_start, blit.ibo_total);
                 }
-            }
-            if (node.sort_mode === "alpha") {
-                gl.depthMask(true);
-            }
-            else {
-                gl.disable(gl.POLYGON_OFFSET_FILL);
+                if (node.sort_mode === "alpha") {
+                    gl.depthMask(true);
+                }
+                else {
+                    gl.disable(gl.POLYGON_OFFSET_FILL);
+                }
             }
         };
         return node;
@@ -3579,7 +4009,9 @@ please.gl.__jta_model = function (src, uri) {
                     root.armature_lookup = rig;
                 }
                 if (scene.actions) {
-                    please.gl.__jta_pdq_ani_handler(root, scene.actions);
+                    please.prop_map(scene.actions, function(name, data) {
+                        please.gl.__jta_add_action(root, name, data);
+                    });
                 }
                 return root;
             }
@@ -3656,6 +4088,63 @@ please.gl.__jta_model = function (src, uri) {
     };
     console.info("Done loading " + uri + " ...?");
     return scene;
+};
+// Hook up the animation events to the object.
+please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
+    // this method finds an object within the root graph node by a
+    // given name
+    var find_object = function(export_id) {
+        var local_id = export_id;
+        var bone_index = export_id.indexOf(":bone:");
+        if (bone_index > -1) {
+            local_id = export_id.slice(bone_index + 6);
+        }
+        return root_node.armature_lookup[local_id];
+    };
+    var attr_constants = [
+        "location",
+        "quaternion",
+        "scale",
+    ];
+    // this method creates the frame-ready callback that sets up the
+    // driver functions for animation.
+    var make_frame_callback = function(start_updates, end_updates) {
+        return function(speed, skip_to) {
+            for (var object_id in start_updates) if (start_updates.hasOwnProperty(object_id)) {
+                var obj_start = start_updates[object_id];
+                var obj_end = end_updates[object_id];
+                if (obj_start && obj_end) {
+                    var node = find_object(object_id);
+                    if (node) {
+                        for (var i=0; i<attr_constants.length; i+=1) {
+                            var attr = attr_constants[i];
+                            if (obj_start[attr] && obj_end[attr]) {
+                                var lhs = obj_start[attr];
+                                var rhs = obj_end[attr];
+                                if (skip_to) {
+                                    lhs = please.mix(lhs, rhs, skip_to);
+                                }
+                                var path = please.linear_path(lhs, rhs)
+                                node[attr] = please.path_driver(path, speed);
+                            }
+                        }
+                    }
+                }
+            }
+        };
+    };
+    // this bit cycles through the exported frame data from blender
+    // and produces a set of frame callbacks for mgrl's animation system.
+    var frame_set = [];
+    for (var low, high, i=0; i<raw_data.track.length-1; i+=1) {
+        low = raw_data.track[i];
+        high = raw_data.track[i+1];
+        frame_set.push({
+            "speed" : (high.start - low.start),
+            "callback" : make_frame_callback(low.updates, high.updates),
+        });
+    }
+    please.time.add_score(root_node, action_name, frame_set);
 };
 // This is to just see something working for now.  Will replace it
 // later with something else.
@@ -3737,6 +4226,10 @@ please.gl.__jta_extract_keyframes = function (data) {
                         return quat.fromValues(defs.x, defs.y, defs.z, defs.w);
                     }
                 });
+                if (node_data["position"]) {
+                    node_data["location"] = node_data["position"];
+                    node_data["position"] = undefined;
+                }
                 return node_data;
             });
             action.track.push(frame);
@@ -4147,256 +4640,6 @@ please.gl.__jta_unpack_textures = function (packed_data) {
  * please.pipeline.start();
  * ```
  */
-// Common setup for both animatable property modes.  Creates cache
-// objects and data stores
-please.__setup_ani_data = function(obj) {
-    if (!obj.__ani_cache) {
-        Object.defineProperty(obj, "__ani_cache", {
-            enumerable : false,
-            writable : false,
-            value : {},
-        });
-    }
-    if (!obj.__ani_store) {
-        Object.defineProperty(obj, "__ani_store", {
-            enumerable : false,
-            writable : false,
-            value : {},
-        });
-    }
-};
-// [+] please.make_animatable(obj, prop, default_value, proxy, lock)
-//
-// Sets up the machinery needed to make the given property on an
-// object animatable.
-//
-please.make_animatable = function(obj, prop, default_value, proxy, lock) {
-    // obj is the value of this, but proxy determines where the
-    // getter/setter is saved
-    var target = proxy ? proxy : obj;
-    // Create the cache object if it does not yet exist.
-    please.__setup_ani_data(obj);
-    var cache = obj.__ani_cache;
-    var store = obj.__ani_store;
-    // Add the new property to the cache object.
-    if (!cache[prop]) {
-        Object.defineProperty(cache, prop, {
-            enumerable: true,
-            writable: true,
-            value: null,
-        });
-    }
-    if (!store[prop]) {
-        Object.defineProperty(store, prop, {
-            enumerable: true,
-            writable: true,
-            value: default_value!==undefined ? default_value : null,
-        });
-    }
-    // Local time stamp for cache invalidation.
-    var last_update = 0;
-    // Define the getters and setters for the new property.
-    var getter = function () {
-        if (typeof(store[prop]) === "function") {
-            // determine if the cached value is too old
-            if (cache[prop] === null || please.pipeline.__framestart > last_update) {
-                cache[prop] = store[prop].call(obj);
-                last_update = please.pipeline.__framestart;
-            }
-            return cache[prop];
-        }
-        else {
-            return store[prop];
-        }
-    };
-    var setter = function (value) {
-        cache[prop] = null;
-        store[prop] = value;
-        return value;
-    };
-    if (!lock) {
-        Object.defineProperty(target, prop, {
-            enumerable: true,
-            get : getter,
-            set : setter,
-        });
-    }
-    else {
-        Object.defineProperty(target, prop, {
-            enumerable: true,
-            get : getter,
-            set : function (value) {
-                return value;
-            },
-        });
-    }
-};
-// [+] please.make_animatable_tripple(object, prop, swizzle, default_value, proxy);
-//
-// Makes property 'prop' an animatable tripple / vec3 / array with
-// three items.  Parameter 'object' determines where the cache lives,
-// the value of 'this' passed to driver functions, and if proxy is
-// unset, this also determines where the animatable property is
-// written.  The 'prop' argument is the name of the property to be
-// animatable (eg 'location').  Swizzle is an optional string of three
-// elements that determines the channel names (eg, 'xyz' to produce
-// location_x, location_y, and location_z).  The 'initial' argument
-// determines what the property should be set to, and 'proxy'
-// determines an alternate object for which the properties are written
-// to.
-//
-// As mentioned above, if an animatable tripple is passed a GraphNode,
-// then an implicit driver function will be generated such that it
-// returns the 'location' property of the GraphNode.
-//
-// If the main handle (eg 'location') is assigned a driver function,
-// then the swizzle handles (eg, 'location_x') will stop functioning
-// as setters until the main handle is cleared.  You can still assign
-// values to the channels, and they will appear when the main handle's
-// driver function is removed.  To clear the main handle's driver
-// function, set it to null.
-//
-please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, write_hook) {
-    // obj is the value of this, but proxy determines where the
-    // getter/setter is saved
-    var target = proxy ? proxy : obj;
-    // Create the cache object if it does not yet exist.
-    please.__setup_ani_data(obj);
-    var cache = obj.__ani_cache;
-    var store = obj.__ani_store;
-    // Determine the swizzle handles.
-    if (!swizzle) {
-        swizzle = "xyz";
-    }
-    var handles = [];
-    for (var i=0; i<swizzle.length; i+=1) {
-        handles.push(prop + "_" + swizzle[i]);
-    }
-    // Determine cache object entries.
-    var cache_lines = [prop + "_focus"].concat(handles);
-    for (var i=0; i<cache_lines.length; i+=1) {
-        // Add cache lines for this property set.
-        var line_name = cache_lines[i];
-        if (!cache[line_name]) {
-            Object.defineProperty(cache, line_name, {
-                enumerable: true,
-                writable: true,
-                value: null,
-            });
-        }
-    }
-    // Local timestamps for cache invalidation.
-    var last_focus = 0;
-    var last_channel = [0, 0, 0];
-    // Local data stores.
-    if (!store[prop + "_" + swizzle]) {
-        Object.defineProperty(store, prop+"_"+swizzle, {
-            enumerable: true,
-            writable: true,
-            value: [0, 0, 0],
-        });
-    }
-    if (!store[prop + "_focus"]) {
-        Object.defineProperty(store, prop+"_focus", {
-            enumerable: true,
-            writable: true,
-            value: null,
-        });
-    }
-    // Add getters and setters for the individual channels.
-    var channel_getter = function (i) {
-        return function () {
-            if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
-                return target[prop][i];
-            }
-            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("location")) {
-                return store[prop+"_focus"].location[i];
-            }
-            else {
-                if (typeof(store[prop+"_"+swizzle][i]) === "function") {
-                    // determine if the cached value is too old
-                    if (cache[handles[i]] === null || please.pipeline.__framestart > last_channel[i]) {
-                        cache[handles[i]] = store[prop+"_"+swizzle][i].call(obj);
-                        last_channel[i] = please.pipeline.__framestart;
-                    }
-                    return cache[handles[i]];
-                }
-                else {
-                    return store[prop+"_"+swizzle][i];
-                }
-            }
-        };
-    };
-    var channel_setter = function (i) {
-        return function(value) {
-            cache[prop] = null;
-            cache[handles[i]] = null;
-            store[prop+"_"+swizzle][i] = value;
-            if (typeof(write_hook) === "function") {
-                write_hook(target, prop, obj);
-            }
-            return value;
-        };
-    };
-    for (var i=0; i<handles.length; i+=1) {
-        Object.defineProperty(target, handles[i], {
-            enumerable : true,
-            get : channel_getter(i),
-            set : channel_setter(i),
-        });
-    }
-    // Getter and setter for the tripple object itself.
-    Object.defineProperty(target, prop, {
-        enumerable : true,
-        get : function () {
-            if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
-                if (cache[prop] === null || please.pipeline.__framestart > last_focus) {
-                    cache[prop] = store[prop+"_focus"].call(obj);
-                    last_focus = please.pipeline.__framestart
-                }
-                return cache[prop];
-            }
-            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("location")) {
-                return store[prop+"_focus"].location;
-            }
-            else {
-                var out = [];
-                // FIXME maybe do something to make the all of the
-                // properties except 'dirty' immutable.
-                for (var i=0; i<handles.length; i+=1) {
-                    out.push(target[handles[i]]);
-                }
-                out.dirty = true;
-                return out;
-            }
-        },
-        set : function (value) {
-            cache[prop] = null;
-            if (value === null || value === undefined) {
-                store[prop+"_focus"] = null;
-            }
-            else if (typeof(value) === "function") {
-                store[prop+"_focus"] = value;
-            }
-            else if (value.hasOwnProperty("location")) {
-                store[prop+"_focus"] = value;
-            }
-            else if (value.length) {
-                for (var i=0; i<value.length; i+=1) {
-                    target[handles[i]] = value[i];
-                }
-            }
-            if (typeof(write_hook) === "function") {
-                write_hook(target, prop, obj);
-            }
-            return value;
-        },
-    });
-    // Finaly, set the inital value if applicable.
-    if (initial) {
-        target[prop] = initial;
-    }
-};
 // [+] please.GraphNode()
 //
 // Constructor function that creates an Empty node.  The constructor
