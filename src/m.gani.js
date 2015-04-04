@@ -757,8 +757,22 @@ please.media.__AnimationData = function (gani_text, uri) {
                 });
 
                 // Bind direction handle
-                if (!this.dir) {
-                    please.make_animatable(this, "dir", 0);
+                if (!node.hasOwnProperty("dir")) {
+                    var write_hook = function (target, prop, obj) {
+                        var cache = obj.__ani_cache;
+                        var store = obj.__ani_store;
+                        var old_value = store[prop];
+
+                        var new_value = Math.floor(old_value % 4);
+                        if (new_value < 0) {
+                            new_value += 4;
+                        }
+                        if (new_value !== old_value) {
+                            cache[prop] = null;
+                            store[prop] = new_value;
+                        }
+                    };
+                    please.make_animatable(node, "dir", 0, null, null, write_hook);
                 }
 
                 // Generate the frameset for the animation.

@@ -777,12 +777,12 @@ please.__setup_ani_data = function(obj) {
         });
     }
 };
-// [+] please.make_animatable(obj, prop, default_value, proxy, lock)
+// [+] please.make_animatable(obj, prop, default_value, proxy, lock, write_hook)
 //
 // Sets up the machinery needed to make the given property on an
 // object animatable.
 //
-please.make_animatable = function(obj, prop, default_value, proxy, lock) {
+please.make_animatable = function(obj, prop, default_value, proxy, lock, write_hook) {
     // obj is the value of this, but proxy determines where the
     // getter/setter is saved
     var target = proxy ? proxy : obj;
@@ -824,6 +824,9 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock) {
     var setter = function (value) {
         cache[prop] = null;
         store[prop] = value;
+        if (typeof(write_hook) === "function") {
+            write_hook(target, prop, obj);
+        }
         return value;
     };
     if (!lock) {
@@ -843,7 +846,7 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock) {
         });
     }
 };
-// [+] please.make_animatable_tripple(object, prop, swizzle, default_value, proxy);
+// [+] please.make_animatable_tripple(object, prop, swizzle, default_value, proxy, write_hook);
 //
 // Makes property 'prop' an animatable tripple / vec3 / array with
 // three items.  Parameter 'object' determines where the cache lives,
@@ -2921,8 +2924,21 @@ please.media.__AnimationData = function (gani_text, uri) {
                     }
                 });
                 // Bind direction handle
-                if (!this.dir) {
-                    please.make_animatable(this, "dir", 0);
+                if (!node.hasOwnProperty("dir")) {
+                    var write_hook = function (target, prop, obj) {
+                        var cache = obj.__ani_cache;
+                        var store = obj.__ani_store;
+                        var old_value = store[prop];
+                        var new_value = Math.floor(old_value % 4);
+                        if (new_value < 0) {
+                            new_value += 4;
+                        }
+                        if (new_value !== old_value) {
+                            cache[prop] = null;
+                            store[prop] = new_value;
+                        }
+                    };
+                    please.make_animatable(node, "dir", 0, null, null, write_hook);
                 }
                 // Generate the frameset for the animation.
                 var score = resource.frames.map(function (frame) {
