@@ -250,7 +250,7 @@ please.split_params = function (line, delim) {
  * please.is_number("one hundred"); // return false
  * please.is_number({}); // return false
  */
-// [+] please.is\_number(param)
+// [+] please.is\_gani\_number(param)
 //
 // **DEPRECATED** this method will likely be renamed in the future,
 // or removed all together if .gani parsing functionality is spun off
@@ -265,7 +265,7 @@ please.split_params = function (line, delim) {
 //
 // - **param** Some object, presumably a string or a number.
 //
-please.is_number = function (param) {
+please.is_gani_number = function (param) {
     if (typeof(param) === "number") {
         return true;
     }
@@ -277,7 +277,7 @@ please.is_number = function (param) {
         return false;
     }
 };
-// [+] please.is\_attr(param)
+// [+] please.is\_gani\_attr(param)
 //
 // **DEPRECATED** this method will likely be renamed in the future,
 // or removed all together if .gani parsing functionality is spun off
@@ -289,9 +289,9 @@ please.is_number = function (param) {
 // - **param** A string that might refer to a .gani attribute
 // something else.
 //
-please.is_attr = function (param) {
+please.is_gani_attr = function (param) {
     if (typeof(param) === "string") {
-        var found = param.match(/^[A-Z]+[0-9A-Z]*$/);
+        var found = param.match(/^[A-Za-z]+[0-9A-Za-z]*$/);
         return (found !== null && found.length === 1);
     }
     else {
@@ -2426,7 +2426,7 @@ please.media.__AnimationInstance = function (animation_data) {
     });
     // This is used to bind an object's proprety to an "attribute".
     var bind_or_copy = function (object, key, value) {
-        if (please.is_attr(value)) {
+        if (please.is_gani_attr(value)) {
             var getter = function () {
                 return ani.__attrs[value];
             };
@@ -2716,7 +2716,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                 for (var k=0; k<names.length; k+=1) {
                     var datum = params[k+2];
                     var name = names[k];
-                    if (please.is_attr(datum)) {
+                    if (please.is_gani_attr(datum)) {
                         sprite[name] = datum.toLowerCase();
                     }
                     else {
@@ -2751,7 +2751,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             // setbackto setting
             if (params[0] === "SETBACKTO") {
                 ani.continuous = false;
-                if (please.is_number(params[1])) {
+                if (please.is_gani_number(params[1])) {
                     ani.setbackto = Number(params[1]);
                 }
                 else {
@@ -2767,7 +2767,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             if (params[0].startsWith("DEFAULT")) {
                 var attr_name = params[0].slice(7).toLowerCase();
                 var datum = params[1];
-                if (please.is_number(params[1])) {
+                if (please.is_gani_number(params[1])) {
                     datum = Number(datum);
                 }
                 ani.attrs[attr_name] = datum;
@@ -2806,7 +2806,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             for (var n=0; n<names.length; n+=1) {
                 var name = names[n];
                 var datum = chunks[n];
-                if (please.is_attr(datum)) {
+                if (please.is_gani_attr(datum)) {
                     sprite[name] = datum;
                 }
                 else {
@@ -2839,7 +2839,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
                 else if (params[0] === "PLAYSOUND") {
                     var sound_file = params[1];
-                    if (!please.is_attr(sound_file)) {
+                    if (!please.is_gani_attr(sound_file)) {
                         ani.__resources[sound_file] = true;
                     }
                     frame.sound = {

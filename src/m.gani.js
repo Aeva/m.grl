@@ -130,7 +130,7 @@ please.media.__AnimationInstance = function (animation_data) {
 
     // This is used to bind an object's proprety to an "attribute".
     var bind_or_copy = function (object, key, value) {
-        if (please.is_attr(value)) {
+        if (please.is_gani_attr(value)) {
             var getter = function () {
                 return ani.__attrs[value];
             };
@@ -454,7 +454,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                 ITER(k, names) {
                     var datum = params[k+2];
                     var name = names[k];
-                    if (please.is_attr(datum)) {
+                    if (please.is_gani_attr(datum)) {
                         sprite[name] = datum.toLowerCase();
                     }
                     else {
@@ -494,7 +494,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             // setbackto setting
             if (params[0] === "SETBACKTO") {
                 ani.continuous = false;
-                if (please.is_number(params[1])) {
+                if (please.is_gani_number(params[1])) {
                     ani.setbackto = Number(params[1]);
                 }
                 else {
@@ -511,7 +511,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             if (params[0].startsWith("DEFAULT")) {
                 var attr_name = params[0].slice(7).toLowerCase();
                 var datum = params[1];
-                if (please.is_number(params[1])) {
+                if (please.is_gani_number(params[1])) {
                     datum = Number(datum);
                 }
                 ani.attrs[attr_name] = datum;
@@ -557,7 +557,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             ITER(n, names) {
                 var name = names[n];
                 var datum = chunks[n];
-                if (please.is_attr(datum)) {
+                if (please.is_gani_attr(datum)) {
                     sprite[name] = datum;
                 }
                 else {
@@ -591,7 +591,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
                 else if (params[0] === "PLAYSOUND") {
                     var sound_file = params[1];
-                    if (!please.is_attr(sound_file)) {
+                    if (!please.is_gani_attr(sound_file)) {
                         ani.__resources[sound_file] = true;
                     }
                     frame.sound = {

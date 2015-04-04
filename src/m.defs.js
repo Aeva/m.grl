@@ -244,7 +244,7 @@ please.split_params = function (line, delim) {
  * please.is_number({}); // return false
  */
 
-// [+] please.is\_number(param)
+// [+] please.is\_gani\_number(param)
 //
 // **DEPRECATED** this method will likely be renamed in the future,
 // or removed all together if .gani parsing functionality is spun off
@@ -259,7 +259,7 @@ please.split_params = function (line, delim) {
 //
 // - **param** Some object, presumably a string or a number.
 //
-please.is_number = function (param) {
+please.is_gani_number = function (param) {
     if (typeof(param) === "number") {
         return true;
     }
@@ -273,7 +273,7 @@ please.is_number = function (param) {
 };
 
 
-// [+] please.is\_attr(param)
+// [+] please.is\_gani\_attr(param)
 //
 // **DEPRECATED** this method will likely be renamed in the future,
 // or removed all together if .gani parsing functionality is spun off
@@ -285,9 +285,9 @@ please.is_number = function (param) {
 // - **param** A string that might refer to a .gani attribute
 // something else.
 //
-please.is_attr = function (param) {
+please.is_gani_attr = function (param) {
     if (typeof(param) === "string") {
-        var found = param.match(/^[A-Z]+[0-9A-Z]*$/);
+        var found = param.match(/^[A-Za-z]+[0-9A-Za-z]*$/);
         return (found !== null && found.length === 1);
     }
     else {
