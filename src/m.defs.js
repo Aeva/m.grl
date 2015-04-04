@@ -829,12 +829,12 @@ please.__setup_ani_data = function(obj) {
 };
 
 
-// [+] please.make_animatable(obj, prop, default_value, proxy, lock)
+// [+] please.make_animatable(obj, prop, default_value, proxy, lock, write_hook)
 //
 // Sets up the machinery needed to make the given property on an
 // object animatable.
 //
-please.make_animatable = function(obj, prop, default_value, proxy, lock) {
+please.make_animatable = function(obj, prop, default_value, proxy, lock, write_hook) {
     // obj is the value of this, but proxy determines where the
     // getter/setter is saved
     var target = proxy ? proxy : obj;
@@ -880,6 +880,9 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock) {
     var setter = function (value) {
         cache[prop] = null;
         store[prop] = value;
+        if (typeof(write_hook) === "function") {
+            write_hook(target, prop, obj);
+        }
         return value;
     };
 
@@ -902,7 +905,7 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock) {
 };
 
 
-// [+] please.make_animatable_tripple(object, prop, swizzle, default_value, proxy);
+// [+] please.make_animatable_tripple(object, prop, swizzle, default_value, proxy, write_hook);
 //
 // Makes property 'prop' an animatable tripple / vec3 / array with
 // three items.  Parameter 'object' determines where the cache lives,
