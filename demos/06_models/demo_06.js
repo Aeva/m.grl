@@ -47,6 +47,7 @@ addEventListener("load", function() {
     please.load("uvmap.png");
     please.load("floor_lamp.png");
     please.load("mr_squeegee_feet.jta");
+    please.load("anitest2.jta");
 
     show_progress();
 });
@@ -165,6 +166,11 @@ addEventListener("mgrl_media_ready", function () {
         graph.add(lamp);
     }
 
+    // add a test mode
+    var anitest2 = window.anitest2 = please.access("anitest2.jta").instance();
+    anitest2.scale = [1.25, 1.25, 1.26];
+    graph.add(anitest2);
+    
     // add a floor
     graph.add(new FloorNode());
 
