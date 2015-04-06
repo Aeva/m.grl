@@ -26,7 +26,7 @@ import bmesh
 import mathutils
 import bpy_extras.io_utils
 
-from .common import Empty
+from .common import Empty, ani_transforms
 from .texture_data import TextureStore
 from .model_data import Model, Attribute
 from .rig_data import Rig
@@ -220,8 +220,10 @@ def save(operator, context, options={}):
                                 for key, value in changed.items():
                                     cache[bone.name][key] = value
 
-                # check objecs for updates
-                ## FIXME: keyframes for objects not supported yet"
+                # check other objecs for updates
+                for group in [export_meshes, export_empties]:
+                    for entity in group:
+                        ani_transforms(entity, cache, updates, first)
 
                 first = False
                 if updates:
