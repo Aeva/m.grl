@@ -4102,10 +4102,13 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
     var find_object = function(export_id) {
         var local_id = export_id;
         var bone_index = export_id.indexOf(":bone:");
-        if (bone_index > -1) {
+        if (bone_index !== -1) {
             local_id = export_id.slice(bone_index + 6);
+            return root_node.armature_lookup[local_id];
         }
-        return root_node.armature_lookup[local_id];
+        else {
+            return root_node.node_lookup[local_id];
+        }
     };
     var attr_constants = [
         "location",
