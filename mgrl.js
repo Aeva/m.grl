@@ -1169,7 +1169,7 @@ please.time.add_score = function (node, action_name, frame_set) {
             // animation finished, spill-over action specified, so
             // just call the last frame and don't schedule any more
             // updates.
-            var frame = action.frames.slice(-1);
+            var frame = action.frames.slice(-1)[0];
             frame.callback(frame.speed / action.speed);
         }
     };
@@ -4153,7 +4153,12 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
             "callback" : make_frame_callback(low.updates, high.updates),
         });
     }
-    please.time.add_score(root_node, action_name, frame_set);
+    if (frame_set.length>0) {
+        please.time.add_score(root_node, action_name, frame_set);
+    }
+    else {
+        console.warn("No frames found for action " + action_name);
+    }
 };
 // Reads the raw animation data defined in the jta file and returns a
 // similar object tree.  The main difference is instead of storing

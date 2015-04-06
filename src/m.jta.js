@@ -272,8 +272,13 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
             "callback" : make_frame_callback(low.updates, high.updates),
         });
     }
-    
-    please.time.add_score(root_node, action_name, frame_set);
+
+    if (frame_set.length>0) {
+        please.time.add_score(root_node, action_name, frame_set);
+    }
+    else {
+        console.warn("No frames found for action " + action_name);
+    }
 };
 
 

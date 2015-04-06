@@ -175,7 +175,7 @@ please.time.add_score = function (node, action_name, frame_set) {
             // animation finished, spill-over action specified, so
             // just call the last frame and don't schedule any more
             // updates.
-            var frame = action.frames.slice(-1);
+            var frame = action.frames.slice(-1)[0];
             frame.callback(frame.speed / action.speed);
         }
     };
