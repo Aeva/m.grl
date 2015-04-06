@@ -4155,63 +4155,6 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
     }
     please.time.add_score(root_node, action_name, frame_set);
 };
-// This is to just see something working for now.  Will replace it
-// later with something else.
-please.gl.__jta_pdq_ani_handler = function (node, actions) {
-    node.actions = {};
-    var make_frame_handler = function(action) {
-        var frame = 0;
-        return function handler_method (now) {
-            if (frame >= action.track.length-1) {
-                // edge case for when we hit the last frame
-                if (action.repeat) {
-                    frame = 0;
-                }
-                else {
-                    console.info("stopped");
-                    return;
-                }
-            }
-            // frame data
-            var next = action.track[frame];
-            var after = action.track[frame+1]; // assumes greater than 1 frame
-            var trigger = (after.start - next.start) * 1000;
-            // setup driver methods here
-            for (var lookup in next.updates) if (next.updates.hasOwnProperty(lookup)) {
-                // HACK
-                var local_name = lookup.slice(lookup.indexOf(":bone:") + 6);
-                var bone = node.armature_lookup[local_name];
-                if (bone) {
-                    var low = next.updates[lookup];
-                    var high = after.updates[lookup];
-                    for (var prop in low) if (low.hasOwnProperty(prop)) {
-                        var local_prop = prop;
-                        if (prop === "position") {
-                            local_prop = "location";
-                        }
-                        bone[local_prop] = low[prop];
-                        if (high && high[prop]) {
-                            var lhs = bone[local_prop];
-                            var rhs = high[prop];
-                            bone[local_prop] = please.path_driver(
-                                please.linear_path(lhs, rhs), trigger, false, false);
-                        }
-                    }
-                }
-            }
-            // move the frame counter and maybe reschedule
-            frame += 1;
-            please.time.schedule(handler_method, trigger);
-        };
-    };
-    please.prop_map(actions, function(action_name, action) {
-        node.actions[action_name] = function() {
-            var handler = make_frame_handler(action);
-            please.time.schedule(handler, 0.0);
-        };
-        node.actions[action_name].data = action;
-    });
-};
 // Reads the raw animation data defined in the jta file and returns a
 // similar object tree.  The main difference is instead of storing
 // vectors and quats as dictionaries of their channels to values, the
