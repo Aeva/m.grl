@@ -74,7 +74,8 @@ please.gl.__jta_model = function (src, uri) {
         // all object
         if (!model_name) {
             var models = please.get_properties(scene.models);
-            if (models.length === 1) {
+            var empties = please.get_properties(scene.empties);
+            if (models.length + empties.length === 1) {
                 return scene.instance(models[0]);
             }
             else {
@@ -109,10 +110,14 @@ please.gl.__jta_model = function (src, uri) {
 
                 var rig = {};
                 var has_rig = false;
+                root.node_lookup = {};
                 root.propogate(function (node) {
                     if (node.is_bone) {
                         has_rig = true;
                         rig[node.bone_name] = node;
+                    }
+                    else if (node.node_name) {
+                        root.node_lookup[node.node_name] = node;
                     }
                 });
                 if (has_rig) {
@@ -132,6 +137,7 @@ please.gl.__jta_model = function (src, uri) {
             var entity = model || empty;
             if (entity) {
                 var node = new please.GraphNode();
+                node.node_name = model_name;
                 if (model) {
                     node.__asset_hint = uri + ":" + model.__vbo_hint;
                     node.__asset = model;
