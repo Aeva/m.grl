@@ -2270,7 +2270,7 @@ please.pipeline.__regen_cache = function () {
  *
  */
 // "gani" media type handler
-please.media.search_paths.ani = "";
+please.media.search_paths.gani = "";
 please.media.handlers.gani = function (url, asset_name, callback) {
     var media_callback = function (req) {
         please.media.assets[asset_name] = new please.media.__AnimationData(
