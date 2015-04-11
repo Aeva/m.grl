@@ -4186,7 +4186,7 @@ please.gl.__jta_extract_keyframes = function (data) {
                 });
                 if (node_data["position"]) {
                     node_data["location"] = node_data["position"];
-                    node_data["position"] = undefined;
+                    delete node_data["position"];
                 }
                 return node_data;
             });
