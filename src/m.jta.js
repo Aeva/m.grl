@@ -75,12 +75,13 @@ please.gl.__jta_model = function (src, uri) {
         if (!model_name) {
             var models = please.get_properties(scene.models);
             var empties = please.get_properties(scene.empties);
+            var root = null;
             if (models.length + empties.length === 1) {
-                return scene.instance(models[0]);
+                root = scene.instance(models[0]);
             }
             else {
                 var added = {};
-                var root = new please.GraphNode();
+                root = new please.GraphNode();
                 root.__asset = model;
                 root.__asset_hint = uri + ":";
 
@@ -123,13 +124,13 @@ please.gl.__jta_model = function (src, uri) {
                 if (has_rig) {
                     root.armature_lookup = rig;
                 }
-                if (scene.actions) {
-                    please.prop_map(scene.actions, function(name, data) {
-                        please.gl.__jta_add_action(root, name, data);
-                    });
-                }
-                return root;
             }
+            if (scene.actions) {
+                please.prop_map(scene.actions, function(name, data) {
+                    please.gl.__jta_add_action(root, name, data);
+                });
+            }
+            return root;
         }
         else {
             var model = scene.models[model_name];
