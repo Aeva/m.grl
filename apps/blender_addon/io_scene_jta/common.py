@@ -33,43 +33,6 @@ def format_matrix(matrix):
     return matrix_builder.export()
 
 
-def ani_transforms(entity, cache, updates, first_frame=True):
-    """
-    Used for animations.  Should probably go in its own file along
-    with the code that calls this as a class.
-    """
-    obj = entity.obj
-    location, rotation, scale = obj.matrix_local.decompose()
-    current = {
-        "position" : dict(zip("xyz", location)),
-        "quaternion" : {
-            "x" : rotation.x,
-            "y" : rotation.y,
-            "z" : rotation.z,
-            "w" : rotation.w,
-        },
-        "scale" : dict(zip("xyz", scale)),
-    }    
-    if not first_frame:
-        changed = {}
-        for prop in current.keys():
-            for channel in current[prop].keys():
-                old_value = round(cache[obj.name][prop][channel], 5)
-                new_value = round(current[prop][channel], 5)
-                if not old_value == new_value:
-                    changed[prop] = {}
-                    changed[prop][channel] = new_value
-                    cache[obj.name][prop][channel] = new_value
-        if changed:
-            updates[obj.name] = changed            
-
-    else:
-        cache[obj.name] = current
-        updates[obj.name] = current
-
-    #import pdb; pdb.set_trace()
-    return current
-
 class Exportable(object):
     """
     This class contains mechanisms for exportable objects.
