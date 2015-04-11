@@ -52,10 +52,10 @@ def ani_transforms(entity, cache, updates, first_frame=True):
             for channel in current[prop].keys():
                 old_value = round(cache[obj.name][prop][channel], 5)
                 new_value = round(current[prop][channel], 5)
-                if not old_value == new_value:
-                    changed[prop] = {}
-                    changed[prop][channel] = new_value
-                    cache[obj.name][prop][channel] = new_value
+                if old_value != new_value:
+                    changed[prop] = current[prop]
+                    cache[obj.name][prop] = changed[prop]
+                    break
         if changed:
             updates[obj.name] = changed            
 
@@ -63,7 +63,6 @@ def ani_transforms(entity, cache, updates, first_frame=True):
         cache[obj.name] = current
         updates[obj.name] = current
 
-    #import pdb; pdb.set_trace()
     return current
 
 
