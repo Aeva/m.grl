@@ -29,7 +29,7 @@ class Vertex(object):
     In WebGL, a vertex is not defined by its coordinates, but rather it
     is a grouping of attributes.  Coordinates are attributes.
     """
-    def __init__(self, position=[], uvs=[], weights=[]):
+    def __init__(self, position=[], uvs=[], weights=[], normals=[]):
         assert len(position) == 3
         assert len(weights) == 0 or len(weights) == 4
         for uv_group in uvs:
@@ -37,13 +37,20 @@ class Vertex(object):
         self.position = tuple(position)
         self.uvs = tuple([tuple(uv) for uv in uvs]) or None
         self.weights = tuple(weights) or None
+        self.normals = tuple(normals) or None
+
+        def simplify(num):
+            return round(num, 5)
+
+        if self.normals:
+            self.normals = tuple(map(simplify, self.normals))
     
     def __hash__(self):
         return hash((self.position, self.uvs, self.weights))
 
     def __eq__(self, another):
-        lhs = (self.position, self.uvs, self.weights)
-        rhs = (another.position, another.uvs, another.weights)
+        lhs = (self.position, self.uvs, self.weights, self.normals)
+        rhs = (another.position, another.uvs, another.weights, another.normals)
         return lhs == rhs
 
 
@@ -62,7 +69,7 @@ class Model(Exportable):
         self.mesh.transform(mathutils.Matrix.Scale(options["global_scale"], 4))
         self.__triangulate()
 
-        self.use_smooth = False
+        self.use_smooth = self.__is_smooth_shading()
         self.use_weights = len(self.obj.vertex_groups) > 0
         self.texture_count = len(self.mesh.uv_textures)
         self.__generate_vertices()
@@ -72,6 +79,15 @@ class Model(Exportable):
         self.export_ready = False
         self.group_export = {}
 
+    def __is_smooth_shading(self):
+        """
+        Determines if smooth shading is in use or not.
+        """
+        smooth = False
+        for face in self.mesh.polygons:
+            smooth = smooth or face.use_smooth
+        return smooth
+    
     def __generate_vertices(self):
         """
         Run through the face data and populate a set of Vertex class
@@ -90,7 +106,6 @@ class Model(Exportable):
         # it in a set and record it in a mapping dict.
         for face in self.mesh.polygons:
             face_vertices = []
-            self.use_smooth = self.use_smooth or face.use_smooth
             for vertex_index, loop_index in zip(face.vertices, face.loop_indices):
                 vdata = self.mesh.vertices[vertex_index]
 
@@ -114,8 +129,9 @@ class Model(Exportable):
                         weights = [group.weight for group in vdata.groups]
                     while len(weights) < 4:
                         weights.append(0.0)
-                
-                vertex = Vertex(position, uvs, weights)
+
+                normal = None if self.use_smooth else vdata.normal
+                vertex = Vertex(position, uvs, weights, normal)
                 self.vertices.append(vertex)
                 face_vertices.append(vertex)
 
