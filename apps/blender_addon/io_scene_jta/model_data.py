@@ -98,7 +98,7 @@ class Model(Exportable):
                 groups = []
                 meta_name = self.get_meta_group_name(vdata)
                 if vdata.groups:
-                    groups = vertex.groups
+                    groups = vdata.groups
                     assert len(groups) <= 4
             
                 # extract the vertex attributes
@@ -111,7 +111,7 @@ class Model(Exportable):
                 if self.use_weights:
                     meta_group = self.get_meta_group_name(vdata)
                     if meta_group != "default":
-                        weights = [group.weight for group in vertex.groups]
+                        weights = [group.weight for group in vdata.groups]
                     while len(weights) < 4:
                         weights.append(0.0)
                 
