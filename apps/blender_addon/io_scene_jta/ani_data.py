@@ -67,6 +67,18 @@ def ani_transforms(entity, cache, updates, first_frame=True):
     return current
 
 
+def has_bone_ancestor(obj):
+    """
+    Returns true if the object claims a bone as an ancestor.
+    """
+    if obj.parent_bone:
+        return True
+    elif obj.parent:
+        return has_bone_ancestor(obj.parent)
+    else:
+        return False
+    
+    
 def export_keyframes(scene, export_meshes, export_empties, export_rigs):
     """
     Returns an object storing animation keyframe data for export.
@@ -116,7 +128,8 @@ def export_keyframes(scene, export_meshes, export_empties, export_rigs):
             # check other objecs for updates
             for group in [export_meshes, export_empties]:
                 for entity in group:
-                    ani_transforms(entity, cache, updates, first)
+                    if not has_bone_ancestor(entity.obj):
+                        ani_transforms(entity, cache, updates, first)
 
             first = False
             if updates:
