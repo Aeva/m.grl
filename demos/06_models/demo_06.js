@@ -170,6 +170,8 @@ addEventListener("mgrl_media_ready", function () {
     var anitest2 = window.anitest2 = please.access("anitest2.jta").instance();
     anitest2.scale = [1.25, 1.25, 1.26];
     graph.add(anitest2);
+    anitest2.actions["Wobble"].repeat = true;
+    anitest2.play("Wobble");
     
     // add a floor
     graph.add(new FloorNode());
