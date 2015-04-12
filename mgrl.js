@@ -1165,13 +1165,6 @@ please.time.add_score = function (node, action_name, frame_set) {
             current_action = action.queue;
             please.time.schedule(frame_handler, 0);
         }
-        else {
-            // animation finished, spill-over action specified, so
-            // just call the last frame and don't schedule any more
-            // updates.
-            var frame = action.frames.slice(-1)[0];
-            frame.callback(frame.speed / action.speed);
-        }
     };
     // start_animation is mixed into node objects as node.start
     var start_animation = function (action_name) {
