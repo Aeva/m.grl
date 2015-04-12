@@ -130,7 +130,7 @@ class Model(Exportable):
                     while len(weights) < 4:
                         weights.append(0.0)
 
-                normal = None if self.use_smooth else vdata.normal
+                normal = [] if self.use_smooth else vdata.normal
                 vertex = Vertex(position, uvs, weights, normal)
                 self.vertices.append(vertex)
                 face_vertices.append(vertex)
