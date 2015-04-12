@@ -116,7 +116,7 @@ def export_keyframes(scene, export_meshes, export_empties, export_rigs):
                     if first:
                         changed = bone.regen_transforms()
                         updates[bone.name] = changed
-                        cache[bone.name] = changed
+                        cache[bone.name] = changed.copy()
                     else:
                         changed = bone.updates_since(cache[bone.name])
                         if changed:
