@@ -277,14 +277,15 @@ Float32Array type since javascript lacks a Float16Array type.</li>
 </div>
 <div class="section" id="please-make-animatable">
 <h2>please.make_animatable<a class="headerlink" href="#please-make-animatable" title="Permalink to this headline">¶</a></h2>
-<p><em>please.make_animatable</em> <strong>(obj, prop, default_value, proxy, lock)</strong></p>
+<p><em>please.make_animatable</em> <strong>(obj, prop, default_value, proxy, lock,
+write_hook)</strong></p>
 <p>Sets up the machinery needed to make the given property on an object
 animatable.</p>
 </div>
 <div class="section" id="please-make-animatable-tripple">
 <h2>please.make_animatable_tripple<a class="headerlink" href="#please-make-animatable-tripple" title="Permalink to this headline">¶</a></h2>
 <p><em>please.make_animatable_tripple</em> <strong>(object, prop, swizzle,
-default_value, proxy);</strong></p>
+default_value, proxy, write_hook);</strong></p>
 <p>Makes property &#8216;prop&#8217; an animatable tripple / vec3 / array with three
 items. Parameter &#8216;object&#8217; determines where the cache lives, the value of
 &#8216;this&#8217; passed to driver functions, and if proxy is unset, this also
