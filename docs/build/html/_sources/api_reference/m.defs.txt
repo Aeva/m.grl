@@ -285,7 +285,8 @@ binary data.
 
 please.make_animatable
 ----------------------
-*please.make\_animatable* **(obj, prop, default\_value, proxy, lock)**
+*please.make\_animatable* **(obj, prop, default\_value, proxy, lock,
+write\_hook)**
 
 Sets up the machinery needed to make the given property on an object
 animatable.
@@ -294,7 +295,7 @@ animatable.
 please.make_animatable_tripple
 ------------------------------
 *please.make\_animatable\_tripple* **(object, prop, swizzle,
-default\_value, proxy);**
+default\_value, proxy, write\_hook);**
 
 Makes property 'prop' an animatable tripple / vec3 / array with three
 items. Parameter 'object' determines where the cache lives, the value of
