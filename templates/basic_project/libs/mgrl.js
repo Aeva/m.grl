@@ -1496,7 +1496,7 @@ please.media._pop = function (req_key) {
             if (please.media.pending.length === 0) {
                 // We still check here to make sure nothing is pending
                 // because some downloads may trigger other downloads.
-                var media_ready = new Event("mgrl_media_ready");
+                var media_ready = new CustomEvent("mgrl_media_ready");
                 window.dispatchEvent(media_ready);
                 please.__wait_for_pending = false;
                 please.media.__load_status = {};
@@ -3356,7 +3356,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
             if (old) {
                 // trigger things to be rebound if neccesary
-                var shader_event = new Event("mgrl_changed_shader");
+                var shader_event = new CustomEvent("mgrl_changed_shader");
                 shader_event.old_program = old;
                 shader_event.new_program = prog;
                 window.dispatchEvent(shader_event);
