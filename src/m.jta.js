@@ -74,12 +74,14 @@ please.gl.__jta_model = function (src, uri) {
         // all object
         if (!model_name) {
             var models = please.get_properties(scene.models);
-            if (models.length === 1) {
-                return scene.instance(models[0]);
+            var empties = please.get_properties(scene.empties);
+            var root = null;
+            if (models.length + empties.length === 1) {
+                root = scene.instance(models[0]);
             }
             else {
                 var added = {};
-                var root = new please.GraphNode();
+                root = new please.GraphNode();
                 root.__asset = model;
                 root.__asset_hint = uri + ":";
 
@@ -109,22 +111,26 @@ please.gl.__jta_model = function (src, uri) {
 
                 var rig = {};
                 var has_rig = false;
+                root.node_lookup = {};
                 root.propogate(function (node) {
                     if (node.is_bone) {
                         has_rig = true;
                         rig[node.bone_name] = node;
                     }
+                    else if (node.node_name) {
+                        root.node_lookup[node.node_name] = node;
+                    }
                 });
                 if (has_rig) {
                     root.armature_lookup = rig;
                 }
-                if (scene.actions) {
-                    please.prop_map(scene.actions, function(name, data) {
-                        please.gl.__jta_add_action(root, name, data);
-                    });
-                }
-                return root;
             }
+            if (scene.actions) {
+                please.prop_map(scene.actions, function(name, data) {
+                    please.gl.__jta_add_action(root, name, data);
+                });
+            }
+            return root;
         }
         else {
             var model = scene.models[model_name];
@@ -132,6 +138,7 @@ please.gl.__jta_model = function (src, uri) {
             var entity = model || empty;
             if (entity) {
                 var node = new please.GraphNode();
+                node.node_name = model_name;
                 if (model) {
                     node.__asset_hint = uri + ":" + model.__vbo_hint;
                     node.__asset = model;
@@ -211,10 +218,13 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
     var find_object = function(export_id) {
         var local_id = export_id;
         var bone_index = export_id.indexOf(":bone:");
-        if (bone_index > -1) {
+        if (bone_index !== -1) {
             local_id = export_id.slice(bone_index + 6);
+            return root_node.armature_lookup[local_id];
         }
-        return root_node.armature_lookup[local_id];
+        else {
+            return root_node.node_lookup[local_id];
+        }
     };
 
     var attr_constants = [
@@ -263,73 +273,13 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
             "callback" : make_frame_callback(low.updates, high.updates),
         });
     }
-    
-    please.time.add_score(root_node, action_name, frame_set);
-};
 
-
-// This is to just see something working for now.  Will replace it
-// later with something else.
-please.gl.__jta_pdq_ani_handler = function (node, actions) {
-    node.actions = {};
-
-    var make_frame_handler = function(action) {
-        var frame = 0;
-        return function handler_method (now) {
-            if (frame >= action.track.length-1) {
-                // edge case for when we hit the last frame
-                if (action.repeat) {
-                    frame = 0;
-                }
-                else {
-                    console.info("stopped");
-                    return;
-                }
-            }
-
-            // frame data
-            var next = action.track[frame];
-            var after = action.track[frame+1]; // assumes greater than 1 frame
-            var trigger = (after.start - next.start) * 1000;
-
-            // setup driver methods here
-            ITER_PROPS(lookup, next.updates) {
-                // HACK
-                var local_name = lookup.slice(lookup.indexOf(":bone:") + 6);
-                var bone = node.armature_lookup[local_name];
-                if (bone) {
-                    var low = next.updates[lookup];
-                    var high = after.updates[lookup];
-                    ITER_PROPS(prop, low) {
-                        var local_prop = prop;
-                        if (prop === "position") {
-                            local_prop = "location";
-                        }
-                        
-                        bone[local_prop] = low[prop];
-                        if (high && high[prop]) {
-                            var lhs = bone[local_prop];
-                            var rhs = high[prop];
-                            bone[local_prop] = please.path_driver(
-                                please.linear_path(lhs, rhs), trigger, false, false);
-                        }
-                    }
-                }
-            }
-
-            // move the frame counter and maybe reschedule
-            frame += 1;
-            please.time.schedule(handler_method, trigger);
-        };
-    };
-    
-    please.prop_map(actions, function(action_name, action) {
-        node.actions[action_name] = function() {
-            var handler = make_frame_handler(action);
-            please.time.schedule(handler, 0.0);
-        };
-        node.actions[action_name].data = action;
-    });
+    if (frame_set.length>0) {
+        please.time.add_score(root_node, action_name, frame_set);
+    }
+    else {
+        console.warn("No frames found for action " + action_name);
+    }
 };
 
 
@@ -358,7 +308,7 @@ please.gl.__jta_extract_keyframes = function (data) {
                 });
                 if (node_data["position"]) {
                     node_data["location"] = node_data["position"];
-                    node_data["position"] = undefined;
+                    delete node_data["position"];
                 }
                 return node_data;
             });

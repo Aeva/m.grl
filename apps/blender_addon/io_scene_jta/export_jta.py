@@ -29,15 +29,8 @@ import bpy_extras.io_utils
 from .common import Empty
 from .texture_data import TextureStore
 from .model_data import Model, Attribute
+from .ani_data import export_keyframes
 from .rig_data import Rig
-
-
-def frame_to_time(frame_number):
-    """
-    Returns the timestamp for a give frame number.
-    """
-    raw_time = frame_number / bpy.context.scene.render.fps
-    return raw_time * 1000.0
 
 
 def save(operator, context, options={}):
@@ -178,59 +171,8 @@ def save(operator, context, options={}):
 
     # export keyframes, if applicable
     if len(bpy.data.actions):
-        container["ani"] = {}
-
-        # FIXME actions should be cut out into their own class
-        for action in bpy.data.actions:
-            name = action.name
-            start, stop = map(int, action.frame_range)
-            container["ani"][name] = {
-                "duration" : frame_to_time(stop - start),
-                "repeat" : False,
-                "track" : [],
-            }
-
-            # figure out where the keyframes are
-            frames = [start, stop]
-            for fcurve in action.fcurves:
-                for point in fcurve.keyframe_points:
-                    frames.append(int(point.co.x))
-            frames = list(set(frames))
-            frames.sort()
-
-            # for each frame, find the set of all objects with
-            # changes.  Note, I think this is not the correct way to
-            # do this.
-            cache = {}
-            first = True
-            for frame in frames:
-                scene.frame_set(frame)
-                updates = {}
-                # check bones for updates
-                for rig in export_rigs:
-                    for bone in rig.bones:
-                        if first:
-                            changed = bone.regen_transforms()
-                            updates[bone.name] = changed
-                            cache[bone.name] = changed
-                        else:
-                            changed = bone.updates_since(cache[bone.name])
-                            if changed:
-                                updates[bone.name] = changed
-                                for key, value in changed.items():
-                                    cache[bone.name][key] = value
-
-                # check objecs for updates
-                ## FIXME: keyframes for objects not supported yet"
-
-                first = False
-                if updates:
-                    keyframe = {
-                        "frame" : frame_to_time(frame),
-                        "updates" : updates,
-                    }
-                    container["ani"][name]["track"].append(keyframe)
-                    
+        container["ani"] = export_keyframes(
+            scene, export_meshes, export_empties, export_rigs)
     
     # add packed data if applicable
     container["packed_data"] = texture_store.export()

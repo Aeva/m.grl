@@ -21,60 +21,68 @@
 
 
 addEventListener("load", function() {
+    // Attach the opengl rendering context.  This must be done before
+    // anything else.
     please.gl.set_context("gl_canvas", {
         antialias : false,
     });
+
+    // Set the clear color for the gl canvas.  Using this metho
+    // instead of opengl's allows for the clear color to be accessible
+    // in the shader, should it be defined as a uniform.  This also
+    // allows for databinding the clear color.
+    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
+
+    // Set OpenGL rendering state defaults directly.  Some of this may
+    // be abstracted by m.grl in the future.
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.enable(gl.CULL_FACE);
+
+    // Define where m.grl is to find various assets when using the
+    // load methed.
     please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "images/");
     please.set_search_path("jta", "models/");
+    please.set_search_path("gani", "ganis/");
     please.set_search_path("audio", "sounds/");
-    please.set_search_path("gani", "keyframes/");
     
-    // load shader sources
+    // Queue up assets to be downloaded before the game starts.
     please.load("simple.vert");
     please.load("simple.frag");
-
-    // load our model files
     please.load("gavroche_hall.jta");
 });
 
 
 addEventListener("mgrl_fps", function (event) {
+    // This handler is called every so often to report an estimation
+    // of the current frame rate, so that it can be displayed to the
+    // user.
     document.getElementById("fps").innerHTML = event.detail;
 });
 
 
 addEventListener("mgrl_media_ready", please.once(function () {
+    // The "mgrl_media_ready" event is called when pending downloads
+    // have finished.  As we are using this to initialize and start
+    // the game, the callback is wrapped in the "please.once"
+    // function, to ensure that it is only called once.
+    
     // Create GL context, build shader pair
     var prog = please.glsl("default", "simple.vert", "simple.frag");
     prog.activate();
-
-    // setup default state stuff    
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
-    gl.enable(gl.CULL_FACE);
-    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
-
-    // store our scene & build the graph:
-    var level_data = please.access("gavroche_hall.jta");
-
-    // build the scene
+        
+    // initialize a scene graph object
     var graph = new please.SceneGraph();
 
-    var level_node = level_data.instance();
-    graph.add(level_node);
-
-    // add a camera object
-    var camera = window.camera = new please.CameraNode();
-    camera.look_at = vec3.fromValues(0, 10, 2.5);
-    camera.location = function () {
-        return [0.0, -14.0, 8.0];
-    };
-    //camera.fov = 57.29; // zoom out a bit
-    camera.fov = please.path_driver(
-        please.linear_path(30, 57.3), 2000, false, false);
+    // add our model to the scene graph
+    var model = please.access("gavroche_hall.jta").instance();
+    graph.add(model);
     
-    // Add the camera to the scene graph
+    // add a camera object to the scene graph
+    var camera = new please.CameraNode();
+    camera.look_at = [0.0, 0.0, 5.0];
+    camera.location = [0.0, -14.0, 8.0];
     graph.add(camera);
 
     // If the camera is not explicitely activated, then the scene
@@ -92,7 +100,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     please.pipeline.add_autoscale();
 
     // register a render pass with the scheduler
-    please.pipeline.add(10, "phone/draw", function () {
+    please.pipeline.add(10, "project/draw", function () {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         graph.draw();
     });
