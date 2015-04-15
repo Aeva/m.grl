@@ -325,7 +325,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
             if (old) {
                 // trigger things to be rebound if neccesary
-                var shader_event = new Event("mgrl_changed_shader");
+                var shader_event = new CustomEvent("mgrl_changed_shader");
                 shader_event.old_program = old;
                 shader_event.new_program = prog;
                 window.dispatchEvent(shader_event);
