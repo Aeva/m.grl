@@ -49,7 +49,7 @@ addEventListener("load", function() {
     
     // Queue up assets to be downloaded before the game starts.
     please.load("simple.vert");
-    please.load("simple.frag");
+    please.load("diffuse.frag");
     please.load("gavroche_hall.jta");
 });
 
@@ -69,7 +69,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // function, to ensure that it is only called once.
     
     // Create GL context, build shader pair
-    var prog = please.glsl("default", "simple.vert", "simple.frag");
+    var prog = please.glsl("default", "simple.vert", "diffuse.frag");
     prog.activate();
         
     // initialize a scene graph object
