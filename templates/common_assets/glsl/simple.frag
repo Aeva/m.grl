@@ -1,9 +1,6 @@
 
 precision mediump float;
 
-
-uniform float time;
-uniform float mode;
 uniform sampler2D diffuse_texture;
 
 uniform float alpha;

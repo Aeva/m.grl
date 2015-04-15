@@ -24,8 +24,9 @@ void main(void) {
   local_tcoords = tcoords;
 
   // various coordinate transforms
-  local_position = (world_matrix * vec4(position, 1.0)).xyz;
-  vec4 final_position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);
+  vec4 world_space = (world_matrix * vec4(position, 1.0));
+  vec4 final_position = projection_matrix * view_matrix * world_space;
   screen_position = final_position.xyz;
+  world_position = world_space.xyz;
   gl_Position = final_position;
 }
