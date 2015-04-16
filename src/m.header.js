@@ -31,6 +31,7 @@
 
 #include "m.macros.js"
 #include "m.defs.js"
+#include "m.pages.js"
 #include "m.qa.js"
 #include "m.time.js"
 #include "m.media.js"
