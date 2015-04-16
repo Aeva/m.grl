@@ -71,7 +71,7 @@ please.pages.create = function (name, options) {
         element.addEventListener("click", function () {
             var outcome = callback();
             if (!outcome) {
-                please.page.hide(name);
+                please.pages.hide(name);
             }
         });
     };
