@@ -1109,10 +1109,10 @@ please.CameraNode.prototype.update_camera = function () {
 
             // If any of the orthographic args are unset, provide our
             // own defaults based on the canvas element's dimensions.
-            left = 0;
-            right = width;
-            bottom = 0;
-            top = height;
+            left = (width/2) * -1;
+            right = (width/2);
+            bottom = (height/2) * -1;
+            top = (height/2);
         }
 
         if (left !== this.__last.left ||
