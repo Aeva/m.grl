@@ -5573,6 +5573,8 @@ please.CameraNode = function () {
     please.make_animatable(this, "bottom", null);;
     please.make_animatable(this, "top", null);;
     please.make_animatable(this, "dpi", 64);;
+    please.make_animatable(this, "origin_x", 0.5);;
+    please.make_animatable(this, "origin_y", 0.5);;
     please.make_animatable(this, "width", null);;
     please.make_animatable(this, "height", null);;
     please.make_animatable(this, "near", 0.1);;
@@ -5602,6 +5604,8 @@ please.CameraNode.prototype.mark_dirty = function () {
         "top" : null,
         "width" : null,
         "height" : null,
+        "origin_x" : null,
+        "origin_y" : null,
         "dpi" : null,
     };
 };

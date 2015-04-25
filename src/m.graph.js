@@ -957,6 +957,8 @@ please.CameraNode = function () {
     ANI("bottom", null);
     ANI("top", null);
     ANI("dpi", 64);
+    ANI("origin_x", 0.5);
+    ANI("origin_y", 0.5);
 
     ANI("width", null);
     ANI("height", null);
@@ -996,6 +998,8 @@ please.CameraNode.prototype.mark_dirty = function () {
         "top" : null,
         "width" : null,
         "height" : null,
+        "origin_x" : null,
+        "origin_y" : null,
         "dpi" : null,
     };
 };
