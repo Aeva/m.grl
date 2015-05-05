@@ -525,6 +525,18 @@ please.repeating_driver = function (start, end, time) {
 };
 
 
+// [+] please.shift_driver(start, end, time)
+//
+// Shorthand for this:
+// ```
+// please.path_driver(please.linear_path(start, end), time, false, false);
+// ```
+//
+please.shift_driver = function (start, end, time) {
+    return please.path_driver(please.linear_path(start, end), time, false, false)
+};
+
+
 // [+] please.break_curve(curve, target_spacing)
 //
 // Takes a curve function and an arbitrary distance, and returns a
