@@ -205,6 +205,18 @@ Shorthand for this:
 
 
 
+please.shift_driver
+-------------------
+*please.shift\_driver* **(start, end, time)**
+
+Shorthand for this:
+
+.. code-block:: javascript
+
+    please.path_driver(please.linear_path(start, end), time, false, false);
+
+
+
 please.break_curve
 ------------------
 *please.break\_curve* **(curve, target\_spacing)**

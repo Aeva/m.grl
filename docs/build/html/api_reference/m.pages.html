@@ -1,0 +1,162 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>m.pages.js &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="up" title="API Reference" href="index.html" />
+    <link rel="next" title="m.prefab.js" href="m.prefab.html" />
+    <link rel="prev" title="m.multipass.js" href="m.multipass.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.prefab.html" title="m.prefab.js"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="m.multipass.html" title="m.multipass.js"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="m-pages-js">
+<h1>m.pages.js<a class="headerlink" href="#m-pages-js" title="Permalink to this headline">¶</a></h1>
+<p>This part of the module is responsible for the display and configuration
+of html/css ui elements, such as dialogue boxs or config screens.</p>
+<div class="section" id="please-page-create">
+<h2>please.page.create<a class="headerlink" href="#please-page-create" title="Permalink to this headline">¶</a></h2>
+<p><em>please.page.create</em> <strong>(name, options)</strong></p>
+<p>Creates a blank ui screen. This can be anything from a subscreen for
+game elements, a config page, a dialogue box, or anything else that
+might rely on html/css for user interface.</p>
+<p>This function returns a div element for you to populate with content.</p>
+<p>The <strong>name</strong> argument is used to cache the resulting dom element and is
+used as a handle for showing and hiding the box later.</p>
+<p>The <strong>options</strong> argument is an optional object you can pass to this to
+further customize the view. The following options are available:</p>
+<p><strong>preset</strong> a string with one of &#8220;alert&#8221;, &#8220;fatal_error&#8221;; or null.</p>
+<p><strong>scale</strong> either &#8220;window&#8221;, &#8220;canvas&#8221;, or &#8220;small&#8221;.</p>
+<p><strong>no_close</strong> when set true, this wont&#8217;t create a close button or
+binding for removing the ui screen.</p>
+<p><strong>close_callback</strong> optional callback method for when the close button
+has been clicked, if applicable.</p>
+<p><strong>blocking</strong> whether the input controller and possibly other
+functionality should not respond to input (eg, &#8220;pause the game&#8221;) while
+the screen is open.</p>
+<p><strong>buttons</strong> a list of objects. The objects have a &#8220;name&#8221; property which
+is the button&#8217;s label, as well as a &#8220;callback&#8221; property for when the
+button is clicked. If the callback returns a truthy value, then the page
+will not automatically be hidden after calling it.</p>
+</div>
+<div class="section" id="please-page-show">
+<h2>please.page.show<a class="headerlink" href="#please-page-show" title="Permalink to this headline">¶</a></h2>
+<p><em>please.page.show</em> <strong>(name)</strong></p>
+<p>Shows the named page and returns the elemnt containing the page content.</p>
+</div>
+<div class="section" id="please-page-hide">
+<h2>please.page.hide<a class="headerlink" href="#please-page-hide" title="Permalink to this headline">¶</a></h2>
+<p><em>please.page.hide</em> <strong>(name)</strong></p>
+<p>Hides the named page and returns the elemnt containing the page content.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">m.pages.js</a><ul>
+<li><a class="reference internal" href="#please-page-create">please.page.create</a></li>
+<li><a class="reference internal" href="#please-page-show">please.page.show</a></li>
+<li><a class="reference internal" href="#please-page-hide">please.page.hide</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="m.multipass.html"
+                        title="previous chapter">m.multipass.js</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="m.prefab.html"
+                        title="next chapter">m.prefab.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/m.pages.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.prefab.html" title="m.prefab.js"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="m.multipass.html" title="m.multipass.js"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" >API Reference</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

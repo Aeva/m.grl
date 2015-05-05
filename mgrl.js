@@ -496,6 +496,16 @@ please.oscillating_driver = function (start, end, time) {
 please.repeating_driver = function (start, end, time) {
     return please.path_driver(please.linear_path(start, end), time, true, false)
 };
+// [+] please.shift_driver(start, end, time)
+//
+// Shorthand for this:
+// ```
+// please.path_driver(please.linear_path(start, end), time, false, false);
+// ```
+//
+please.shift_driver = function (start, end, time) {
+    return please.path_driver(please.linear_path(start, end), time, false, false)
+};
 // [+] please.break_curve(curve, target_spacing)
 //
 // Takes a curve function and an arbitrary distance, and returns a
@@ -1025,6 +1035,129 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
     if (initial) {
         target[prop] = initial;
     }
+};
+// - m.pages.js  ------------------------------------------------------------ //
+/* [+]
+ *
+ * This part of the module is responsible for the display and
+ * configuration of html/css ui elements, such as dialogue boxs or
+ * config screens.
+ * 
+ */
+please.pages = {
+    "views" : {},
+};
+// [+] please.page.create(name, options)
+// 
+// Creates a blank ui screen.  This can be anything from a subscreen
+// for game elements, a config page, a dialogue box, or anything else
+// that might rely on html/css for user interface.
+//
+// This function returns a div element for you to populate with
+// content.
+//
+// The **name** argument is used to cache the resulting dom element
+// and is used as a handle for showing and hiding the box later.
+//
+// The **options** argument is an optional object you can pass to this
+// to further customize the view.  The following options are
+// available:
+//
+// **preset** a string with one of "alert", "fatal_error"; or null.
+//
+// **scale** either "window", "canvas", or "small".
+//
+// **no_close** when set true, this wont't create a close button or
+// binding for removing the ui screen.
+//
+// **close_callback** optional callback method for when the close
+// button has been clicked, if applicable.
+//
+// **blocking** whether the input controller and possibly other
+// functionality should not respond to input (eg, "pause the game")
+// while the screen is open.
+//
+// **buttons** a list of objects.  The objects have a "name" property
+// which is the button's label, as well as a "callback" property for
+// when the button is clicked.  If the callback returns a truthy
+// value, then the page will not automatically be hidden after calling
+// it.
+//
+please.pages.create = function (name, options) {
+    if (options === undefined) { options = {}; };
+    if (options.preset === undefined) { options.preset = null; };
+    if (options.scale === undefined) { options.scale = "small"; };
+    if (options.no_close === undefined) { options.no_close = false; };
+    if (options.close_callback === undefined) { options.close_callback = function () {}; };
+    if (options.blocking === undefined) { options.blocking = false; };
+    if (options.buttons === undefined) { options.buttons = []; };
+    var add_widget = function (parent, classes, text) {
+        var el = document.createElement("div")
+        el.className = classes.join(" ");
+        if (text) {
+            el.appendChild(document.createTextNode(text));
+        }
+        parent.appendChild(el);
+        return el;
+    };
+    var add_callback = function (element, callback) {
+        element.addEventListener("click", function () {
+            var outcome = callback();
+            if (!outcome) {
+                please.pages.hide(name);
+            }
+        });
+    };
+    // apply preset options
+    if (options.preset) {
+        throw ("unimplemented feature");
+    }
+    // create the ui page base
+    var classes = ["mgrl_ui_page"];
+    if (["window", "canvas", "small"].indexOf(options.scale) > -1) {
+        classes.push(options.scale + "_preset");
+    }
+    var plate = please.pages.views[name] = add_widget(document.body, classes);
+    plate.style.display = "none";
+    // populate the ui page
+    if (!options.no_close) {
+        var close_button = add_widget(plate, ["mgrl_ui_close_button"]);
+        add_callback(close_button, options.close_callback);
+    }
+    if (options.buttons) {
+        // row of buttons to go at the bottom of the ui page
+        var button_row = add_widget(plate, ["mgrl_ui_button_row"]);
+        for (var i=0; i<options.buttons.length; i+=1) {
+            var button_name = options.buttons[i].name;
+            var button_callback = options.buttons[i].callback;
+            var button = add_widget(button_row, ["mgrl_ui_button"], button_name);
+            add_callback(button, button_callback);
+        }
+    }
+    // return the content hook
+    var content = add_widget(plate, ["mgrl_ui_content_area"]);
+    plate.content_widget = content;
+    return content;
+};
+// [+] please.page.show(name)
+//
+// Shows the named page and returns the elemnt containing the page
+// content.
+//
+please.pages.show = function (name) {
+    var plate = please.pages.views[name];
+    plate.style.display = "block";
+    return plate.content_widget;
+};
+// [+] please.page.hide(name)
+//
+// Hides the named page and returns the elemnt containing the page
+// content.
+//
+please.pages.hide = function (name) {
+    var plate = please.pages.views[name];
+    plate.style.display = "none";
+    return plate.content_widget;
 };
 // - m.qa.js  ------------------------------------------------------------- //
 /* [+]
@@ -3015,7 +3148,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
                 else {
                     var offset_factor = -1;
-                    var offset_units = -2;
+                    var offset_units = -10; // was -2
                     gl.enable(gl.POLYGON_OFFSET_FILL);
                 }
                 resource.vbo.bind();
@@ -5449,19 +5582,14 @@ please.CameraNode = function () {
     please.make_animatable(this, "right", null);;
     please.make_animatable(this, "bottom", null);;
     please.make_animatable(this, "top", null);;
+    please.make_animatable(this, "dpi", 64);;
+    please.make_animatable(this, "origin_x", 0.5);;
+    please.make_animatable(this, "origin_y", 0.5);;
     please.make_animatable(this, "width", null);;
     please.make_animatable(this, "height", null);;
     please.make_animatable(this, "near", 0.1);;
     please.make_animatable(this, "far", 100.0);;
-    this.__last = {
-        "fov" : null,
-        "left" : null,
-        "right" : null,
-        "bottom" : null,
-        "top" : null,
-        "width" : null,
-        "height" : null,
-    };
+    this.mark_dirty();
     this.projection_matrix = mat4.create();
     this.__projection_mode = "perspective";
     please.make_animatable(
@@ -5477,6 +5605,20 @@ please.CameraNode.prototype.__focal_distance = function () {
 please.CameraNode.prototype.has_focal_point = function () {
     return this.look_at[0] !== null || this.look_at[1] !== null || this.look_at[2] !== null;
 };
+please.CameraNode.prototype.mark_dirty = function () {
+    this.__last = {
+        "fov" : null,
+        "left" : null,
+        "right" : null,
+        "bottom" : null,
+        "top" : null,
+        "width" : null,
+        "height" : null,
+        "origin_x" : null,
+        "origin_y" : null,
+        "dpi" : null,
+    };
+};
 please.CameraNode.prototype.activate = function () {
     var graph = this.graph_root;
     if (graph !== null) {
@@ -5490,9 +5632,11 @@ please.CameraNode.prototype.on_inactive = function () {
 };
 please.CameraNode.prototype.set_perspective = function() {
     this.__projection_mode = "perspective";
+    this.mark_dirty();
 };
 please.CameraNode.prototype.set_orthographic = function() {
     this.__projection_mode = "orthographic";
+    this.mark_dirty();
 };
 please.CameraNode.prototype.__view_matrix_driver = function () {
     var local_matrix = mat4.create();
@@ -5566,27 +5710,32 @@ please.CameraNode.prototype.update_camera = function () {
         var right = this.right;
         var bottom = this.bottom;
         var top = this.top;
+        var dpi = this.dpi;
         if (left === null || right === null ||
             bottom === null || top === null) {
             // If any of the orthographic args are unset, provide our
             // own defaults based on the canvas element's dimensions.
-            left = 0;
-            right = width;
-            bottom = 0;
-            top = height;
+            left = please.mix(0.0, width*-1, this.origin_x);
+            bottom = please.mix(0.0, height*-1, this.origin_y);
+            right = width + left;
+            top = height + bottom;
         }
         if (left !== this.__last.left ||
             right !== this.__last.right ||
             bottom !== this.__last.bottom ||
             top !== this.__last.top ||
+            dpi !== this.__last.dpi ||
             dirty) {
             this.__last.left = left;
             this.__last.right = right;
             this.__last.bottom = bottom;
             this.__last.top = top;
+            this.__last.dpi = dpi;
             // Recalculate the projection matrix and flag it as dirty
+            var scale = dpi/2;
             mat4.ortho(
-                this.projection_matrix, left, right, bottom, top, near, far);
+                this.projection_matrix,
+                left/scale, right/scale, bottom/scale, top/scale, near, far);
             this.projection_matrix.dirty = true;
         }
     }

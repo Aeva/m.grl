@@ -809,7 +809,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
                 else {
                     var offset_factor = -1;
-                    var offset_units = -2;
+                    var offset_units = -10; // was -2
                     gl.enable(gl.POLYGON_OFFSET_FILL);
                 }
                 resource.vbo.bind();

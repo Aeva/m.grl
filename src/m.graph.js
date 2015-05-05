@@ -956,6 +956,9 @@ please.CameraNode = function () {
     ANI("right", null);
     ANI("bottom", null);
     ANI("top", null);
+    ANI("dpi", 64);
+    ANI("origin_x", 0.5);
+    ANI("origin_y", 0.5);
 
     ANI("width", null);
     ANI("height", null);
@@ -963,16 +966,7 @@ please.CameraNode = function () {
     ANI("near", 0.1);
     ANI("far", 100.0);
 
-    this.__last = {
-        "fov" : null,
-        "left" : null,
-        "right" : null,
-        "bottom" : null,
-        "top" : null,
-        "width" : null,
-        "height" : null,
-    };
-
+    this.mark_dirty();
     this.projection_matrix = mat4.create();
     this.__projection_mode = "perspective";
 
@@ -995,6 +989,22 @@ please.CameraNode.prototype.has_focal_point = function () {
 };
 
 
+please.CameraNode.prototype.mark_dirty = function () {
+    this.__last = {
+        "fov" : null,
+        "left" : null,
+        "right" : null,
+        "bottom" : null,
+        "top" : null,
+        "width" : null,
+        "height" : null,
+        "origin_x" : null,
+        "origin_y" : null,
+        "dpi" : null,
+    };
+};
+
+
 please.CameraNode.prototype.activate = function () {
     var graph = this.graph_root;
     if (graph !== null) {
@@ -1012,11 +1022,13 @@ please.CameraNode.prototype.on_inactive = function () {
 
 please.CameraNode.prototype.set_perspective = function() {
     this.__projection_mode = "perspective";
+    this.mark_dirty();
 };
 
 
 please.CameraNode.prototype.set_orthographic = function() {
     this.__projection_mode = "orthographic";
+    this.mark_dirty();
 };
 
 
@@ -1103,32 +1115,37 @@ please.CameraNode.prototype.update_camera = function () {
         var right = this.right;
         var bottom = this.bottom;
         var top = this.top;
+        var dpi = this.dpi;
 
         if (left === null || right === null ||
             bottom === null || top === null) {
 
             // If any of the orthographic args are unset, provide our
             // own defaults based on the canvas element's dimensions.
-            left = 0;
-            right = width;
-            bottom = 0;
-            top = height;
+            left = please.mix(0.0, width*-1, this.origin_x);
+            bottom = please.mix(0.0, height*-1, this.origin_y);
+            right = width + left;
+            top = height + bottom;
         }
 
         if (left !== this.__last.left ||
             right !== this.__last.right ||
             bottom !== this.__last.bottom ||
             top !== this.__last.top ||
+            dpi !== this.__last.dpi ||
             dirty) {
 
             this.__last.left = left;
             this.__last.right = right;
             this.__last.bottom = bottom;
             this.__last.top = top;
+            this.__last.dpi = dpi;
 
             // Recalculate the projection matrix and flag it as dirty
+            var scale = dpi/2;
             mat4.ortho(
-                this.projection_matrix, left, right, bottom, top, near, far);
+                this.projection_matrix,
+                left/scale, right/scale, bottom/scale, top/scale, near, far);
             this.projection_matrix.dirty = true;
         }
     }
