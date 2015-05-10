@@ -45,6 +45,9 @@
 #include "m.builder.js"
 #include "m.prefab.js"
 #endif
+#ifdef GLSL_ASSETS
+#include "tmp/glsl_assets.js"
+#endif
 
 #ifdef BSIDES
 // -------------------------------------------------------------------------- //

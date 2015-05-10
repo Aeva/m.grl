@@ -3291,6 +3291,9 @@ please.gl = {
                     this.ext[name] = found;
                 }
             }
+            // fire an event to indicate that a gl context exists now
+            var ctx_event = new CustomEvent("mgrl_gl_context_created");
+            window.dispatchEvent(ctx_event);
         }
     },
     // Returns an object for a built shader program.  If a name is not
@@ -5984,6 +5987,14 @@ please.pipeline.add_autoscale = function (max_height) {
         }
     }).skip_when(skip_condition);
 };
+// - bundled glsl shader assets --------------------------------------------- //
+addEventListener("mgrl_gl_context_created", function () {
+    var lookup_table = {"diffuse.frag": "\nprecision mediump float;\n\nuniform sampler2D diffuse_texture;\n\nuniform float alpha;\nuniform bool is_sprite;\nuniform bool is_transparent;\n\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  vec4 diffuse = texture2D(diffuse_texture, local_tcoords);\n  if (is_sprite) {\n    float cutoff = is_transparent ? 0.4 : 1.0;\n    if (diffuse.a < cutoff) {\n      discard;\n    }\n  }\n  else {\n    diffuse.a = alpha;\n  }\n  gl_FragColor = diffuse;\n}\n", "splat.vert": "\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\nattribute vec3 position;\n\n\nvoid main(void) {\n  gl_Position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);\n}\n", "simple.vert": "\n// matrices\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\n\n// vertex data\nattribute vec3 position;\nattribute vec3 normal;\nattribute vec2 tcoords;\n\n// interpolated vertex data in various transformations\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  // pass along to the fragment shader\n  local_position = position;\n  local_normal = normal;\n  local_tcoords = tcoords;\n\n  // various coordinate transforms\n  vec4 world_space = (world_matrix * vec4(position, 1.0));\n  vec4 final_position = projection_matrix * view_matrix * world_space;\n  screen_position = final_position.xyz;\n  world_position = world_space.xyz;\n  gl_Position = final_position;\n}\n"};
+    please.prop_map(lookup_table, function (name, src) {
+        // see m.media.js's please.media.handlers.glsl for reference:
+        please.media.assets[name] = please.gl.__build_shader(src, name);
+    });
+});
 // -------------------------------------------------------------------------- //
 // What follows are optional components, and may be safely removed.
 // Please tear at the perforated line.

@@ -58,6 +58,10 @@ please.gl = {
                     this.ext[name] = found;
                 }
             }
+
+            // fire an event to indicate that a gl context exists now
+            var ctx_event = new CustomEvent("mgrl_gl_context_created");
+            window.dispatchEvent(ctx_event);
         }
     },
 
