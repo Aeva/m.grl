@@ -1045,6 +1045,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
             if (typeof(write_hook) === "function") {
                 write_hook(target, prop, obj);
             }
+            if (store[prop+"_focus"]) {
+                console.warn("A driver has been set to this multi-channel property already, so no changes will be visible until it is canceled by setting the property to null.");
+            }
             return value;
         };
     };
