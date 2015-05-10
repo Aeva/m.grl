@@ -1094,6 +1094,7 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
                 store[prop+"_focus"] = value;
             }
             else if (value.length) {
+                store[prop+"_focus"] = null;
                 for (var i=0; i<value.length; i+=1) {
                     target[handles[i]] = value[i];
                 }
