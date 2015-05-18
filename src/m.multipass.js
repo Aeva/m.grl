@@ -279,3 +279,110 @@ please.pipeline.__regen_cache = function () {
     });
     this.__dirty = false;
 };
+
+
+//
+please.RenderNode = function (shader_program) {
+    console.assert(this !== window);
+
+    // UUID, used to provide a uri handle for indirect rendering.
+    Object.defineProperty(this, "__id", {
+        enumerable : false,
+        configurable: false,
+        writable : false,
+        value : please.uuid(),
+    });
+
+    // shader program
+    Object.defineProperty(this, "__prog", {
+        enumerable : false,
+        configurable: false,
+        writable : false,
+        value : shader_program,
+    });
+
+    this.shader = {};
+    for (var name, i=0; i<shader_program.uniform_list.length; i+=1) {
+        name = shader_program.uniform_list[i];
+        please.make_animatable(this, name, null, this.shader);
+    }
+
+    this.peek = null;
+    this.render = function () { return null; };
+};
+
+
+//
+please.render = function(node) {
+    var stack = arguments[1] || [];
+    if (stack.indexOf(node)) {
+        throw("M.GRL doesn't currently suport render graph cycles.");
+    }
+
+    // peek method on the render node can be used to allow the node to exclude
+    // itself from the stack in favor of a different node or texture.
+    if (node.peek) {
+        var proxy = node.peek();
+        if (proxy) {
+            if (stack.length > 0) {
+                return proxy;
+            }
+            else {
+                if (typeof(proxy) === "string") {
+                    // uri
+                    // fixme: splat render the texture and call it a day
+                    throw("missing functionality");
+                }
+                else if (typeof(proxy) === "object") {
+                    // render pass
+                    return please.render(proxy, stack);
+                }
+            }
+        }
+    }
+
+    // add this node to the stack
+    stack.push(node);
+
+    // call rendernodes for samplers, where applicable, and then cache output
+    var samplers = node.__prog.sampler_list;
+    var sampler_cache = {};
+    for (var i=0; i<samplers; i+=1) {
+        var name = samplers[i];
+        var sampler = node.shader[name];
+        if (typeof(sampler) === "object") {
+            sampler_cache[name] = please.render(sampler, stack);
+        }
+        else {
+            sampler_cache[name] = sampler;
+        }
+    }
+
+    // create an indirect texture if the stack length is greater than 1
+    var texture_handle = null;
+    // FIXME
+
+    // activate the shader program
+    this.__prog.activate();
+
+    // upload shader vars
+    for (var name in this.shader) {
+        if (this.__prog.vars.hasOwnProperty(name)) {
+            var value = sampler_cache[name] || this.shader[name];
+            if (value !== null && value !== undefined) {
+                if (this.__prog.samplers.hasOwnProperty(name)) {
+                    this.__prog.samplers[name] = value;
+                }
+                else {
+                    this.__prog.vars[name] = value;
+                }
+            }
+        }
+    }
+
+    // call the rendering logic
+    node.render();
+
+    // return the uuid of the render node if we're doing indirect rendering
+    return texture_handle;
+};
