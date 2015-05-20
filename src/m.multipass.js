@@ -294,6 +294,7 @@ please.RenderNode = function (shader_program) {
     });
 
     // shader program
+    this.__prog = shader_program;
     Object.defineProperty(this, "__prog", {
         enumerable : false,
         configurable: false,
@@ -301,12 +302,17 @@ please.RenderNode = function (shader_program) {
         value : shader_program,
     });
 
+    // render buffer
+    this.__buffer = please.gl.register_framebuffer(this.__id, {});
+
+    // glsl variable bindings
     this.shader = {};
     for (var name, i=0; i<shader_program.uniform_list.length; i+=1) {
         name = shader_program.uniform_list[i];
         please.make_animatable(this, name, null, this.shader);
     }
 
+    // event handlers
     this.peek = null;
     this.render = function () { return null; };
 };
@@ -315,7 +321,7 @@ please.RenderNode = function (shader_program) {
 //
 please.render = function(node) {
     var stack = arguments[1] || [];
-    if (stack.indexOf(node)) {
+    if (stack.indexOf(node)>=0) {
         throw("M.GRL doesn't currently suport render graph cycles.");
     }
 
@@ -358,29 +364,30 @@ please.render = function(node) {
         }
     }
 
-    // create an indirect texture if the stack length is greater than 1
-    var texture_handle = null;
-    // FIXME
-
     // activate the shader program
-    this.__prog.activate();
+    node.__prog.activate();
 
     // upload shader vars
-    for (var name in this.shader) {
-        if (this.__prog.vars.hasOwnProperty(name)) {
-            var value = sampler_cache[name] || this.shader[name];
+    for (var name in node.shader) {
+        if (node.__prog.vars.hasOwnProperty(name)) {
+            var value = sampler_cache[name] || node.shader[name];
             if (value !== null && value !== undefined) {
-                if (this.__prog.samplers.hasOwnProperty(name)) {
-                    this.__prog.samplers[name] = value;
+                if (node.__prog.samplers.hasOwnProperty(name)) {
+                    node.__prog.samplers[name] = value;
                 }
                 else {
-                    this.__prog.vars[name] = value;
+                    node.__prog.vars[name] = value;
                 }
             }
         }
     }
 
+    // use an indirect texture if the stack length is greater than 1
+    var texture_handle = stack.length > 1 ? node.__id : null;
+    please.gl.set_framebuffer(texture_handle);
+
     // call the rendering logic
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     node.render();
 
     // return the uuid of the render node if we're doing indirect rendering
