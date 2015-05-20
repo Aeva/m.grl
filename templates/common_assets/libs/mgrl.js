@@ -2473,19 +2473,19 @@ please.render = function(node) {
     if (node.peek) {
         var proxy = node.peek();
         if (proxy) {
-            if (stack.length > 0) {
-                return proxy;
-            }
-            else {
-                if (typeof(proxy) === "string") {
-                    // uri
-                    // fixme: splat render the texture and call it a day
+            if (typeof(proxy) === "string") {
+                // proxy is a URI
+                if (stack.length > 0) {
+                    return proxy;
+                }
+                else {
+                    // FIXME: splat render the texture and call it a day
                     throw("missing functionality");
                 }
-                else if (typeof(proxy) === "object") {
-                    // render pass
-                    return please.render(proxy, stack);
-                }
+            }
+            else if (typeof(proxy) === "object") {
+                // proxy is another RenderNode
+                return please.render(proxy, stack);
             }
         }
     }
