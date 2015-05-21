@@ -49,9 +49,25 @@ addEventListener("load", function() {
     
     // Queue up assets to be downloaded before the game starts.
     please.load("gavroche_hall.jta");
+    please.load("psycho.jta");
     please.load("fancy.frag");
     please.load("splice.frag");
+
+    // Custom loading screen handler
+    show_progress();
 });
+
+
+function show_progress() {
+    if (please.media.pending.length > 0) {
+        var progress = please.media.get_progress();
+        if (progress.all > -1) {
+            var label = document.getElementById("loading_screen");
+            label.innerHTML = "loading... " + Math.round(progress.all) + "%";
+        }
+        setTimeout(show_progress, 100);
+    }
+};
 
 
 addEventListener("mgrl_fps", function (event) {
@@ -75,12 +91,25 @@ addEventListener("mgrl_media_ready", please.once(function () {
     please.glsl("fancy_pass", "splat.vert", "fancy.frag");
     please.glsl("splice_pass", "splat.vert", "splice.frag");
 
+    // hide the loading screen
+    document.getElementById("loading_screen").style.display = "none";
+
     // initialize a scene graph object
     var graph = new please.SceneGraph();
 
     // add our model to the scene graph
     var model = please.access("gavroche_hall.jta").instance();
     graph.add(model);
+
+    // add a character or three to the scene graph
+    for (var i=-1; i<=1; i+=1) {
+        var character = please.access("psycho.jta").instance();
+        character.location_x = 5 * i;
+        character.location_z = please.oscillating_driver(1, 3, 1000+500*Math.random());
+        character.rotation_z = please.repeating_driver(360, 0, 500+500*Math.random());
+        
+        graph.add(character);
+    }
     
     // add a camera object to the scene graph
     var camera = new please.CameraNode();
@@ -109,7 +138,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var splice_pass = new please.RenderNode("splice_pass");
     splice_pass.shader.lhs_texture = viewport;
     splice_pass.shader.rhs_texture = renderer;
-    splice_pass.shader.factor = please.oscillating_driver(0.0, 1.0, 1000);
+    splice_pass.shader.factor = please.oscillating_driver(0.0, 1.0, 2500);
     
     splice_pass.render = function () {
         please.gl.splat();
