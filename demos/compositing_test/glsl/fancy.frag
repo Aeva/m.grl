@@ -17,6 +17,6 @@ void main(void) {
   float foo = sin((gl_FragCoord.x+(mgrl_frame_start/5.0))/100.0) * tcoords.x * 0.25;
   tcoords.y += foo;
   vec4 diffuse = texture2D(splat_texture, tcoords);
-  diffuse = mix(vec4(1.0, 0.75, 0.5, 1.0), diffuse, 0.75);
+  diffuse = mix(vec4(1.0, 0.1, 0.5, 1.0), diffuse, 0.75);
   gl_FragColor = diffuse;
 }

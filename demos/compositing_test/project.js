@@ -50,6 +50,7 @@ addEventListener("load", function() {
     // Queue up assets to be downloaded before the game starts.
     please.load("gavroche_hall.jta");
     please.load("fancy.frag");
+    please.load("splice.frag");
 });
 
 
@@ -72,6 +73,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // they are hardcoded into m.grl by default.
     please.glsl("diffuse_pass", "simple.vert", "diffuse.frag").activate();
     please.glsl("fancy_pass", "splat.vert", "fancy.frag");
+    please.glsl("splice_pass", "splat.vert", "splice.frag");
 
     // initialize a scene graph object
     var graph = new please.SceneGraph();
@@ -104,6 +106,16 @@ addEventListener("mgrl_media_ready", please.once(function () {
         please.gl.splat();
     };
 
+    var splice_pass = new please.RenderNode("splice_pass");
+    splice_pass.shader.lhs_texture = viewport;
+    splice_pass.shader.rhs_texture = renderer;
+    splice_pass.shader.factor = please.oscillating_driver(0.0, 1.0, 1000);
+    
+    splice_pass.render = function () {
+        please.gl.splat();
+    };
+
+
     // Register a render passes with the scheduler.  The autoscale
     // prefab is used to change the dimensions of the rendering canvas
     // when it has the 'fullscreen' css class, as well as constrain
@@ -114,7 +126,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     
     // register a render pass with the scheduler
     please.pipeline.add(10, "project/draw", function () {
-        please.render(viewport);
+        please.render(splice_pass);
     });
 
     // start the rendering pipeline
