@@ -2459,6 +2459,9 @@ please.RenderNode = function (prog) {
         name = prog.uniform_list[i];
         please.make_animatable(this, name, null, this.shader);
     }
+    // caching stuff
+    this.__last_framestart = null;
+    this.__cached = null;
     // event handlers
     this.peek = null;
     this.render = function () { return null; };
@@ -2468,6 +2471,12 @@ please.render = function(node) {
     var stack = arguments[1] || [];
     if (stack.indexOf(node)>=0) {
         throw("M.GRL doesn't currently suport render graph cycles.");
+    }
+    if (stack.length > 0 && node.__last_framestart >= please.pipeline.__framestart && node.__cached) {
+        return node.__cached;
+    }
+    else {
+        node.__last_framestart = please.pipeline.__framestart;
     }
     // peek method on the render node can be used to allow the node to exclude
     // itself from the stack in favor of a different node or texture.
@@ -2526,13 +2535,13 @@ please.render = function(node) {
         }
     }
     // use an indirect texture if the stack length is greater than 1
-    var texture_handle = stack.length > 0 ? node.__id : null;
-    please.gl.set_framebuffer(texture_handle);
+    node.__cached = stack.length > 0 ? node.__id : null;
+    please.gl.set_framebuffer(node.__cached);
     // call the rendering logic
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     node.render();
     // return the uuid of the render node if we're doing indirect rendering
-    return texture_handle;
+    return node.__cached;
 };
 // - m.gani.js -------------------------------------------------------------- //
 /* [+]
