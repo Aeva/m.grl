@@ -282,8 +282,9 @@ please.pipeline.__regen_cache = function () {
 
 
 //
-please.RenderNode = function (shader_program) {
+please.RenderNode = function (prog) {
     console.assert(this !== window);
+    prog = typeof(prog) === "string" ? please.gl.get_program(prog) : prog;
 
     // UUID, used to provide a uri handle for indirect rendering.
     Object.defineProperty(this, "__id", {
@@ -294,12 +295,12 @@ please.RenderNode = function (shader_program) {
     });
 
     // shader program
-    this.__prog = shader_program;
+    this.__prog = prog;
     Object.defineProperty(this, "__prog", {
         enumerable : false,
         configurable: false,
         writable : false,
-        value : shader_program,
+        value : prog,
     });
 
     // render buffer
@@ -307,8 +308,8 @@ please.RenderNode = function (shader_program) {
 
     // glsl variable bindings
     this.shader = {};
-    for (var name, i=0; i<shader_program.uniform_list.length; i+=1) {
-        name = shader_program.uniform_list[i];
+    for (var name, i=0; i<prog.uniform_list.length; i+=1) {
+        name = prog.uniform_list[i];
         please.make_animatable(this, name, null, this.shader);
     }
 
@@ -353,16 +354,21 @@ please.render = function(node) {
     // call rendernodes for samplers, where applicable, and then cache output
     var samplers = node.__prog.sampler_list;
     var sampler_cache = {};
-    for (var i=0; i<samplers; i+=1) {
+    for (var i=0; i<samplers.length; i+=1) {
         var name = samplers[i];
         var sampler = node.shader[name];
-        if (typeof(sampler) === "object") {
-            sampler_cache[name] = please.render(sampler, stack);
-        }
-        else {
-            sampler_cache[name] = sampler;
+        if (sampler) {
+            if (typeof(sampler) === "object") {
+                sampler_cache[name] = please.render(sampler, stack);
+            }
+            else {
+                sampler_cache[name] = sampler;
+            }
         }
     }
+
+    // remove this node from the stack
+    stack.pop();
 
     // activate the shader program
     node.__prog.activate();
@@ -383,7 +389,7 @@ please.render = function(node) {
     }
 
     // use an indirect texture if the stack length is greater than 1
-    var texture_handle = stack.length > 1 ? node.__id : null;
+    var texture_handle = stack.length > 0 ? node.__id : null;
     please.gl.set_framebuffer(texture_handle);
 
     // call the rendering logic
