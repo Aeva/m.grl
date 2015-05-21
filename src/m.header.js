@@ -37,6 +37,7 @@
 #include "m.media.js"
 #include "m.input.js"
 #include "m.multipass.js"
+#include "m.compositing.js"
 #include "m.gani.js"
 #ifdef WEBGL
 #include "m.gl.js"
@@ -44,6 +45,9 @@
 #include "m.graph.js"
 #include "m.builder.js"
 #include "m.prefab.js"
+#endif
+#ifdef GLSL_ASSETS
+#include "tmp/glsl_assets.js"
 #endif
 
 #ifdef BSIDES

@@ -58,6 +58,10 @@ please.gl = {
                     this.ext[name] = found;
                 }
             }
+
+            // fire an event to indicate that a gl context exists now
+            var ctx_event = new CustomEvent("mgrl_gl_context_created");
+            window.dispatchEvent(ctx_event);
         }
     },
 
@@ -500,7 +504,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 
         if (data.type === gl.SAMPLER_2D) {
             data.t_unit = sampler_uniforms.length;
-            prog.uniform_list.push(data.name);
+            prog.sampler_list.push(data.name);
             sampler_uniforms.push(data.name);
             data.t_symbol = gl["TEXTURE"+data.t_unit];
             if (!data.t_symbol) {

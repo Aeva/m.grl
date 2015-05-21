@@ -48,8 +48,6 @@ addEventListener("load", function() {
     please.set_search_path("audio", "sounds/");
     
     // Queue up assets to be downloaded before the game starts.
-    please.load("simple.vert");
-    please.load("diffuse.frag");
     please.load("gavroche_hall.jta");
 });
 
@@ -68,7 +66,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // the game, the callback is wrapped in the "please.once"
     // function, to ensure that it is only called once.
     
-    // Create GL context, build shader pair
+    // Create GL context, build shader pair.  Note, in this case we
+    // don't call please.load on simple.vert or diffuse.frag because
+    // they are hardcoded into m.grl by default.
     var prog = please.glsl("default", "simple.vert", "diffuse.frag");
     prog.activate();
         

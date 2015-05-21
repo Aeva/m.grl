@@ -974,6 +974,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
             if (typeof(write_hook) === "function") {
                 write_hook(target, prop, obj);
             }
+            if (store[prop+"_focus"]) {
+                console.warn("A driver has been set to this multi-channel property already, so no changes will be visible until it is canceled by setting the property to null.");
+            }
             return value;
         };
     };
@@ -1021,6 +1024,7 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
                 store[prop+"_focus"] = value;
             }
             else if (value.length) {
+                store[prop+"_focus"] = null;
                 for (var i=0; i<value.length; i+=1) {
                     target[handles[i]] = value[i];
                 }
@@ -2428,6 +2432,118 @@ please.pipeline.__regen_cache = function () {
     });
     this.__dirty = false;
 };
+// - m.compositing.js ------------------------------------------------------- //
+//
+please.RenderNode = function (prog) {
+    console.assert(this !== window);
+    prog = typeof(prog) === "string" ? please.gl.get_program(prog) : prog;
+    // UUID, used to provide a uri handle for indirect rendering.
+    Object.defineProperty(this, "__id", {
+        enumerable : false,
+        configurable: false,
+        writable : false,
+        value : please.uuid(),
+    });
+    // shader program
+    this.__prog = prog;
+    Object.defineProperty(this, "__prog", {
+        enumerable : false,
+        configurable: false,
+        writable : false,
+        value : prog,
+    });
+    // render buffer
+    this.__buffer = please.gl.register_framebuffer(this.__id, {});
+    // glsl variable bindings
+    this.shader = {};
+    for (var name, i=0; i<prog.uniform_list.length; i+=1) {
+        name = prog.uniform_list[i];
+        please.make_animatable(this, name, null, this.shader);
+    }
+    // caching stuff
+    this.__last_framestart = null;
+    this.__cached = null;
+    // event handlers
+    this.peek = null;
+    this.render = function () { return null; };
+};
+//
+please.render = function(node) {
+    var stack = arguments[1] || [];
+    if (stack.indexOf(node)>=0) {
+        throw("M.GRL doesn't currently suport render graph cycles.");
+    }
+    if (stack.length > 0 && node.__last_framestart >= please.pipeline.__framestart && node.__cached) {
+        return node.__cached;
+    }
+    else {
+        node.__last_framestart = please.pipeline.__framestart;
+    }
+    // peek method on the render node can be used to allow the node to exclude
+    // itself from the stack in favor of a different node or texture.
+    if (node.peek) {
+        var proxy = node.peek();
+        if (proxy) {
+            if (typeof(proxy) === "string") {
+                // proxy is a URI
+                if (stack.length > 0) {
+                    return proxy;
+                }
+                else {
+                    // FIXME: splat render the texture and call it a day
+                    throw("missing functionality");
+                }
+            }
+            else if (typeof(proxy) === "object") {
+                // proxy is another RenderNode
+                return please.render(proxy, stack);
+            }
+        }
+    }
+    // add this node to the stack
+    stack.push(node);
+    // call rendernodes for samplers, where applicable, and then cache output
+    var samplers = node.__prog.sampler_list;
+    var sampler_cache = {};
+    for (var i=0; i<samplers.length; i+=1) {
+        var name = samplers[i];
+        var sampler = node.shader[name];
+        if (sampler) {
+            if (typeof(sampler) === "object") {
+                sampler_cache[name] = please.render(sampler, stack);
+            }
+            else {
+                sampler_cache[name] = sampler;
+            }
+        }
+    }
+    // remove this node from the stack
+    stack.pop();
+    // activate the shader program
+    node.__prog.activate();
+    // upload shader vars
+    for (var name in node.shader) {
+        if (node.__prog.vars.hasOwnProperty(name)) {
+            var value = sampler_cache[name] || node.shader[name];
+            if (value !== null && value !== undefined) {
+                if (node.__prog.samplers.hasOwnProperty(name)) {
+                    node.__prog.samplers[name] = value;
+                }
+                else {
+                    node.__prog.vars[name] = value;
+                }
+            }
+        }
+    }
+    // use an indirect texture if the stack length is greater than 1
+    node.__cached = stack.length > 0 ? node.__id : null;
+    please.gl.set_framebuffer(node.__cached);
+    // call the rendering logic
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    node.render();
+    // return the uuid of the render node if we're doing indirect rendering
+    return node.__cached;
+};
 // - m.gani.js -------------------------------------------------------------- //
 /* [+]
  *
@@ -3291,6 +3407,9 @@ please.gl = {
                     this.ext[name] = found;
                 }
             }
+            // fire an event to indicate that a gl context exists now
+            var ctx_event = new CustomEvent("mgrl_gl_context_created");
+            window.dispatchEvent(ctx_event);
         }
     },
     // Returns an object for a built shader program.  If a name is not
@@ -3681,7 +3800,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         });
         if (data.type === gl.SAMPLER_2D) {
             data.t_unit = sampler_uniforms.length;
-            prog.uniform_list.push(data.name);
+            prog.sampler_list.push(data.name);
             sampler_uniforms.push(data.name);
             data.t_symbol = gl["TEXTURE"+data.t_unit];
             if (!data.t_symbol) {
@@ -5984,6 +6103,14 @@ please.pipeline.add_autoscale = function (max_height) {
         }
     }).skip_when(skip_condition);
 };
+// - bundled glsl shader assets --------------------------------------------- //
+addEventListener("mgrl_gl_context_created", function () {
+    var lookup_table = {"diffuse.frag": "\nprecision mediump float;\n\nuniform sampler2D diffuse_texture;\n\nuniform float alpha;\nuniform bool is_sprite;\nuniform bool is_transparent;\n\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  vec4 diffuse = texture2D(diffuse_texture, local_tcoords);\n  if (is_sprite) {\n    float cutoff = is_transparent ? 0.4 : 1.0;\n    if (diffuse.a < cutoff) {\n      discard;\n    }\n  }\n  else {\n    diffuse.a = alpha;\n  }\n  gl_FragColor = diffuse;\n}\n", "splat.vert": "\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\nattribute vec3 position;\n\n\nvoid main(void) {\n  gl_Position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);\n}\n", "simple.vert": "\n// matrices\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\n\n// vertex data\nattribute vec3 position;\nattribute vec3 normal;\nattribute vec2 tcoords;\n\n// interpolated vertex data in various transformations\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  // pass along to the fragment shader\n  local_position = position;\n  local_normal = normal;\n  local_tcoords = tcoords;\n\n  // various coordinate transforms\n  vec4 world_space = (world_matrix * vec4(position, 1.0));\n  vec4 final_position = projection_matrix * view_matrix * world_space;\n  screen_position = final_position.xyz;\n  world_position = world_space.xyz;\n  gl_Position = final_position;\n}\n"};
+    please.prop_map(lookup_table, function (name, src) {
+        // see m.media.js's please.media.handlers.glsl for reference:
+        please.media.assets[name] = please.gl.__build_shader(src, name);
+    });
+});
 // -------------------------------------------------------------------------- //
 // What follows are optional components, and may be safely removed.
 // Please tear at the perforated line.
