@@ -37,6 +37,7 @@
 #include "m.media.js"
 #include "m.input.js"
 #include "m.multipass.js"
+#include "m.compositing.js"
 #include "m.gani.js"
 #ifdef WEBGL
 #include "m.gl.js"
