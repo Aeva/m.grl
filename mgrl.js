@@ -5914,10 +5914,10 @@ please.builder.SpriteBuilder.prototype = {
             x1, y2, 0,
         ]);
         this.__v_array.tcoords = this.__v_array.tcoords.concat([
-            tx, 1.0-(ty+th),
-            tx+tw, 1.0-(ty),
             tx+tw, 1.0-(ty+th),
-            tx, 1.0-ty,
+            tx, 1.0-(ty),
+            tx, 1.0-(ty+th),
+            tx+tw, 1.0-ty,
         ]);
         this.__v_array.normal = this.__v_array.normal.concat([
             0, 0, 1,
