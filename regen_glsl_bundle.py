@@ -12,6 +12,7 @@ def find_assets(extensions, path="src/assets/"):
         found = glob.glob(os.path.join(path, "*." + extension))
         for asset_path in found:
             warn_limit_kb = 10
+            print "  embedding: " + asset_path
             if os.path.getsize(asset_path) > warn_limit_kb*1024:
                 msg = "WARNING: File larger than {0}kb!! -> {1}"
                 print msg.format(warn_limit_kb, os.path.split(asset_path)[-1])
