@@ -20,7 +20,13 @@
 */
 
 
-addEventListener("load", function() {
+// local namespace
+var demo = {
+    "viewport" : null,
+};
+
+
+addEventListener("load", function setup () {    
     // Attach the opengl rendering context.  This must be done before
     // anything else.
     please.gl.set_context("gl_canvas", {
@@ -53,20 +59,69 @@ addEventListener("load", function() {
     please.load("fancy.frag");
     please.load("splice.frag");
 
+    // Register a render passes with the scheduler.  The autoscale
+    // prefab is used to change the dimensions of the rendering canvas
+    // when it has the 'fullscreen' css class, as well as constrain
+    // the maximum height of said canvas element.  You are responsible
+    // for providing the css needed to upsample the canvas, though
+    // this project template accomplishes that for you.  See "ui.css".
+    please.pipeline.add_autoscale();
+    
+    // register a render pass with the scheduler
+    please.pipeline.add(10, "project/draw", function () {
+        please.render(demo.viewport);
+    }).skip_when(function () { return demo.viewport === null; });
+
+    // start the rendering pipeline
+    please.pipeline.start();
+
     // Custom loading screen handler
-    show_progress();
+    please.postpone(show_progress);
 });
 
 
 function show_progress() {
-    if (please.media.pending.length > 0) {
-        var progress = please.media.get_progress();
-        if (progress.all > -1) {
-            var label = document.getElementById("loading_screen");
-            label.innerHTML = "loading... " + Math.round(progress.all) + "%";
+    var graph = new please.SceneGraph();
+    var camera = new please.CameraNode();
+    camera.look_at = [0.0, 0.0, 0.0];
+    camera.location = [0.0, 0.0, 100];
+    camera.up_vector = [0, 1, 0];
+    camera.set_orthographic();
+
+    var container = new please.CameraNode();
+
+    var girl = please.access("girl_with_headphones.png").instance();
+    girl.location = [-10, -1, 0];
+    girl.rotation_x = 0;
+    
+    var label = please.access("loading.png").instance();
+    label.location = [-6, -1, 1];
+    label.rotation_x = 0;
+    label.scale = [16, 16, 16];
+
+    container.add(girl);
+    container.add(label);
+    graph.add(container);
+    graph.add(camera);
+    camera.activate();
+
+    var loading_screen = new please.RenderNode("default");
+    loading_screen.render = function () {
+        graph.draw();
+    };
+
+    demo.viewport = loading_screen;
+
+    (function percent () {
+        if (please.media.pending.length > 0) {
+            var progress = please.media.get_progress();
+            if (progress.all > -1) {
+                var label = document.getElementById("loading_screen");
+                label.innerHTML = "" + Math.round(progress.all) + "%";
+            }
+            setTimeout(percent, 100);
         }
-        setTimeout(show_progress, 100);
-    }
+    })();
 };
 
 
@@ -84,13 +139,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // the game, the callback is wrapped in the "please.once"
     // function, to ensure that it is only called once.
     
-    // Create GL context, build shader pair.  Note, in this case we
-    // don't call please.load on simple.vert or diffuse.frag because
-    // they are hardcoded into m.grl by default.
-    please.glsl("diffuse_pass", "simple.vert", "diffuse.frag").activate();
-    please.glsl("fancy_pass", "splat.vert", "fancy.frag");
-    please.glsl("splice_pass", "splat.vert", "splice.frag");
-
     // hide the loading screen
     document.getElementById("loading_screen").style.display = "none";
 
@@ -107,7 +155,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
         character.location_x = 5 * i;
         character.location_z = please.oscillating_driver(1, 3, 1000+500*Math.random());
         character.rotation_z = please.repeating_driver(360, 0, 500+500*Math.random());
-        
         graph.add(character);
     }
     
@@ -123,41 +170,31 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // practice to explicitly activate the camera you want to use:
     camera.activate();
 
-    // Add a renderer for the scene.
-    var renderer = new please.RenderNode("diffuse_pass");
+
+    // Add a renderer using the default shader.
+    var renderer = new please.RenderNode("default");
     renderer.render = function () {
         graph.draw();
     };
 
-    var viewport = new please.RenderNode("fancy_pass");
-    viewport.shader.splat_texture = renderer;
-    viewport.render = function () {
+    // Add a renderer using a custom shader.
+    please.glsl("fancy_pass", "splat.vert", "fancy.frag");
+    var fancypass = new please.RenderNode("fancy_pass");
+    fancypass.shader.splat_texture = renderer;
+    fancypass.render = function () {
         please.gl.splat();
     };
 
+    // Add a renderer using a custom shader.
+    please.glsl("splice_pass", "splat.vert", "splice.frag");
     var splice_pass = new please.RenderNode("splice_pass");
-    splice_pass.shader.lhs_texture = viewport;
+    splice_pass.shader.lhs_texture = fancypass;
     splice_pass.shader.rhs_texture = renderer;
     splice_pass.shader.factor = please.oscillating_driver(0.0, 1.0, 2500);
-    
     splice_pass.render = function () {
         please.gl.splat();
     };
 
-
-    // Register a render passes with the scheduler.  The autoscale
-    // prefab is used to change the dimensions of the rendering canvas
-    // when it has the 'fullscreen' css class, as well as constrain
-    // the maximum height of said canvas element.  You are responsible
-    // for providing the css needed to upsample the canvas, though
-    // this project template accomplishes that for you.  See "ui.css".
-    please.pipeline.add_autoscale();
-    
-    // register a render pass with the scheduler
-    please.pipeline.add(10, "project/draw", function () {
-        please.render(splice_pass);
-    });
-
-    // start the rendering pipeline
-    please.pipeline.start();
+    // Make splice_pass the renderer.
+    demo.viewport = splice_pass;
 }));

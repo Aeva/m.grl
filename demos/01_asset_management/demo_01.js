@@ -80,7 +80,7 @@ addEventListener("load", function () {
 
     thumbnail("baul.jpg", "large image");
     thumbnail("house_map.jpg", "some map thing");
-    thumbnail("mondaux_imports.png", "fancy graphic");
+    thumbnail("girl_with_headphones.png", "bundled graphic");
     thumbnail("bat.png", "hedgehog");
     thumbnail("bogus_file.png", "bad path");
     write("")

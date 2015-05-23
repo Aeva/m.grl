@@ -49,6 +49,9 @@
 #ifdef GLSL_ASSETS
 #include "tmp/glsl_assets.js"
 #endif
+#ifdef IMAGE_ASSETS
+#include "tmp/image_assets.js"
+#endif
 
 #ifdef BSIDES
 // -------------------------------------------------------------------------- //
