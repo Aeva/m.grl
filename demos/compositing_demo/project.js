@@ -76,7 +76,7 @@ addEventListener("load", function setup () {
     please.pipeline.start();
 
     // Custom loading screen handler
-    please.postpone(show_progress);
+    show_progress();
 });
 
 
