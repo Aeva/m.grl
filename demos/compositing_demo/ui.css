@@ -5,7 +5,8 @@ body {
 }
 
 canvas {
-    image-rendering: optimizeSpeed;
+    image-rendering: -moz-pixelated;
+    image-rendering: pixelated;
 }
 
 #gl_canvas.fullscreen {
