@@ -139,9 +139,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // the game, the callback is wrapped in the "please.once"
     // function, to ensure that it is only called once.
     
-    // hide the loading screen
-    document.getElementById("loading_screen").style.display = "none";
-
     // initialize a scene graph object
     var graph = new please.SceneGraph();
 
@@ -191,10 +188,17 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // The loading screen renderer was defined elsewhere in this file
     var loading_screen = demo.viewport;
 
-    // Make splice_pass the renderer.
-    var fade_out = new please.TransitionEffect("splice_pass");
-    fade_out.blend_between(loading_screen, splice_pass, 5000);
-    fade_out.shader.blur_factor = 1;
-    fade_out.shader.invert = true;
-    demo.viewport = fade_out;
+    // Add a timeout before the screen wipe to allow images etc to
+    // upload to the gpu, otherwise the transition will be choppy.
+    window.setTimeout(function () {
+        // hide the loading screen
+        document.getElementById("loading_screen").style.display = "none";
+
+        // Make splice_pass the renderer.
+        var fade_out = new please.TransitionEffect("splice_pass");
+        fade_out.blend_between(loading_screen, splice_pass, 5000);
+        fade_out.shader.blur_factor = 1;
+        fade_out.shader.invert = true;
+        demo.viewport = fade_out;
+    }, 2000);
 }));
