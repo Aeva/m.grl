@@ -1890,9 +1890,7 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     node.ibo = data.ibo;
     node.ext = {};
     node.vars = {};
-    node.samplers = {
-        "diffuse_texture" : this.asset_name,
-    };
+    node.shader["diffuse_texture"] = this.asset_name,
     node.__drawable = true;
     if (alpha) {
         node.sort_mode = "alpha";
@@ -3410,6 +3408,8 @@ please.gl = {
             // fire an event to indicate that a gl context exists now
             var ctx_event = new CustomEvent("mgrl_gl_context_created");
             window.dispatchEvent(ctx_event);
+            // create the default shader
+            please.glsl("default", "simple.vert", "diffuse.frag").activate();
         }
     },
     // Returns an object for a built shader program.  If a name is not
