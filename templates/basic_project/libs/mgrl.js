@@ -2454,16 +2454,37 @@ please.RenderNode = function (prog) {
     this.__buffer = please.gl.register_framebuffer(this.__id, {});
     // glsl variable bindings
     this.shader = {};
-    for (var name, i=0; i<prog.uniform_list.length; i+=1) {
+    // type introspection table
+    var defaults = {};
+    defaults[gl.BOOL] = false;
+    // add bindings
+    for (var name, type, value, i=0; i<prog.uniform_list.length; i+=1) {
         name = prog.uniform_list[i];
-        please.make_animatable(this, name, null, this.shader);
+        // skip variables that start with mgrl_ as those values are
+        // set elsewhere automatically.
+        if (!name.startsWith("mgrl_")) {
+            type = prog.binding_info[name].type;
+            value = defaults.hasOwnProperty(type) ? defaults[type] : null;
+            please.make_animatable(this, name, value, this.shader);
+        }
     }
     // caching stuff
     this.__last_framestart = null;
     this.__cached = null;
-    // event handlers
-    this.peek = null;
-    this.render = function () { return null; };
+    // optional mechanism for specifying that a graph should be
+    // rendered, without giving a custom render function.
+    this.graph = null;
+};
+please.RenderNode.prototype = {
+    "peek" : null,
+    "render" : function () {
+        if (this.graph !== null) {
+            this.graph.draw();
+        }
+        else {
+            please.gl.splat();
+        }
+    },
 };
 //
 please.render = function(node) {
@@ -2506,7 +2527,7 @@ please.render = function(node) {
     for (var i=0; i<samplers.length; i+=1) {
         var name = samplers[i];
         var sampler = node.shader[name];
-        if (sampler) {
+        if (sampler !== null) {
             if (typeof(sampler) === "object") {
                 sampler_cache[name] = please.render(sampler, stack);
             }
@@ -2541,6 +2562,38 @@ please.render = function(node) {
     node.render();
     // return the uuid of the render node if we're doing indirect rendering
     return node.__cached;
+};
+//
+please.TransitionEffect = function (prog) {
+    please.RenderNode.call(this, prog);
+    this.shader.factor = 0.0;
+};
+please.TransitionEffect.prototype = Object.create(please.RenderNode.prototype);
+please.TransitionEffect.prototype.peek = function () {
+    if (this.shader.factor === 0.0) {
+        return this.shader.texture_a;
+    }
+    else if (this.shader.factor === 1.0) {
+        return this.shader.texture_b;
+    }
+    else {
+        return null;
+    }
+};
+please.TransitionEffect.prototype.render = function () {
+    please.gl.splat();
+};
+please.TransitionEffect.prototype.reset_to = function (texture) {
+    this.shader.texture_a = texture;
+    this.shader.factor = 0.0;
+};
+please.TransitionEffect.prototype.blend_to = function (texture, time) {
+    this.shader.texture_b = texture;
+    this.shader.factor = please.shift_driver(0.0, 1.0, time);
+};
+please.TransitionEffect.prototype.blend_between = function (texture_a, texture_b, time) {
+    this.reset_to(texture_a);
+    this.blend_to(texture_b, time);
 };
 // - m.gani.js -------------------------------------------------------------- //
 /* [+]
@@ -3620,6 +3673,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "samplers" : {}, // sampler variables
         "uniform_list" : [], // immutable, canonical list of uniform var names
         "sampler_list" : [], // immutable, canonical list of sampler var names
+        "binding_info" : {}, // lookup reference for variable bindings
         "__cache" : {
             // the cache records the last value set,
             "vars" : {},
@@ -3830,7 +3884,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     // fetch info on available uniform vars from shader:
     var uni_count = gl.getProgramParameter(prog.id, gl.ACTIVE_UNIFORMS);
     for (var i=0; i<uni_count; i+=1) {
-        bind_uniform(gl.getActiveUniform(prog.id, i));
+        var uniform_data = gl.getActiveUniform(prog.id, i)
+        bind_uniform(uniform_data);
+        // store this data so that we can introspect elsewhere
+        prog.binding_info[uniform_data.name] = uniform_data;
     }
     // create handlers for available attributes + getter/setter for
     // enabling/disabling them
@@ -4130,7 +4187,6 @@ please.gl.reset_viewport = function () {
             var opt = please.gl.__cache.textures[please.gl.__last_fbo].fbo.options;
             var width = prog.vars.mgrl_buffer_width = opt.width;
             var height = prog.vars.mgrl_buffer_height = opt.height;
-            console.info("(" + width + ", " + height + ")");
             gl.viewport(0, 0, width, height);
         }
     }
