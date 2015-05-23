@@ -29,7 +29,11 @@ canvas {
 }
 
 #loading_screen {
+    position: fixed;
+    width: 100%;
+    left: 0px;
+    bottom: 25%;
     font-size: 100px;
+    margin-bottom: -.75em;
     text-align: center;
-    margin-top: 100px;
 }
