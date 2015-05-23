@@ -306,6 +306,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "samplers" : {}, // sampler variables
         "uniform_list" : [], // immutable, canonical list of uniform var names
         "sampler_list" : [], // immutable, canonical list of sampler var names
+        "binding_info" : {}, // lookup reference for variable bindings
         "__cache" : {
             // the cache records the last value set,
             "vars" : {},
@@ -543,7 +544,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     // fetch info on available uniform vars from shader:
     var uni_count = gl.getProgramParameter(prog.id, gl.ACTIVE_UNIFORMS);
     for (var i=0; i<uni_count; i+=1) {
-        bind_uniform(gl.getActiveUniform(prog.id, i));
+        var uniform_data = gl.getActiveUniform(prog.id, i)
+        bind_uniform(uniform_data);
+        // store this data so that we can introspect elsewhere
+        prog.binding_info[uniform_data.name] = uniform_data;
     }
 
     // create handlers for available attributes + getter/setter for
@@ -887,7 +891,6 @@ please.gl.reset_viewport = function () {
             var opt = please.gl.__cache.textures[please.gl.__last_fbo].fbo.options;
             var width = prog.vars.mgrl_buffer_width = opt.width;
             var height = prog.vars.mgrl_buffer_height = opt.height;
-            console.info("(" + width + ", " + height + ")");
             gl.viewport(0, 0, width, height);
         }
     }
