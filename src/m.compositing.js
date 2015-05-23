@@ -28,18 +28,41 @@ please.RenderNode = function (prog) {
 
     // glsl variable bindings
     this.shader = {};
-    for (var name, i=0; i<prog.uniform_list.length; i+=1) {
+
+    // type introspection table
+    var defaults = {};
+    defaults[gl.BOOL] = false;
+
+    // add bindings
+    for (var name, type, value, i=0; i<prog.uniform_list.length; i+=1) {
         name = prog.uniform_list[i];
-        please.make_animatable(this, name, null, this.shader);
+        // skip variables that start with mgrl_ as those values are
+        // set elsewhere automatically.
+        if (!name.startsWith("mgrl_")) {
+            type = prog.binding_info[name].type;
+            value = defaults.hasOwnProperty(type) ? defaults[type] : null;
+            please.make_animatable(this, name, value, this.shader);
+        }
     }
 
     // caching stuff
     this.__last_framestart = null;
     this.__cached = null;
 
-    // event handlers
-    this.peek = null;
-    this.render = function () { return null; };
+    // optional mechanism for specifying that a graph should be
+    // rendered, without giving a custom render function.
+    this.graph = null;
+};
+please.RenderNode.prototype = {
+    "peek" : null,
+    "render" : function () {
+        if (this.graph !== null) {
+            this.graph.draw();
+        }
+        else {
+            please.gl.splat();
+        }
+    },
 };
 
 
@@ -88,7 +111,7 @@ please.render = function(node) {
     for (var i=0; i<samplers.length; i+=1) {
         var name = samplers[i];
         var sampler = node.shader[name];
-        if (sampler) {
+        if (sampler !== null) {
             if (typeof(sampler) === "object") {
                 sampler_cache[name] = please.render(sampler, stack);
             }
@@ -129,4 +152,38 @@ please.render = function(node) {
 
     // return the uuid of the render node if we're doing indirect rendering
     return node.__cached;
+};
+
+
+//
+please.TransitionEffect = function (prog) {
+    please.RenderNode.call(this, prog);
+    this.shader.factor = 0.0;
+};
+please.TransitionEffect.prototype = Object.create(please.RenderNode.prototype);
+please.TransitionEffect.prototype.peek = function () {
+    if (this.shader.factor === 0.0) {
+        return this.shader.texture_a;
+    }
+    else if (this.shader.factor === 1.0) {
+        return this.shader.texture_b;
+    }
+    else {
+        return null;
+    }
+};
+please.TransitionEffect.prototype.render = function () {
+    please.gl.splat();
+};
+please.TransitionEffect.prototype.reset_to = function (texture) {
+    this.shader.texture_a = texture;
+    this.shader.factor = 0.0;
+};
+please.TransitionEffect.prototype.blend_to = function (texture, time) {
+    this.shader.texture_b = texture;
+    this.shader.factor = please.shift_driver(0.0, 1.0, time);
+};
+please.TransitionEffect.prototype.blend_between = function (texture_a, texture_b, time) {
+    this.reset_to(texture_a);
+    this.blend_to(texture_b, time);
 };
