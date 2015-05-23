@@ -542,9 +542,7 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     node.ibo = data.ibo;
     node.ext = {};
     node.vars = {};
-    node.samplers = {
-        "diffuse_texture" : this.asset_name,
-    };
+    node.shader["diffuse_texture"] = this.asset_name,
     node.__drawable = true;
     if (alpha) {
         node.sort_mode = "alpha";
