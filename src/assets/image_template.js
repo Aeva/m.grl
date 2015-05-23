@@ -1,7 +1,7 @@
 // - bundled image assets --------------------------------------------------- //
 
 
-addEventListener("load", function () {
+(function () {
     var lookup_table = #### JSON HERE ####;
     please.prop_map(lookup_table, function (name, src) {
         // see m.media.js's please.media.handlers.img for reference:
@@ -15,4 +15,4 @@ addEventListener("load", function () {
 #endif
         please.media.assets[name] = img;
     });
-});
+})();
