@@ -161,3 +161,15 @@ please.pipeline.add_autoscale = function (max_height) {
         }
     }).skip_when(skip_condition);
 };
+
+
+//
+please.DiagonalWipe = function () {
+    var prog = please.gl.get_program(["splat.vert", "diagonal_wipe.frag"]);
+    if (!prog) {
+        prog = please.glsl("diagonal_wipe", "splat.vert", "diagonal_wipe.frag");
+    }
+    var effect = new please.TransitionEffect(prog);
+    effect.shader.blur_radius = 10;
+    return effect;
+};

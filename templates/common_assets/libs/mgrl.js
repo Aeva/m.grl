@@ -2566,14 +2566,14 @@ please.render = function(node) {
 //
 please.TransitionEffect = function (prog) {
     please.RenderNode.call(this, prog);
-    this.shader.factor = 0.0;
+    this.shader.progress = 0.0;
 };
 please.TransitionEffect.prototype = Object.create(please.RenderNode.prototype);
 please.TransitionEffect.prototype.peek = function () {
-    if (this.shader.factor === 0.0) {
+    if (this.shader.progress === 0.0) {
         return this.shader.texture_a;
     }
-    else if (this.shader.factor === 1.0) {
+    else if (this.shader.progress === 1.0) {
         return this.shader.texture_b;
     }
     else {
@@ -2585,11 +2585,11 @@ please.TransitionEffect.prototype.render = function () {
 };
 please.TransitionEffect.prototype.reset_to = function (texture) {
     this.shader.texture_a = texture;
-    this.shader.factor = 0.0;
+    this.shader.progress = 0.0;
 };
 please.TransitionEffect.prototype.blend_to = function (texture, time) {
     this.shader.texture_b = texture;
-    this.shader.factor = please.shift_driver(0.0, 1.0, time);
+    this.shader.progress = please.shift_driver(0.0, 1.0, time);
 };
 please.TransitionEffect.prototype.blend_between = function (texture_a, texture_b, time) {
     this.reset_to(texture_a);
@@ -3424,57 +3424,107 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
-    // binds the rendering context
-    "set_context" : function (canvas_id, options) {
-        if (this.canvas !== null) {
-            throw("This library is not presently designed to work with multiple contexts.");
-        }
-        this.canvas = document.getElementById(canvas_id);
-        try {
-            var names = ["webgl", "experimental-webgl"];
-            for (var n=0; n<names.length; n+=1) {
-                var opt = options || {};
-                this.ctx = this.canvas.getContext(names[n], opt);
-                if (this.ctx !== null) {
-                    break;
-                }
+};
+// [+] please.gl.set_context(canvas_id, options)
+//
+// This function is used for setting the current rendering context
+// (which canvas element M.GRL will be drawing to), as well as
+// creating the "gl" namespace, which is used extensively by M.GRL,
+// and therefor this function is usually the first thing your program
+// should call.
+//
+// The "options" paramater is an object which is passed to the
+// canvas.getContext function, but may be omitted if you do not wish
+// to initialize the rendering context with any special options.  For
+// more details see:
+//
+// https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
+//
+please.gl.set_context = function (canvas_id, options) {
+    if (this.canvas !== null) {
+        throw("This library is not presently designed to work with multiple contexts.");
+    }
+    this.canvas = document.getElementById(canvas_id);
+    try {
+        var names = ["webgl", "experimental-webgl"];
+        for (var n=0; n<names.length; n+=1) {
+            var opt = options || {};
+            this.ctx = this.canvas.getContext(names[n], opt);
+            if (this.ctx !== null) {
+                break;
             }
         }
-        catch (err) {}
-        if (this.ctx === null) {
-            alert("cant webgl! halp!");
-        }
-        else {
-            window.gl = this.ctx;
-            // look for common extensions
-            var search = [
-                'EXT_texture_filter_anisotropic',
-                'OES_element_index_uint',
-            ];
-            for (var i=0; i<search.length; i+=1) {
-                var name = search[i];
-                var found = gl.getExtension(name);
-                if (found) {
-                    this.ext[name] = found;
-                }
+    }
+    catch (err) {}
+    if (this.ctx === null) {
+        alert("cant webgl! halp!");
+    }
+    else {
+        window.gl = this.ctx;
+        // look for common extensions
+        var search = [
+            'EXT_texture_filter_anisotropic',
+            'OES_element_index_uint',
+        ];
+        for (var i=0; i<search.length; i+=1) {
+            var name = search[i];
+            var found = gl.getExtension(name);
+            if (found) {
+                this.ext[name] = found;
             }
-            // fire an event to indicate that a gl context exists now
-            var ctx_event = new CustomEvent("mgrl_gl_context_created");
-            window.dispatchEvent(ctx_event);
-            // create the default shader
-            please.glsl("default", "simple.vert", "diffuse.frag").activate();
         }
-    },
-    // Returns an object for a built shader program.  If a name is not
-    // given, the active program is returned, if applicable.
-    "get_program" : function (name) {
-        if (name) {
-            return this.__cache.programs[name];
+        // fire an event to indicate that a gl context exists now
+        var ctx_event = new CustomEvent("mgrl_gl_context_created");
+        window.dispatchEvent(ctx_event);
+        // create the default shader
+        please.glsl("default", "simple.vert", "diffuse.frag").activate();
+    }
+},
+// [+] please.gl.get_program(name)
+//
+// Returns an object representing a compiled shader program.
+//
+// If 'name' is null, the currently active shader program is returned,
+// if applicable.
+//
+// If 'name' is a string, then this function returns the shader
+// program that shares the same name.
+//
+// If 'name' is an array of source URI, then this function will return
+// a shader program that was built from the named sources if one
+// exists.
+//
+// If no applicable shader program can be found, this function returns
+// null.
+//
+please.gl.get_program = function (name) {
+    if (typeof(name) === "string") {
+        return this.__cache.programs[name];
+    }
+    else if (!name) {
+        return this.__cache.current;
+    }
+    else if (typeof(name) === "object") {
+        // find by shader uris
+        var vert = null;
+        var frag = null;
+        for (var i=0; i<name.length; i+=1) {
+            var uri = name[i];
+            if (uri.endsWith(".vert")) {
+                vert = uri;
+            }
+            else if (uri.endsWith(".frag")) {
+                frag = uri;
+            }
         }
-        else {
-            return this.__cache.current;
+        for (var name in this.__cache.programs) if (this.__cache.programs.hasOwnProperty(name)) {
+            var prog = this.__cache.programs[name];
+            if (prog.vert.uri == vert && prog.frag.uri == frag) {
+                return prog;
+            }
         }
-    },
+        return null;
+    }
 };
 // [+] please.set_clear_color(red, green, blue, alpha)
 //
@@ -3496,8 +3546,12 @@ please.set_clear_color = function (red, green, blue, alpha) {
         gl.clearColor.apply(gl, color);
     }
 }
+// [+] please.gl.get_texture(uri, use_placeholder, no_error)
+//
 // Helper function for creating texture objects from the asset cache.
-// Implies please.load etc:
+// Calls please.load if the uri was not already loaded.  This method
+// is mostly used internally.
+//
 please.gl.get_texture = function (uri, use_placeholder, no_error) {
     // See if we already have a texture object for the uri:
     var texture = please.gl.__cache.textures[uri];
@@ -3537,8 +3591,12 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
         }
     }
 };
-// Nearest power of 2
-please.gl.__nearest_power = function (num) {
+// [+] please.gl.nearest_power(number)
+//
+// Returns the lowest power of two that is greater than or equal to
+// the number passed to this function.
+//
+please.gl.nearest_power = function (num) {
     var log_n = Math.log2(num);
     if (Math.floor(log_n) === num) {
         return num;
@@ -3551,8 +3609,8 @@ please.gl.__nearest_power = function (num) {
 please.gl.__upscale_image = function (image_object) {
     var w = image_object.width;
     var h = image_object.height;
-    var next_w = please.gl.__nearest_power(w);
-    var next_h = please.gl.__nearest_power(h);
+    var next_w = please.gl.nearest_power(w);
+    var next_h = please.gl.nearest_power(h);
     if (w === next_w && h === next_h) {
         return image_object;
     }
@@ -3657,9 +3715,12 @@ please.gl.__build_shader = function (src, uri) {
     }
     return glsl;
 };
+// [+] please.glsl(name /*, shader_a, shader_b,... */)
+//
 // Constructor function for building a shader program.  Give the
 // program a name (for caching), and pass any number of shader objects
 // to the function.
+//
 please.glsl = function (name /*, shader_a, shader_b,... */) {
     if (window.gl === undefined) {
         throw("No webgl context found.  Did you call please.gl.set_context?");
@@ -3930,7 +3991,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     please.gl.__cache.programs[prog.name] = prog;
     return prog;
 };
+// [+] please.gl.vbo(vertex_count, attr_map, options)
+//
 // Create a VBO from attribute array data.
+//
 please.gl.__last_vbo = null;
 please.gl.vbo = function (vertex_count, attr_map, options) {
     var opt = {
@@ -4054,7 +4118,10 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
     }
     return vbo;
 };
+// [+] please.gl.ibo(data, options)
+//
 // Create a IBO.
+//
 please.gl.__last_ibo = null;
 please.gl.ibo = function (data, options) {
     var opt = {
@@ -4097,7 +4164,10 @@ please.gl.ibo = function (data, options) {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
     return ibo;
 };
+// [+] please.gl.register_framebuffer(handle, options)
+//
 // Create a new render texture
+//
 please.gl.register_framebuffer = function (handle, _options) {
     if (please.gl.__cache.textures[handle]) {
         throw("Cannot register framebuffer to occupied handel: " + handle);
@@ -4117,8 +4187,8 @@ please.gl.register_framebuffer = function (handle, _options) {
             }
         });
     }
-    opt.width = please.gl.__nearest_power(opt.width);
-    opt.height = please.gl.__nearest_power(opt.height);
+    opt.width = please.gl.nearest_power(opt.width);
+    opt.height = please.gl.nearest_power(opt.height);
     Object.freeze(opt);
     // Create the new framebuffer
     var fbo = gl.createFramebuffer();
@@ -4147,7 +4217,11 @@ please.gl.register_framebuffer = function (handle, _options) {
     please.gl.__cache.textures[handle].fbo = fbo;
     return tex;
 };
-// Set the current render target
+// [+] please.gl.set_framebuffer(handle)
+//
+// Set the current render target.  If 'handle' is null, then direct
+// rendering will be used.
+//
 please.gl.__last_fbo = null;
 please.gl.set_framebuffer = function (handle) {
     if (handle === please.gl.__last_fbo) {
@@ -4174,7 +4248,13 @@ please.gl.set_framebuffer = function (handle) {
         }
     }
 };
-// Reset the viewport dimensions
+// [+] please.gl.reset_viewport()
+//
+// Reset the viewport dimensions so that they are synced with the
+// rendering canvas's dimensions.
+//
+// Usually, this function is called when the canvas has been resized.
+//
 please.gl.reset_viewport = function () {
     var prog = please.gl.__cache.current;
     if (prog) {
@@ -4191,7 +4271,11 @@ please.gl.reset_viewport = function () {
         }
     }
 }
-// Create and return a vertex buffer object containing a square.
+// [+] please.gl.make_quad (width, height, origin, draw_hint)
+//
+// Create and return a vertex buffer object containing a square.  This
+// generates vertices and normals, but not texture coordinates.
+//
 please.gl.make_quad = function (width, height, origin, draw_hint) {
     if (!origin) {
         origin = [0, 0, 0];
@@ -4230,8 +4314,11 @@ please.gl.make_quad = function (width, height, origin, draw_hint) {
     ]);
     return please.gl.vbo(6, attr_map, {"hint" : draw_hint});
 };
+// [+] please.gl.splat()
+//
 // Splat fills the screen with fragments.  Useful for postprocessing
 // effects.
+//
 please.gl.__splat_vbo = null;
 please.gl.splat = function () {
     var prog = please.gl.__cache.current;
@@ -6159,9 +6246,19 @@ please.pipeline.add_autoscale = function (max_height) {
         }
     }).skip_when(skip_condition);
 };
+//
+please.DiagonalWipe = function () {
+    var prog = please.gl.get_program(["splat.vert", "diagonal_wipe.frag"]);
+    if (!prog) {
+        prog = please.glsl("diagonal_wipe", "splat.vert", "diagonal_wipe.frag");
+    }
+    var effect = new please.TransitionEffect(prog);
+    effect.shader.blur_radius = 10;
+    return effect;
+};
 // - bundled glsl shader assets --------------------------------------------- //
 addEventListener("mgrl_gl_context_created", function () {
-    var lookup_table = {"diffuse.frag": "\nprecision mediump float;\n\nuniform sampler2D diffuse_texture;\n\nuniform float alpha;\nuniform bool is_sprite;\nuniform bool is_transparent;\n\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  vec4 diffuse = texture2D(diffuse_texture, local_tcoords);\n  if (is_sprite) {\n    float cutoff = is_transparent ? 0.4 : 1.0;\n    if (diffuse.a < cutoff) {\n      discard;\n    }\n  }\n  else {\n    diffuse.a = alpha;\n  }\n  gl_FragColor = diffuse;\n}\n", "splat.vert": "\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\nattribute vec3 position;\n\n\nvoid main(void) {\n  gl_Position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);\n}\n", "simple.vert": "\n// matrices\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\n\n// vertex data\nattribute vec3 position;\nattribute vec3 normal;\nattribute vec2 tcoords;\n\n// interpolated vertex data in various transformations\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  // pass along to the fragment shader\n  local_position = position;\n  local_normal = normal;\n  local_tcoords = tcoords;\n\n  // various coordinate transforms\n  vec4 world_space = (world_matrix * vec4(position, 1.0));\n  vec4 final_position = projection_matrix * view_matrix * world_space;\n  screen_position = final_position.xyz;\n  world_position = world_space.xyz;\n  gl_Position = final_position;\n}\n"};
+    var lookup_table = {"diffuse.frag": "\nprecision mediump float;\n\nuniform sampler2D diffuse_texture;\n\nuniform float alpha;\nuniform bool is_sprite;\nuniform bool is_transparent;\n\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  vec4 diffuse = texture2D(diffuse_texture, local_tcoords);\n  if (is_sprite) {\n    float cutoff = is_transparent ? 0.4 : 1.0;\n    if (diffuse.a < cutoff) {\n      discard;\n    }\n  }\n  else {\n    diffuse.a = alpha;\n  }\n  gl_FragColor = diffuse;\n}\n", "diagonal_wipe.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float blur_radius;\nuniform bool flip_axis;\nuniform bool flip_direction;\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  float slope = mgrl_buffer_height / mgrl_buffer_width;\n  if (flip_axis) {\n    slope *= -1.0;\n  }\n  float half_height = mgrl_buffer_height * 0.5;\n  float high_point = mgrl_buffer_height + half_height + blur_radius + 1.0;\n  float low_point = (half_height * -1.0) - blur_radius - 1.0;\n  float midpoint = mix(high_point, low_point, flip_direction ? 1.0 - progress : progress);\n  float test = ((gl_FragCoord.x - mgrl_buffer_width/2.0) * slope) + midpoint;\n\n  vec4 color;\n  float dist = gl_FragCoord.y - test;\n  if (dist <= blur_radius && dist >= (blur_radius*-1.0)) {\n    vec4 color_a = texture2D(texture_a, tcoords);\n    vec4 color_b = texture2D(texture_b, tcoords);\n    float blend = (dist + blur_radius) / (blur_radius*2.0);\n    color = mix(color_a, color_b, flip_direction ? 1.0 - blend : blend);\n  }\n  else {\n    if ((gl_FragCoord.y < test && !flip_direction) || (gl_FragCoord.y > test && flip_direction)) {\n      color = texture2D(texture_a, tcoords);\n    }\n    else {\n      color = texture2D(texture_b, tcoords);\n    }\n  }\n  gl_FragColor = color;\n}\n", "splat.vert": "\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\nattribute vec3 position;\n\n\nvoid main(void) {\n  gl_Position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);\n}\n", "simple.vert": "\n// matrices\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\n\n// vertex data\nattribute vec3 position;\nattribute vec3 normal;\nattribute vec2 tcoords;\n\n// interpolated vertex data in various transformations\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  // pass along to the fragment shader\n  local_position = position;\n  local_normal = normal;\n  local_tcoords = tcoords;\n\n  // various coordinate transforms\n  vec4 world_space = (world_matrix * vec4(position, 1.0));\n  vec4 final_position = projection_matrix * view_matrix * world_space;\n  screen_position = final_position.xyz;\n  world_position = world_space.xyz;\n  gl_Position = final_position;\n}\n"};
     please.prop_map(lookup_table, function (name, src) {
         // see m.media.js's please.media.handlers.glsl for reference:
         please.media.assets[name] = please.gl.__build_shader(src, name);

@@ -158,14 +158,14 @@ please.render = function(node) {
 //
 please.TransitionEffect = function (prog) {
     please.RenderNode.call(this, prog);
-    this.shader.factor = 0.0;
+    this.shader.progress = 0.0;
 };
 please.TransitionEffect.prototype = Object.create(please.RenderNode.prototype);
 please.TransitionEffect.prototype.peek = function () {
-    if (this.shader.factor === 0.0) {
+    if (this.shader.progress === 0.0) {
         return this.shader.texture_a;
     }
-    else if (this.shader.factor === 1.0) {
+    else if (this.shader.progress === 1.0) {
         return this.shader.texture_b;
     }
     else {
@@ -177,11 +177,11 @@ please.TransitionEffect.prototype.render = function () {
 };
 please.TransitionEffect.prototype.reset_to = function (texture) {
     this.shader.texture_a = texture;
-    this.shader.factor = 0.0;
+    this.shader.progress = 0.0;
 };
 please.TransitionEffect.prototype.blend_to = function (texture, time) {
     this.shader.texture_b = texture;
-    this.shader.factor = please.shift_driver(0.0, 1.0, time);
+    this.shader.progress = please.shift_driver(0.0, 1.0, time);
 };
 please.TransitionEffect.prototype.blend_between = function (texture_a, texture_b, time) {
     this.reset_to(texture_a);

@@ -56,8 +56,7 @@ addEventListener("load", function setup () {
     // Queue up assets to be downloaded before the game starts.
     please.load("gavroche_hall.jta");
     please.load("psycho.jta");
-    please.load("fancy.frag");
-    please.load("splice.frag");
+    please.load("warp_effect.frag");
 
     // Register a render passes with the scheduler.  The autoscale
     // prefab is used to change the dimensions of the rendering canvas
@@ -173,17 +172,18 @@ addEventListener("mgrl_media_ready", please.once(function () {
     renderer.graph = graph;
 
     // Add a renderer using a custom shader.
-    please.glsl("fancy_pass", "splat.vert", "fancy.frag");
+    please.glsl("fancy_pass", "splat.vert", "warp_effect.frag");
     var fancypass = new please.RenderNode("fancy_pass");
     fancypass.shader.splat_texture = renderer;
     fancypass.shader.blur_factor = 200;
 
     // Add a renderer using a custom shader.
-    please.glsl("splice_pass", "splat.vert", "splice.frag");
+    please.glsl("splice_pass", "splat.vert", "diagonal_wipe.frag");
     var splice_pass = new please.RenderNode("splice_pass");
     splice_pass.shader.texture_a = fancypass;
     splice_pass.shader.texture_b = renderer;
-    splice_pass.shader.factor = please.oscillating_driver(0.0, 1.0, 2500);
+    splice_pass.shader.progress = please.oscillating_driver(0.0, 1.0, 2500);
+    splice_pass.shader.blur_radius = 100;
 
     // The loading screen renderer was defined elsewhere in this file
     var loading_screen = demo.viewport;
@@ -195,10 +195,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
         document.getElementById("loading_screen").style.display = "none";
 
         // Make splice_pass the renderer.
-        var fade_out = new please.TransitionEffect("splice_pass");
-        fade_out.blend_between(loading_screen, splice_pass, 5000);
-        fade_out.shader.blur_factor = 1;
-        fade_out.shader.invert = true;
+        var fade_out = new please.DiagonalWipe();
+        fade_out.blend_between(loading_screen, splice_pass, 1500);
+        fade_out.shader.blur_radius = 10;
+        fade_out.shader.flip_axis = true;
         demo.viewport = fade_out;
     }, 2000);
 }));

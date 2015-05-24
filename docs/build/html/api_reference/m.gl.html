@@ -56,12 +56,98 @@
             
   <div class="section" id="m-gl-js">
 <h1>m.gl.js<a class="headerlink" href="#m-gl-js" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="please-gl-set-context">
+<h2>please.gl.set_context<a class="headerlink" href="#please-gl-set-context" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gl.set_context</em> <strong>(canvas_id, options)</strong></p>
+<p>This function is used for setting the current rendering context (which
+canvas element M.GRL will be drawing to), as well as creating the &#8220;gl&#8221;
+namespace, which is used extensively by M.GRL, and therefor this
+function is usually the first thing your program should call.</p>
+<p>The &#8220;options&#8221; paramater is an object which is passed to the
+canvas.getContext function, but may be omitted if you do not wish to
+initialize the rendering context with any special options. For more
+details see:</p>
+<p><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext">https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext</a></p>
+</div>
+<div class="section" id="please-gl-get-program">
+<h2>please.gl.get_program<a class="headerlink" href="#please-gl-get-program" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gl.get_program</em> <strong>(name)</strong></p>
+<p>Returns an object representing a compiled shader program.</p>
+<p>If &#8216;name&#8217; is null, the currently active shader program is returned, if
+applicable.</p>
+<p>If &#8216;name&#8217; is a string, then this function returns the shader program
+that shares the same name.</p>
+<p>If &#8216;name&#8217; is an array of source URI, then this function will return a
+shader program that was built from the named sources if one exists.</p>
+<p>If no applicable shader program can be found, this function returns
+null.</p>
+</div>
 <div class="section" id="please-set-clear-color">
 <h2>please.set_clear_color<a class="headerlink" href="#please-set-clear-color" title="Permalink to this headline">¶</a></h2>
 <p><em>please.set_clear_color</em> <strong>(red, green, blue, alpha)</strong></p>
 <p>This function wraps gl.clearColor. You should use this version if you
 want mgrl to automatically set the &#8220;mgrl_clear_color&#8221; uniform in your
 shader program.</p>
+</div>
+<div class="section" id="please-gl-get-texture">
+<h2>please.gl.get_texture<a class="headerlink" href="#please-gl-get-texture" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gl.get_texture</em> <strong>(uri, use_placeholder, no_error)</strong></p>
+<p>Helper function for creating texture objects from the asset cache. Calls
+please.load if the uri was not already loaded. This method is mostly
+used internally.</p>
+</div>
+<div class="section" id="please-gl-nearest-power">
+<h2>please.gl.nearest_power<a class="headerlink" href="#please-gl-nearest-power" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gl.nearest_power</em> <strong>(number)</strong></p>
+<p>Returns the lowest power of two that is greater than or equal to the
+number passed to this function.</p>
+</div>
+<div class="section" id="please-glsl">
+<h2>please.glsl<a class="headerlink" href="#please-glsl" title="Permalink to this headline">¶</a></h2>
+<p><em>please.glsl</em> <strong>(name /*, shader_a, shader_b,... */)</strong></p>
+<p>Constructor function for building a shader program. Give the program a
+name (for caching), and pass any number of shader objects to the
+function.</p>
+</div>
+<div class="section" id="please-gl-vbo">
+<h2>please.gl.vbo<a class="headerlink" href="#please-gl-vbo" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gl.vbo</em> <strong>(vertex_count, attr_map, options)</strong></p>
+<p>Create a VBO from attribute array data.</p>
+</div>
+<div class="section" id="please-gl-ibo">
+<h2>please.gl.ibo<a class="headerlink" href="#please-gl-ibo" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gl.ibo</em> <strong>(data, options)</strong></p>
+<p>Create a IBO.</p>
+</div>
+<div class="section" id="please-gl-register-framebuffer">
+<h2>please.gl.register_framebuffer<a class="headerlink" href="#please-gl-register-framebuffer" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gl.register_framebuffer</em> <strong>(handle, options)</strong></p>
+<p>Create a new render texture</p>
+</div>
+<div class="section" id="please-gl-set-framebuffer">
+<h2>please.gl.set_framebuffer<a class="headerlink" href="#please-gl-set-framebuffer" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gl.set_framebuffer</em> <strong>(handle)</strong></p>
+<p>Set the current render target. If &#8216;handle&#8217; is null, then direct
+rendering will be used.</p>
+</div>
+<div class="section" id="please-gl-reset-viewport">
+<h2>please.gl.reset_viewport<a class="headerlink" href="#please-gl-reset-viewport" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gl.reset_viewport</em> <strong>()</strong></p>
+<p>Reset the viewport dimensions so that they are synced with the rendering
+canvas&#8217;s dimensions.</p>
+<p>Usually, this function is called when the canvas has been resized.</p>
+</div>
+<div class="section" id="please-gl-make-quad">
+<h2>please.gl.make_quad<a class="headerlink" href="#please-gl-make-quad" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gl.make_quad * **(width, height, origin, draw_hint)*</em></p>
+<p>Create and return a vertex buffer object containing a square. This
+generates vertices and normals, but not texture coordinates.</p>
+</div>
+<div class="section" id="please-gl-splat">
+<h2>please.gl.splat<a class="headerlink" href="#please-gl-splat" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gl.splat</em> <strong>()</strong></p>
+<p>Splat fills the screen with fragments. Useful for postprocessing
+effects.</p>
 </div>
 </div>
 
@@ -74,7 +160,19 @@ shader program.</p>
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">m.gl.js</a><ul>
+<li><a class="reference internal" href="#please-gl-set-context">please.gl.set_context</a></li>
+<li><a class="reference internal" href="#please-gl-get-program">please.gl.get_program</a></li>
 <li><a class="reference internal" href="#please-set-clear-color">please.set_clear_color</a></li>
+<li><a class="reference internal" href="#please-gl-get-texture">please.gl.get_texture</a></li>
+<li><a class="reference internal" href="#please-gl-nearest-power">please.gl.nearest_power</a></li>
+<li><a class="reference internal" href="#please-glsl">please.glsl</a></li>
+<li><a class="reference internal" href="#please-gl-vbo">please.gl.vbo</a></li>
+<li><a class="reference internal" href="#please-gl-ibo">please.gl.ibo</a></li>
+<li><a class="reference internal" href="#please-gl-register-framebuffer">please.gl.register_framebuffer</a></li>
+<li><a class="reference internal" href="#please-gl-set-framebuffer">please.gl.set_framebuffer</a></li>
+<li><a class="reference internal" href="#please-gl-reset-viewport">please.gl.reset_viewport</a></li>
+<li><a class="reference internal" href="#please-gl-make-quad">please.gl.make_quad</a></li>
+<li><a class="reference internal" href="#please-gl-splat">please.gl.splat</a></li>
 </ul>
 </li>
 </ul>

@@ -21,63 +21,115 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
-    
-    // binds the rendering context
-    "set_context" : function (canvas_id, options) {
-        if (this.canvas !== null) {
-            throw("This library is not presently designed to work with multiple contexts.");
-        }
+};
 
-        this.canvas = document.getElementById(canvas_id);
-        try {
-            var names = ["webgl", "experimental-webgl"];
-            for (var n=0; n<names.length; n+=1) {
-                var opt = options || {};
-                this.ctx = this.canvas.getContext(names[n], opt);
-                if (this.ctx !== null) {
-                    break;
-                }
+
+// [+] please.gl.set_context(canvas_id, options)
+//
+// This function is used for setting the current rendering context
+// (which canvas element M.GRL will be drawing to), as well as
+// creating the "gl" namespace, which is used extensively by M.GRL,
+// and therefor this function is usually the first thing your program
+// should call.
+//
+// The "options" paramater is an object which is passed to the
+// canvas.getContext function, but may be omitted if you do not wish
+// to initialize the rendering context with any special options.  For
+// more details see:
+//
+// https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
+//
+please.gl.set_context = function (canvas_id, options) {
+    if (this.canvas !== null) {
+        throw("This library is not presently designed to work with multiple contexts.");
+    }
+
+    this.canvas = document.getElementById(canvas_id);
+    try {
+        var names = ["webgl", "experimental-webgl"];
+        for (var n=0; n<names.length; n+=1) {
+            var opt = options || {};
+            this.ctx = this.canvas.getContext(names[n], opt);
+            if (this.ctx !== null) {
+                break;
             }
         }
-        catch (err) {}
-        if (this.ctx === null) {
-            alert("cant webgl! halp!");
-        }
-        else {
-            window.gl = this.ctx;
-            
-            // look for common extensions
-            var search = [
-                'EXT_texture_filter_anisotropic',
-                'OES_element_index_uint',
-            ];
-            for (var i=0; i<search.length; i+=1) {
-                var name = search[i];
-                var found = gl.getExtension(name);
-                if (found) {
-                    this.ext[name] = found;
-                }
+    }
+    catch (err) {}
+    if (this.ctx === null) {
+        alert("cant webgl! halp!");
+    }
+    else {
+        window.gl = this.ctx;
+        
+        // look for common extensions
+        var search = [
+            'EXT_texture_filter_anisotropic',
+            'OES_element_index_uint',
+        ];
+        for (var i=0; i<search.length; i+=1) {
+            var name = search[i];
+            var found = gl.getExtension(name);
+            if (found) {
+                this.ext[name] = found;
             }
-
-            // fire an event to indicate that a gl context exists now
-            var ctx_event = new CustomEvent("mgrl_gl_context_created");
-            window.dispatchEvent(ctx_event);
-
-            // create the default shader
-            please.glsl("default", "simple.vert", "diffuse.frag").activate();
         }
-    },
 
-    // Returns an object for a built shader program.  If a name is not
-    // given, the active program is returned, if applicable.
-    "get_program" : function (name) {
-        if (name) {
-            return this.__cache.programs[name];
+        // fire an event to indicate that a gl context exists now
+        var ctx_event = new CustomEvent("mgrl_gl_context_created");
+        window.dispatchEvent(ctx_event);
+
+        // create the default shader
+        please.glsl("default", "simple.vert", "diffuse.frag").activate();
+    }
+},
+
+
+// [+] please.gl.get_program(name)
+//
+// Returns an object representing a compiled shader program.
+//
+// If 'name' is null, the currently active shader program is returned,
+// if applicable.
+//
+// If 'name' is a string, then this function returns the shader
+// program that shares the same name.
+//
+// If 'name' is an array of source URI, then this function will return
+// a shader program that was built from the named sources if one
+// exists.
+//
+// If no applicable shader program can be found, this function returns
+// null.
+//
+please.gl.get_program = function (name) {
+    if (typeof(name) === "string") {
+        return this.__cache.programs[name];
+    }
+    else if (!name) {
+        return this.__cache.current;
+    }
+    else if (typeof(name) === "object") {
+        // find by shader uris
+        var vert = null;
+        var frag = null;
+        ITER(i, name) {
+            var uri = name[i];
+            if (uri.endsWith(".vert")) {
+                vert = uri;
+            }
+            else if (uri.endsWith(".frag")) {
+                frag = uri;
+            }
         }
-        else {
-            return this.__cache.current;
+        ITER_PROPS(name, this.__cache.programs) {
+            var prog = this.__cache.programs[name];
+            if (prog.vert.uri == vert && prog.frag.uri == frag) {
+                return prog;
+            }
         }
-    },
+        return null;
+    }
 };
 
 
@@ -103,8 +155,12 @@ please.set_clear_color = function (red, green, blue, alpha) {
 }
 
 
+// [+] please.gl.get_texture(uri, use_placeholder, no_error)
+//
 // Helper function for creating texture objects from the asset cache.
-// Implies please.load etc:
+// Calls please.load if the uri was not already loaded.  This method
+// is mostly used internally.
+//
 please.gl.get_texture = function (uri, use_placeholder, no_error) {
 
     // See if we already have a texture object for the uri:
@@ -148,8 +204,12 @@ please.gl.get_texture = function (uri, use_placeholder, no_error) {
 };
 
 
-// Nearest power of 2
-please.gl.__nearest_power = function (num) {
+// [+] please.gl.nearest_power(number)
+//
+// Returns the lowest power of two that is greater than or equal to
+// the number passed to this function.
+//
+please.gl.nearest_power = function (num) {
     var log_n = Math.log2(num);
     if (Math.floor(log_n) === num) {
         return num;
@@ -164,8 +224,8 @@ please.gl.__nearest_power = function (num) {
 please.gl.__upscale_image = function (image_object) {
     var w = image_object.width;
     var h = image_object.height;
-    var next_w = please.gl.__nearest_power(w);
-    var next_h = please.gl.__nearest_power(h);
+    var next_w = please.gl.nearest_power(w);
+    var next_h = please.gl.nearest_power(h);
 
     if (w === next_w && h === next_h) {
         return image_object;
@@ -288,9 +348,12 @@ please.gl.__build_shader = function (src, uri) {
 };
 
 
+// [+] please.glsl(name /*, shader_a, shader_b,... */)
+//
 // Constructor function for building a shader program.  Give the
 // program a name (for caching), and pass any number of shader objects
 // to the function.
+//
 please.glsl = function (name /*, shader_a, shader_b,... */) {
     if (window.gl === undefined) {
         throw("No webgl context found.  Did you call please.gl.set_context?");
@@ -600,7 +663,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 };
 
 
+// [+] please.gl.vbo(vertex_count, attr_map, options)
+//
 // Create a VBO from attribute array data.
+//
 please.gl.__last_vbo = null;
 please.gl.vbo = function (vertex_count, attr_map, options) {
     var opt = {
@@ -742,7 +808,10 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
 };
 
 
+// [+] please.gl.ibo(data, options)
+//
 // Create a IBO.
+//
 please.gl.__last_ibo = null;
 please.gl.ibo = function (data, options) {
     var opt = {
@@ -787,7 +856,10 @@ please.gl.ibo = function (data, options) {
 };
 
 
+// [+] please.gl.register_framebuffer(handle, options)
+//
 // Create a new render texture
+//
 please.gl.register_framebuffer = function (handle, _options) {
     if (please.gl.__cache.textures[handle]) {
         throw("Cannot register framebuffer to occupied handel: " + handle);
@@ -808,8 +880,8 @@ please.gl.register_framebuffer = function (handle, _options) {
             }
         });
     }
-    opt.width = please.gl.__nearest_power(opt.width);
-    opt.height = please.gl.__nearest_power(opt.height);
+    opt.width = please.gl.nearest_power(opt.width);
+    opt.height = please.gl.nearest_power(opt.height);
     Object.freeze(opt);
 
     // Create the new framebuffer
@@ -849,7 +921,11 @@ please.gl.register_framebuffer = function (handle, _options) {
 };
 
 
-// Set the current render target
+// [+] please.gl.set_framebuffer(handle)
+//
+// Set the current render target.  If 'handle' is null, then direct
+// rendering will be used.
+//
 please.gl.__last_fbo = null;
 please.gl.set_framebuffer = function (handle) {
     if (handle === please.gl.__last_fbo) {
@@ -878,7 +954,13 @@ please.gl.set_framebuffer = function (handle) {
 };
 
 
-// Reset the viewport dimensions
+// [+] please.gl.reset_viewport()
+//
+// Reset the viewport dimensions so that they are synced with the
+// rendering canvas's dimensions.
+//
+// Usually, this function is called when the canvas has been resized.
+//
 please.gl.reset_viewport = function () {
     var prog = please.gl.__cache.current;
     if (prog) {
@@ -897,7 +979,11 @@ please.gl.reset_viewport = function () {
 }
 
 
-// Create and return a vertex buffer object containing a square.
+// [+] please.gl.make_quad (width, height, origin, draw_hint)
+//
+// Create and return a vertex buffer object containing a square.  This
+// generates vertices and normals, but not texture coordinates.
+//
 please.gl.make_quad = function (width, height, origin, draw_hint) {
 
     if (!origin) {
@@ -942,8 +1028,11 @@ please.gl.make_quad = function (width, height, origin, draw_hint) {
 };
 
 
+// [+] please.gl.splat()
+//
 // Splat fills the screen with fragments.  Useful for postprocessing
 // effects.
+//
 please.gl.__splat_vbo = null;
 please.gl.splat = function () {
     var prog = please.gl.__cache.current;
