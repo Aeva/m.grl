@@ -173,3 +173,15 @@ please.DiagonalWipe = function () {
     effect.shader.blur_radius = 10;
     return effect;
 };
+
+
+//
+please.Disintegrate = function () {
+    var prog = please.gl.get_program(["splat.vert", "disintegrate.frag"]);
+    if (!prog) {
+        prog = please.glsl("disintegrate", "splat.vert", "disintegrate.frag");
+    }
+    var effect = new please.TransitionEffect(prog);
+    effect.shader.px_size = 5;
+    return effect;
+};
