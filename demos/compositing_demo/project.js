@@ -178,12 +178,13 @@ addEventListener("mgrl_media_ready", please.once(function () {
     fancypass.shader.blur_factor = 200;
 
     // Add a renderer using a custom shader.
+    //please.glsl("splice_pass", "splat.vert", "diagonal_wipe.frag");
     please.glsl("splice_pass", "splat.vert", "diagonal_wipe.frag");
     var splice_pass = new please.RenderNode("splice_pass");
     splice_pass.shader.texture_a = fancypass;
     splice_pass.shader.texture_b = renderer;
     splice_pass.shader.progress = please.oscillating_driver(0.0, 1.0, 2500);
-    splice_pass.shader.blur_radius = 100;
+    splice_pass.shader.blur_radius = 200;
 
     // The loading screen renderer was defined elsewhere in this file
     var loading_screen = demo.viewport;
@@ -195,10 +196,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
         document.getElementById("loading_screen").style.display = "none";
 
         // Make splice_pass the renderer.
-        var fade_out = new please.DiagonalWipe();
+        //var fade_out = new please.DiagonalWipe();
+        var fade_out = new please.Disintegrate();
         fade_out.blend_between(loading_screen, splice_pass, 1500);
-        fade_out.shader.blur_radius = 10;
-        fade_out.shader.flip_axis = true;
+        fade_out.shader.px_size = 50;
         demo.viewport = fade_out;
     }, 2000);
 }));
