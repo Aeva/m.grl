@@ -4017,6 +4017,51 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         "draw" : function () {
             gl.drawArrays(opt.mode, 0, this.count);
         },
+        "stats" : {
+            "min" : null,
+            "max" : null,
+            "size" : null,
+            "average" : null,
+        },
+    };
+    if (attr_map.position !== undefined) {
+        var point, sum = null;
+        var channels = attr_map.position.length / vertex_count;
+        for(var i=0; i<vertex_count*channels; i+=channels) {
+            point = attr_map.position.slice(i, i+channels);
+            if (sum === null) {
+                // We call point.slice() here to copy the array's contents.
+                // Otherwise, we'll just be editing references to the same object.
+                sum = point.slice();
+                vbo.stats.min = point.slice();
+                vbo.stats.max = point.slice();
+            }
+            else {
+                for (var ch=0; ch<channels; ch+=1) {
+                    sum[ch] += point[ch];
+                    if (point[ch] < vbo.stats.min[ch]) {
+                        vbo.stats.min[ch] = point[ch];
+                    }
+                    if (point[ch] > vbo.stats.max[ch]) {
+                        vbo.stats.max[ch] = point[ch];
+                    }
+                }
+            }
+        }
+        vbo.stats.size = [];
+        vbo.stats.average = [];
+        for (var ch=0; ch<channels; ch+=1) {
+            vbo.stats.size.push(vbo.stats.max[ch] - vbo.stats.min[ch]);
+            vbo.stats.average.push(sum[ch] / vertex_count);
+        }
+    }
+    var bind_stats = function (prog) {
+        for (var name in vbo.stats) {
+            var glsl_name = "mgrl_model_local_" + name;
+            if (prog.vars.hasOwnProperty(glsl_name)) {
+                prog.vars[glsl_name] = vbo.stats[name];
+            }
+        }
     };
     var attr_names = please.get_properties(attr_map);
     // This is used to automatically disable and enable attributes
@@ -4046,7 +4091,8 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 var prog = please.gl.__cache.current;
                 if (prog) {
                     setup_attrs(prog);
-                    if (prog && prog.hasOwnProperty(prog.attrs[attr])) {
+                    bind_stats(prog);
+                    if (prog.hasOwnProperty(prog.attrs[attr])) {
                         gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
                         gl.vertexAttribPointer(
                             prog.attrs[attr].loc, item_size, opt.type, false, 0, 0);
@@ -4101,6 +4147,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 var prog = please.gl.__cache.current;
                 if (prog) {
                     setup_attrs(prog);
+                    bind_stats(prog);
                     gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
                     for (var i=0; i<bind_order.length; i+=1) {
                         var attr = bind_order[i];

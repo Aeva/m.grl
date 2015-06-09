@@ -701,12 +701,14 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
     if (attr_map.position !== undefined) {
         var point, sum = null;
         var channels = attr_map.position.length / vertex_count;
-        for(var i=0; i<vertex_count; i+=1) {
-            point = attr_map.position.slice(i*channels, channels);
+        for(var i=0; i<vertex_count*channels; i+=channels) {
+            point = attr_map.position.slice(i, i+channels);
             if (sum === null) {
-                sum = point
-                vbo.stats.min = point;
-                vbo.stats.max = point;
+                // We call point.slice() here to copy the array's contents.
+                // Otherwise, we'll just be editing references to the same object.
+                sum = point.slice();
+                vbo.stats.min = point.slice();
+                vbo.stats.max = point.slice();
             }
             else {
                 for (var ch=0; ch<channels; ch+=1) {
@@ -721,10 +723,11 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             }
         }
         vbo.stats.size = [];
+        vbo.stats.average = [];
         for (var ch=0; ch<channels; ch+=1) {
             vbo.stats.size.push(vbo.stats.max[ch] - vbo.stats.min[ch]);
+            vbo.stats.average.push(sum[ch] / vertex_count);
         }
-        vbo.stats.average = sum / vertex_count;
     }
     var bind_stats = function (prog) {
         for (var name in vbo.stats) {
