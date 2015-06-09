@@ -57,6 +57,7 @@ addEventListener("load", function setup () {
     please.load("gavroche_hall.jta");
     please.load("psycho.jta");
     please.load("warp_effect.frag");
+    please.load("test.frag");
 
     // Register a render passes with the scheduler.  The autoscale
     // prefab is used to change the dimensions of the rendering canvas
@@ -177,14 +178,24 @@ addEventListener("mgrl_media_ready", please.once(function () {
     fancypass.shader.splat_texture = renderer;
     fancypass.shader.blur_factor = 200;
 
+    // Add something we'll picture-in-picture later.
+    please.glsl("coordinate_pass", "simple.vert", "test.frag");
+    var coord_pass = new please.RenderNode("coordinate_pass");
+    coord_pass.graph = graph;
+
     // Add a renderer using a custom shader.
-    //please.glsl("splice_pass", "splat.vert", "diagonal_wipe.frag");
     please.glsl("splice_pass", "splat.vert", "diagonal_wipe.frag");
     var splice_pass = new please.RenderNode("splice_pass");
     splice_pass.shader.texture_a = fancypass;
     splice_pass.shader.texture_b = renderer;
     splice_pass.shader.progress = please.oscillating_driver(0.0, 1.0, 2500);
     splice_pass.shader.blur_radius = 200;
+
+    // Add a picture-in-picture effect.
+    var pip_pass = new please.PictureInPicture();
+    pip_pass.shader.main_texture = splice_pass;
+    pip_pass.shader.pip_texture = coord_pass;
+    pip_pass.shader.pip_alpha = 0.75;
 
     // The loading screen renderer was defined elsewhere in this file
     var loading_screen = demo.viewport;
@@ -198,7 +209,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
         // Make splice_pass the renderer.
         //var fade_out = new please.DiagonalWipe();
         var fade_out = new please.Disintegrate();
-        fade_out.blend_between(loading_screen, splice_pass, 1500);
+        fade_out.blend_between(loading_screen, pip_pass, 1500);
         fade_out.shader.px_size = 50;
         demo.viewport = fade_out;
     }, 2000);

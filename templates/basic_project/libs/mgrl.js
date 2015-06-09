@@ -4017,6 +4017,51 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         "draw" : function () {
             gl.drawArrays(opt.mode, 0, this.count);
         },
+        "stats" : {
+            "min" : null,
+            "max" : null,
+            "size" : null,
+            "average" : null,
+        },
+    };
+    if (attr_map.position !== undefined) {
+        var point, sum = null;
+        var channels = attr_map.position.length / vertex_count;
+        for(var i=0; i<vertex_count*channels; i+=channels) {
+            point = attr_map.position.slice(i, i+channels);
+            if (sum === null) {
+                // We call point.slice() here to copy the array's contents.
+                // Otherwise, we'll just be editing references to the same object.
+                sum = point.slice();
+                vbo.stats.min = point.slice();
+                vbo.stats.max = point.slice();
+            }
+            else {
+                for (var ch=0; ch<channels; ch+=1) {
+                    sum[ch] += point[ch];
+                    if (point[ch] < vbo.stats.min[ch]) {
+                        vbo.stats.min[ch] = point[ch];
+                    }
+                    if (point[ch] > vbo.stats.max[ch]) {
+                        vbo.stats.max[ch] = point[ch];
+                    }
+                }
+            }
+        }
+        vbo.stats.size = [];
+        vbo.stats.average = [];
+        for (var ch=0; ch<channels; ch+=1) {
+            vbo.stats.size.push(vbo.stats.max[ch] - vbo.stats.min[ch]);
+            vbo.stats.average.push(sum[ch] / vertex_count);
+        }
+    }
+    var bind_stats = function (prog) {
+        for (var name in vbo.stats) {
+            var glsl_name = "mgrl_model_local_" + name;
+            if (prog.vars.hasOwnProperty(glsl_name)) {
+                prog.vars[glsl_name] = vbo.stats[name];
+            }
+        }
     };
     var attr_names = please.get_properties(attr_map);
     // This is used to automatically disable and enable attributes
@@ -4046,7 +4091,8 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 var prog = please.gl.__cache.current;
                 if (prog) {
                     setup_attrs(prog);
-                    if (prog && prog.hasOwnProperty(prog.attrs[attr])) {
+                    bind_stats(prog);
+                    if (prog.hasOwnProperty(prog.attrs[attr])) {
                         gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
                         gl.vertexAttribPointer(
                             prog.attrs[attr].loc, item_size, opt.type, false, 0, 0);
@@ -4101,6 +4147,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 var prog = please.gl.__cache.current;
                 if (prog) {
                     setup_attrs(prog);
+                    bind_stats(prog);
                     gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
                     for (var i=0; i<bind_order.length; i+=1) {
                         var attr = bind_order[i];
@@ -6266,9 +6313,22 @@ please.Disintegrate = function () {
     effect.shader.px_size = 5;
     return effect;
 };
+//
+please.PictureInPicture = function () {
+    var prog = please.gl.get_program(["splat.vert", "picture_in_picture.frag"]);
+    if (!prog) {
+        prog = please.glsl("picture_in_picture", "splat.vert", "picture_in_picture.frag");
+    }
+    var effect = new please.RenderNode(prog);
+    // the controls for the pip position and size are expressed as percents
+    effect.shader.pip_size = [25, 25];
+    effect.shader.pip_coord = [70, 70];
+    effect.shader.pip_alpha = 1.0;
+    return effect;
+};
 // - bundled glsl shader assets --------------------------------------------- //
 addEventListener("mgrl_gl_context_created", function () {
-    var lookup_table = {"diffuse.frag": "\nprecision mediump float;\n\nuniform sampler2D diffuse_texture;\n\nuniform float alpha;\nuniform bool is_sprite;\nuniform bool is_transparent;\n\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  vec4 diffuse = texture2D(diffuse_texture, local_tcoords);\n  if (is_sprite) {\n    float cutoff = is_transparent ? 0.4 : 1.0;\n    if (diffuse.a < cutoff) {\n      discard;\n    }\n  }\n  else {\n    diffuse.a = alpha;\n  }\n  gl_FragColor = diffuse;\n}\n", "diagonal_wipe.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float blur_radius;\nuniform bool flip_axis;\nuniform bool flip_direction;\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  float slope = mgrl_buffer_height / mgrl_buffer_width;\n  if (flip_axis) {\n    slope *= -1.0;\n  }\n  float half_height = mgrl_buffer_height * 0.5;\n  float high_point = mgrl_buffer_height + half_height + blur_radius + 1.0;\n  float low_point = (half_height * -1.0) - blur_radius - 1.0;\n  float midpoint = mix(high_point, low_point, flip_direction ? 1.0 - progress : progress);\n  float test = ((gl_FragCoord.x - mgrl_buffer_width/2.0) * slope) + midpoint;\n\n  vec4 color;\n  float dist = gl_FragCoord.y - test;\n  if (dist <= blur_radius && dist >= (blur_radius*-1.0)) {\n    vec4 color_a = texture2D(texture_a, tcoords);\n    vec4 color_b = texture2D(texture_b, tcoords);\n    float blend = (dist + blur_radius) / (blur_radius*2.0);\n    color = mix(color_a, color_b, flip_direction ? 1.0 - blend : blend);\n  }\n  else {\n    if ((gl_FragCoord.y < test && !flip_direction) || (gl_FragCoord.y > test && flip_direction)) {\n      color = texture2D(texture_a, tcoords);\n    }\n    else {\n      color = texture2D(texture_b, tcoords);\n    }\n  }\n  gl_FragColor = color;\n}\n", "disintegrate.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float px_size;\n\n\n// https://stackoverflow.com/questions/12964279/whats-the-origin-of-this-glsl-rand-one-liner\nfloat random_seed(vec2 co) {\n  return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);\n}\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 grid = gl_FragCoord.xy / px_size;\n  vec2 offset = fract(grid)*0.5;\n  float random = (random_seed(floor(grid + offset))*0.9) + 0.1;\n  random *= (1.0 - progress);\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  vec4 color;\n  if (random < 0.1) {\n    color = texture2D(texture_b, tcoords);\n  }\n  else {\n    color = texture2D(texture_a, tcoords);\n  }\n  gl_FragColor = color;\n}\n", "splat.vert": "\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\nattribute vec3 position;\n\n\nvoid main(void) {\n  gl_Position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);\n}\n", "simple.vert": "\n// matrices\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\n\n// vertex data\nattribute vec3 position;\nattribute vec3 normal;\nattribute vec2 tcoords;\n\n// interpolated vertex data in various transformations\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  // pass along to the fragment shader\n  local_position = position;\n  local_normal = normal;\n  local_tcoords = tcoords;\n\n  // various coordinate transforms\n  vec4 world_space = (world_matrix * vec4(position, 1.0));\n  vec4 final_position = projection_matrix * view_matrix * world_space;\n  screen_position = final_position.xyz;\n  world_position = world_space.xyz;\n  gl_Position = final_position;\n}\n"};
+    var lookup_table = {"picture_in_picture.frag": "\nprecision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform vec2 pip_size;\nuniform vec2 pip_coord;\nuniform float pip_alpha;\nuniform sampler2D main_texture;\nuniform sampler2D pip_texture;\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 screen_coord = pick(gl_FragCoord.xy);\n  vec4 color = texture2D(main_texture, screen_coord);\n\n  // scale the screen_coord to represent a percent\n  screen_coord *= 100.0;\n  vec2 pip_test = screen_coord - pip_coord;\n  if (pip_test.x >= 0.0 && pip_test.y >= 0.0 && pip_test.x <= pip_size.x && pip_test.y <= pip_size.y) {\n    vec4 pip_color = texture2D(pip_texture, pip_test / pip_size);\n    color = mix(color, pip_color, pip_color.a / pip_alpha);\n  }\n  gl_FragColor = color;\n}\n", "splat.vert": "\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\nattribute vec3 position;\n\n\nvoid main(void) {\n  gl_Position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);\n}\n", "simple.vert": "\n// matrices\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\n\n// vertex data\nattribute vec3 position;\nattribute vec3 normal;\nattribute vec2 tcoords;\n\n// interpolated vertex data in various transformations\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  // pass along to the fragment shader\n  local_position = position;\n  local_normal = normal;\n  local_tcoords = tcoords;\n\n  // various coordinate transforms\n  vec4 world_space = (world_matrix * vec4(position, 1.0));\n  vec4 final_position = projection_matrix * view_matrix * world_space;\n  screen_position = final_position.xyz;\n  world_position = world_space.xyz;\n  gl_Position = final_position;\n}\n", "diffuse.frag": "\nprecision mediump float;\n\nuniform sampler2D diffuse_texture;\n\nuniform float alpha;\nuniform bool is_sprite;\nuniform bool is_transparent;\n\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  vec4 diffuse = texture2D(diffuse_texture, local_tcoords);\n  if (is_sprite) {\n    float cutoff = is_transparent ? 0.4 : 1.0;\n    if (diffuse.a < cutoff) {\n      discard;\n    }\n  }\n  else {\n    diffuse.a = alpha;\n  }\n  gl_FragColor = diffuse;\n}\n", "diagonal_wipe.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float blur_radius;\nuniform bool flip_axis;\nuniform bool flip_direction;\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  float slope = mgrl_buffer_height / mgrl_buffer_width;\n  if (flip_axis) {\n    slope *= -1.0;\n  }\n  float half_height = mgrl_buffer_height * 0.5;\n  float high_point = mgrl_buffer_height + half_height + blur_radius + 1.0;\n  float low_point = (half_height * -1.0) - blur_radius - 1.0;\n  float midpoint = mix(high_point, low_point, flip_direction ? 1.0 - progress : progress);\n  float test = ((gl_FragCoord.x - mgrl_buffer_width/2.0) * slope) + midpoint;\n\n  vec4 color;\n  float dist = gl_FragCoord.y - test;\n  if (dist <= blur_radius && dist >= (blur_radius*-1.0)) {\n    vec4 color_a = texture2D(texture_a, tcoords);\n    vec4 color_b = texture2D(texture_b, tcoords);\n    float blend = (dist + blur_radius) / (blur_radius*2.0);\n    color = mix(color_a, color_b, flip_direction ? 1.0 - blend : blend);\n  }\n  else {\n    if ((gl_FragCoord.y < test && !flip_direction) || (gl_FragCoord.y > test && flip_direction)) {\n      color = texture2D(texture_a, tcoords);\n    }\n    else {\n      color = texture2D(texture_b, tcoords);\n    }\n  }\n  gl_FragColor = color;\n}\n", "disintegrate.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float px_size;\n\n\n// https://stackoverflow.com/questions/12964279/whats-the-origin-of-this-glsl-rand-one-liner\nfloat random_seed(vec2 co) {\n  return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);\n}\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 grid = gl_FragCoord.xy / px_size;\n  vec2 offset = fract(grid)*0.5;\n  float random = (random_seed(floor(grid + offset))*0.9) + 0.1;\n  random *= (1.0 - progress);\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  vec4 color;\n  if (random < 0.1) {\n    color = texture2D(texture_b, tcoords);\n  }\n  else {\n    color = texture2D(texture_a, tcoords);\n  }\n  gl_FragColor = color;\n}\n"};
     please.prop_map(lookup_table, function (name, src) {
         // see m.media.js's please.media.handlers.glsl for reference:
         please.media.assets[name] = please.gl.__build_shader(src, name);
