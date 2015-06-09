@@ -185,3 +185,18 @@ please.Disintegrate = function () {
     effect.shader.px_size = 5;
     return effect;
 };
+
+
+//
+please.PictureInPicture = function () {
+    var prog = please.gl.get_program(["splat.vert", "picture_in_picture.frag"]);
+    if (!prog) {
+        prog = please.glsl("picture_in_picture", "splat.vert", "picture_in_picture.frag");
+    }
+    var effect = new please.RenderNode(prog);
+    // the controls for the pip position and size are expressed as percents
+    effect.shader.pip_size = [25, 25];
+    effect.shader.pip_coord = [70, 70];
+    effect.shader.pip_alpha = 1.0;
+    return effect;
+};
