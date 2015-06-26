@@ -224,7 +224,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // Lets add a GANI animation next.
     var coin = demo.main.coin = please.access("coin.gani").instance();
-    coin.play('coin'); // play the "coin" animation.
     graph.add(coin);
 
     // Lets make that coin fly around too for good measure.
