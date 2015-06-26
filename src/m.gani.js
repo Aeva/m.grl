@@ -725,6 +725,14 @@ please.media.__AnimationData = function (gani_text, uri) {
         node.__current_gani = null;
         node.__current_frame = null;
 
+        var get_action_name = function (uri) {
+            var name = uri.split("/").slice(-1)[0];
+            if (name.endsWith(".gani")) {
+                name = name.slice(0, -5);
+            }
+            return name;
+        };
+
         // The .add_gani method can be used to load additional
         // animations on to a gani graph node.  This is useful for
         // things like characters.
@@ -736,10 +744,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             // animation machinery and won't be state tracking on the
             // gani object.
             var ani_name = resource.__uri;
-            var action_name = ani_name.split("/").slice(-1)[0];
-            if (action_name.endsWith(".gani")) {
-                action_name = action_name.slice(0, -5);
-            }
+            var action_name = get_action_name(ani_name);
             if (!node.__ganis[action_name]) {
                 node.__ganis[action_name] = resource;
                 
@@ -797,6 +802,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             }
         };
         node.add_gani(this);
+        node.play(get_action_name(this.__uri));
 
 
         // draw function for the animation
