@@ -20,6 +20,7 @@ please.media = {
     "errors" : {},
     "handlers" : {},
     "pending" : [],
+    "processing" : 0,
     "__load_callbacks" : {},
     "__load_status" : {},
     "__loaded" : {},
@@ -296,21 +297,28 @@ please.media._pop = function (req_key) {
         please.media.__load_callbacks[req_key] = undefined;
     }
     if (please.media.pending.length === 0) {
-        // Trigger a global event.
-        please.postpone(function () {
-            // please.postpone allows for this to be evaluated
-            // after the media handlers.
-            if (please.media.pending.length === 0) {
-                // We still check here to make sure nothing is pending
-                // because some downloads may trigger other downloads.
-                var media_ready = new CustomEvent("mgrl_media_ready");
-                window.dispatchEvent(media_ready);
-                please.__wait_for_pending = false;
-                please.media.__load_status = {};
-            }
-        });
+        // Trigger a global event.  please.postpone allows for this to
+        // be evaluated after the media handlers.
+        please.postpone(please.media.__try_media_ready);
     }
     return callbacks;
+};
+
+
+// [+] please.media.\_\_try\_media\_ready()
+//
+// This method is used internally, and is called to attempt to fire a
+// mgrl_media_ready event.
+//
+please.media.__try_media_ready = function () {
+    if (please.media.pending.length === 0 && please.media.processing === 0) {
+        // We still check here to make sure nothing is pending
+        // because some downloads may trigger other downloads.
+        var media_ready = new CustomEvent("mgrl_media_ready");
+        window.dispatchEvent(media_ready);
+        please.__wait_for_pending = false;
+        please.media.__load_status = {};
+    }
 };
 
 
@@ -438,13 +446,18 @@ please.media.handlers.img = function (url, asset_name, callback) {
     var media_callback = function (req) {
         var img = new Image();
         img.loaded = false;
-        img.addEventListener("load", function() {img.loaded = true});
+        img.addEventListener("load", function() {
+            img.loaded = true;
+            please.media.processing -= 1;
+            please.media.assets[asset_name] = img;
+            please.postpone(please.media.__try_media_ready);
+        });
         img.src = url;
         img.asset_name = asset_name;
 #ifdef WEBGL
         img.instance = please.media.__image_instance;
 #endif
-        please.media.assets[asset_name] = img;
+        please.media.processing += 1;
     };
     please.media.__xhr_helper("blob", url, asset_name, media_callback, callback);
 };

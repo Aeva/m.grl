@@ -165,6 +165,14 @@ download, and may also trigger the "mgrl\_media\_ready" DOM event.
 
 
 
+please.media.\_\_try\_media\_ready
+----------------------------------
+*please.media.\_\_try\_media\_ready* **()**
+
+This method is used internally, and is called to attempt to fire a
+mgrl\_media\_ready event.
+
+
 please.media.guess\_type
 ------------------------
 *please.media.guess\_type* **(file\_name)**

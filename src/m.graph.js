@@ -553,8 +553,7 @@ please.GraphNode.prototype = {
         var matrix = mat4.multiply(
             mat4.create(), screen_matrix, this.shader.world_matrix);
         var position = vec3.transformMat4(vec3.create(), this.location, matrix);
-        // I guess we want the Y and not the Z value?
-        this.__z_depth = position[1];
+        this.__z_depth = position[2];
     },
     "__set_picking_index" : function () {
         // This function will try to descend down the graph until an
@@ -837,8 +836,9 @@ please.SceneGraph = function () {
         }
         if (this.__alpha) {
             // sort the transparent items by z
-            var screen_matrix = mat4.multiply(
-                mat4.create(), 
+            var screen_matrix = mat4.create();
+            mat4.multiply(
+                screen_matrix,
                 this.camera.projection_matrix,
                 this.camera.view_matrix);
             ITER(i, this.__alpha) {
