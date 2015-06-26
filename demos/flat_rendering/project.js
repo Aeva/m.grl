@@ -62,6 +62,11 @@ addEventListener("load", function() {
     please.load("idle.gani");
     please.load("flores.png");
 
+    // Always render at 1:1 scale when using the add_autoscale()
+    // feature below.  Note this a temporary work around, and the API
+    // for this will change in the future.
+    please.gl.canvas.max_height = Infinity;
+
     // Register a render passes with the scheduler.  The autoscale
     // prefab is used to change the dimensions of the rendering canvas
     // when it has the 'fullscreen' css class, as well as constrain
