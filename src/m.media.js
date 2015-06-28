@@ -135,7 +135,7 @@ please.load = function (asset_name, callback, options) {
             callback("pass", asset_name);
         });
     }
-    else {
+    else if (please.media.pending.indexOf(url) === -1) {
         please.media.handlers[type](url, asset_name, callback);
     }
 };

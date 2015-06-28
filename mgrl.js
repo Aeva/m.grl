@@ -1515,7 +1515,7 @@ please.load = function (asset_name, callback, options) {
             callback("pass", asset_name);
         });
     }
-    else {
+    else if (please.media.pending.indexOf(url) === -1) {
         please.media.handlers[type](url, asset_name, callback);
     }
 };
@@ -3400,6 +3400,7 @@ please.gani.build_gl_buffers = function (ani) {
             // all loaded before the vbo can be built
             var asset = please.access(asset_name, false);
             console.assert(asset);
+            asset.scale_filter = "NEAREST";
             images[sprite] = asset;
         }
     };
