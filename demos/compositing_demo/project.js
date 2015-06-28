@@ -83,12 +83,13 @@ addEventListener("load", function setup () {
 function show_progress() {
     var graph = new please.SceneGraph();
     var camera = new please.CameraNode();
-    camera.look_at = [0.0, 0.0, 0.0];
+    camera.look_at = function () { return [0.0, 0.0, 0.0]};
     camera.location = [0.0, 0.0, 100];
     camera.up_vector = [0, 1, 0];
     camera.set_orthographic();
+    camera.dpi = 64;
 
-    var container = new please.CameraNode();
+    var container = new please.GraphNode();
 
     var girl = please.access("girl_with_headphones.png").instance();
     girl.location = [-10, -1, 0];
