@@ -6361,38 +6361,6 @@ please.PictureInPicture = function () {
     effect.shader.pip_alpha = 1.0;
     return effect;
 };
-// [+] please.LoadingScreen()
-//
-// Creates a simple loading screen placeholder.
-//
-// In the future, this will be animated to show the progress of
-// pending assets.
-//
-please.LoadingScreen = function () {
-    var graph = new please.SceneGraph();
-    var camera = new please.CameraNode();
-    camera.look_at = function () { return [0.0, 0.0, 0.0]};
-    camera.location = [0.0, 0.0, 100];
-    camera.up_vector = [0, 1, 0];
-    camera.set_orthographic();
-    camera.dpi = 64;
-    var container = new please.GraphNode();
-    var girl = please.access("girl_with_headphones.png").instance();
-    girl.location = [-10, -1, 0];
-    girl.rotation_x = 0;
-    var label = please.access("loading.png").instance();
-    label.location = [-6, -1, 1];
-    label.rotation_x = 0;
-    label.scale = [16, 16, 16];
-    container.add(girl);
-    container.add(label);
-    graph.add(container);
-    graph.add(camera);
-    camera.activate();
-    var effect = new please.RenderNode("default");
-    effect.graph = graph;
-    return effect;
-};
 // - m.prefab.js ------------------------------------------------------------ //
 // [+] please.pipeline.add_autoscale(max_height)
 //
@@ -6431,6 +6399,38 @@ please.pipeline.add_autoscale = function (max_height) {
             gl.viewport(0, 0, set_w, set_h);
         }
     }).skip_when(skip_condition);
+};
+// [+] please.LoadingScreen()
+//
+// Creates a simple loading screen placeholder RenderNode.
+//
+// In the future, this will be animated to show the progress of
+// pending assets.
+//
+please.LoadingScreen = function () {
+    var graph = new please.SceneGraph();
+    var camera = new please.CameraNode();
+    camera.look_at = function () { return [0.0, 0.0, 0.0]};
+    camera.location = [0.0, 0.0, 100];
+    camera.up_vector = [0, 1, 0];
+    camera.set_orthographic();
+    camera.dpi = 64;
+    var container = new please.GraphNode();
+    var girl = please.access("girl_with_headphones.png").instance();
+    girl.location = [-10, -1, 0];
+    girl.rotation_x = 0;
+    var label = please.access("loading.png").instance();
+    label.location = [-6, -1, 1];
+    label.rotation_x = 0;
+    label.scale = [16, 16, 16];
+    container.add(girl);
+    container.add(label);
+    graph.add(container);
+    graph.add(camera);
+    camera.activate();
+    var effect = new please.RenderNode("default");
+    effect.graph = graph;
+    return effect;
 };
 // - bundled glsl shader assets --------------------------------------------- //
 addEventListener("mgrl_gl_context_created", function () {
