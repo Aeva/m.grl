@@ -716,9 +716,7 @@ please.media.__AnimationData = function (gani_text, uri) {
         node.vars = {};
         node.samplers = {};
         node.draw_type = "sprite";
-        if (alpha) {
-            node.sort_mode = "alpha";
-        }
+        node.sort_mode = "alpha";
 
         // cache of gani data
         node.__ganis = {};

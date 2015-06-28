@@ -815,6 +815,12 @@ please.SceneGraph = function () {
             prog.vars.focal_distance = this.camera.focal_distance;
             prog.vars.depth_of_field = this.camera.depth_of_field;
             prog.vars.depth_falloff = this.camera.depth_falloff;
+            if (this.camera.__projection_mode === "orthographic") {
+                prog.vars.mgrl_orthographic_scale = 32/this.camera.dpi;
+            }
+            else {
+                prog.vars.mgrl_orthographic_scale = 1.0;
+            }
         }
         else {
             throw ("The scene graph has no camera in it!");
@@ -956,7 +962,7 @@ please.CameraNode = function () {
     ANI("right", null);
     ANI("bottom", null);
     ANI("top", null);
-    ANI("dpi", 64);
+    ANI("dpi", 32);
     ANI("origin_x", 0.5);
     ANI("origin_y", 0.5);
 
