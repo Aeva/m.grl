@@ -9,6 +9,9 @@ attribute vec3 position;
 attribute vec3 normal;
 attribute vec2 tcoords;
 
+// misc adjustments
+uniform float mgrl_orthographic_scale;
+
 // interpolated vertex data in various transformations
 varying vec3 local_position;
 varying vec3 local_normal;
@@ -19,12 +22,12 @@ varying vec3 screen_position;
 
 void main(void) {
   // pass along to the fragment shader
-  local_position = position;
+  local_position = position * mgrl_orthographic_scale;
   local_normal = normal;
   local_tcoords = tcoords;
 
   // various coordinate transforms
-  vec4 world_space = (world_matrix * vec4(position, 1.0));
+  vec4 world_space = (world_matrix * vec4(local_position, 1.0));
   vec4 final_position = projection_matrix * view_matrix * world_space;
   screen_position = final_position.xyz;
   world_position = world_space.xyz;

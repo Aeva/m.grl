@@ -109,6 +109,7 @@ var setup_loading_screen = function () {
     camera.location = [0.0, 0.0, 100];
     camera.up_vector = [0, 1, 0];
     camera.set_orthographic();
+    camera.dpi = 64;
 
     var container = new please.GraphNode();
 
@@ -200,6 +201,16 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // no matter where they are drawn on screen.
 
     
+    // The default value for the camera's DPI is 32, so this line is
+    // redundant, but you can change it to something else.  This maps
+    // GL units to pixels.  This is only used for orthographic
+    // rendering.  This does not effect the scale of objects on
+    // screen, only their relative placement.  So for example, if you
+    // wanted to place everything in absolute pixel coordinates, you'd
+    // set this to one.
+    camera.dpi = 32;
+
+    
     // Last thing needed for the camera is to add it to the graph and
     // activate it.  Activation is only needed when using more than
     // one camera per scene, which we aren't; the first camera added
@@ -220,11 +231,11 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var flowers_asset = please.access("flores.png");
     function add_flower (location_y) {
         var sprite = flowers_asset.instance();
-        sprite.location = [-4, location_y, 0];
+        sprite.location = [-8, location_y, 0];
         flora.add(sprite);
     }
     add_flower(0);
-    add_flower(-4);
+    add_flower(-8);
 
 
     // Lets add a GANI animation next.
@@ -232,8 +243,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(coin);
 
     // Lets make that coin fly around too for good measure.
-    coin.location_x = please.oscillating_driver(-10, 10, 3000);
-    coin.location_y = please.oscillating_driver(-2, 0, 500);
+    coin.location_x = please.oscillating_driver(-20, 20, 3000);
+    coin.location_y = please.oscillating_driver(-4, 0, 500);
     coin.location_z = 0; // ensure the coin appears above the flowers
 
 
@@ -247,6 +258,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(creature);
 
     model.rotation_x = -90;
+    model.scale = [1.5, 1.5, 1.5];
 
     creature.location_z = 1;
     creature.rotation_y = please.repeating_driver(360, 0, 1000);

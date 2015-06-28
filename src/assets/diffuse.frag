@@ -17,7 +17,7 @@ varying vec3 screen_position;
 void main(void) {
   vec4 diffuse = texture2D(diffuse_texture, local_tcoords);
   if (is_sprite) {
-    float cutoff = is_transparent ? 0.4 : 1.0;
+    float cutoff = is_transparent ? 0.1 : 1.0;
     if (diffuse.a < cutoff) {
       discard;
     }

@@ -546,15 +546,13 @@ please.media.__image_buffer_cache = {};
 //
 please.media.__image_instance = function (center, scale, x, y, width, height, alpha) {
     DEFAULT(center, false);
-    DEFAULT(scale, 64);
+    DEFAULT(scale, 32);
     DEFAULT(x, 0);
     DEFAULT(y, 0);
     DEFAULT(width, this.width);
     DEFAULT(height, this.height);
     DEFAULT(alpha, true);
     this.scale_filter = "NEAREST";
-    this.draw_type = "sprite";
-    this.sort_mode = "alpha";
 
     var builder = new please.builder.SpriteBuilder(center, scale, alpha);
     var flat = builder.add_flat(x, y, this.width, this.height, width, height);
@@ -578,6 +576,9 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     }
     node.asset = this;
     node.hint = hint;
+    node.draw_type = "sprite";
+    node.sort_mode = "alpha";
+
     node.bind = function() { 
         this.vbo.bind();
         this.ibo.bind();
