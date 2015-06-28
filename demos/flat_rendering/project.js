@@ -89,48 +89,9 @@ addEventListener("load", function() {
 
 
 var setup_loading_screen = function () {
-    // In this function, we construct a simple scene which creates a
-    // loading screen.  This functionality will later be available as
-    // a drop-in component which you may use in your own projects, at
-    // which point this method will be omitted from the demo.
-    //
-    // Functionality pertaining to 2D rendering will be explained in
-    // the media ready handler defined below this method.
-    //
-    // This section also makes use of "default assets", which are
-    // bundled with m.grl for you to use.  These assets do not need to
-    // be pre-loaded and are available right away.  This is mostly
-    // limited to providing a collection of small shaders to enable
-    // you to build nice visual effects without knowing GLSL.
-
-    var graph = demo.loading.graph = new please.SceneGraph();
-    var camera = demo.loading.camera = new please.CameraNode();
-    camera.look_at = function () { return [0.0, 0.0, 0.0]};
-    camera.location = [0.0, 0.0, 100];
-    camera.up_vector = [0, 1, 0];
-    camera.set_orthographic();
-    camera.dpi = 64;
-
-    var container = new please.GraphNode();
-
-    var girl = please.access("girl_with_headphones.png").instance();
-    girl.location = [-10, -1, 0];
-    girl.rotation_x = 0;
+    // This function sets up a loading screen.
     
-    var label = please.access("loading.png").instance();
-    label.location = [-6, -1, 1];
-    label.rotation_x = 0;
-    label.scale = [16, 16, 16];
-
-    container.add(girl);
-    container.add(label);
-    graph.add(container);
-    graph.add(camera);
-    camera.activate();
-
-    demo.loading.renderer = new please.RenderNode("default");
-    demo.loading.renderer.graph = graph;
-
+    demo.loading.renderer = new please.LoadingScreen();
     demo.viewport = demo.loading.renderer;
 
     (function percent () {
@@ -274,6 +235,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var renderer = demo.main.renderer = new please.RenderNode("default");
     renderer.graph = graph;
 
+    
     // Add a timeout before the screen wipe to allow images etc to
     // upload to the gpu, otherwise the transition will be choppy.
     window.setTimeout(function () {

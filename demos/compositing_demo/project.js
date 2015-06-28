@@ -81,37 +81,9 @@ addEventListener("load", function setup () {
 
 
 function show_progress() {
-    var graph = new please.SceneGraph();
-    var camera = new please.CameraNode();
-    camera.look_at = function () { return [0.0, 0.0, 0.0]};
-    camera.location = [0.0, 0.0, 100];
-    camera.up_vector = [0, 1, 0];
-    camera.set_orthographic();
-    camera.dpi = 64;
-
-    var container = new please.GraphNode();
-
-    var girl = please.access("girl_with_headphones.png").instance();
-    girl.location = [-10, -1, 0];
-    girl.rotation_x = 0;
+    // This function sets up a loading screen.
     
-    var label = please.access("loading.png").instance();
-    label.location = [-6, -1, 1];
-    label.rotation_x = 0;
-    label.scale = [16, 16, 16];
-
-    container.add(girl);
-    container.add(label);
-    graph.add(container);
-    graph.add(camera);
-    camera.activate();
-
-    var loading_screen = new please.RenderNode("default");
-    loading_screen.render = function () {
-        graph.draw();
-    };
-
-    demo.viewport = loading_screen;
+    demo.viewport = new please.LoadingScreen();
 
     (function percent () {
         if (please.media.pending.length > 0) {
