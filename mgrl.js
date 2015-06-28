@@ -1898,6 +1898,8 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     if (height === undefined) { height = this.height; };
     if (alpha === undefined) { alpha = true; };
     this.scale_filter = "NEAREST";
+    this.draw_type = "sprite";
+    this.sort_mode = "alpha";
     var builder = new please.builder.SpriteBuilder(center, scale, alpha);
     var flat = builder.add_flat(x, y, this.width, this.height, width, height);
     var hint = flat.hint;
@@ -3254,9 +3256,7 @@ please.media.__AnimationData = function (gani_text, uri) {
         node.vars = {};
         node.samplers = {};
         node.draw_type = "sprite";
-        if (alpha) {
-            node.sort_mode = "alpha";
-        }
+        node.sort_mode = "alpha";
         // cache of gani data
         node.__ganis = {};
         node.__current_gani = null;
@@ -3499,6 +3499,10 @@ please.gl.set_context = function (canvas_id, options) {
                 this.ext[name] = found;
             }
         }
+        // set mgrl's default gl state settings:
+        // - enable alpha blending
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         // fire an event to indicate that a gl context exists now
         var ctx_event = new CustomEvent("mgrl_gl_context_created");
         window.dispatchEvent(ctx_event);

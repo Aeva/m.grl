@@ -553,6 +553,8 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     DEFAULT(height, this.height);
     DEFAULT(alpha, true);
     this.scale_filter = "NEAREST";
+    this.draw_type = "sprite";
+    this.sort_mode = "alpha";
 
     var builder = new please.builder.SpriteBuilder(center, scale, alpha);
     var flat = builder.add_flat(x, y, this.width, this.height, width, height);
