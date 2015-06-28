@@ -27,13 +27,11 @@ addEventListener("load", function() {
     please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "../gl_assets/img/");
     please.set_search_path("jta", "../gl_assets/models/");
-    
-    // load shader sources
-    please.load("simple.vert");
-    please.load("simple.frag");
-    please.load("splat.vert");
-    please.load("stereo.frag");
 
+    // load a shader
+    please.load("demo.vert");
+    please.load("demo.frag");
+    
     // load our model files
     please.load("gavroche.jta");
     please.load("floor_lamp.jta");
@@ -110,14 +108,14 @@ addEventListener("mgrl_fps", function (event) {
 });
 
 
-addEventListener("mgrl_media_ready", function () {
+addEventListener("mgrl_media_ready", please.once(function () {
     // Clear loading screen, show canvas
     document.getElementById("loading_screen").style.display = "none";
     document.getElementById("demo_area").style.display = "block";
 
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
-    var prog = please.glsl("render_pass", "simple.vert", "simple.frag");
+    var prog = please.glsl("default", "demo.vert", "demo.frag");
     prog.activate();
     please.glsl("stereo_pass", "splat.vert", "stereo.frag");
 
@@ -131,8 +129,8 @@ addEventListener("mgrl_media_ready", function () {
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.CULL_FACE);
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
-
+    please.set_clear_color(.93, .93, .93, 1.0);
+    
     // enable alpha blending
     gl.enable(gl.BLEND);
     //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -239,7 +237,7 @@ addEventListener("mgrl_media_ready", function () {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // -- set the shader program
-        please.gl.get_program("render_pass").activate();
+        please.gl.get_program("default").activate();
 
         // -- activate the camera
         camera.left_eye.activate();
@@ -255,7 +253,7 @@ addEventListener("mgrl_media_ready", function () {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // -- set the shader program
-        please.gl.get_program("render_pass").activate();
+        please.gl.get_program("default").activate();
 
         // -- activate the camera
         camera.right_eye.activate();
@@ -274,9 +272,9 @@ addEventListener("mgrl_media_ready", function () {
             // -- set the shader program
             var prog = please.gl.get_program("stereo_pass");
             prog.activate();
-            prog.samplers.left_eye = "demo/left_eye";
-            prog.samplers.right_eye = "demo/right_eye";
-            prog.vars.split_screen = mode_active("frame");
+            prog.samplers.left_eye_texture = "demo/left_eye";
+            prog.samplers.right_eye_texture = "demo/right_eye";
+            prog.vars.stereo_split = mode_active("frame");
 
             prog.vars.left_color = window.lhs_mask;
             prog.vars.right_color = window.rhs_mask;
@@ -289,7 +287,7 @@ addEventListener("mgrl_media_ready", function () {
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             
             // -- set the shader program
-            please.gl.get_program("render_pass").activate();
+            please.gl.get_program("default").activate();
             
             // -- activate the camera
             camera.activate();
@@ -301,7 +299,7 @@ addEventListener("mgrl_media_ready", function () {
 
 
     please.pipeline.start();
-});
+}));
 
 
 var FloorNode = function () {
