@@ -2453,171 +2453,6 @@ please.pipeline.__regen_cache = function () {
     });
     this.__dirty = false;
 };
-// - m.compositing.js ------------------------------------------------------- //
-//
-please.RenderNode = function (prog) {
-    console.assert(this !== window);
-    prog = typeof(prog) === "string" ? please.gl.get_program(prog) : prog;
-    // UUID, used to provide a uri handle for indirect rendering.
-    Object.defineProperty(this, "__id", {
-        enumerable : false,
-        configurable: false,
-        writable : false,
-        value : please.uuid(),
-    });
-    // shader program
-    this.__prog = prog;
-    Object.defineProperty(this, "__prog", {
-        enumerable : false,
-        configurable: false,
-        writable : false,
-        value : prog,
-    });
-    // render buffer
-    this.__buffer = please.gl.register_framebuffer(this.__id, {});
-    // glsl variable bindings
-    this.shader = {};
-    // type introspection table
-    var defaults = {};
-    defaults[gl.BOOL] = false;
-    // add bindings
-    for (var name, type, value, i=0; i<prog.uniform_list.length; i+=1) {
-        name = prog.uniform_list[i];
-        // skip variables that start with mgrl_ as those values are
-        // set elsewhere automatically.
-        if (!name.startsWith("mgrl_")) {
-            type = prog.binding_info[name].type;
-            value = defaults.hasOwnProperty(type) ? defaults[type] : null;
-            please.make_animatable(this, name, value, this.shader);
-        }
-    }
-    // caching stuff
-    this.__last_framestart = null;
-    this.__cached = null;
-    // optional mechanism for specifying that a graph should be
-    // rendered, without giving a custom render function.
-    this.graph = null;
-};
-please.RenderNode.prototype = {
-    "peek" : null,
-    "render" : function () {
-        if (this.graph !== null) {
-            this.graph.draw();
-        }
-        else {
-            please.gl.splat();
-        }
-    },
-};
-//
-please.render = function(node) {
-    var stack = arguments[1] || [];
-    if (stack.indexOf(node)>=0) {
-        throw("M.GRL doesn't currently suport render graph cycles.");
-    }
-    if (stack.length > 0 && node.__last_framestart >= please.pipeline.__framestart && node.__cached) {
-        return node.__cached;
-    }
-    else {
-        node.__last_framestart = please.pipeline.__framestart;
-    }
-    // peek method on the render node can be used to allow the node to exclude
-    // itself from the stack in favor of a different node or texture.
-    if (node.peek) {
-        var proxy = node.peek();
-        if (proxy) {
-            if (typeof(proxy) === "string") {
-                // proxy is a URI
-                if (stack.length > 0) {
-                    return proxy;
-                }
-                else {
-                    // FIXME: splat render the texture and call it a day
-                    throw("missing functionality");
-                }
-            }
-            else if (typeof(proxy) === "object") {
-                // proxy is another RenderNode
-                return please.render(proxy, stack);
-            }
-        }
-    }
-    // add this node to the stack
-    stack.push(node);
-    // call rendernodes for samplers, where applicable, and then cache output
-    var samplers = node.__prog.sampler_list;
-    var sampler_cache = {};
-    for (var i=0; i<samplers.length; i+=1) {
-        var name = samplers[i];
-        var sampler = node.shader[name];
-        if (sampler !== null) {
-            if (typeof(sampler) === "object") {
-                sampler_cache[name] = please.render(sampler, stack);
-            }
-            else {
-                sampler_cache[name] = sampler;
-            }
-        }
-    }
-    // remove this node from the stack
-    stack.pop();
-    // activate the shader program
-    node.__prog.activate();
-    // upload shader vars
-    for (var name in node.shader) {
-        if (node.__prog.vars.hasOwnProperty(name)) {
-            var value = sampler_cache[name] || node.shader[name];
-            if (value !== null && value !== undefined) {
-                if (node.__prog.samplers.hasOwnProperty(name)) {
-                    node.__prog.samplers[name] = value;
-                }
-                else {
-                    node.__prog.vars[name] = value;
-                }
-            }
-        }
-    }
-    // use an indirect texture if the stack length is greater than 1
-    node.__cached = stack.length > 0 ? node.__id : null;
-    please.gl.set_framebuffer(node.__cached);
-    // call the rendering logic
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    node.render();
-    // return the uuid of the render node if we're doing indirect rendering
-    return node.__cached;
-};
-//
-please.TransitionEffect = function (prog) {
-    please.RenderNode.call(this, prog);
-    this.shader.progress = 0.0;
-};
-please.TransitionEffect.prototype = Object.create(please.RenderNode.prototype);
-please.TransitionEffect.prototype.peek = function () {
-    if (this.shader.progress === 0.0) {
-        return this.shader.texture_a;
-    }
-    else if (this.shader.progress === 1.0) {
-        return this.shader.texture_b;
-    }
-    else {
-        return null;
-    }
-};
-please.TransitionEffect.prototype.render = function () {
-    please.gl.splat();
-};
-please.TransitionEffect.prototype.reset_to = function (texture) {
-    this.shader.texture_a = texture;
-    this.shader.progress = 0.0;
-};
-please.TransitionEffect.prototype.blend_to = function (texture, time) {
-    this.shader.texture_b = texture;
-    this.shader.progress = please.shift_driver(0.0, 1.0, time);
-};
-please.TransitionEffect.prototype.blend_between = function (texture_a, texture_b, time) {
-    this.reset_to(texture_a);
-    this.blend_to(texture_b, time);
-};
 // - m.gani.js -------------------------------------------------------------- //
 /* [+]
  *
@@ -3400,7 +3235,6 @@ please.gani.build_gl_buffers = function (ani) {
             // all loaded before the vbo can be built
             var asset = please.access(asset_name, false);
             console.assert(asset);
-            asset.scale_filter = "NEAREST";
             images[sprite] = asset;
         }
     };
@@ -5838,6 +5672,7 @@ please.SceneGraph = function () {
     };
 };
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
+// - m.camera.js ------------------------------------------------------------ //
 // [+] please.CameraNode()
 //
 // Constructor function that creates a camera object to be put in the
@@ -6086,102 +5921,6 @@ please.CameraNode.prototype.update_camera = function () {
         }
     }
 };
-// - m.builder.js -------------------------------------------------------- //
-// namespace
-please.builder = {};
-// This is used to programatically populate drawable objects.
-please.builder.SpriteBuilder = function (center, resolution) {
-    if (center === undefined) { center = false; };
-    if (resolution === undefined) { resolution = 64; }; // pixels to gl unit
-    this.__center = center;
-    this.__resolution = resolution;
-    this.__flats = [];
-    this.__v_array = {
-        "position" : [],
-        "tcoords" : [],
-        "normal" : [],
-    };
-    this.__i_array = [];
-};
-please.builder.SpriteBuilder.prototype = {
-    // add a quad to the builder; returns the element draw range.
-    "add_flat" : function (clip_x, clip_y, width, height, clip_width, clip_height, offset_x, offset_y) {
-        if (clip_x === undefined) { clip_x = 0; };
-        if (clip_y === undefined) { clip_y = 0; };
-        if (clip_width === undefined) { clip_width = width-offset_x; };
-        if (clip_height === undefined) { clip_height = height-offset_y; };
-        if (offset_x === undefined) { offset_x = 0; };
-        if (offset_y === undefined) { offset_y = 0; };
-        var x1, y1, x2, y2;
-        var tx = clip_x / width;
-        var ty = clip_y / height;
-        var tw = clip_width / width;
-        var th = clip_height / height;
-        if (this.__center) {
-            x1 = clip_width / -2;
-            y1 = clip_height / 2;
-            x2 = x1 * -1;
-            y2 = y1 * -1;
-        }
-        else {
-            x1 = clip_width;
-            y1 = 0;
-            x2 = 0;
-            y2 = clip_height;
-        }
-        x1 = (offset_x + x1) / this.__resolution;
-        x2 = (offset_x + x2) / this.__resolution;
-        y1 = (offset_y + y1) / this.__resolution;
-        y2 = (offset_y + y2) / this.__resolution;
-        var v_offset = this.__v_array.position.length/3;
-        this.__v_array.position = this.__v_array.position.concat([
-            x1, y1, 0,
-            x2, y2, 0,
-            x2, y1, 0,
-            x1, y2, 0,
-        ]);
-        this.__v_array.tcoords = this.__v_array.tcoords.concat([
-            tx+tw, 1.0-(ty+th),
-            tx, 1.0-(ty),
-            tx, 1.0-(ty+th),
-            tx+tw, 1.0-ty,
-        ]);
-        this.__v_array.normal = this.__v_array.normal.concat([
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-        ]);
-        var receipt = {
-            "hint" : "flat:"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th,
-            "offset" : this.__i_array.length,
-            "count" : 6,
-        };
-        this.__i_array = this.__i_array.concat([
-            v_offset + 0,
-            v_offset + 1,
-            v_offset + 2,
-            v_offset + 1,
-            v_offset + 0,
-            v_offset + 3,
-        ]);
-        return receipt;
-    },
-    // builds and returns a VBO
-    "build" : function () {
-        var v_count = this.__v_array.position.length / 3;
-        var attr_map = {
-            "position" : new Float32Array(this.__v_array.position),
-            "tcoords" : new Float32Array(this.__v_array.tcoords),
-            "normal" : new Float32Array(this.__v_array.normal),
-        };
-        return {
-            "vbo" : please.gl.vbo(v_count, attr_map),
-            "ibo" : please.gl.ibo(new Uint16Array(this.__i_array)),
-        };
-    },
-};
-// - m.prefab.js ------------------------------------------------------------ //
 // [+] please.StereoCamera()
 //
 // Inherits from please.CameraNode and can be used similarly.  This
@@ -6292,6 +6031,337 @@ please.StereoCamera.prototype._create_subcamera = function (position) {
     eye.look_at = [null, null, null];
     return eye;
 };
+// - m.builder.js -------------------------------------------------------- //
+// namespace
+please.builder = {};
+// This is used to programatically populate drawable objects.
+please.builder.SpriteBuilder = function (center, resolution) {
+    if (center === undefined) { center = false; };
+    if (resolution === undefined) { resolution = 64; }; // pixels to gl unit
+    this.__center = center;
+    this.__resolution = resolution;
+    this.__flats = [];
+    this.__v_array = {
+        "position" : [],
+        "tcoords" : [],
+        "normal" : [],
+    };
+    this.__i_array = [];
+};
+please.builder.SpriteBuilder.prototype = {
+    // add a quad to the builder; returns the element draw range.
+    "add_flat" : function (clip_x, clip_y, width, height, clip_width, clip_height, offset_x, offset_y) {
+        if (clip_x === undefined) { clip_x = 0; };
+        if (clip_y === undefined) { clip_y = 0; };
+        if (clip_width === undefined) { clip_width = width-offset_x; };
+        if (clip_height === undefined) { clip_height = height-offset_y; };
+        if (offset_x === undefined) { offset_x = 0; };
+        if (offset_y === undefined) { offset_y = 0; };
+        var x1, y1, x2, y2;
+        var tx = clip_x / width;
+        var ty = clip_y / height;
+        var tw = clip_width / width;
+        var th = clip_height / height;
+        if (this.__center) {
+            x1 = clip_width / -2;
+            y1 = clip_height / 2;
+            x2 = x1 * -1;
+            y2 = y1 * -1;
+        }
+        else {
+            x1 = clip_width;
+            y1 = 0;
+            x2 = 0;
+            y2 = clip_height;
+        }
+        x1 = (offset_x + x1) / this.__resolution;
+        x2 = (offset_x + x2) / this.__resolution;
+        y1 = (offset_y + y1) / this.__resolution;
+        y2 = (offset_y + y2) / this.__resolution;
+        var v_offset = this.__v_array.position.length/3;
+        this.__v_array.position = this.__v_array.position.concat([
+            x1, y1, 0,
+            x2, y2, 0,
+            x2, y1, 0,
+            x1, y2, 0,
+        ]);
+        this.__v_array.tcoords = this.__v_array.tcoords.concat([
+            tx+tw, 1.0-(ty+th),
+            tx, 1.0-(ty),
+            tx, 1.0-(ty+th),
+            tx+tw, 1.0-ty,
+        ]);
+        this.__v_array.normal = this.__v_array.normal.concat([
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+        ]);
+        var receipt = {
+            "hint" : "flat:"+x1+","+y1+":"+x2+","+y2+":"+tx+","+ty+","+tw+","+th,
+            "offset" : this.__i_array.length,
+            "count" : 6,
+        };
+        this.__i_array = this.__i_array.concat([
+            v_offset + 0,
+            v_offset + 1,
+            v_offset + 2,
+            v_offset + 1,
+            v_offset + 0,
+            v_offset + 3,
+        ]);
+        return receipt;
+    },
+    // builds and returns a VBO
+    "build" : function () {
+        var v_count = this.__v_array.position.length / 3;
+        var attr_map = {
+            "position" : new Float32Array(this.__v_array.position),
+            "tcoords" : new Float32Array(this.__v_array.tcoords),
+            "normal" : new Float32Array(this.__v_array.normal),
+        };
+        return {
+            "vbo" : please.gl.vbo(v_count, attr_map),
+            "ibo" : please.gl.ibo(new Uint16Array(this.__i_array)),
+        };
+    },
+};
+// - m.compositing.js ------------------------------------------------------- //
+//
+please.RenderNode = function (prog) {
+    console.assert(this !== window);
+    prog = typeof(prog) === "string" ? please.gl.get_program(prog) : prog;
+    // UUID, used to provide a uri handle for indirect rendering.
+    Object.defineProperty(this, "__id", {
+        enumerable : false,
+        configurable: false,
+        writable : false,
+        value : please.uuid(),
+    });
+    // shader program
+    this.__prog = prog;
+    Object.defineProperty(this, "__prog", {
+        enumerable : false,
+        configurable: false,
+        writable : false,
+        value : prog,
+    });
+    // render buffer
+    this.__buffer = please.gl.register_framebuffer(this.__id, {});
+    // glsl variable bindings
+    this.shader = {};
+    // type introspection table
+    var defaults = {};
+    defaults[gl.BOOL] = false;
+    // add bindings
+    for (var name, type, value, i=0; i<prog.uniform_list.length; i+=1) {
+        name = prog.uniform_list[i];
+        // skip variables that start with mgrl_ as those values are
+        // set elsewhere automatically.
+        if (!name.startsWith("mgrl_")) {
+            type = prog.binding_info[name].type;
+            value = defaults.hasOwnProperty(type) ? defaults[type] : null;
+            please.make_animatable(this, name, value, this.shader);
+        }
+    }
+    // caching stuff
+    this.__last_framestart = null;
+    this.__cached = null;
+    // optional mechanism for specifying that a graph should be
+    // rendered, without giving a custom render function.
+    this.graph = null;
+};
+please.RenderNode.prototype = {
+    "peek" : null,
+    "render" : function () {
+        if (this.graph !== null) {
+            this.graph.draw();
+        }
+        else {
+            please.gl.splat();
+        }
+    },
+};
+//
+please.render = function(node) {
+    var stack = arguments[1] || [];
+    if (stack.indexOf(node)>=0) {
+        throw("M.GRL doesn't currently suport render graph cycles.");
+    }
+    if (stack.length > 0 && node.__last_framestart >= please.pipeline.__framestart && node.__cached) {
+        return node.__cached;
+    }
+    else {
+        node.__last_framestart = please.pipeline.__framestart;
+    }
+    // peek method on the render node can be used to allow the node to exclude
+    // itself from the stack in favor of a different node or texture.
+    if (node.peek) {
+        var proxy = node.peek();
+        if (proxy) {
+            if (typeof(proxy) === "string") {
+                // proxy is a URI
+                if (stack.length > 0) {
+                    return proxy;
+                }
+                else {
+                    // FIXME: splat render the texture and call it a day
+                    throw("missing functionality");
+                }
+            }
+            else if (typeof(proxy) === "object") {
+                // proxy is another RenderNode
+                return please.render(proxy, stack);
+            }
+        }
+    }
+    // add this node to the stack
+    stack.push(node);
+    // call rendernodes for samplers, where applicable, and then cache output
+    var samplers = node.__prog.sampler_list;
+    var sampler_cache = {};
+    for (var i=0; i<samplers.length; i+=1) {
+        var name = samplers[i];
+        var sampler = node.shader[name];
+        if (sampler !== null) {
+            if (typeof(sampler) === "object") {
+                sampler_cache[name] = please.render(sampler, stack);
+            }
+            else {
+                sampler_cache[name] = sampler;
+            }
+        }
+    }
+    // remove this node from the stack
+    stack.pop();
+    // activate the shader program
+    node.__prog.activate();
+    // upload shader vars
+    for (var name in node.shader) {
+        if (node.__prog.vars.hasOwnProperty(name)) {
+            var value = sampler_cache[name] || node.shader[name];
+            if (value !== null && value !== undefined) {
+                if (node.__prog.samplers.hasOwnProperty(name)) {
+                    node.__prog.samplers[name] = value;
+                }
+                else {
+                    node.__prog.vars[name] = value;
+                }
+            }
+        }
+    }
+    // use an indirect texture if the stack length is greater than 1
+    node.__cached = stack.length > 0 ? node.__id : null;
+    please.gl.set_framebuffer(node.__cached);
+    // call the rendering logic
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    node.render();
+    // return the uuid of the render node if we're doing indirect rendering
+    return node.__cached;
+};
+//
+please.TransitionEffect = function (prog) {
+    please.RenderNode.call(this, prog);
+    this.shader.progress = 0.0;
+};
+please.TransitionEffect.prototype = Object.create(please.RenderNode.prototype);
+please.TransitionEffect.prototype.peek = function () {
+    if (this.shader.progress === 0.0) {
+        return this.shader.texture_a;
+    }
+    else if (this.shader.progress === 1.0) {
+        return this.shader.texture_b;
+    }
+    else {
+        return null;
+    }
+};
+please.TransitionEffect.prototype.render = function () {
+    please.gl.splat();
+};
+please.TransitionEffect.prototype.reset_to = function (texture) {
+    this.shader.texture_a = texture;
+    this.shader.progress = 0.0;
+};
+please.TransitionEffect.prototype.blend_to = function (texture, time) {
+    this.shader.texture_b = texture;
+    this.shader.progress = please.shift_driver(0.0, 1.0, time);
+};
+please.TransitionEffect.prototype.blend_between = function (texture_a, texture_b, time) {
+    this.reset_to(texture_a);
+    this.blend_to(texture_b, time);
+};
+// - m.effects.js ----------------------------------------------------------- //
+// [+] please.DiagonalWipe()
+//
+// Creates a RenderNode with the diagonal wipe transition effect.
+//
+// ```
+// var effect = please.DiagonalWipe();
+// effect.shader.texture_a = "old_texture.png"; // may be another RenderNode
+// effect.shader.textrue_b = "new_texture.png"; // may be another RenderNode
+// effect.shader.progress = 0.9; // 0.0 to 1.0
+// effect.shader.blur_radius = 200; // number of pixels
+// effect.shader.flip_axis = false; // defaults to false
+// effect.shader.flip_direction = false; // defaults to false
+// ```
+//
+please.DiagonalWipe = function () {
+    var prog = please.gl.get_program(["splat.vert", "diagonal_wipe.frag"]);
+    if (!prog) {
+        prog = please.glsl("diagonal_wipe", "splat.vert", "diagonal_wipe.frag");
+    }
+    var effect = new please.TransitionEffect(prog);
+    effect.shader.blur_radius = 10;
+    return effect;
+};
+// [+] please.Disintegrate()
+//
+// Creates a RenderNode with the disintegrate transition effect.
+//
+// ```
+// var effect = please.Disintegrate();
+// effect.shader.texture_a = "old_texture.png"; // may be another RenderNode
+// effect.shader.textrue_b = "new_texture.png"; // may be another RenderNode
+// effect.shader.progress = 0.25; // 0.0 to 1.0
+// effect.shader.px_size = 200; // grid size
+// ```
+//
+please.Disintegrate = function () {
+    var prog = please.gl.get_program(["splat.vert", "disintegrate.frag"]);
+    if (!prog) {
+        prog = please.glsl("disintegrate", "splat.vert", "disintegrate.frag");
+    }
+    var effect = new please.TransitionEffect(prog);
+    effect.shader.px_size = 5;
+    return effect;
+};
+// [+] please.PictureInPicture()
+//
+// Creates a RenderNode with the picture-in-picture splice effect.
+//
+// ```
+// var effect = please.PictureInPicture();
+// effect.shader.main_texture = "main_view.png"; // may be another RenderNode
+// effect.shader.pip_texture = "pip_texture.png"; // may be another RenderNode
+// effect.shader.pip_alpha = 1.0; // transparency of pip
+// effect.shader.pip_size = [25, 25]; // percent of screen area
+// effect.shader.pip_coord = [70, 70]; // percent of screen area
+// ```
+//
+please.PictureInPicture = function () {
+    var prog = please.gl.get_program(["splat.vert", "picture_in_picture.frag"]);
+    if (!prog) {
+        prog = please.glsl("picture_in_picture", "splat.vert", "picture_in_picture.frag");
+    }
+    var effect = new please.RenderNode(prog);
+    // the controls for the pip position and size are expressed as percents
+    effect.shader.pip_size = [25, 25];
+    effect.shader.pip_coord = [70, 70];
+    effect.shader.pip_alpha = 1.0;
+    return effect;
+};
+// - m.prefab.js ------------------------------------------------------------ //
 // [+] please.pipeline.add_autoscale(max_height)
 //
 // Use this to add a pipeline stage which, when the rendering canvas
@@ -6330,37 +6400,36 @@ please.pipeline.add_autoscale = function (max_height) {
         }
     }).skip_when(skip_condition);
 };
+// [+] please.LoadingScreen()
 //
-please.DiagonalWipe = function () {
-    var prog = please.gl.get_program(["splat.vert", "diagonal_wipe.frag"]);
-    if (!prog) {
-        prog = please.glsl("diagonal_wipe", "splat.vert", "diagonal_wipe.frag");
-    }
-    var effect = new please.TransitionEffect(prog);
-    effect.shader.blur_radius = 10;
-    return effect;
-};
+// Creates a simple loading screen placeholder RenderNode.
 //
-please.Disintegrate = function () {
-    var prog = please.gl.get_program(["splat.vert", "disintegrate.frag"]);
-    if (!prog) {
-        prog = please.glsl("disintegrate", "splat.vert", "disintegrate.frag");
-    }
-    var effect = new please.TransitionEffect(prog);
-    effect.shader.px_size = 5;
-    return effect;
-};
+// In the future, this will be animated to show the progress of
+// pending assets.
 //
-please.PictureInPicture = function () {
-    var prog = please.gl.get_program(["splat.vert", "picture_in_picture.frag"]);
-    if (!prog) {
-        prog = please.glsl("picture_in_picture", "splat.vert", "picture_in_picture.frag");
-    }
-    var effect = new please.RenderNode(prog);
-    // the controls for the pip position and size are expressed as percents
-    effect.shader.pip_size = [25, 25];
-    effect.shader.pip_coord = [70, 70];
-    effect.shader.pip_alpha = 1.0;
+please.LoadingScreen = function () {
+    var graph = new please.SceneGraph();
+    var camera = new please.CameraNode();
+    camera.look_at = function () { return [0.0, 0.0, 0.0]};
+    camera.location = [0.0, 0.0, 100];
+    camera.up_vector = [0, 1, 0];
+    camera.set_orthographic();
+    camera.dpi = 64;
+    var container = new please.GraphNode();
+    var girl = please.access("girl_with_headphones.png").instance();
+    girl.location = [-10, -1, 0];
+    girl.rotation_x = 0;
+    var label = please.access("loading.png").instance();
+    label.location = [-6, -1, 1];
+    label.rotation_x = 0;
+    label.scale = [16, 16, 16];
+    container.add(girl);
+    container.add(label);
+    graph.add(container);
+    graph.add(camera);
+    camera.activate();
+    var effect = new please.RenderNode("default");
+    effect.graph = graph;
     return effect;
 };
 // - bundled glsl shader assets --------------------------------------------- //
