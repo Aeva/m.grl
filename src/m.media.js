@@ -397,6 +397,31 @@ please.media.__xhr_helper = function (req_type, url, asset_name, media_callback,
             "percent" : 0,
         };
         var req = new XMLHttpRequest();
+
+        // remove progress entry, call pending callbacks
+        req.do_cleanup = function () {
+            var postpone = false;
+            var state = "fail";
+            var cleanup = function (state) {
+                DEFAULT(state, "pass");
+                var callbacks = please.media._pop(url);
+                ITER(c, callbacks) {
+                    var callback = callbacks[c];
+                    if (typeof(callback) === "function") {
+                        callback(state, asset_name);
+                    }
+                }
+                please.postpone(please.media.__try_media_ready);
+            };
+            if (req.statusText === "OK") {
+                state = "pass"
+                postpone = media_callback(req, cleanup);
+            }
+            if (!postpone) {
+                cleanup(state);
+            }
+        };
+        
         req.addEventListener("progress", function (event) {
             // update progress status
             if (event.lengthComputable) {
@@ -406,21 +431,8 @@ please.media.__xhr_helper = function (req_type, url, asset_name, media_callback,
                 load_status.percent = Math.round(percent*100)/100;
             }
         });
-        req.addEventListener("loadend", function (event) {
-            // remove progress entry, call pending callbacks
-            var callbacks = please.media._pop(url);
-            var state = "fail";
-            if (req.statusText === "OK") {
-                state = "pass";
-                media_callback(req);
-            }
-            ITER(c, callbacks) {
-                var callback = callbacks[c];
-                if (typeof(callback) === "function") {
-                    callback(state, asset_name);
-                }
-            }
-        });
+        req.addEventListener("loadend", req.do_cleanup);
+        
         req.open('GET', url, true);
         req.responseType = req_type;
         req.send();
@@ -443,14 +455,14 @@ please.media.__xhr_helper = function (req_type, url, asset_name, media_callback,
 //   download is finished.
 //
 please.media.handlers.img = function (url, asset_name, callback) {
-    var media_callback = function (req) {
+    var media_callback = function (req, finishing_callback) {
         var img = new Image();
         img.loaded = false;
         img.addEventListener("load", function() {
             img.loaded = true;
             please.media.processing -= 1;
             please.media.assets[asset_name] = img;
-            please.postpone(please.media.__try_media_ready);
+            finishing_callback();
         });
         img.src = url;
         img.asset_name = asset_name;
@@ -458,6 +470,8 @@ please.media.handlers.img = function (url, asset_name, callback) {
         img.instance = please.media.__image_instance;
 #endif
         please.media.processing += 1;
+        
+        return true; // trigger the media load event to be postponed
     };
     please.media.__xhr_helper("blob", url, asset_name, media_callback, callback);
 };
