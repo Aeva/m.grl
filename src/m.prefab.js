@@ -58,7 +58,7 @@ please.LoadingScreen = function () {
     camera.location = [0.0, 0.0, 100];
     camera.up_vector = [0, 1, 0];
     camera.set_orthographic();
-    camera.dpi = 64;
+    camera.orthographic_grid = 64;
 
     var container = new please.GraphNode();
     var girl = please.access("girl_with_headphones.png").instance();

@@ -5623,7 +5623,7 @@ please.SceneGraph = function () {
             prog.vars.depth_of_field = this.camera.depth_of_field;
             prog.vars.depth_falloff = this.camera.depth_falloff;
             if (this.camera.__projection_mode === "orthographic") {
-                prog.vars.mgrl_orthographic_scale = 32/this.camera.dpi;
+                prog.vars.mgrl_orthographic_scale = 32/this.camera.orthographic_grid;
             }
             else {
                 prog.vars.mgrl_orthographic_scale = 1.0;
@@ -5763,7 +5763,7 @@ please.CameraNode = function () {
     please.make_animatable(this, "right", null);;
     please.make_animatable(this, "bottom", null);;
     please.make_animatable(this, "top", null);;
-    please.make_animatable(this, "dpi", 32);;
+    please.make_animatable(this, "orthographic_grid", 32);;
     please.make_animatable(this, "origin_x", 0.5);;
     please.make_animatable(this, "origin_y", 0.5);;
     please.make_animatable(this, "width", null);;
@@ -5797,7 +5797,7 @@ please.CameraNode.prototype.mark_dirty = function () {
         "height" : null,
         "origin_x" : null,
         "origin_y" : null,
-        "dpi" : null,
+        "orthographic_grid" : null,
     };
 };
 please.CameraNode.prototype.activate = function () {
@@ -5891,7 +5891,7 @@ please.CameraNode.prototype.update_camera = function () {
         var right = this.right;
         var bottom = this.bottom;
         var top = this.top;
-        var dpi = this.dpi;
+        var orthographic_grid = this.orthographic_grid;
         if (left === null || right === null ||
             bottom === null || top === null) {
             // If any of the orthographic args are unset, provide our
@@ -5905,15 +5905,15 @@ please.CameraNode.prototype.update_camera = function () {
             right !== this.__last.right ||
             bottom !== this.__last.bottom ||
             top !== this.__last.top ||
-            dpi !== this.__last.dpi ||
+            orthographic_grid !== this.__last.orthographic_grid ||
             dirty) {
             this.__last.left = left;
             this.__last.right = right;
             this.__last.bottom = bottom;
             this.__last.top = top;
-            this.__last.dpi = dpi;
+            this.__last.orthographic_grid = orthographic_grid;
             // Recalculate the projection matrix and flag it as dirty
-            var scale = dpi/2;
+            var scale = orthographic_grid/2;
             mat4.ortho(
                 this.projection_matrix,
                 left/scale, right/scale, bottom/scale, top/scale, near, far);
@@ -6414,7 +6414,7 @@ please.LoadingScreen = function () {
     camera.location = [0.0, 0.0, 100];
     camera.up_vector = [0, 1, 0];
     camera.set_orthographic();
-    camera.dpi = 64;
+    camera.orthographic_grid = 64;
     var container = new please.GraphNode();
     var girl = please.access("girl_with_headphones.png").instance();
     girl.location = [-10, -1, 0];
