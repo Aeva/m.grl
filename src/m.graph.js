@@ -816,7 +816,7 @@ please.SceneGraph = function () {
             prog.vars.depth_of_field = this.camera.depth_of_field;
             prog.vars.depth_falloff = this.camera.depth_falloff;
             if (this.camera.__projection_mode === "orthographic") {
-                prog.vars.mgrl_orthographic_scale = 32/this.camera.dpi;
+                prog.vars.mgrl_orthographic_scale = 32/this.camera.orthographic_grid;
             }
             else {
                 prog.vars.mgrl_orthographic_scale = 1.0;
