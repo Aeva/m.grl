@@ -1254,9 +1254,9 @@ please.time.schedule = function (callback, when) {
         please.time.__pending.push(callback);
         please.time.__times.push(when);
         // register a pipeline stage if it doesn't exist
-        var pipe_id = "m.grl/scheduler"
-        if (please.pipeline.__callbacks[pipe_id] === undefined) {
-            please.pipeline.add(-1, pipe_id, please.time.__schedule_handler);
+        var pipe_id = "mgrl/scheduler"
+        if (!please.pipeline.is_reserved(pipe_id)) {
+            please.pipeline.add(-Infinity, pipe_id, please.time.__schedule_handler);
         }
     }
 };
@@ -2308,6 +2308,14 @@ please.pipeline.add = function (priority, name, callback) {
     };
     this.__dirty = true;
     return this.__callbacks[name];
+};
+// [+] please.pipeline.is_reserved(name)
+//
+// Returns true if the named pipeline stage is already set, otherwise
+// returns false.
+//
+please.pipeline.is_reserved = function (pipe_id) {
+    return please.pipeline.__callbacks[pipe_id] !== undefined;
 };
 //
 please.pipeline.__glsl_name = function(name) {
@@ -6376,29 +6384,32 @@ please.PictureInPicture = function () {
 // attribute on the canvas object.
 //
 please.pipeline.add_autoscale = function (max_height) {
-    var skip_condition = function () {
-        var canvas = please.gl.canvas;
-        return !canvas || !canvas.classList.contains("fullscreen");
-    };
-    please.pipeline.add(-1, "mgrl/autoscale", function () {
-        // automatically change the viewport if necessary
-        var canvas = please.gl.canvas;
-        if (canvas.max_height === undefined) {
-            canvas.max_height = max_height ? max_height : 512;
-        }
-        var window_w = window.innerWidth;
-        var window_h = window.innerHeight;
-        var ratio = window_w / window_h;
-        var set_h = Math.min(canvas.max_height, window.innerHeight);
-        var set_w = Math.round(set_h * ratio);
-        var canvas_w = canvas.width;
-        var canvas_h = canvas.height;
-        if (set_w !== canvas_w || set_h !== canvas_h) {
-            canvas.width = set_w;
-            canvas.height = set_h;
-            gl.viewport(0, 0, set_w, set_h);
-        }
-    }).skip_when(skip_condition);
+    var pipe_id = "mgrl/autoscale";
+    if (!please.pipeline.is_reserved(pipe_id)) {
+        var skip_condition = function () {
+            var canvas = please.gl.canvas;
+            return !canvas || !canvas.classList.contains("fullscreen");
+        };
+        please.pipeline.add(-Infinity, pipe_id, function () {
+            // automatically change the viewport if necessary
+            var canvas = please.gl.canvas;
+            if (canvas.max_height === undefined) {
+                canvas.max_height = max_height ? max_height : 512;
+            }
+            var window_w = window.innerWidth;
+            var window_h = window.innerHeight;
+            var ratio = window_w / window_h;
+            var set_h = Math.min(canvas.max_height, window.innerHeight);
+            var set_w = Math.round(set_h * ratio);
+            var canvas_w = canvas.width;
+            var canvas_h = canvas.height;
+            if (set_w !== canvas_w || set_h !== canvas_h) {
+                canvas.width = set_w;
+                canvas.height = set_h;
+                gl.viewport(0, 0, set_w, set_h);
+            }
+        }).skip_when(skip_condition);
+    }
 };
 // [+] please.LoadingScreen()
 //
