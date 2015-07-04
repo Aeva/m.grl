@@ -245,6 +245,7 @@
 // vestigial and should not be used.
 //
 please.graph_index = {};
+please.graph_index.roots = [];
 please.GraphNode = function () {
     console.assert(this !== window);
 
@@ -680,6 +681,7 @@ please.GraphNode.prototype = {
 //
 please.SceneGraph = function () {
     please.GraphNode.call(this);
+    please.graph_index.roots.push(this);
 
     this.__bind = null;
     this.__draw = null;
@@ -690,6 +692,22 @@ please.SceneGraph = function () {
     this.local_matrix = mat4.create();
     this.__picking_set = [];
     this.__last_framestart = null;
+
+    this.picking = {
+        "enabled" : false,
+        "skip_location_info" : true,
+        "skip_on_move_event" : true,
+        "compositing_root" : this.__create_picking_node(),
+        // __click_test stores what was selected on the last
+        // mouse_down event.  If mouse up matches, the objects gets a
+        // "click" event after it's mouse up event.  __last_click
+        // stores what object recieved a click last, and is reset
+        // whenever a contradicting mouseup occurs.  It also stores
+        // when that object was clicked on for the double click
+        // threshold.
+        "__click_test" : null,
+        "__last_click" : null,
+    };
 
     Object.defineProperty(this, "graph_root", {
         "configurable" : false,
@@ -866,3 +884,78 @@ please.SceneGraph = function () {
     };
 };
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
+
+
+//
+// Machinery for activating a picking event.
+//
+please.__pending_pick = [];
+please.__req_object_pick = function (x, y, event_info) {
+    please.__pending_pick.push({
+        "x" : x,
+        "y" : y,
+        "event" : event_info,
+    });
+};
+
+
+//
+// This code facilitates color based picking, when relevant. 
+//
+please.pipeline.add(-1, "mgrl/picking_pass", function () {
+    var req = please.__pending_pick.shift();
+    var is_move_event = req.event.type === "mousemove";
+    
+    ITER(i, please.graph_index.roots) {
+        var graph = please.graph_index.roots[i];
+        if (graph.picking.enabled && !(is_move_event && graph.picking.skip_on_move_event)) {
+            var node = graph.picking.compositing_root;
+            var id_color, loc_color = null;
+            
+            // perform object picking pass
+            node.shader.select_mode = true;
+            please.render(node);
+            id_color = please.gl.pick(req.x, req.y);
+
+            if (!graph.picking.skip_location_info) {
+                // perform object location picking
+                node.shader.select_mode = false;
+                please.render(node);
+                loc_color = please.gl.pick(req.x, req.y);
+            }
+        }
+    }
+}).skip_when(function () { return please.__pending_pick.length == 0; });
+
+
+//
+// Picking RenderNode
+//
+please.SceneGraph.prototype.__create_picking_node = function () {
+    var node = new please.RenderNode("object_picking");
+    node.graph = this;
+    return node;
+};
+
+
+//
+// Once a opengl context is created, automatically attach picking
+// event bindings to the canvas.
+//
+addEventListener("mgrl_gl_context_created", function (event) {
+    var canvas = please.gl.canvas;
+    var pick_trigger = function (event) {
+        var rect = canvas.getBoundingClientRect();
+
+        var left_edge = rect.left - window.pageXOffset;
+        var top_edge = rect.top - window.pageYOffset;
+        var pick_x = (event.pageX - left_edge) / (rect.width-1);
+        var pick_y = (event.pageY - top_edge) / (rect.height-1);
+
+        // x and y are normalized to be in the range 0.0 to 1.0
+        please.__req_object_pick(pick_x, pick_y, event);
+    };
+    canvas.addEventListener("mousemove", pick_trigger);
+    canvas.addEventListener("mousedown", pick_trigger);
+    window.addEventListener("mouseup", pick_trigger);
+});
