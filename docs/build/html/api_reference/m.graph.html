@@ -282,69 +282,6 @@ following example:</p>
 </pre></div>
 </div>
 </div>
-<div class="section" id="please-cameranode">
-<h2>please.CameraNode<a class="headerlink" href="#please-cameranode" title="Permalink to this headline">¶</a></h2>
-<p><em>please.CameraNode</em> <strong>()</strong></p>
-<p>Constructor function that creates a camera object to be put in the scene
-graph. Camera nodes support both orthographic and perspective
-projection, and almost all of their properties are animatable. The view
-matrix can be generated in one of two ways described below.</p>
-<p>To make a camera active, call it&#8217;s &#8220;activate()&#8221; method. If no camera was
-explicitly activated, then the scene graph will call the first one added
-that is an immediate child, and if no such camera still exists, then it
-will pick the first one it can find durring state sorting.</p>
-<p>The default way in which the view matrix is calculated uses the
-mat4.lookAt method from the glMatrix library. The following properties
-provide the arguments for the library call. Note that the location
-argument is missing - this is because the CameraNode&#8217;s scene graph
-coordinates are used instead.</p>
-<ul class="simple">
-<li><strong>look_at</strong> A vector of 3 values (defaults to [0, 0, 0]), null, or
-another GraphNode. This is the coordinate where the camera is pointed
-at. If this is set to null, then the CameraNode&#8217;s calculated world
-matrix is used as the view matrix.</li>
-<li><strong>up_vector</strong> A normal vector of 3 values, indicating which way is
-up (defaults to [0, 0, 1]). If set to null, [0, 0, 1] will be used
-instead</li>
-</ul>
-<p>If the look_at property is set to null, the node&#8217;s world matrix as
-generated be the scene graph will be used as the view matrix instead.</p>
-<p>One can change between orthographic and perspective projection by
-calling one of the following methods:</p>
-<ul class="simple">
-<li><strong>set_perspective()</strong></li>
-<li><strong>set_orthographic()</strong></li>
-</ul>
-<p>The following property influences how the projection matrix is generated
-when the camera is in perspective mode (default behavior).</p>
-<ul class="simple">
-<li><strong>fov</strong> Field of view, defined in degrees. Defaults to 45.</li>
-</ul>
-<p>The following properties influence how the projection matrix is
-generated when the camera is in orthographic mode. When any of these are
-set to &#8216;null&#8217; (default behavior), the bottom left corner is (0, 0), and
-the top right is (canvas_width, canvas_height).</p>
-<ul class="simple">
-<li><strong>left</strong></li>
-<li><strong>right</strong></li>
-<li><strong>bottom</strong></li>
-<li><strong>up</strong></li>
-</ul>
-<p>The following properties influence how the projection matrix is
-generated, and are common to both orthographic and perspective mode:</p>
-<ul class="simple">
-<li><strong>width</strong> Defaults to null, which indicates to use the rendering
-canvas&#8217;s width instead. For perspective rendering, width and height
-are used to calculate the screen ratio. Orthographic rendering uses
-these to calculate the top right coordinate.</li>
-<li><strong>height</strong> Defaults to null, which indicates to use the rendering
-canvas&#8217;s height instead. For perspective rendering, width and height
-are used to calculate the screen ratio. Orthographic rendering uses
-these to calculate the top right coordinate.</li>
-<li><strong>near</strong> Defaults to 0.1</li>
-<li><strong>far</strong> Defaults to 100.0</li>
-</ul>
-</div>
 </div>
 
 
@@ -358,7 +295,6 @@ these to calculate the top right coordinate.</li>
 <li><a class="reference internal" href="#">m.graph.js</a><ul>
 <li><a class="reference internal" href="#please-graphnode">please.GraphNode</a></li>
 <li><a class="reference internal" href="#please-scenegraph">please.SceneGraph</a></li>
-<li><a class="reference internal" href="#please-cameranode">please.CameraNode</a></li>
 </ul>
 </li>
 </ul>

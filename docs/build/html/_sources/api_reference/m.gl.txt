@@ -129,3 +129,11 @@ Splat fills the screen with fragments. Useful for postprocessing
 effects.
 
 
+please.gl.pick
+--------------
+*please.gl.pick* **(x, y)**
+
+Returns the RGBA formatted color value for the given x/y coordinates in
+the canvas. X and Y are within the range 0.0 to 1.0.
+
+

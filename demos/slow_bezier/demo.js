@@ -22,6 +22,23 @@
  */
 
 
+
+
+/*
+  WARNING:
+
+  This demo is built against an obsolete version of m.grl, as object
+  selection / mouse events have been completely rewritten to be
+  simpler, and backwards compatibility was not preserved.
+
+  This demo will be rewritten in the future to demonstrate this new
+  functionality.
+
+ */
+
+
+
+
 addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
     please.set_search_path("glsl", "glsl/");
@@ -63,7 +80,7 @@ addEventListener("mgrl_fps", function (event) {
 });
 
 
-addEventListener("mgrl_media_ready", function () {
+addEventListener("mgrl_media_ready", please.once(function () {
     // Clear loading screen, show canvas
     document.getElementById("loading_screen").style.display = "none";
     document.getElementById("demo_area").style.display = "block";
@@ -265,7 +282,7 @@ addEventListener("mgrl_media_ready", function () {
 
     // start the drawing loop
     please.pipeline.start();
-});
+}));
 
 
 var selected = null;

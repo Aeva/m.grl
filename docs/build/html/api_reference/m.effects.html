@@ -1,0 +1,164 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>m.effects.js &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="up" title="API Reference" href="index.html" />
+    <link rel="next" title="m.gani.js" href="m.gani.html" />
+    <link rel="prev" title="m.defs.js" href="m.defs.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.gani.html" title="m.gani.js"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="m.defs.html" title="m.defs.js"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="m-effects-js">
+<h1>m.effects.js<a class="headerlink" href="#m-effects-js" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="please-diagonalwipe">
+<h2>please.DiagonalWipe<a class="headerlink" href="#please-diagonalwipe" title="Permalink to this headline">¶</a></h2>
+<p><em>please.DiagonalWipe</em> <strong>()</strong></p>
+<p>Creates a RenderNode with the diagonal wipe transition effect.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">effect</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">DiagonalWipe</span><span class="p">();</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">texture_a</span> <span class="o">=</span> <span class="s2">&quot;old_texture.png&quot;</span><span class="p">;</span> <span class="c1">// may be another RenderNode</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">textrue_b</span> <span class="o">=</span> <span class="s2">&quot;new_texture.png&quot;</span><span class="p">;</span> <span class="c1">// may be another RenderNode</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">progress</span> <span class="o">=</span> <span class="mf">0.9</span><span class="p">;</span> <span class="c1">// 0.0 to 1.0</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">blur_radius</span> <span class="o">=</span> <span class="mi">200</span><span class="p">;</span> <span class="c1">// number of pixels</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">flip_axis</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span> <span class="c1">// defaults to false</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">flip_direction</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span> <span class="c1">// defaults to false</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="please-disintegrate">
+<h2>please.Disintegrate<a class="headerlink" href="#please-disintegrate" title="Permalink to this headline">¶</a></h2>
+<p><em>please.Disintegrate</em> <strong>()</strong></p>
+<p>Creates a RenderNode with the disintegrate transition effect.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">effect</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">Disintegrate</span><span class="p">();</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">texture_a</span> <span class="o">=</span> <span class="s2">&quot;old_texture.png&quot;</span><span class="p">;</span> <span class="c1">// may be another RenderNode</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">textrue_b</span> <span class="o">=</span> <span class="s2">&quot;new_texture.png&quot;</span><span class="p">;</span> <span class="c1">// may be another RenderNode</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">progress</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">;</span> <span class="c1">// 0.0 to 1.0</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">px_size</span> <span class="o">=</span> <span class="mi">200</span><span class="p">;</span> <span class="c1">// grid size</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="please-pictureinpicture">
+<h2>please.PictureInPicture<a class="headerlink" href="#please-pictureinpicture" title="Permalink to this headline">¶</a></h2>
+<p><em>please.PictureInPicture</em> <strong>()</strong></p>
+<p>Creates a RenderNode with the picture-in-picture splice effect.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">effect</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">PictureInPicture</span><span class="p">();</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">main_texture</span> <span class="o">=</span> <span class="s2">&quot;main_view.png&quot;</span><span class="p">;</span> <span class="c1">// may be another RenderNode</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">pip_texture</span> <span class="o">=</span> <span class="s2">&quot;pip_texture.png&quot;</span><span class="p">;</span> <span class="c1">// may be another RenderNode</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">pip_alpha</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span> <span class="c1">// transparency of pip</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">pip_size</span> <span class="o">=</span> <span class="p">[</span><span class="mi">25</span><span class="p">,</span> <span class="mi">25</span><span class="p">];</span> <span class="c1">// percent of screen area</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">pip_coord</span> <span class="o">=</span> <span class="p">[</span><span class="mi">70</span><span class="p">,</span> <span class="mi">70</span><span class="p">];</span> <span class="c1">// percent of screen area</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">m.effects.js</a><ul>
+<li><a class="reference internal" href="#please-diagonalwipe">please.DiagonalWipe</a></li>
+<li><a class="reference internal" href="#please-disintegrate">please.Disintegrate</a></li>
+<li><a class="reference internal" href="#please-pictureinpicture">please.PictureInPicture</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="m.defs.html"
+                        title="previous chapter">m.defs.js</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="m.gani.html"
+                        title="next chapter">m.gani.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/m.effects.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.gani.html" title="m.gani.js"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="m.defs.html" title="m.defs.js"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" >API Reference</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

@@ -96,6 +96,12 @@ please.pipeline.add_indirect for more details on the options object.</p>
 with &#8220;as_texture.&#8221; The two may be chained, eg
 please.pipeline.add(...).as_texture().skip_when(...).</p>
 </div>
+<div class="section" id="please-pipeline-is-reserved">
+<h2>please.pipeline.is_reserved<a class="headerlink" href="#please-pipeline-is-reserved" title="Permalink to this headline">¶</a></h2>
+<p><em>please.pipeline.is_reserved</em> <strong>(name)</strong></p>
+<p>Returns true if the named pipeline stage is already set, otherwise
+returns false.</p>
+</div>
 <div class="section" id="please-pipeline-add-indirect">
 <h2>please.pipeline.add_indirect<a class="headerlink" href="#please-pipeline-add-indirect" title="Permalink to this headline">¶</a></h2>
 <p><em>please.pipeline.add_indirect</em> <strong>(buffer_name, options)</strong></p>
@@ -141,6 +147,7 @@ passed to this method.</p>
   <ul>
 <li><a class="reference internal" href="#">m.multipass.js</a><ul>
 <li><a class="reference internal" href="#please-pipeline-add">please.pipeline.add</a></li>
+<li><a class="reference internal" href="#please-pipeline-is-reserved">please.pipeline.is_reserved</a></li>
 <li><a class="reference internal" href="#please-pipeline-add-indirect">please.pipeline.add_indirect</a></li>
 <li><a class="reference internal" href="#please-pipeline-remove">please.pipeline.remove</a></li>
 <li><a class="reference internal" href="#please-pipeline-remove-above">please.pipeline.remove_above</a></li>

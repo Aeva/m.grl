@@ -59,9 +59,9 @@ please.time.schedule = function (callback, when) {
         please.time.__times.push(when);
 
         // register a pipeline stage if it doesn't exist
-        var pipe_id = "m.grl/scheduler"
-        if (please.pipeline.__callbacks[pipe_id] === undefined) {
-            please.pipeline.add(-1, pipe_id, please.time.__schedule_handler);
+        var pipe_id = "mgrl/scheduler"
+        if (!please.pipeline.is_reserved(pipe_id)) {
+            please.pipeline.add(-Infinity, pipe_id, please.time.__schedule_handler);
         }
     }
 };

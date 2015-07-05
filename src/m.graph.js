@@ -245,6 +245,7 @@
 // vestigial and should not be used.
 //
 please.graph_index = {};
+please.graph_index.roots = [];
 please.GraphNode = function () {
     console.assert(this !== window);
 
@@ -394,8 +395,6 @@ please.GraphNode = function () {
     // sampler variables.
     var prog = please.gl.get_program();
     var ignore = [
-        "mgrl_picking_pass",
-        "mgrl_picking_index",
         "projection_matrix",
         "view_matrix",
     ];
@@ -421,6 +420,8 @@ please.GraphNode = function () {
             this, "is_sprite", this.__is_sprite_driver, this.shader, true);
         please.make_animatable(
             this, "is_transparent", this.__is_transparent_driver, this.shader, true);
+        please.make_animatable_tripple(
+            this, "object_index", "rgb", this.__object_id_driver, this.shader, true);
 
         // prog.samplers is a subset of prog.vars
         for (var name, i=0; i<prog.uniform_list.length; i+=1) {
@@ -444,6 +445,12 @@ please.GraphNode = function () {
     this.__z_depth = null; // overwritten by z-sorting
     this.selectable = false; // object can be selected via picking
     this.__pick_index = null; // used internally for tracking picking
+    this.__last_vbo = null; // stores the vbo that was bound last draw
+
+    // some event handles
+    this.on_mousemove = null;
+    this.on_mousedown = null;
+    this.on_mouseup = null;
 };
 please.GraphNode.prototype = {
     "has_child" : function (entity) {
@@ -500,6 +507,22 @@ please.GraphNode.prototype = {
             children[i].propogate(method);
         }
     },
+    "dispatch" : function (event_name, event_info) {
+        var method_name = "on_" + event_name;
+        if (this.hasOwnProperty(method_name)) {
+            var method = this[method_name];
+            if (method) {
+                if (typeof(method) === "function") {
+                    method(event_info);
+                }
+                else if (typeof(method) === "object") {
+                    ITER(i, method) {
+                        method[i](event_info);
+                    }
+                }
+            }
+        }
+    },
     "__set_graph_root" : function (root) {
         // Used to recursively set the "graph root" (scene graph
         // object) for all children of this object.
@@ -535,6 +558,27 @@ please.GraphNode.prototype = {
     "__is_transparent_driver" : function () {
         return this.sort_mode === "alpha";
     },
+    "__object_id_driver" : function () {
+        var r = this.__pick_index & 255; // 255 = 2**8-1
+        var g = (this.__pick_index & 65280) >> 8; // 65280 = (2**8-1) << 8;
+        var b = (this.__pick_index & 16711680) >> 16; // 16711680 = (2**8-1) << 16;
+        var id = [r/255, g/255, b/255];
+        id.dirty = true;
+        return id;
+    },
+    "__find_selection" : function () {
+        if (this.selectable) {
+            return this;
+        }
+        else {
+            if (this.parent) {
+                return this.parent.__find_selection();
+            }
+            else {
+                return null;
+            }
+        }
+    },
     "__flatten" : function () {
         // return the list of all decendents to this object;
         var found = [];
@@ -555,55 +599,13 @@ please.GraphNode.prototype = {
         var position = vec3.transformMat4(vec3.create(), this.location, matrix);
         this.__z_depth = position[2];
     },
-    "__set_picking_index" : function () {
-        // This function will try to descend down the graph until an
-        // ancestor is found where "selectable" is true.  It will then
-        // set a new picking index if necessary, and then propogate
-        // that value back of the graph.
-        if (this.__pick_index !== null) {
-            return this.__pick_index;
-        }
-        else if (this.selectable) {
-            // set the picking index based on what objects the graph
-            // root understands to be selectable so far
-            var graph = this.graph_root;
-            graph.__picking_set.push(this.__id);
-            var index = graph.__picking_set.length;
-
-            // yes, this means that to go backwards, color index 'i'
-            // corresponds to graph.__picking_set[i-1]
-            
-            var r = index & 255; // 255 = 2**8-1
-            var g = (index & 65280) >> 8; // 65280 = (2**8-1) << 8;
-            var b = (index & 16711680) >> 16; // 16711680 = (2**8-1) << 16;
-
-            this.__pick_index = [r/255, g/255, b/255];
-            this.__pick_index.dirty = true;
-            return this.__pick_index;
-        }
-        else {
-            var parent = this.parent;
-            var graph = this.graph_root;
-            if (parent !== null && parent !== graph) {
-                var found = parent.__set_picking_index();
-                if (found !== null) {
-                    this.__pick_index = found;
-                    return found;
-                }
-            }
-        }
-        // fail state - don't pick the object.
-        //this.__pick_index = [0, 0, 0];;
-        //this.__pick_index.dirty = true;
-        return this.__pick_index;
-    },
     "__bind" : function (prog) {
         // calls this.bind if applicable.
         if (this.__drawable && typeof(this.bind) === "function") {
             this.bind();
         }
     },
-    "__draw" : function (prog, picking_draw) {
+    "__draw" : function (prog) {
         // bind uniforms and textures, then call this.draw, if
         // applicable.  The binding code is set up to ignore redundant
         // binds, so as long as the calls are sorted, this extra
@@ -611,17 +613,6 @@ please.GraphNode.prototype = {
         var self = this;
         if (this.visible && this.__drawable && typeof(this.draw) === "function") {
             var prog = please.gl.get_program();
-
-            // upload picking index value
-            if (picking_draw) {
-                var pick = this.__set_picking_index();
-                if (pick !== null) {
-                    prog.vars.mgrl_picking_index = pick;
-                }
-                else {
-                    return;
-                }
-            }
 
             // upload shader vars
             for (var name in this.shader) {
@@ -680,6 +671,7 @@ please.GraphNode.prototype = {
 //
 please.SceneGraph = function () {
     please.GraphNode.call(this);
+    please.graph_index.roots.push(this);
 
     this.__bind = null;
     this.__draw = null;
@@ -688,8 +680,23 @@ please.SceneGraph = function () {
     this.__states = {};
     this.camera = null;
     this.local_matrix = mat4.create();
-    this.__picking_set = [];
     this.__last_framestart = null;
+
+    this.picking = {
+        "enabled" : false,
+        "skip_location_info" : true,
+        "skip_on_move_event" : true,
+        "compositing_root" : this.__create_picking_node(),
+        // __click_test stores what was selected on the last
+        // mouse_down event.  If mouse up matches, the objects gets a
+        // "click" event after it's mouse up event.  __last_click
+        // stores what object recieved a click last, and is reset
+        // whenever a contradicting mouseup occurs.  It also stores
+        // when that object was clicked on for the double click
+        // threshold.
+        "__click_test" : null,
+        "__last_click" : null,
+    };
 
     Object.defineProperty(this, "graph_root", {
         "configurable" : false,
@@ -736,7 +743,7 @@ please.SceneGraph = function () {
         // matricies, and put things in applicable sorting paths
         ITER(i, this.__flat) {
             var element = this.__flat[i];
-            element.__pick_index = null; // reset the picking index
+            element.__pick_index = i+1;
             if (element.__drawable) {
                 if (element.sort_mode === "alpha") {
                     this.__alpha.push(element);
@@ -757,40 +764,17 @@ please.SceneGraph = function () {
         };
     };
 
-    this.picking_draw = function () {
-        var prog = please.gl.get_program();
-        var has_pass_var = prog.vars.hasOwnProperty("mgrl_picking_pass");
-        var has_index_var = prog.vars.hasOwnProperty("mgrl_picking_index");
-        this.__picking_set = [];
-        if (has_pass_var && has_index_var) {
-            prog.vars.mgrl_picking_pass = true;
-            this.draw();
-            prog.vars.mgrl_picking_pass = false;
-            return true;
+    this.__picked_node = function (color_array) {
+        if (r===0 && g===0 && b===0) {
+            return null;
         }
         else {
-            var msg = "Can't perform picking pass because either of the " +
-                "following variables are not defined or used by the shader " +
-                "program:";
-            if (!has_pass_var) {
-                msg += "\n - mgrl_picking_pass (bool)";
-                msg += "\n - mgrl_picking_index (vec3)";
-            }
-            console.error(msg);
-            return false;
+            var r = color_array[0];
+            var g = color_array[1];
+            var b = color_array[2];
+            var color_index = r + g*256 + b*65536;
+            return this.__flat[color_index-1];
         }
-    };
-
-    this.picked_node = function (color_array) {
-        var r = color_array[0];
-        var g = color_array[1];
-        var b = color_array[2];
-        var color_index = r + g*256 + b*65536;
-        var uuid = graph.__picking_set[color_index-1];
-        if (uuid) {
-            return please.graph_index[uuid].ref
-        }
-        return null;
     };
 
     this.draw = function (exclude_test) {
@@ -801,13 +785,6 @@ please.SceneGraph = function () {
         }
 
         var prog = please.gl.get_program();
-        var draw_picking_indices;
-        if (prog.vars.hasOwnProperty("mgrl_picking_pass")) {
-            draw_picking_indices = prog.vars.mgrl_picking_pass;
-        }
-        else {
-            draw_picking_indices = false;
-        }
         if (this.camera) {
             this.camera.update_camera();
             prog.vars.projection_matrix = this.camera.projection_matrix;
@@ -835,7 +812,7 @@ please.SceneGraph = function () {
                     }
                     else {
                         child.__bind(prog);
-                        child.__draw(prog, draw_picking_indices);
+                        child.__draw(prog);
                     }
                 }
             }
@@ -860,9 +837,123 @@ please.SceneGraph = function () {
                     continue;
                 }
                 child.__bind(prog);
-                child.__draw(prog, draw_picking_indices);
+                child.__draw(prog);
             }
         }
     };
 };
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
+
+
+//
+// Machinery for activating a picking event.
+//
+please.__pending_pick = [];
+please.__req_object_pick = function (x, y, event_info) {
+    please.__pending_pick.push({
+        "x" : x,
+        "y" : y,
+        "event" : event_info,
+    });
+};
+
+
+//
+// This code facilitates color based picking, when relevant. 
+//
+please.pipeline.add(-1, "mgrl/picking_pass", function () {
+    var req = please.__pending_pick.shift();
+    var is_move_event = req.event.type === "mousemove";
+
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    ITER(i, please.graph_index.roots) {
+        var graph = please.graph_index.roots[i];
+        if (graph.picking.enabled && !(is_move_event && graph.picking.skip_on_move_event)) {
+            var node = graph.picking.compositing_root;
+            var id_color, loc_color = null;
+
+            var info = {
+                "picked" : null,
+                "selected" : null,
+                "local_position" : null,
+                "world_position" : null,
+                "trigger" : req,
+            };
+
+            if (req.x >= 0 && req.x <= 1 && req.y >= 0 && req.y <= 1) {
+                // perform object picking pass
+                node.shader.select_mode = true;
+                please.render(node);
+                id_color = please.gl.pick(req.x, req.y);
+
+                // picked is the object actually clicked on
+                info.picked = graph.__picked_node(id_color);
+                if (info.picked) {
+                    // selected is who should recieve an event
+                    info.selected = info.picked.__find_selection();
+
+                    // optionally perform object location picking
+                    if (!graph.picking.skip_location_info) {
+                        node.shader.select_mode = false;
+                        please.render(node);
+                        loc_color = please.gl.pick(req.x, req.y);
+                        var vbo = info.picked.__last_vbo;
+
+                        var tmp_coord = new Float32Array(3);
+                        var local_coord = new Float32Array(3);
+                        vec3.div(tmp_coord, loc_color, [255, 255, 255]);
+                        vec3.mul(tmp_coord, tmp_coord, vbo.stats.size);
+                        vec3.add(local_coord, tmp_coord, vbo.stats.min);
+
+                        var world_coord = new Float32Array(3);
+                        vec3.transformMat4(world_coord, local_coord, info.picked.shader.world_matrix);
+                        info.local_position = local_coord;
+                        info.world_position = world_coord;
+                    }
+                }
+            }
+            
+            // emit event
+            if (info.selected) {
+                info.selected.dispatch(req.event.type, info);
+            }
+            graph.dispatch(req.event.type, info);
+        }
+    }
+
+    // restore original clear color
+    gl.clearColor.apply(gl, please.__clear_color);
+}).skip_when(function () { return please.__pending_pick.length == 0; });
+
+
+//
+// Picking RenderNode
+//
+please.SceneGraph.prototype.__create_picking_node = function () {
+    var node = new please.RenderNode("object_picking");
+    node.graph = this;
+    return node;
+};
+
+
+//
+// Once a opengl context is created, automatically attach picking
+// event bindings to the canvas.
+//
+addEventListener("mgrl_gl_context_created", function (event) {
+    var canvas = please.gl.canvas;
+    var pick_trigger = function (event) {
+        var rect = canvas.getBoundingClientRect();
+
+        var left_edge = rect.left - window.pageXOffset;
+        var top_edge = rect.top - window.pageYOffset;
+        var pick_x = (event.pageX - left_edge) / (rect.width-1);
+        var pick_y = (event.pageY - top_edge) / (rect.height-1);
+
+        // x and y are normalized to be in the range 0.0 to 1.0
+        please.__req_object_pick(pick_x, pick_y, event);
+    };
+    canvas.addEventListener("mousemove", pick_trigger);
+    canvas.addEventListener("mousedown", pick_trigger);
+    window.addEventListener("mouseup", pick_trigger);
+});

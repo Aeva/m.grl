@@ -56,57 +56,6 @@
             
   <div class="section" id="m-prefab-js">
 <h1>m.prefab.js<a class="headerlink" href="#m-prefab-js" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="please-stereocamera">
-<h2>please.StereoCamera<a class="headerlink" href="#please-stereocamera" title="Permalink to this headline">¶</a></h2>
-<p><em>please.StereoCamera</em> <strong>()</strong></p>
-<p>Inherits from please.CameraNode and can be used similarly. This camera
-defines two subcameras, accessible from the properties &#8220;left_eye&#8221; and
-&#8220;right_eye&#8221;. Their position is determined by this object&#8217;s
-&#8220;eye_distance&#8221; property, which should correspond to millimeters
-(defaults to 62). The &#8220;unit_conversion&#8221; property is a multiplier value,
-and you use it to define what &#8220;millimeters&#8221; means to you.</p>
-<p>Ideally, the StereoCamera object should be the object that you orient to
-change the viewpoint of both cameras, and that the sub cameras
-themselves are what is activated for the purpose of saving color
-buffers. A simple pipeline can be constructed from this to</p>
-<p>If the StereoCamera&#8217;s &#8220;look_at&#8221; value is set to something other than
-[null, null, null], the child CameraNode objects will automatically
-attempt to converge on the point. If it is desired that they not
-converge, set the StereoCamera&#8217;s &#8220;auto_converge&#8221; parameter to false.
-When auto convergance is left on, objects that are past the focal point
-will appear to be &#8220;within&#8221; the screen, whereas objects in front of the
-focal point will appear to &#8220;pop out&#8221; of the screen. If the focal point
-is too close to the camera, you will see a cross eye effect. <strong>Important
-accessibility note</strong>, Take care that camera.focal_distance never gets
-too low, or you can cause uneccesary eye strain on your viewer and make
-your program inaccessible to users with convergence insufficiency.</p>
-<p>Further usage:</p>
-<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">camera</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">StereoCamera</span><span class="p">();</span>
-
-<span class="c1">// ...</span>
-
-<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;vr/left_eye&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
-    <span class="nx">gl</span><span class="p">.</span><span class="nx">clear</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">COLOR_BUFFER_BIT</span> <span class="o">|</span> <span class="nx">gl</span><span class="p">.</span><span class="nx">DEPTH_BUFFER_BIT</span><span class="p">);</span>
-    <span class="nx">camera</span><span class="p">.</span><span class="nx">left</span><span class="p">.</span><span class="nx">activate</span><span class="p">();</span>
-    <span class="nx">graph</span><span class="p">.</span><span class="nx">draw</span><span class="p">();</span>
-<span class="p">}).</span><span class="nx">as_texture</span><span class="p">({</span><span class="nx">width</span><span class="o">:</span> <span class="mi">1024</span><span class="p">,</span> <span class="nx">height</span><span class="o">:</span> <span class="mi">1024</span><span class="p">});</span>
-
-<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;vr/right_eye&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
-    <span class="nx">gl</span><span class="p">.</span><span class="nx">clear</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">COLOR_BUFFER_BIT</span> <span class="o">|</span> <span class="nx">gl</span><span class="p">.</span><span class="nx">DEPTH_BUFFER_BIT</span><span class="p">);</span>
-    <span class="nx">camera</span><span class="p">.</span><span class="nx">right</span><span class="p">.</span><span class="nx">activate</span><span class="p">();</span>
-    <span class="nx">graph</span><span class="p">.</span><span class="nx">draw</span><span class="p">();</span>
-<span class="p">}).</span><span class="nx">as_texture</span><span class="p">({</span><span class="nx">width</span><span class="o">:</span> <span class="mi">1024</span><span class="p">,</span> <span class="nx">height</span><span class="o">:</span> <span class="mi">1024</span><span class="p">});</span>
-
-<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;vr/display&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
-    <span class="nx">gl</span><span class="p">.</span><span class="nx">clear</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">COLOR_BUFFER_BIT</span> <span class="o">|</span> <span class="nx">gl</span><span class="p">.</span><span class="nx">DEPTH_BUFFER_BIT</span><span class="p">);</span>
-    <span class="nx">prog</span><span class="p">.</span><span class="nx">samplers</span><span class="p">.</span><span class="nx">left_eye</span> <span class="o">=</span> <span class="s2">&quot;vr/left_eye&quot;</span><span class="p">;</span>
-    <span class="nx">prog</span><span class="p">.</span><span class="nx">samplers</span><span class="p">.</span><span class="nx">right_eye</span> <span class="o">=</span> <span class="s2">&quot;vr/right_eye&quot;</span><span class="p">;</span>
-    <span class="nx">prog</span><span class="p">.</span><span class="nx">vars</span><span class="p">.</span><span class="nx">mode</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span> <span class="c1">// to indicate between color split &amp; other modes</span>
-    <span class="nx">please</span><span class="p">.</span><span class="nx">gl</span><span class="p">.</span><span class="nx">splat</span><span class="p">();</span>
-<span class="p">});</span>
-</pre></div>
-</div>
-</div>
 <div class="section" id="please-pipeline-add-autoscale">
 <h2>please.pipeline.add_autoscale<a class="headerlink" href="#please-pipeline-add-autoscale" title="Permalink to this headline">¶</a></h2>
 <p><em>please.pipeline.add_autoscale</em> <strong>(max_height)</strong></p>
@@ -119,6 +68,13 @@ be. This defaults to 512, though a power of two is not required.</p>
 <p>One can override the max_height option by setting the &#8220;max_height&#8221;
 attribute on the canvas object.</p>
 </div>
+<div class="section" id="please-loadingscreen">
+<h2>please.LoadingScreen<a class="headerlink" href="#please-loadingscreen" title="Permalink to this headline">¶</a></h2>
+<p><em>please.LoadingScreen</em> <strong>()</strong></p>
+<p>Creates a simple loading screen placeholder RenderNode.</p>
+<p>In the future, this will be animated to show the progress of pending
+assets.</p>
+</div>
 </div>
 
 
@@ -130,8 +86,8 @@ attribute on the canvas object.</p>
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">m.prefab.js</a><ul>
-<li><a class="reference internal" href="#please-stereocamera">please.StereoCamera</a></li>
 <li><a class="reference internal" href="#please-pipeline-add-autoscale">please.pipeline.add_autoscale</a></li>
+<li><a class="reference internal" href="#please-loadingscreen">please.LoadingScreen</a></li>
 </ul>
 </li>
 </ul>

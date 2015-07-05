@@ -27,7 +27,7 @@
     <script type="text/javascript" src="../_static/underscore.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
-    <link rel="next" title="m.defs.js" href="m.defs.html" />
+    <link rel="next" title="m.camera.js" href="m.camera.html" />
     <link rel="prev" title="Welcome to M.GRL’s documentation!" href="../index.html" /> 
   </head>
   <body>
@@ -38,7 +38,7 @@
           <a href="../genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="m.defs.html" title="m.defs.js"
+          <a href="m.camera.html" title="m.camera.js"
              accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="../index.html" title="Welcome to M.GRL’s documentation!"
@@ -56,6 +56,11 @@
 <h1>API Reference<a class="headerlink" href="#api-reference" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="m.camera.html">m.camera.js</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="m.camera.html#please-cameranode">please.CameraNode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.camera.html#please-stereocamera">please.StereoCamera</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="m.defs.html">m.defs.js</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-once">please.once</a></li>
 <li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-split-params">please.split_params</a></li>
@@ -83,6 +88,12 @@
 <li class="toctree-l2"><a class="reference internal" href="m.defs.html#please-make-animatable-tripple">please.make_animatable_tripple</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="m.effects.html">m.effects.js</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="m.effects.html#please-diagonalwipe">please.DiagonalWipe</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.effects.html#please-disintegrate">please.Disintegrate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.effects.html#please-pictureinpicture">please.PictureInPicture</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="m.gani.html">m.gani.js</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="m.gani.html#please-gani-get-cache-name">please.gani.get_cache_name</a></li>
 <li class="toctree-l2"><a class="reference internal" href="m.gani.html#please-gani-on-bake-ani-frameset">please.gani.on_bake_ani_frameset</a></li>
@@ -105,12 +116,12 @@
 <li class="toctree-l2"><a class="reference internal" href="m.gl.html#please-gl-reset-viewport">please.gl.reset_viewport</a></li>
 <li class="toctree-l2"><a class="reference internal" href="m.gl.html#please-gl-make-quad">please.gl.make_quad</a></li>
 <li class="toctree-l2"><a class="reference internal" href="m.gl.html#please-gl-splat">please.gl.splat</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.gl.html#please-gl-pick">please.gl.pick</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="m.graph.html">m.graph.js</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="m.graph.html#please-graphnode">please.GraphNode</a></li>
 <li class="toctree-l2"><a class="reference internal" href="m.graph.html#please-scenegraph">please.SceneGraph</a></li>
-<li class="toctree-l2"><a class="reference internal" href="m.graph.html#please-cameranode">please.CameraNode</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="m.input.html">m.input.js</a><ul>
@@ -143,6 +154,7 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="m.multipass.html">m.multipass.js</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="m.multipass.html#please-pipeline-add">please.pipeline.add</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.multipass.html#please-pipeline-is-reserved">please.pipeline.is_reserved</a></li>
 <li class="toctree-l2"><a class="reference internal" href="m.multipass.html#please-pipeline-add-indirect">please.pipeline.add_indirect</a></li>
 <li class="toctree-l2"><a class="reference internal" href="m.multipass.html#please-pipeline-remove">please.pipeline.remove</a></li>
 <li class="toctree-l2"><a class="reference internal" href="m.multipass.html#please-pipeline-remove-above">please.pipeline.remove_above</a></li>
@@ -157,8 +169,8 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="m.prefab.html">m.prefab.js</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="m.prefab.html#please-stereocamera">please.StereoCamera</a></li>
 <li class="toctree-l2"><a class="reference internal" href="m.prefab.html#please-pipeline-add-autoscale">please.pipeline.add_autoscale</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m.prefab.html#please-loadingscreen">please.LoadingScreen</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="m.qa.html">m.qa.js</a><ul>
@@ -186,8 +198,8 @@
   <p class="topless"><a href="../index.html"
                         title="previous chapter">Welcome to M.GRL&#8217;s documentation!</a></p>
   <h4>Next topic</h4>
-  <p class="topless"><a href="m.defs.html"
-                        title="next chapter">m.defs.js</a></p>
+  <p class="topless"><a href="m.camera.html"
+                        title="next chapter">m.camera.js</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="../_sources/api_reference/index.txt"
@@ -217,7 +229,7 @@
           <a href="../genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="m.defs.html" title="m.defs.js"
+          <a href="m.camera.html" title="m.camera.js"
              >next</a> |</li>
         <li class="right" >
           <a href="../index.html" title="Welcome to M.GRL’s documentation!"

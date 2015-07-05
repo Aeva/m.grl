@@ -84,6 +84,9 @@ please.gl.set_context = function (canvas_id, options) {
         var ctx_event = new CustomEvent("mgrl_gl_context_created");
         window.dispatchEvent(ctx_event);
 
+        // create the picking shader
+        please.glsl("object_picking", "simple.vert", "picking.frag");
+
         // create the default shader
         please.glsl("default", "simple.vert", "diffuse.frag").activate();
     }
@@ -144,6 +147,7 @@ please.gl.get_program = function (name) {
 // you want mgrl to automatically set the "mgrl_clear_color" uniform
 // in your shader program.
 //
+please.__clear_color = [0.0, 0.0, 0.0, 1.0];
 please.set_clear_color = function (red, green, blue, alpha) {
     var channels = [red, green, blue, alpha];
     var defaults = [0.0, 0.0, 0.0, 1.0];
@@ -152,7 +156,7 @@ please.set_clear_color = function (red, green, blue, alpha) {
     });
     var prog = please.gl.__cache.current;
     if (prog) {
-        prog.vars.mgrl_clear_color = color;
+        prog.vars.mgrl_clear_color = please.__clear_color = color;
     }
     if (window.gl) {
         gl.clearColor.apply(gl, color);
@@ -1115,3 +1119,17 @@ please.gl.splat = function () {
     please.gl.__splat_vbo.bind();
     please.gl.__splat_vbo.draw();
 };
+
+
+// [+] please.gl.pick(x, y)
+//
+// Returns the RGBA formatted color value for the given x/y
+// coordinates in the canvas.  X and Y are within the range 0.0 to 1.0.
+//
+please.gl.pick = function (x, y) {
+    var x = Math.floor((please.gl.canvas.width-1) * x);
+    var y = Math.floor((please.gl.canvas.height-1) * (1.0-y));
+    var px = new Uint8Array(4);
+    gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    return px;
+}

@@ -112,6 +112,16 @@ please.pipeline.add = function (priority, name, callback) {
 };
 
 
+// [+] please.pipeline.is_reserved(name)
+//
+// Returns true if the named pipeline stage is already set, otherwise
+// returns false.
+//
+please.pipeline.is_reserved = function (pipe_id) {
+    return please.pipeline.__callbacks[pipe_id] !== undefined;
+};
+
+
 //
 please.pipeline.__glsl_name = function(name) {
     if (name) {
