@@ -1907,6 +1907,7 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         please.media.__image_buffer_cache[hint] = data;
     }
     var node = new please.GraphNode();
+    node.__last_vbo = data.vbo;
     node.vbo = data.vbo;
     node.ibo = data.ibo;
     node.ext = {};
@@ -3187,6 +3188,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                     var offset_units = -10; // was -2
                     gl.enable(gl.POLYGON_OFFSET_FILL);
                 }
+                node.__last_vbo = resource.vbo;
                 resource.vbo.bind();
                 resource.ibo.bind();
                 var ibo = resource.ibo;
@@ -3407,6 +3409,7 @@ please.gl.get_program = function (name) {
 // you want mgrl to automatically set the "mgrl_clear_color" uniform
 // in your shader program.
 //
+please.__clear_color = [0.0, 0.0, 0.0, 1.0];
 please.set_clear_color = function (red, green, blue, alpha) {
     var channels = [red, green, blue, alpha];
     var defaults = [0.0, 0.0, 0.0, 1.0];
@@ -3415,7 +3418,7 @@ please.set_clear_color = function (red, green, blue, alpha) {
     });
     var prog = please.gl.__cache.current;
     if (prog) {
-        prog.vars.mgrl_clear_color = color;
+        prog.vars.mgrl_clear_color = please.__clear_color = color;
     }
     if (window.gl) {
         gl.clearColor.apply(gl, color);
@@ -4417,6 +4420,7 @@ please.gl.__jta_model = function (src, uri) {
                             node.shader[name] = value;
                         }
                     });
+                    node.__last_vbo = model.vbo;
                     node.bind = function () {
                         model.vbo.bind();
                         model.ibo.bind();
@@ -5294,6 +5298,7 @@ please.GraphNode = function () {
     this.__z_depth = null; // overwritten by z-sorting
     this.selectable = false; // object can be selected via picking
     this.__pick_index = null; // used internally for tracking picking
+    this.__last_vbo = null; // stores the vbo that was bound last draw
     // some event handles
     this.on_mousemove = null;
     this.on_mousedown = null;
@@ -5690,6 +5695,7 @@ please.__req_object_pick = function (x, y, event_info) {
 please.pipeline.add(-1, "mgrl/picking_pass", function () {
     var req = please.__pending_pick.shift();
     var is_move_event = req.event.type === "mousemove";
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
     for (var i=0; i<please.graph_index.roots.length; i+=1) {
         var graph = please.graph_index.roots[i];
         if (graph.picking.enabled && !(is_move_event && graph.picking.skip_on_move_event)) {
@@ -5698,7 +5704,8 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
             var info = {
                 "picked" : null,
                 "selected" : null,
-                "coords" : null,
+                "local_position" : null,
+                "world_position" : null,
                 "trigger" : req,
             };
             if (req.x >= 0 && req.x <= 1 && req.y >= 0 && req.y <= 1) {
@@ -5716,6 +5723,16 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
                         node.shader.select_mode = false;
                         please.render(node);
                         loc_color = please.gl.pick(req.x, req.y);
+                        var vbo = info.picked.__last_vbo;
+                        var tmp_coord = new Float32Array(3);
+                        var local_coord = new Float32Array(3);
+                        vec3.div(tmp_coord, loc_color, [255, 255, 255]);
+                        vec3.mul(tmp_coord, tmp_coord, vbo.stats.size);
+                        vec3.add(local_coord, tmp_coord, vbo.stats.min);
+                        var world_coord = new Float32Array(3);
+                        vec3.transformMat4(world_coord, local_coord, info.picked.shader.world_matrix);
+                        info.local_position = local_coord;
+                        info.world_position = world_coord;
                     }
                 }
             }
@@ -5726,6 +5743,8 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
             graph.dispatch(req.event.type, info);
         }
     }
+    // restore original clear color
+    gl.clearColor.apply(gl, please.__clear_color);
 }).skip_when(function () { return please.__pending_pick.length == 0; });
 //
 // Picking RenderNode
