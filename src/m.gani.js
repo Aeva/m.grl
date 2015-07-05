@@ -816,6 +816,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                     var offset_units = -10; // was -2
                     gl.enable(gl.POLYGON_OFFSET_FILL);
                 }
+                node.__last_vbo = resource.vbo;
                 resource.vbo.bind();
                 resource.ibo.bind();
 

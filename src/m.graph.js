@@ -445,6 +445,7 @@ please.GraphNode = function () {
     this.__z_depth = null; // overwritten by z-sorting
     this.selectable = false; // object can be selected via picking
     this.__pick_index = null; // used internally for tracking picking
+    this.__last_vbo = null; // stores the vbo that was bound last draw
 
     // some event handles
     this.on_mousemove = null;
@@ -863,7 +864,8 @@ please.__req_object_pick = function (x, y, event_info) {
 please.pipeline.add(-1, "mgrl/picking_pass", function () {
     var req = please.__pending_pick.shift();
     var is_move_event = req.event.type === "mousemove";
-    
+
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
     ITER(i, please.graph_index.roots) {
         var graph = please.graph_index.roots[i];
         if (graph.picking.enabled && !(is_move_event && graph.picking.skip_on_move_event)) {
@@ -873,7 +875,8 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
             var info = {
                 "picked" : null,
                 "selected" : null,
-                "coords" : null,
+                "local_position" : null,
+                "world_position" : null,
                 "trigger" : req,
             };
 
@@ -894,6 +897,18 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
                         node.shader.select_mode = false;
                         please.render(node);
                         loc_color = please.gl.pick(req.x, req.y);
+                        var vbo = info.picked.__last_vbo;
+
+                        var tmp_coord = new Float32Array(3);
+                        var local_coord = new Float32Array(3);
+                        vec3.div(tmp_coord, loc_color, [255, 255, 255]);
+                        vec3.mul(tmp_coord, tmp_coord, vbo.stats.size);
+                        vec3.add(local_coord, tmp_coord, vbo.stats.min);
+
+                        var world_coord = new Float32Array(3);
+                        vec3.transformMat4(world_coord, local_coord, info.picked.shader.world_matrix);
+                        info.local_position = local_coord;
+                        info.world_position = world_coord;
                     }
                 }
             }
@@ -905,6 +920,9 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
             graph.dispatch(req.event.type, info);
         }
     }
+
+    // restore original clear color
+    gl.clearColor.apply(gl, please.__clear_color);
 }).skip_when(function () { return please.__pending_pick.length == 0; });
 
 

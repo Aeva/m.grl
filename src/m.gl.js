@@ -147,6 +147,7 @@ please.gl.get_program = function (name) {
 // you want mgrl to automatically set the "mgrl_clear_color" uniform
 // in your shader program.
 //
+please.__clear_color = [0.0, 0.0, 0.0, 1.0];
 please.set_clear_color = function (red, green, blue, alpha) {
     var channels = [red, green, blue, alpha];
     var defaults = [0.0, 0.0, 0.0, 1.0];
@@ -155,7 +156,7 @@ please.set_clear_color = function (red, green, blue, alpha) {
     });
     var prog = please.gl.__cache.current;
     if (prog) {
-        prog.vars.mgrl_clear_color = color;
+        prog.vars.mgrl_clear_color = please.__clear_color = color;
     }
     if (window.gl) {
         gl.clearColor.apply(gl, color);

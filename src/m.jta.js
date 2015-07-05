@@ -153,6 +153,7 @@ please.gl.__jta_model = function (src, uri) {
                             node.shader[name] = value;
                         }
                     });
+                    node.__last_vbo = model.vbo;
                     node.bind = function () {
                         model.vbo.bind();
                         model.ibo.bind();
