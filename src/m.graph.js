@@ -510,12 +510,14 @@ please.GraphNode.prototype = {
         var method_name = "on_" + event_name;
         if (this.hasOwnProperty(method_name)) {
             var method = this[method_name];
-            if (typeof(method) === "function") {
-                method(event_info);
-            }
-            else if (typeof(method) === "object") {
-                ITER(i, method) {
-                    method[i](event_info);
+            if (method) {
+                if (typeof(method) === "function") {
+                    method(event_info);
+                }
+                else if (typeof(method) === "object") {
+                    ITER(i, method) {
+                        method[i](event_info);
+                    }
                 }
             }
         }
@@ -770,7 +772,7 @@ please.SceneGraph = function () {
             var g = color_array[1];
             var b = color_array[2];
             var color_index = r + g*256 + b*65536;
-            return graph.__flat[color_index-1];
+            return this.__flat[color_index-1];
         }
     };
 
@@ -875,7 +877,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
                 "trigger" : req,
             };
 
-            if (req.x >= 0 && req.x <= 1.0 && req.y >= 0 && req.y <= 0) {
+            if (req.x >= 0 && req.x <= 1 && req.y >= 0 && req.y <= 1) {
                 // perform object picking pass
                 node.shader.select_mode = true;
                 please.render(node);
@@ -898,9 +900,9 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
             
             // emit event
             if (info.selected) {
-                info.selected.dispatch(req.event.type);
+                info.selected.dispatch(req.event.type, info);
             }
-            graph.dispatch(req.event.type);
+            graph.dispatch(req.event.type, info);
         }
     }
 }).skip_when(function () { return please.__pending_pick.length == 0; });
