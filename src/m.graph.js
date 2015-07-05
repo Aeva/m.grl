@@ -513,11 +513,11 @@ please.GraphNode.prototype = {
             var method = this[method_name];
             if (method) {
                 if (typeof(method) === "function") {
-                    method(event_info);
+                    method.call(this, event_info);
                 }
                 else if (typeof(method) === "object") {
                     ITER(i, method) {
-                        method[i](event_info);
+                        method[i].call(this, event_info);
                     }
                 }
             }
@@ -875,8 +875,8 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
             var info = {
                 "picked" : null,
                 "selected" : null,
-                "local_position" : null,
-                "world_position" : null,
+                "local_location" : null,
+                "world_location" : null,
                 "trigger" : req,
             };
 
@@ -907,8 +907,8 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
 
                         var world_coord = new Float32Array(3);
                         vec3.transformMat4(world_coord, local_coord, info.picked.shader.world_matrix);
-                        info.local_position = local_coord;
-                        info.world_position = world_coord;
+                        info.local_location = local_coord;
+                        info.world_location = world_coord;
                     }
                 }
             }

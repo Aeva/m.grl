@@ -90,7 +90,7 @@ if (!String.prototype.endsWith) {
 if (!String.prototype.trim) {
   (function(){
     // Make sure we trim BOM and NBSP
-    var rtrim = /^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g;
+    var rtrim = /^[\s\U0000feff\xA0]+|[\s\U0000feff\xA0]+$/g;
     String.prototype.trim = function () {
       return this.replace(rtrim, "");
     }
@@ -5365,11 +5365,11 @@ please.GraphNode.prototype = {
             var method = this[method_name];
             if (method) {
                 if (typeof(method) === "function") {
-                    method(event_info);
+                    method.call(this, event_info);
                 }
                 else if (typeof(method) === "object") {
                     for (var i=0; i<method.length; i+=1) {
-                        method[i](event_info);
+                        method[i].call(this, event_info);
                     }
                 }
             }
@@ -5704,8 +5704,8 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
             var info = {
                 "picked" : null,
                 "selected" : null,
-                "local_position" : null,
-                "world_position" : null,
+                "local_location" : null,
+                "world_location" : null,
                 "trigger" : req,
             };
             if (req.x >= 0 && req.x <= 1 && req.y >= 0 && req.y <= 1) {
@@ -5731,8 +5731,8 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
                         vec3.add(local_coord, tmp_coord, vbo.stats.min);
                         var world_coord = new Float32Array(3);
                         vec3.transformMat4(world_coord, local_coord, info.picked.shader.world_matrix);
-                        info.local_position = local_coord;
-                        info.world_position = world_coord;
+                        info.local_location = local_coord;
+                        info.world_location = world_coord;
                     }
                 }
             }
