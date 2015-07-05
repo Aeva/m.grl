@@ -513,11 +513,11 @@ please.GraphNode.prototype = {
             var method = this[method_name];
             if (method) {
                 if (typeof(method) === "function") {
-                    method(event_info);
+                    method.call(this, event_info);
                 }
                 else if (typeof(method) === "object") {
                     ITER(i, method) {
-                        method[i](event_info);
+                        method[i].call(this, event_info);
                     }
                 }
             }
