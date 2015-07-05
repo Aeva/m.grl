@@ -58,6 +58,14 @@ with "as\_texture." The two may be chained, eg
 please.pipeline.add(...).as\_texture().skip\_when(...).
 
 
+please.pipeline.is_reserved
+---------------------------
+*please.pipeline.is\_reserved* **(name)**
+
+Returns true if the named pipeline stage is already set, otherwise
+returns false.
+
+
 please.pipeline.add_indirect
 ----------------------------
 *please.pipeline.add\_indirect* **(buffer\_name, options)**

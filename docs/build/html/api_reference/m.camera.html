@@ -1,0 +1,238 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>m.camera.js &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="up" title="API Reference" href="index.html" />
+    <link rel="next" title="m.defs.js" href="m.defs.html" />
+    <link rel="prev" title="API Reference" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.defs.html" title="m.defs.js"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="API Reference"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="m-camera-js">
+<h1>m.camera.js<a class="headerlink" href="#m-camera-js" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="please-cameranode">
+<h2>please.CameraNode<a class="headerlink" href="#please-cameranode" title="Permalink to this headline">¶</a></h2>
+<p><em>please.CameraNode</em> <strong>()</strong></p>
+<p>Constructor function that creates a camera object to be put in the scene
+graph. Camera nodes support both orthographic and perspective
+projection, and almost all of their properties are animatable. The view
+matrix can be generated in one of two ways described below.</p>
+<p>To make a camera active, call it&#8217;s &#8220;activate()&#8221; method. If no camera was
+explicitly activated, then the scene graph will call the first one added
+that is an immediate child, and if no such camera still exists, then it
+will pick the first one it can find durring state sorting.</p>
+<p>The default way in which the view matrix is calculated uses the
+mat4.lookAt method from the glMatrix library. The following properties
+provide the arguments for the library call. Note that the location
+argument is missing - this is because the CameraNode&#8217;s scene graph
+coordinates are used instead.</p>
+<ul class="simple">
+<li><strong>look_at</strong> A vector of 3 values (defaults to [0, 0, 0]), null, or
+another GraphNode. This is the coordinate where the camera is pointed
+at. If this is set to null, then the CameraNode&#8217;s calculated world
+matrix is used as the view matrix.</li>
+<li><strong>up_vector</strong> A normal vector of 3 values, indicating which way is
+up (defaults to [0, 0, 1]). If set to null, [0, 0, 1] will be used
+instead</li>
+</ul>
+<p>If the look_at property is set to null, the node&#8217;s world matrix as
+generated be the scene graph will be used as the view matrix instead.</p>
+<p>One can change between orthographic and perspective projection by
+calling one of the following methods:</p>
+<ul class="simple">
+<li><strong>set_perspective()</strong></li>
+<li><strong>set_orthographic()</strong></li>
+</ul>
+<p>The following property influences how the projection matrix is generated
+when the camera is in perspective mode (default behavior).</p>
+<ul class="simple">
+<li><strong>fov</strong> Field of view, defined in degrees. Defaults to 45.</li>
+</ul>
+<p>The following properties influence how the projection matrix is
+generated when the camera is in orthographic mode. When any of these are
+set to &#8216;null&#8217; (default behavior), the bottom left corner is (0, 0), and
+the top right is (canvas_width, canvas_height).</p>
+<ul class="simple">
+<li><strong>left</strong></li>
+<li><strong>right</strong></li>
+<li><strong>bottom</strong></li>
+<li><strong>up</strong></li>
+</ul>
+<p>The following properties influence how the projection matrix is
+generated, and are common to both orthographic and perspective mode:</p>
+<ul class="simple">
+<li><strong>width</strong> Defaults to null, which indicates to use the rendering
+canvas&#8217;s width instead. For perspective rendering, width and height
+are used to calculate the screen ratio. Orthographic rendering uses
+these to calculate the top right coordinate.</li>
+<li><strong>height</strong> Defaults to null, which indicates to use the rendering
+canvas&#8217;s height instead. For perspective rendering, width and height
+are used to calculate the screen ratio. Orthographic rendering uses
+these to calculate the top right coordinate.</li>
+<li><strong>near</strong> Defaults to 0.1</li>
+<li><strong>far</strong> Defaults to 100.0</li>
+</ul>
+</div>
+<div class="section" id="please-stereocamera">
+<h2>please.StereoCamera<a class="headerlink" href="#please-stereocamera" title="Permalink to this headline">¶</a></h2>
+<p><em>please.StereoCamera</em> <strong>()</strong></p>
+<p>Inherits from please.CameraNode and can be used similarly. This camera
+defines two subcameras, accessible from the properties &#8220;left_eye&#8221; and
+&#8220;right_eye&#8221;. Their position is determined by this object&#8217;s
+&#8220;eye_distance&#8221; property, which should correspond to millimeters
+(defaults to 62). The &#8220;unit_conversion&#8221; property is a multiplier value,
+and you use it to define what &#8220;millimeters&#8221; means to you.</p>
+<p>Ideally, the StereoCamera object should be the object that you orient to
+change the viewpoint of both cameras, and that the sub cameras
+themselves are what is activated for the purpose of saving color
+buffers. A simple pipeline can be constructed from this to</p>
+<p>If the StereoCamera&#8217;s &#8220;look_at&#8221; value is set to something other than
+[null, null, null], the child CameraNode objects will automatically
+attempt to converge on the point. If it is desired that they not
+converge, set the StereoCamera&#8217;s &#8220;auto_converge&#8221; parameter to false.
+When auto convergance is left on, objects that are past the focal point
+will appear to be &#8220;within&#8221; the screen, whereas objects in front of the
+focal point will appear to &#8220;pop out&#8221; of the screen. If the focal point
+is too close to the camera, you will see a cross eye effect. <strong>Important
+accessibility note</strong>, Take care that camera.focal_distance never gets
+too low, or you can cause uneccesary eye strain on your viewer and make
+your program inaccessible to users with convergence insufficiency.</p>
+<p>Further usage:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">camera</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">StereoCamera</span><span class="p">();</span>
+
+<span class="c1">// ...</span>
+
+<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;vr/left_eye&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="nx">gl</span><span class="p">.</span><span class="nx">clear</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">COLOR_BUFFER_BIT</span> <span class="o">|</span> <span class="nx">gl</span><span class="p">.</span><span class="nx">DEPTH_BUFFER_BIT</span><span class="p">);</span>
+    <span class="nx">camera</span><span class="p">.</span><span class="nx">left</span><span class="p">.</span><span class="nx">activate</span><span class="p">();</span>
+    <span class="nx">graph</span><span class="p">.</span><span class="nx">draw</span><span class="p">();</span>
+<span class="p">}).</span><span class="nx">as_texture</span><span class="p">({</span><span class="nx">width</span><span class="o">:</span> <span class="mi">1024</span><span class="p">,</span> <span class="nx">height</span><span class="o">:</span> <span class="mi">1024</span><span class="p">});</span>
+
+<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;vr/right_eye&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="nx">gl</span><span class="p">.</span><span class="nx">clear</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">COLOR_BUFFER_BIT</span> <span class="o">|</span> <span class="nx">gl</span><span class="p">.</span><span class="nx">DEPTH_BUFFER_BIT</span><span class="p">);</span>
+    <span class="nx">camera</span><span class="p">.</span><span class="nx">right</span><span class="p">.</span><span class="nx">activate</span><span class="p">();</span>
+    <span class="nx">graph</span><span class="p">.</span><span class="nx">draw</span><span class="p">();</span>
+<span class="p">}).</span><span class="nx">as_texture</span><span class="p">({</span><span class="nx">width</span><span class="o">:</span> <span class="mi">1024</span><span class="p">,</span> <span class="nx">height</span><span class="o">:</span> <span class="mi">1024</span><span class="p">});</span>
+
+<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;vr/display&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="nx">gl</span><span class="p">.</span><span class="nx">clear</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">COLOR_BUFFER_BIT</span> <span class="o">|</span> <span class="nx">gl</span><span class="p">.</span><span class="nx">DEPTH_BUFFER_BIT</span><span class="p">);</span>
+    <span class="nx">prog</span><span class="p">.</span><span class="nx">samplers</span><span class="p">.</span><span class="nx">left_eye</span> <span class="o">=</span> <span class="s2">&quot;vr/left_eye&quot;</span><span class="p">;</span>
+    <span class="nx">prog</span><span class="p">.</span><span class="nx">samplers</span><span class="p">.</span><span class="nx">right_eye</span> <span class="o">=</span> <span class="s2">&quot;vr/right_eye&quot;</span><span class="p">;</span>
+    <span class="nx">prog</span><span class="p">.</span><span class="nx">vars</span><span class="p">.</span><span class="nx">mode</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span> <span class="c1">// to indicate between color split &amp; other modes</span>
+    <span class="nx">please</span><span class="p">.</span><span class="nx">gl</span><span class="p">.</span><span class="nx">splat</span><span class="p">();</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">m.camera.js</a><ul>
+<li><a class="reference internal" href="#please-cameranode">please.CameraNode</a></li>
+<li><a class="reference internal" href="#please-stereocamera">please.StereoCamera</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">API Reference</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="m.defs.html"
+                        title="next chapter">m.defs.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/m.camera.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.defs.html" title="m.defs.js"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="API Reference"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" >API Reference</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>
