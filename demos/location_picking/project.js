@@ -152,6 +152,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
                 tile.rotation_x += 180;
             }
             graph.add(tile);
+            tile.use_manual_cache_invalidation();
         }
     }
 
