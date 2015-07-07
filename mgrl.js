@@ -5598,8 +5598,8 @@ please.SceneGraph = function () {
         this.__alpha = [];
         // nodes in the state-sorting path
         this.__states = {};
-        // run through the flattened list of nodes, calculate world
-        // matricies, and put things in applicable sorting paths
+        // loop through the flat cache of the graph, assign object IDs
+        // and sort nodes into their correct render pathways
         for (var i=0; i<this.__flat.length; i+=1) {
             var element = this.__flat[i];
             element.__pick_index = i+1;
