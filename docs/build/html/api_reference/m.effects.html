@@ -95,6 +95,18 @@
 </pre></div>
 </div>
 </div>
+<div class="section" id="please-scatterblur">
+<h2>please.ScatterBlur<a class="headerlink" href="#please-scatterblur" title="Permalink to this headline">¶</a></h2>
+<p><em>please.ScatterBlur</em> <strong>()</strong></p>
+<p>Creates a RenderNode for applying a fast blur effect.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">effect</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">ScatterBlur</span><span class="p">();</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">input_texture</span> <span class="o">=</span> <span class="s2">&quot;some_texture.png&quot;</span><span class="p">;</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">blur_radius</span> <span class="o">=</span> <span class="mi">100</span><span class="p">;</span> <span class="c1">// defaults to 16</span>
+<span class="nx">effect</span><span class="p">.</span><span class="nx">shader</span><span class="p">.</span><span class="nx">samples</span> <span class="o">=</span> <span class="mi">8</span><span class="p">;</span> <span class="c1">// defaults to 8, maximum is 32</span>
+</pre></div>
+</div>
+<p>Note: the lower the value for &#8216;samples&#8217;, the faster the pass will run.</p>
+</div>
 </div>
 
 
@@ -109,6 +121,7 @@
 <li><a class="reference internal" href="#please-diagonalwipe">please.DiagonalWipe</a></li>
 <li><a class="reference internal" href="#please-disintegrate">please.Disintegrate</a></li>
 <li><a class="reference internal" href="#please-pictureinpicture">please.PictureInPicture</a></li>
+<li><a class="reference internal" href="#please-scatterblur">please.ScatterBlur</a></li>
 </ul>
 </li>
 </ul>
@@ -158,7 +171,7 @@
       </ul>
     </div>
     <div class="footer">
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>
 </html>

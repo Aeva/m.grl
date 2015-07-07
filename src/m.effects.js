@@ -74,3 +74,32 @@ please.PictureInPicture = function () {
     effect.shader.pip_alpha = 1.0;
     return effect;
 };
+
+
+// [+] please.ScatterBlur()
+//
+// Creates a RenderNode for applying a fast blur effect.
+//
+// ```
+// var effect = new please.ScatterBlur();
+// effect.shader.input_texture = "some_texture.png";
+// effect.shader.blur_radius = 100; // defaults to 16
+// effect.shader.samples = 8; // defaults to 8, maximum is 32
+// ```
+//
+// Note: the lower the value for 'samples', the faster the pass will
+// run.
+//
+please.ScatterBlur = function () {
+    var prog = please.gl.get_program(["splat.vert", "scatter_blur.frag"]);
+    if (!prog) {
+        prog = please.glsl("scatter_blur", "splat.vert", "scatter_blur.frag");
+    }
+    
+    // handle
+    var effect = new please.RenderNode(prog);
+    effect.shader.blur_radius = 16;
+    effect.shader.samples = 8;
+    
+    return effect;
+};

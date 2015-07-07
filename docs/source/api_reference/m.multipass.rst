@@ -74,7 +74,6 @@ please.pipeline.add_indirect
    used in the future.
 
 
-
 please.pipeline.remove
 ----------------------
 *please.pipeline.remove* **(name)**
@@ -93,7 +92,6 @@ passed to this method.
 
     // removes all pipeline stages that perform rendering functionality
     please.pipeline.remove_above(0);
-
 
 
 please.pipeline.start

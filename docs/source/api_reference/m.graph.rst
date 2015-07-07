@@ -103,7 +103,6 @@ again this frame), and so on.
 
 
 
-
 please.GraphNode
 ----------------
 *please.GraphNode* **()**
@@ -267,6 +266,5 @@ following example:
        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
        scene_graph.draw();
     });
-
 
 

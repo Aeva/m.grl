@@ -61,7 +61,6 @@ the likely physical placement of various keys.
     var asd = please.keys.normalize_dvorak("aoe");
 
 
-
 please.keys.lookup\_keycode
 ---------------------------
 *please.keys.lookup\_keycode* **(code)**
@@ -75,7 +74,6 @@ the keyboard layout is appended to the document URL. Currently, only
 #dvorak is supported.
 
 -  **code** Numerical character code value.
-
 
 
 please.keys.\_\_cancel
