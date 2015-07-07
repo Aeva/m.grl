@@ -36,7 +36,6 @@ then it will attempt to remove itself so as to prevent further calls.
     console.assert(counter === 1); // assertion should pass
 
 
-
 please.split\_params
 --------------------
 *please.split\_params* **(line[, delim=" "])**
@@ -53,7 +52,6 @@ trimmed from the resulting tokens before they are returned in an array.
     var message = "This   is a      test.";
     var params = please.split_params(message, " ");
     // params is equal to ["This", "is", "a", "test."];
-
 
 
 please.get\_properties
@@ -75,7 +73,6 @@ Returns a random element from a given array.
 -  **array** An array of objects.
 
 
-
 please.radians
 --------------
 *please.radians* **(degrees)**
@@ -85,7 +82,6 @@ Converts from degrees to radians.
 -  **degrees** An angular value expressed in dgersee.
 
 
-
 please.degrees
 --------------
 *please.degrees* **(radians)**
@@ -93,7 +89,6 @@ please.degrees
 Converts from radians to degrees.
 
 -  **degrees** An angular value expressed in dgersee.
-
 
 
 please.mix
@@ -180,7 +175,6 @@ reterned by another generator function.
     player.location_x = please.path_driver(path, 1000, true, true);
 
 
-
 please.oscillating_driver
 -------------------------
 *please.oscillating\_driver* **(start, end, time)**
@@ -190,7 +184,6 @@ Shorthand for this:
 .. code-block:: javascript
 
     please.path_driver(please.linear_path(start, end), time, true, true);
-
 
 
 please.repeating_driver
@@ -204,7 +197,6 @@ Shorthand for this:
     please.path_driver(please.linear_path(start, end), time, true, false);
 
 
-
 please.shift_driver
 -------------------
 *please.shift\_driver* **(start, end, time)**
@@ -214,7 +206,6 @@ Shorthand for this:
 .. code-block:: javascript
 
     please.path_driver(please.linear_path(start, end), time, false, false);
-
 
 
 please.break_curve
@@ -276,7 +267,6 @@ Creates and returns an ArrayBuffer from Base64 encoded binary data.
 -  **blob** A Base64 encoded binary array.
 
 
-
 please.typed\_array
 -------------------
 *please.typed\_array* **(raw, hint)**
@@ -291,8 +281,6 @@ binary data.
    "Int32Array", "Uint16Array", and "Uint32Array". The hint
    "Float16Array" will cause the resulting data to be safely cast to the
    Float32Array type since javascript lacks a Float16Array type.
-
-
 
 
 please.make_animatable

@@ -78,8 +78,6 @@ generated, and are common to both orthographic and perspective mode:
 -  **far** Defaults to 100.0
 
 
-
-
 please.StereoCamera
 -------------------
 *please.StereoCamera* **()**
@@ -135,6 +133,5 @@ Further usage:
         prog.vars.mode = 1.0; // to indicate between color split & other modes
         please.gl.splat();
     });
-
 
 

@@ -65,7 +65,6 @@ Otherwise, false is returned.
 -  **param** Some object, presumably a string or a number.
 
 
-
 please.gani.is\_attr
 --------------------
 *please.gani.is\_attr* **(param)**
@@ -79,7 +78,6 @@ name. Returns true or false.
 
 -  **param** A string that might refer to a .gani attribute something
    else.
-
 
 
 please.gani.build\_gl\_buffers

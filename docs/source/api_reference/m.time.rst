@@ -24,7 +24,6 @@ interpreter is idle again.
 -  **callback** A function to be called relatively soon.
 
 
-
 please.time.schedule
 --------------------
 *please.time.schedule* **(callback, when)**
@@ -40,8 +39,6 @@ not be called until the page is visible again, etc.
    may be called.
 
 
-
-
 please.time.remove
 ------------------
 *please.time.remove* **(callback)**
@@ -50,7 +47,6 @@ Removes a pending callback from the scheduler.
 
 -  **callback** A function that was already scheduled
    please.time.schedule.
-
 
 
 please.time.add_score

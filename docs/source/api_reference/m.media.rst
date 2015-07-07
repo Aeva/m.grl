@@ -37,7 +37,6 @@ relative to the path defined with this method.
     please.set_search_path("jta", "/assets/models/");
 
 
-
 please.load
 -----------
 *please.load* **(asset\_name, [callback=null, options={}])**
@@ -74,7 +73,6 @@ Downloads an asset if it is not already in memory.
     });
 
 
-
 please.access
 -------------
 *please.access* **(asset\_name[, no\_error=false])**
@@ -107,7 +105,6 @@ descirbed below may be used to override this behavior.
     });
 
 
-
 please.media.relative_path
 --------------------------
 *please.media.relative\_path* **(type, asset\_name)**
@@ -120,8 +117,6 @@ Returns the full URL for a given named asset.
 
 -  **asset\_name** The name of an asset as it would be passed to
    please.load or please.access
-
-
 
 
 please.media.get\_progress
@@ -150,8 +145,6 @@ return 'false' to indicate that a new download should be initiated.
    and the asset is ready for use.
 
 
-
-
 please.media.\_pop
 ------------------
 *please.media.\_pop* **(req\_key)**
@@ -162,7 +155,6 @@ of the callbacks (implicit first, then explicite) associated to the
 download, and may also trigger the "mgrl\_media\_ready" DOM event.
 
 -  **req\_key** This is the URL of the asset being downloaded.
-
 
 
 please.media.\_\_try\_media\_ready
@@ -205,7 +197,7 @@ please.media.\_pop).
 
 -  **req\_type** The XHR response type.
 
--  **url** The URL for download and req\_key for *push and *\ pop calls.
+-  **url** The URL for download and req\_key for \_push and \_pop calls.
 
 -  **asset\_name** The relative name of the asset being downloaded,
    passed to user callbacks so they know which asset is now (probably)
@@ -217,8 +209,6 @@ please.media.\_pop).
 
 -  **user\_callback** A method to be called after the media\_callback,
    if applicable, but regardless of if the - download succeeds or fails.
-
-
 
 
 please.media.handlers.img
@@ -238,8 +228,6 @@ not be called directly.
    download is finished.
 
 
-
-
 please.media.handlers.audio
 ---------------------------
 *please.media.handlers.audio* **(url, asset\_name[, callback])**
@@ -257,8 +245,6 @@ not be called directly.
    download is finished.
 
 
-
-
 please.media.handlers.text
 --------------------------
 *please.media.handlers.text* **(url, asset\_name[, callback])**
@@ -274,8 +260,6 @@ not be called directly.
 
 -  **callback** Optional user callback that is triggered when the
    download is finished.
-
-
 
 
 please.media.\_\_image_instance
