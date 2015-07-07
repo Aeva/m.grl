@@ -897,7 +897,7 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
     var getter = function () {
         if (typeof(store[prop]) === "function") {
             // determine if the cached value is too old
-            if (cache[prop] === null || please.pipeline.__framestart > last_update) {
+            if (cache[prop] === null || (please.pipeline.__framestart > last_update && ! obj.__manual_cache_invalidation)) {
                 cache[prop] = store[prop].call(obj);
                 last_update = please.pipeline.__framestart;
             }
