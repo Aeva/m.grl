@@ -446,6 +446,7 @@ please.GraphNode = function () {
     this.selectable = false; // object can be selected via picking
     this.__pick_index = null; // used internally for tracking picking
     this.__last_vbo = null; // stores the vbo that was bound last draw
+    this.__manual_cache_invalidation = false;
 
     // some event handles
     this.on_mousemove = null;
@@ -521,6 +522,32 @@ please.GraphNode.prototype = {
                     }
                 }
             }
+        }
+    },
+    "use_automatic_cache_invalidation" : function () {
+        // Sets the object to use automatic cache invalidation mode.
+        // Driver functions will be evaluated once per frame.  This is
+        // the default behavior.
+        this.__manual_cache_invalidation = false;
+    },
+    "use_manual_cache_invalidation" : function () {
+        // Sets the object to use manual cache invalidation mode.
+        // Driver functions will only be evaluated once.  This is
+        // useful when you don't expect a given GraphNode to change
+        // its world matrix etc ever.
+        this.__manual_cache_invalidation = true;
+    },
+    "manual_cache_clear" : function (var_name) {
+        // This is used to clear the driver cache when in manual cache
+        // invalidation mode.  If no variable name is set, then this
+        // will clear the entire cache for the object.
+        if (!var_name) {
+            ITER_PROPS(name, this.__ani_cache) {
+                this.clear_cache(name);
+            }
+        }
+        else {
+            this.__ani_cache[var_name] = null;
         }
     },
     "__set_graph_root" : function (root) {
