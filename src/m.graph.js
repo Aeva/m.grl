@@ -481,6 +481,7 @@ please.GraphNode.prototype = {
             var children = please.graph_index[this.__id].children;
             children.splice(children.indexOf(entity.__id), 1);
         }
+        this.graph_root.__ignore(entity);
     },
     "destroy" : function () {
         var parent = this.parent;
@@ -496,6 +497,7 @@ please.GraphNode.prototype = {
         delete please.graph_index[this.__id];
         window.removeEventListener(
             "mgrl_changed_shader", this.__regen_glsl_bindings);
+        this.graph_root.__ignore(this);
     },
     "propogate" : function (method, skip_root) {
         // node.propogate allows you to apply a function to each child
@@ -558,6 +560,9 @@ please.GraphNode.prototype = {
         for (var i=0; i<children.length; i+=1) {
             children[i].__set_graph_root(root);
         }
+        if (root) {
+            root.__track(this);
+        }
     },
     "__world_matrix_driver" : function () {
         var parent = this.parent;
@@ -605,20 +610,6 @@ please.GraphNode.prototype = {
                 return null;
             }
         }
-    },
-    "__flatten" : function () {
-        // return the list of all decendents to this object;
-        var found = [];
-        if (this.visible) {
-            var children = this.children
-            for (var i=0; i<children.length; i+=1) {
-                var child = children[i];
-                var tmp = child.__flatten();
-                found.push(child);
-                found = found.concat(tmp);
-            }
-        }
-        return found;
     },
     "__z_sort_prep" : function (screen_matrix) {
         var matrix = mat4.multiply(
@@ -702,12 +693,32 @@ please.SceneGraph = function () {
 
     this.__bind = null;
     this.__draw = null;
-    this.__flat = [];
-    this.__alpha = [];
-    this.__states = {};
     this.camera = null;
     this.local_matrix = mat4.create();
     this.__last_framestart = null;
+
+    // Alpha blending and state sorted draw passes.
+    this.__alpha = [];
+    this.__states = {};
+
+    // Rather than flattening the graph every frame, we keep a cache
+    // of what the graph looks like and only update it when the graph
+    // changes.
+    this.__flat = [];
+    this.__track = function (node) {
+        if (this.__flat.indexOf(node) === -1) {
+            this.__flat.push(node);
+        }
+    };
+    this.__ignore = function (node) {
+        var index = this.__flat.indexOf(node);
+        if (index !== -1) {
+            this.__flat.splice(index, 1);
+            ITER(i, node.children) {
+                this.__ignore(node.children[i]);
+            }
+        }
+    };
 
     this.picking = {
         "enabled" : false,
@@ -742,23 +753,6 @@ please.SceneGraph = function () {
 
     this.tick = function () {
         this.__last_framestart = please.pipeline.__framestart;
-        if (!this.camera) {
-            // if no camera was set, loop through the immediate
-            // children of this object and select the first camera
-            // available
-            var children = this.children;
-            for (var i=0; i<children.length; i+=1) {
-                var child = children[i];
-                if (child.__is_camera) {
-                    child.activate();
-                    break;
-                }
-            }
-        }
-
-        // flatten the scene graph into a list (this line will soon
-        // not be needed)
-        this.__flat = this.__flatten();
 
         // nodes in the z-sorting path
         this.__alpha = [];
