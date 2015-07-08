@@ -94,11 +94,23 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var char_model = please.access("psycho.jta");
     var gavroche_model = please.access("gavroche.jta");
 
+    
+    // this variable we use to store what is currently selected
+    var selected = null;
+
+    
     // build the scene graph
     var graph = demo.graph = new please.SceneGraph();
-    graph.picking.enabled = true; // enable mouseup / mousedown events
-                                  // for the main graph
     graph.add(new FloorNode());
+
+    // Enable mouse events for the main graph.  In this case, we
+    // define a mouseup event on the graph itself, and mousedown
+    // events on the red gavroche objects.  A second graph with just
+    // the floor in it is used to handle mouse move events.
+    graph.picking.enabled = true;
+    graph.on_mouseup = function (event) {
+        selected = null;
+    };
 
     // add a camera
     var camera = demo.camera = new please.CameraNode();
@@ -110,19 +122,14 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(camera);
     camera.activate();
 
-
-    // this variable we use to store what is currently selected
-    var selected = null;
-
-
     // add a second graph to be used for location picking only
     var picking_graph = new please.SceneGraph();
+    picking_graph.add(new FloorNode());
     picking_graph.camera = camera;
     picking_graph.picking.skip_location_info = false;
     picking_graph.picking.skip_on_move_event = false;
-    picking_graph.picking.enabled = false; // we'll only enable this
-                                           // when we need it
-    picking_graph.add(new FloorNode());
+    // picking for this graph will only be enabled when it is needed.
+    picking_graph.picking.enabled = false;
 
     // add the mouse move event handler
     picking_graph.on_mousemove = function (event) {
@@ -158,9 +165,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
         point.on_mousedown = function (event) {
             selected = this;
             picking_graph.picking.enabled = true;
-        };
-        point.on_mouseup = function (event) {
-            selected = null;
         };
     }
 
