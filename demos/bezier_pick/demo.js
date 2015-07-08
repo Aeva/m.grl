@@ -19,35 +19,35 @@
 
  Have a nice day! ^_^
 
- */
+*/
 
 
-
-
-/*
-  WARNING:
-
-  This demo is built against an obsolete version of m.grl, as object
-  selection / mouse events have been completely rewritten to be
-  simpler, and backwards compatibility was not preserved.
-
-  This demo will be rewritten in the future to demonstrate this new
-  functionality.
-
- */
-
-
+// local namespace
+var demo = {
+    "viewport" : null, // the render pass that will be rendered
+};
 
 
 addEventListener("load", function() {
+    // Attach the opengl rendering context.  This must be done before
+    // anything else.
     please.gl.set_context("gl_canvas");
+    
+    // Set OpenGL rendering state defaults directly.  Some of this may
+    // be abstracted by m.grl in the future.
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.enable(gl.CULL_FACE);
+
+    // Define where m.grl is to find various assets when using the
+    // load methed.
     please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "../gl_assets/img/");
     please.set_search_path("jta", "../gl_assets/models/");
     
     // load shader sources
-    please.load("simple.vert");
-    please.load("simple.frag");
+    please.load("demo.vert");
+    please.load("demo.frag");
 
     // load our model files
     please.load("psycho.jta");
@@ -85,20 +85,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
     document.getElementById("loading_screen").style.display = "none";
     document.getElementById("demo_area").style.display = "block";
 
-    // Create GL context, build shader pair
-    var canvas = document.getElementById("gl_canvas");
-    var prog = please.glsl("default", "simple.vert", "simple.frag");
+    // Build the custom shader used by this demo
+    var prog = please.glsl("demo", "demo.vert", "demo.frag");
     prog.activate();
-
-    // setup default state stuff    
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
-    gl.enable(gl.CULL_FACE);
-    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
-
-    // enable alpha blending
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     
     // access model data
     var lamp_model = please.access("floor_lamp.jta");
@@ -106,11 +95,13 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var gavroche_model = please.access("gavroche.jta");
 
     // build the scene graph
-    var graph = window.graph = new please.SceneGraph();
+    var graph = demo.graph = new please.SceneGraph();
+    graph.picking.enabled = true; // enable mouseup / mousedown events
+                                  // for the main graph
     graph.add(new FloorNode());
 
     // add a camera
-    var camera = window.camera = new please.CameraNode();
+    var camera = demo.camera = new please.CameraNode();
     camera.fov = please.path_driver(
         please.bezier_path([15, 40, 55, 59, 60]),
         5000, false, false);
@@ -119,8 +110,33 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(camera);
     camera.activate();
 
+
+    // this variable we use to store what is currently selected
+    var selected = null;
+
+
+    // add a second graph to be used for location picking only
+    var picking_graph = new please.SceneGraph();
+    picking_graph.camera = camera;
+    picking_graph.picking.skip_location_info = false;
+    picking_graph.picking.skip_on_move_event = false;
+    picking_graph.picking.enabled = false; // we'll only enable this
+                                           // when we need it
+    picking_graph.add(new FloorNode());
+
+    // add the mouse move event handler
+    picking_graph.on_mousemove = function (event) {
+        if (selected) {
+            selected.location = event.world_location;
+        }
+        else {
+            // disable the picking graph as nothing is selected
+            picking_graph.picking.enabled = false;
+        }
+    };
     
-    // add some control points
+
+    // add some control points for our bezier curve
     var controls = window.controls = [];
     var point;
     var low = -14;
@@ -130,16 +146,22 @@ addEventListener("mgrl_media_ready", please.once(function () {
         point = gavroche_model.instance();
         point.selectable = true;
         point.shader.mode = 3;
-        //point.scale_x = 0.5;
-        //point.scale_y = 0.5;
         point.rotation_z = function () {
             return performance.now()/10;
         };
         point.location_x = please.mix(low, high, i/(count-1));
-        //point.location_y = Math.random()*30 - 10;
         point.selectable = true;
         graph.add(point);
         controls.push(point);
+
+        point.selectable = true;
+        point.on_mousedown = function (event) {
+            selected = this;
+            picking_graph.picking.enabled = true;
+        };
+        point.on_mouseup = function (event) {
+            selected = null;
+        };
     }
 
     // bezier curve formed by the control point positions
@@ -183,106 +205,20 @@ addEventListener("mgrl_media_ready", please.once(function () {
     vec3.scale(light_direction, light_direction, -1);
 
 
-    // attach mouse events for picking
-    add_picking_hook(canvas);
-
-
-    // setup common render state
-    please.pipeline.add(1, "beziers/setup", function () {
-        // -- update uniforms
-        prog.vars.light_direction = light_direction;
-        prog.vars.move_pick = false;
-    });
-
-
-    // experimental picking pass
-    please.pipeline.add(10, "beziers/pick", function () {
-        if (window.do_click_pick) {
-            // -- clear the screen
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-            // -- reset picking trigger
-            window.do_click_pick = false;
-            
-            // -- draw geometry
-            graph.picking_draw();
-
-            // x, y, width, height, format, datatype, datasource
-            var px = new Uint8Array(4);
-            gl.readPixels(pick_x, pick_y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
-            console.info(px);
-            var found = graph.picked_node(px);
-            if (found) {
-                window.selected = found;
-            }
-        }
-        else if (window.do_move_pick && selected) {
-            // -- clear the screen
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-            // -- reset picking trigger
-            window.do_move_pick = false;
-            
-            // -- draw geometry
-            prog.vars.move_pick = true;
-            graph.draw(function(node) { return node.shader.mode !== 1.0; });
-            prog.vars.move_pick = false;
-
-            // -- use the resulting data for something
-            var px = new Uint8Array(4);
-            gl.readPixels(pick_x, pick_y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
-
-            // -- adjust selected object position
-            selected.location_x = ((px[0]/255)-0.5)*100.0;
-            selected.location_y = ((px[1]/255)-0.5)*100.0 + 1.0;
-        }
-    });
-
+    // add a RenderNode for displaying things
+    demo.viewport = new please.RenderNode("demo");
+    demo.viewport.graph = demo.graph;
+    demo.viewport.shader.light_direction = light_direction;
+    
 
     // register a render pass with the scheduler
-    please.pipeline.add(20, "beziers/draw", function () {
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        // -- draw geometry
-        graph.draw();
-    });
-
+    please.pipeline.add(10, "project/draw", function () {
+        please.render(demo.viewport);
+    }).skip_when(function () { return demo.viewport === null; });
 
     // start the drawing loop
     please.pipeline.start();
 }));
-
-
-var selected = null;
-var do_click_pick = false;
-var do_move_pick = false;
-var pick_x = 0;
-var pick_y = 0;
-
-function add_picking_hook (canvas) {
-    canvas.addEventListener("mousedown", function (event) {
-        window.do_click_pick = true;
-        var rect = canvas.getBoundingClientRect();
-        pick_x = event.pageX - rect.left - window.pageXOffset;
-        pick_y = canvas.height - (event.pageY - rect.top - window.pageYOffset);
-    });
-
-    window.addEventListener("mouseup", function (event) {
-        if (selected) {
-            selected = null;
-        }
-    });
-
-    canvas.addEventListener("mousemove", function (event) {
-        if (selected) {
-            do_move_pick = true;
-            var rect = canvas.getBoundingClientRect();
-            pick_x = event.pageX - rect.left - window.pageXOffset;
-            pick_y = canvas.height - (event.pageY - rect.top - window.pageYOffset);
-        }
-    });
-};
 
 
 var FloorNode = function () {
