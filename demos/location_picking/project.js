@@ -39,7 +39,7 @@ addEventListener("load", function() {
     // instead of opengl's allows for the clear color to be accessible
     // in the shader, should it be defined as a uniform.  This also
     // allows for databinding the clear color.
-    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
+    please.set_clear_color(1.0, 1.0, 1.0, 1.0);
 
     // Set OpenGL rendering state defaults directly.  Some of this may
     // be abstracted by m.grl in the future.
