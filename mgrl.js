@@ -1907,7 +1907,6 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         please.media.__image_buffer_cache[hint] = data;
     }
     var node = new please.GraphNode();
-    node.__last_vbo = data.vbo;
     node.vbo = data.vbo;
     node.ibo = data.ibo;
     node.ext = {};
@@ -3188,7 +3187,6 @@ please.media.__AnimationData = function (gani_text, uri) {
                     var offset_units = -10; // was -2
                     gl.enable(gl.POLYGON_OFFSET_FILL);
                 }
-                node.__last_vbo = resource.vbo;
                 resource.vbo.bind();
                 resource.ibo.bind();
                 var ibo = resource.ibo;
@@ -4420,7 +4418,6 @@ please.gl.__jta_model = function (src, uri) {
                             node.shader[name] = value;
                         }
                     });
-                    node.__last_vbo = model.vbo;
                     node.bind = function () {
                         model.vbo.bind();
                         model.ibo.bind();
@@ -5499,6 +5496,7 @@ please.GraphNode.prototype = {
             }
             // draw this node
             this.draw();
+            this.__last_vbo = please.gl.__last_vbo;
         }
     },
     // The bind function is called to set up the object's state.

@@ -649,6 +649,7 @@ please.GraphNode.prototype = {
 
             // draw this node
             this.draw();
+            this.__last_vbo = please.gl.__last_vbo;
         }
     },
     // The bind function is called to set up the object's state.

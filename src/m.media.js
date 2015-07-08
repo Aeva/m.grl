@@ -565,7 +565,6 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     }
 
     var node = new please.GraphNode();
-    node.__last_vbo = data.vbo;
     node.vbo = data.vbo;
     node.ibo = data.ibo;
     node.ext = {};
