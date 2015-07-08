@@ -35,12 +35,6 @@ addEventListener("load", function() {
         antialias : false,
     });
 
-    // Set the clear color for the gl canvas.  Using this metho
-    // instead of opengl's allows for the clear color to be accessible
-    // in the shader, should it be defined as a uniform.  This also
-    // allows for databinding the clear color.
-    please.set_clear_color(1.0, 1.0, 1.0, 1.0);
-
     // Set OpenGL rendering state defaults directly.  Some of this may
     // be abstracted by m.grl in the future.
     gl.enable(gl.DEPTH_TEST);
@@ -192,6 +186,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // Add a renderer using the default shader.
     var renderer = demo.main.renderer = new please.RenderNode("default");
+    renderer.clear_color = [.15, .15, .15, 1];
     renderer.graph = graph;
     
     // Add a timeout before the screen wipe to allow images etc to
