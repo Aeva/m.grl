@@ -5702,18 +5702,29 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 // Machinery for activating a picking event.
 //
 please.__pending_pick = [];
+please.__pending_move = null;
 please.__req_object_pick = function (x, y, event_info) {
-    please.__pending_pick.push({
+    var data = {
         "x" : x,
         "y" : y,
         "event" : event_info,
-    });
+    };
+    if (event_info.type === "mousemove") {
+        please.__pending_move = data
+    }
+    else {
+        please.__pending_pick.push(data);
+    }
 };
 //
 // This code facilitates color based picking, when relevant. 
 //
 please.pipeline.add(-1, "mgrl/picking_pass", function () {
     var req = please.__pending_pick.shift();
+    if (!req) {
+        req = please.__pending_move;
+        please.__pending_move = null;
+    }
     var is_move_event = req.event.type === "mousemove";
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     for (var i=0; i<please.graph_index.roots.length; i+=1) {
@@ -5765,7 +5776,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
     }
     // restore original clear color
     gl.clearColor.apply(gl, please.__clear_color);
-}).skip_when(function () { return please.__pending_pick.length == 0; });
+}).skip_when(function () { return please.__pending_pick.length === 0 && please.__pending_move === null; });
 //
 // Picking RenderNode
 //
