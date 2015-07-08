@@ -5702,18 +5702,29 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 // Machinery for activating a picking event.
 //
 please.__pending_pick = [];
+please.__pending_move = null;
 please.__req_object_pick = function (x, y, event_info) {
-    please.__pending_pick.push({
+    var data = {
         "x" : x,
         "y" : y,
         "event" : event_info,
-    });
+    };
+    if (event_info.type === "mousemove") {
+        please.__pending_move = data
+    }
+    else {
+        please.__pending_pick.push(data);
+    }
 };
 //
 // This code facilitates color based picking, when relevant. 
 //
 please.pipeline.add(-1, "mgrl/picking_pass", function () {
     var req = please.__pending_pick.shift();
+    if (!req) {
+        req = please.__pending_move;
+        please.__pending_move = null;
+    }
     var is_move_event = req.event.type === "mousemove";
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     for (var i=0; i<please.graph_index.roots.length; i+=1) {
@@ -5765,7 +5776,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
     }
     // restore original clear color
     gl.clearColor.apply(gl, please.__clear_color);
-}).skip_when(function () { return please.__pending_pick.length == 0; });
+}).skip_when(function () { return please.__pending_pick.length === 0 && please.__pending_move === null; });
 //
 // Picking RenderNode
 //
@@ -6285,6 +6296,8 @@ please.RenderNode = function (prog) {
             please.make_animatable(this, name, value, this.shader);
         }
     }
+    // clear color for this pass
+    please.make_animatable_tripple(this, "clear_color", "rgba", [1, 1, 1, 1]);
     // caching stuff
     this.__last_framestart = null;
     this.__cached = null;
@@ -6375,8 +6388,14 @@ please.render = function(node) {
     node.__cached = stack.length > 0 ? node.__id : null;
     please.gl.set_framebuffer(node.__cached);
     // call the rendering logic
+    gl.clearColor.apply(gl, node.clear_color);
+    node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     node.render();
+    // clean up
+    if (stack.length === 0) {
+        gl.clearColor.apply(gl, please.__clear_color);
+    }
     // return the uuid of the render node if we're doing indirect rendering
     return node.__cached;
 };
