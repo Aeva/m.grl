@@ -45,6 +45,9 @@ please.RenderNode = function (prog) {
         }
     }
 
+    // clear color for this pass
+    please.make_animatable_tripple(this, "clear_color", "rgba", [1, 1, 1, 1]);
+
     // caching stuff
     this.__last_framestart = null;
     this.__cached = null;
@@ -147,8 +150,15 @@ please.render = function(node) {
     please.gl.set_framebuffer(node.__cached);
 
     // call the rendering logic
+    gl.clearColor.apply(gl, node.clear_color);
+    node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     node.render();
+
+    // clean up
+    if (stack.length === 0) {
+        gl.clearColor.apply(gl, please.__clear_color);
+    }
 
     // return the uuid of the render node if we're doing indirect rendering
     return node.__cached;

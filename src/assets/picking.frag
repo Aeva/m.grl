@@ -5,15 +5,15 @@ precision highp float;
 precision mediump float;
 #endif
 
-uniform bool select_mode;
-uniform vec3 object_index;
 varying vec3 local_position;
+uniform vec3 object_index;
+uniform bool mgrl_select_mode;
 uniform vec3 mgrl_model_local_min;
 uniform vec3 mgrl_model_local_size;
 
 
 void main(void) {
-  if (select_mode) {
+  if (mgrl_select_mode) {
     gl_FragColor = vec4(object_index, 1.0);
   }
   else {

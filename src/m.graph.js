@@ -649,6 +649,7 @@ please.GraphNode.prototype = {
 
             // draw this node
             this.draw();
+            this.__last_vbo = please.gl.__last_vbo;
         }
     },
     // The bind function is called to set up the object's state.
@@ -870,12 +871,19 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 // Machinery for activating a picking event.
 //
 please.__pending_pick = [];
+please.__pending_move = null;
 please.__req_object_pick = function (x, y, event_info) {
-    please.__pending_pick.push({
+    var data = {
         "x" : x,
         "y" : y,
         "event" : event_info,
-    });
+    };
+    if (event_info.type === "mousemove") {
+        please.__pending_move = data
+    }
+    else {
+        please.__pending_pick.push(data);
+    }
 };
 
 
@@ -884,6 +892,10 @@ please.__req_object_pick = function (x, y, event_info) {
 //
 please.pipeline.add(-1, "mgrl/picking_pass", function () {
     var req = please.__pending_pick.shift();
+    if (!req) {
+        req = please.__pending_move;
+        please.__pending_move = null;
+    }
     var is_move_event = req.event.type === "mousemove";
 
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
@@ -903,7 +915,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
 
             if (req.x >= 0 && req.x <= 1 && req.y >= 0 && req.y <= 1) {
                 // perform object picking pass
-                node.shader.select_mode = true;
+                node.shader.mgrl_select_mode = true;
                 please.render(node);
                 id_color = please.gl.pick(req.x, req.y);
 
@@ -915,7 +927,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
 
                     // optionally perform object location picking
                     if (!graph.picking.skip_location_info) {
-                        node.shader.select_mode = false;
+                        node.shader.mgrl_select_mode = false;
                         please.render(node);
                         loc_color = please.gl.pick(req.x, req.y);
                         var vbo = info.picked.__last_vbo;
@@ -944,7 +956,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
 
     // restore original clear color
     gl.clearColor.apply(gl, please.__clear_color);
-}).skip_when(function () { return please.__pending_pick.length == 0; });
+}).skip_when(function () { return please.__pending_pick.length === 0 && please.__pending_move === null; });
 
 
 //

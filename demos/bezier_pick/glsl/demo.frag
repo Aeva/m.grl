@@ -21,13 +21,6 @@ uniform vec3 light_direction;
 varying vec3 light_weight;
 varying float directional_weight;
 
-// color picking stuff
-uniform bool mgrl_picking_pass;
-uniform vec3 mgrl_picking_index;
-
-// non-standard picking stuff
-uniform bool move_pick;
-
 
 // Handy function for producing pseudo-randomness.  Returns a value
 // between 0 and 1
@@ -128,25 +121,5 @@ void main(void) {
   float falloff = view_position.z-5.0;
   float range = 50.0;
 
-  vec4 final_color = mix(mixed_color, haze, clamp(falloff, 0.0, range)/range);
-
-  if (mgrl_picking_pass) {
-    if (mgrl_picking_index == vec3(0,0,0)) {
-      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-    }
-    else {
-      gl_FragColor = vec4(mgrl_picking_index, 1.0);
-    }
-  }
-  else if (move_pick) {
-    if (mode == 1.0) {
-      gl_FragColor = vec4(local_position/100.0+0.5, 1.0);
-    }
-    else {
-      gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
-    }
-  }
-  else {
-    gl_FragColor = vec4(final_color.rgb, 1.0);
-  }
+  gl_FragColor = mix(mixed_color, haze, clamp(falloff, 0.0, range)/range);
 }
