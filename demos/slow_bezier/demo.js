@@ -100,7 +100,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
 
     // build the scene graph
-    var graph = window.graph = new please.SceneGraph();
+    var graph = demo.graph = new please.SceneGraph();
     graph.add(new FloorNode());
 
     // Enable mouse events for the main graph.  In this case, we
@@ -209,6 +209,39 @@ addEventListener("mgrl_media_ready", please.once(function () {
     demo.viewport = new please.RenderNode("demo");
     demo.viewport.graph = demo.graph;
     demo.viewport.shader.light_direction = light_direction;
+
+
+    // add a pass to update the objects in the curve
+    please.pipeline.add(1, "beziers/setup", function () {
+        // -- update curve placement
+        var points = please.trace_curve(bezier_path, 1.25, "any", false);
+        for (var i=0; i<blobs.length; i+=1) {
+            var blob = blobs[i];
+            if (i < points.length) {
+                blob.location = points[i];
+                blob.visible = true;
+            }
+            else {
+                blob.visible = false;
+            }
+        }
+        for (var i=0; i<points.length-1 && i<blobs.length-1; i+=1) {
+            var blob = blobs[i];
+            var next = blobs[i+1];
+
+            var lhs = vec3.fromValues(1, 0, 0);
+            var rhs = vec3.sub(vec3.create(), next.location, blob.location);
+
+            var yaw = Math.atan2(rhs[0], rhs[1]);
+            
+            vec3.normalize(rhs, rhs);
+            var angle = vec3.dot(lhs,rhs);
+
+            blob.rotation_z = please.degrees(yaw *-1);
+        }
+        blobs[0].rotation_z = blobs[1].rotation_z;
+        blobs[points.length-1].rotation_z = blobs[points.length-2].rotation_z;
+    });
     
 
     // register a render pass with the scheduler
@@ -218,7 +251,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // start the drawing loop
     please.pipeline.start();
-});
+}));
 
 
 var FloorNode = function () {
