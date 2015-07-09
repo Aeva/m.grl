@@ -5791,8 +5791,8 @@ addEventListener("mgrl_gl_context_created", function (event) {
     var canvas = please.gl.canvas;
     var pick_trigger = function (event) {
         var rect = canvas.getBoundingClientRect();
-        var left_edge = rect.left - window.pageXOffset;
-        var top_edge = rect.top - window.pageYOffset;
+        var left_edge = rect.left + window.pageXOffset;
+        var top_edge = rect.top + window.pageYOffset;
         var pick_x = (event.pageX - left_edge) / (rect.width-1);
         var pick_y = (event.pageY - top_edge) / (rect.height-1);
         // x and y are normalized to be in the range 0.0 to 1.0

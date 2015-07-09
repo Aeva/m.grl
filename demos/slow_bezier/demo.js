@@ -22,32 +22,32 @@
  */
 
 
-
-
-/*
-  WARNING:
-
-  This demo is built against an obsolete version of m.grl, as object
-  selection / mouse events have been completely rewritten to be
-  simpler, and backwards compatibility was not preserved.
-
-  This demo will be rewritten in the future to demonstrate this new
-  functionality.
-
- */
-
-
+// local namespace
+var demo = {
+    "viewport" : null, // the render pass that will be rendered
+};
 
 
 addEventListener("load", function() {
+    // Attach the opengl rendering context.  This must be done before
+    // anything else.
     please.gl.set_context("gl_canvas");
+    
+    // Set OpenGL rendering state defaults directly.  Some of this may
+    // be abstracted by m.grl in the future.
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.enable(gl.CULL_FACE);
+
+    // Define where m.grl is to find various assets when using the
+    // load methed.
     please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "../gl_assets/img/");
     please.set_search_path("jta", "../gl_assets/models/");
     
     // load shader sources
-    please.load("simple.vert");
-    please.load("simple.frag");
+    please.load("demo.vert");
+    please.load("demo.frag");
 
     // load our model files
     please.load("psycho.jta");
@@ -86,28 +86,31 @@ addEventListener("mgrl_media_ready", please.once(function () {
     document.getElementById("demo_area").style.display = "block";
 
     // Create GL context, build shader pair
-    var canvas = document.getElementById("gl_canvas");
-    var prog = please.glsl("default", "simple.vert", "simple.frag");
+    var prog = please.glsl("demo", "demo.vert", "demo.frag");
     prog.activate();
-
-    // setup default state stuff    
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
-    gl.enable(gl.CULL_FACE);
-    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
-
-    // enable alpha blending
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     
     // access model data
     var lamp_model = please.access("floor_lamp.jta");
     var char_model = please.access("psycho.jta");
     var gavroche_model = please.access("gavroche.jta");
+    
+    
+    // this variable we use to store what is currently selected
+    var selected = null;
+
 
     // build the scene graph
-    var graph = window.graph = new please.SceneGraph();
+    var graph = demo.graph = new please.SceneGraph();
     graph.add(new FloorNode());
+
+    // Enable mouse events for the main graph.  In this case, we
+    // define a mouseup event on the graph itself, and mousedown
+    // events on the red gavroche objects.  A second graph with just
+    // the floor in it is used to handle mouse move events.
+    graph.picking.enabled = true;
+    graph.on_mouseup = function (event) {
+        selected = null;
+    };
 
     // add a camera
     var camera = window.camera = new please.CameraNode();
@@ -118,6 +121,26 @@ addEventListener("mgrl_media_ready", please.once(function () {
     camera.location = [0, 15, 20];
     graph.add(camera);
     camera.activate();
+
+    // add a second graph to be used for location picking only
+    var picking_graph = new please.SceneGraph();
+    picking_graph.add(new FloorNode());
+    picking_graph.camera = camera;
+    picking_graph.picking.skip_location_info = false;
+    picking_graph.picking.skip_on_move_event = false;
+    // picking for this graph will only be enabled when it is needed.
+    picking_graph.picking.enabled = false;
+
+    // add the mouse move event handler
+    picking_graph.on_mousemove = function (event) {
+        if (selected) {
+            selected.location = event.world_location;
+        }
+        else {
+            // disable the picking graph as nothing is selected
+            picking_graph.picking.enabled = false;
+        }
+    };
 
     
     // add some control points
@@ -130,8 +153,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
         point = gavroche_model.instance();
         point.selectable = true;
         point.shader.mode = 3;
-        //point.scale_x = 0.5;
-        //point.scale_y = 0.5;
         point.rotation_z = function () {
             return performance.now()/10;
         };
@@ -140,6 +161,12 @@ addEventListener("mgrl_media_ready", please.once(function () {
         point.selectable = true;
         graph.add(point);
         controls.push(point);
+
+        point.selectable = true;
+        point.on_mousedown = function (event) {
+            selected = this;
+            picking_graph.picking.enabled = true;
+        };
     }
 
     // bezier curve formed by the control point positions
@@ -178,16 +205,14 @@ addEventListener("mgrl_media_ready", please.once(function () {
     vec3.scale(light_direction, light_direction, -1);
 
 
-    // attach mouse events for picking
-    add_picking_hook(canvas);
+    // add a RenderNode for displaying things
+    demo.viewport = new please.RenderNode("demo");
+    demo.viewport.graph = demo.graph;
+    demo.viewport.shader.light_direction = light_direction;
 
 
-    // setup common render state
+    // add a pass to update the objects in the curve
     please.pipeline.add(1, "beziers/setup", function () {
-        // -- update uniforms
-        prog.vars.light_direction = light_direction;
-        prog.vars.move_pick = false;
-
         // -- update curve placement
         var points = please.trace_curve(bezier_path, 1.25, "any", false);
         for (var i=0; i<blobs.length; i+=1) {
@@ -204,12 +229,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
             var blob = blobs[i];
             var next = blobs[i+1];
 
-            // var lhs = vec3.sub(vec3.create(), last.location, blob.location);
-            // vec3.normalize(lhs, lhs);
-            // var rhs = vec3.sub(vec3.create(), next.location, blob.location);
-            // vec3.normalize(rhs, rhs);
-            // var angle = vec3.dot(lhs,rhs);
-
             var lhs = vec3.fromValues(1, 0, 0);
             var rhs = vec3.sub(vec3.create(), next.location, blob.location);
 
@@ -218,102 +237,21 @@ addEventListener("mgrl_media_ready", please.once(function () {
             vec3.normalize(rhs, rhs);
             var angle = vec3.dot(lhs,rhs);
 
-            //blob.rotation_z = please.degrees(Math.acos(angle));
             blob.rotation_z = please.degrees(yaw *-1);
         }
         blobs[0].rotation_z = blobs[1].rotation_z;
         blobs[points.length-1].rotation_z = blobs[points.length-2].rotation_z;
     });
-
-
-    // experimental picking pass
-    please.pipeline.add(10, "beziers/pick", function () {
-        if (window.do_click_pick) {
-            // -- clear the screen
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-            // -- reset picking trigger
-            window.do_click_pick = false;
-            
-            // -- draw geometry
-            graph.picking_draw();
-
-            // x, y, width, height, format, datatype, datasource
-            var px = new Uint8Array(4);
-            gl.readPixels(pick_x, pick_y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
-            console.info(px);
-            var found = graph.picked_node(px);
-            if (found) {
-                window.selected = found;
-            }
-        }
-        else if (window.do_move_pick && selected) {
-            // -- clear the screen
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-            // -- reset picking trigger
-            window.do_move_pick = false;
-            
-            // -- draw geometry
-            prog.vars.move_pick = true;
-            graph.draw(function(node) { return node.shader.mode !== 1.0; });
-            prog.vars.move_pick = false;
-
-            // -- use the resulting data for something
-            var px = new Uint8Array(4);
-            gl.readPixels(pick_x, pick_y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
-
-            // -- adjust selected object position
-            selected.location_x = ((px[0]/255)-0.5)*100.0;
-            selected.location_y = ((px[1]/255)-0.5)*100.0 + 1.0;
-        }
-    });
-
+    
 
     // register a render pass with the scheduler
-    please.pipeline.add(20, "beziers/draw", function () {
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        // -- draw geometry
-        graph.draw();
-    });
-
+    please.pipeline.add(10, "project/draw", function () {
+        please.render(demo.viewport);
+    }).skip_when(function () { return demo.viewport === null; });
 
     // start the drawing loop
     please.pipeline.start();
 }));
-
-
-var selected = null;
-var do_click_pick = false;
-var do_move_pick = false;
-var pick_x = 0;
-var pick_y = 0;
-
-function add_picking_hook (canvas) {
-    canvas.addEventListener("mousedown", function (event) {
-        window.do_click_pick = true;
-        var rect = canvas.getBoundingClientRect();
-        pick_x = event.pageX - rect.left - window.pageXOffset;
-        pick_y = canvas.height - (event.pageY - rect.top - window.pageYOffset);
-    });
-
-    window.addEventListener("mouseup", function (event) {
-        if (selected) {
-            selected = null;
-        }
-    });
-
-    canvas.addEventListener("mousemove", function (event) {
-        if (selected) {
-            do_move_pick = true;
-            var rect = canvas.getBoundingClientRect();
-            pick_x = event.pageX - rect.left - window.pageXOffset;
-            pick_y = canvas.height - (event.pageY - rect.top - window.pageYOffset);
-        }
-    });
-};
 
 
 var FloorNode = function () {
