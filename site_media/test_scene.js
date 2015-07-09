@@ -119,7 +119,7 @@ addEventListener("mgrl_media_ready", function () {
     //gl.enable(gl.CULL_FACE);
     gl.disable(gl.CULL_FACE);
 
-    gl.clearColor(.93, .93, .93, 1.0);
+    please.set_clear_color(.93, .93, .93, 1.0);
 
     // enable alpha blending
     gl.enable(gl.BLEND);
