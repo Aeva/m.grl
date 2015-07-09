@@ -915,7 +915,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
 
             if (req.x >= 0 && req.x <= 1 && req.y >= 0 && req.y <= 1) {
                 // perform object picking pass
-                node.shader.select_mode = true;
+                node.shader.mgrl_select_mode = true;
                 please.render(node);
                 id_color = please.gl.pick(req.x, req.y);
 
@@ -927,7 +927,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
 
                     // optionally perform object location picking
                     if (!graph.picking.skip_location_info) {
-                        node.shader.select_mode = false;
+                        node.shader.mgrl_select_mode = false;
                         please.render(node);
                         loc_color = please.gl.pick(req.x, req.y);
                         var vbo = info.picked.__last_vbo;
