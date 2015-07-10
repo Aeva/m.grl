@@ -737,6 +737,7 @@ please.SceneGraph = function () {
         // threshold.
         "__click_test" : null,
         "__last_click" : null,
+        "__clear_timer" : null,
     };
 
     Object.defineProperty(this, "graph_root", {
@@ -869,6 +870,18 @@ please.SceneGraph = function () {
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 
 
+// Used by the dispatcher function below
+please.SceneGraph.prototype.__set_click_counter = function (val) {
+    this.picking.__last_click = val;
+    window.clearTimeout(this.picking.__clear_timer);
+    if (val) {
+        this.picking.__clear_timer = window.setTimeout(function () {
+            this.picking.__last_click = null;
+        }.bind(this), 500);
+    }
+};
+
+
 // Special event dispatcher for SceneGraphs
 please.SceneGraph.prototype.dispatch = function (event_name, event_info) {
     // call the dispatcher logic inherited from GraphNode first
@@ -884,27 +897,27 @@ please.SceneGraph.prototype.dispatch = function (event_name, event_info) {
         }
         else if (event_type === "mouseup") {
             if (this.picking.__click_test === event_info.selected) {
-                // check to dispatch a click or a double click event
+                // single click
+                event_info.selected.dispatch("click", event_info);
+                inherited_dispatch.call(this, "click", event_info);
+                
                 if (this.picking.__last_click === event_info.selected) {
                     // double click
-                    this.picking.__last_click = null;
+                    this.__set_click_counter(null);
                     event_info.selected.dispatch("doubleclick", event_info);
                     inherited_dispatch.call(this, "doubleclick", event_info);
                 }
                 else {
-                    // single click
-                    this.picking.__last_click = event_info.selected
-                    event_info.selected.dispatch("click", event_info);
-                    inherited_dispatch.call(this, "click", event_info);
+                    // double click pending
+                    this.__set_click_counter(event_info.selected);
                 }
-                // clear the click test counter
-                this.picking.__click_test = null;
             }
             else {
-                // clear click and double click counter
-                this.picking.__click_test = null;
-                this.picking.__last_click = null;
+                // clear double click counter
+                this.__set_click_counter(null);
             }
+            // clear the click test counter
+            this.picking.__click_test = null;
         }
     }
 };
