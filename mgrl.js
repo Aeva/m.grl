@@ -5699,8 +5699,10 @@ please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 //
 // Machinery for activating a picking event.
 //
-please.__pending_pick = [];
-please.__pending_move = null;
+please.__picking = {
+    "queue" : [],
+    "move_event" : null,
+}
 please.__req_object_pick = function (x, y, event_info) {
     var data = {
         "x" : x,
@@ -5708,20 +5710,20 @@ please.__req_object_pick = function (x, y, event_info) {
         "event" : event_info,
     };
     if (event_info.type === "mousemove") {
-        please.__pending_move = data
+        please.__picking.move_event = data
     }
     else {
-        please.__pending_pick.push(data);
+        please.__picking.queue.push(data);
     }
 };
 //
 // This code facilitates color based picking, when relevant. 
 //
 please.pipeline.add(-1, "mgrl/picking_pass", function () {
-    var req = please.__pending_pick.shift();
+    var req = please.__picking.queue.shift();
     if (!req) {
-        req = please.__pending_move;
-        please.__pending_move = null;
+        req = please.__picking.move_event;
+        please.__picking.move_event = null;
     }
     var is_move_event = req.event.type === "mousemove";
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
@@ -5774,7 +5776,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
     }
     // restore original clear color
     gl.clearColor.apply(gl, please.__clear_color);
-}).skip_when(function () { return please.__pending_pick.length === 0 && please.__pending_move === null; });
+}).skip_when(function () { return please.__picking.queue.length === 0 && please.__picking.move_event === null; });
 //
 // Picking RenderNode
 //
