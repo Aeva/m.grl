@@ -6371,11 +6371,12 @@ please.RenderNode.prototype = {
 };
 //
 please.render = function(node) {
-    var stack = arguments[1] || [];
+    var expire = arguments[1] || window.performance.now();
+    var stack = arguments[2] || [];
     if (stack.indexOf(node)>=0) {
         throw("M.GRL doesn't currently suport render graph cycles.");
     }
-    if (stack.length > 0 && node.__last_framestart >= please.pipeline.__framestart && node.__cached) {
+    if (stack.length > 0 && node.__last_framestart >= expire && node.__cached) {
         return node.__cached;
     }
     else {
@@ -6398,7 +6399,7 @@ please.render = function(node) {
             }
             else if (typeof(proxy) === "object") {
                 // proxy is another RenderNode
-                return please.render(proxy, stack);
+                return please.render(proxy, expire, stack);
             }
         }
     }
@@ -6412,7 +6413,7 @@ please.render = function(node) {
         var sampler = node.shader[name];
         if (sampler !== null) {
             if (typeof(sampler) === "object") {
-                sampler_cache[name] = please.render(sampler, stack);
+                sampler_cache[name] = please.render(sampler, expire, stack);
             }
             else {
                 sampler_cache[name] = sampler;
