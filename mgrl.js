@@ -5301,6 +5301,8 @@ please.GraphNode = function () {
     this.on_mousemove = null;
     this.on_mousedown = null;
     this.on_mouseup = null;
+    this.on_click = null;
+    this.on_doubleclick = null;
 };
 please.GraphNode.prototype = {
     "has_child" : function (entity) {
