@@ -452,6 +452,8 @@ please.GraphNode = function () {
     this.on_mousemove = null;
     this.on_mousedown = null;
     this.on_mouseup = null;
+    this.on_click = null;
+    this.on_doubleclick = null;
 };
 please.GraphNode.prototype = {
     "has_child" : function (entity) {
@@ -735,6 +737,7 @@ please.SceneGraph = function () {
         // threshold.
         "__click_test" : null,
         "__last_click" : null,
+        "__clear_timer" : null,
     };
 
     Object.defineProperty(this, "graph_root", {
@@ -867,11 +870,66 @@ please.SceneGraph = function () {
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 
 
+// Used by the dispatcher function below
+please.SceneGraph.prototype.__set_click_counter = function (val) {
+    this.picking.__last_click = val;
+    window.clearTimeout(this.picking.__clear_timer);
+    if (val) {
+        this.picking.__clear_timer = window.setTimeout(function () {
+            this.picking.__last_click = null;
+        }.bind(this), 500);
+    }
+};
+
+
+// Special event dispatcher for SceneGraphs
+please.SceneGraph.prototype.dispatch = function (event_name, event_info) {
+    // call the dispatcher logic inherited from GraphNode first
+    var inherited_dispatch = please.GraphNode.prototype.dispatch;
+    inherited_dispatch.call(this, event_name, event_info);
+
+    // determine if a click or double click event has happened
+    if (event_info.selected) {
+        var event_type = event_info.trigger.event.type;
+        if (event_type === "mousedown") {
+            // set the click counter
+            this.picking.__click_test = event_info.selected;
+        }
+        else if (event_type === "mouseup") {
+            if (this.picking.__click_test === event_info.selected) {
+                // single click
+                event_info.selected.dispatch("click", event_info);
+                inherited_dispatch.call(this, "click", event_info);
+                
+                if (this.picking.__last_click === event_info.selected) {
+                    // double click
+                    this.__set_click_counter(null);
+                    event_info.selected.dispatch("doubleclick", event_info);
+                    inherited_dispatch.call(this, "doubleclick", event_info);
+                }
+                else {
+                    // double click pending
+                    this.__set_click_counter(event_info.selected);
+                }
+            }
+            else {
+                // clear double click counter
+                this.__set_click_counter(null);
+            }
+            // clear the click test counter
+            this.picking.__click_test = null;
+        }
+    }
+};
+
+
 //
 // Machinery for activating a picking event.
 //
-please.__pending_pick = [];
-please.__pending_move = null;
+please.__picking = {
+    "queue" : [],
+    "move_event" : null,
+}
 please.__req_object_pick = function (x, y, event_info) {
     var data = {
         "x" : x,
@@ -879,10 +937,10 @@ please.__req_object_pick = function (x, y, event_info) {
         "event" : event_info,
     };
     if (event_info.type === "mousemove") {
-        please.__pending_move = data
+        please.__picking.move_event = data
     }
     else {
-        please.__pending_pick.push(data);
+        please.__picking.queue.push(data);
     }
 };
 
@@ -891,10 +949,10 @@ please.__req_object_pick = function (x, y, event_info) {
 // This code facilitates color based picking, when relevant. 
 //
 please.pipeline.add(-1, "mgrl/picking_pass", function () {
-    var req = please.__pending_pick.shift();
+    var req = please.__picking.queue.shift();
     if (!req) {
-        req = please.__pending_move;
-        please.__pending_move = null;
+        req = please.__picking.move_event;
+        please.__picking.move_event = null;
     }
     var is_move_event = req.event.type === "mousemove";
 
@@ -956,7 +1014,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
 
     // restore original clear color
     gl.clearColor.apply(gl, please.__clear_color);
-}).skip_when(function () { return please.__pending_pick.length === 0 && please.__pending_move === null; });
+}).skip_when(function () { return please.__picking.queue.length === 0 && please.__picking.move_event === null; });
 
 
 //

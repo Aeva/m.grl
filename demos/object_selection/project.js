@@ -156,7 +156,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
         var critter = char_model.instance();
         critter.selectable = true;
 
-        critter.on_mouseup = function (event) {
+        critter.on_click = function (event) {
             if (selected !== this) {
                 if (selected) {
                     // if there was something selected, freeze it's animation
@@ -171,7 +171,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
         if (i === 0) {
             // fake a click event to select the middle one
-            critter.on_mouseup({});
+            critter.on_click({});
         }
 
         slot.add(critter);
