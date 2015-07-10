@@ -867,6 +867,47 @@ please.SceneGraph = function () {
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 
 
+// Special event dispatcher for SceneGraphs
+please.SceneGraph.prototype.dispatch = function (event_name, event_info) {
+    // call the dispatcher logic inherited from GraphNode first
+    var inherited_dispatch = please.GraphNode.prototype.dispatch;
+    inherited_dispatch.call(this, event_name, event_info);
+
+    // determine if a click or double click event has happened
+    if (event_info.selected) {
+        var event_type = event_info.trigger.event.type;
+        if (event_type === "mousedown") {
+            // set the click counter
+            this.picking.__click_test = event_info.selected;
+        }
+        else if (event_type === "mouseup") {
+            if (this.picking.__click_test === event_info.selected) {
+                // check to dispatch a click or a double click event
+                if (this.picking.__last_click === event_info.selected) {
+                    // double click
+                    this.picking.__last_click = null;
+                    event_info.selected.dispatch("doubleclick", event_info);
+                    inherited_dispatch.call(this, "doubleclick", event_info);
+                }
+                else {
+                    // single click
+                    this.picking.__last_click = event_info.selected
+                    event_info.selected.dispatch("click", event_info);
+                    inherited_dispatch.call(this, "click", event_info);
+                }
+                // clear the click test counter
+                this.picking.__click_test = null;
+            }
+            else {
+                // clear click and double click counter
+                this.picking.__click_test = null;
+                this.picking.__last_click = null;
+            }
+        }
+    }
+};
+
+
 //
 // Machinery for activating a picking event.
 //
