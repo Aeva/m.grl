@@ -5568,7 +5568,8 @@ please.SceneGraph = function () {
         "enabled" : false,
         "skip_location_info" : true,
         "skip_on_move_event" : true,
-        "compositing_root" : this.__create_picking_node(),
+        "compositing_root" : null,
+        "__reference_node" : this.__create_picking_node(),
         // __click_test stores what was selected on the last
         // mouse_down event.  If mouse up matches, the objects gets a
         // "click" event after it's mouse up event.  __last_click
@@ -5580,6 +5581,7 @@ please.SceneGraph = function () {
         "__last_click" : null,
         "__clear_timer" : null,
     };
+    this.picking.compositing_root = this.picking.__reference_node;
     Object.defineProperty(this, "graph_root", {
         "configurable" : false,
         "writable" : false,
@@ -5780,7 +5782,8 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
     for (var i=0; i<please.graph_index.roots.length; i+=1) {
         var graph = please.graph_index.roots[i];
         if (graph.picking.enabled && !(is_move_event && graph.picking.skip_on_move_event)) {
-            var node = graph.picking.compositing_root;
+            var picking_node = graph.picking.__reference_node;
+            var root_node = graph.picking.compositing_root;
             var id_color, loc_color = null;
             var info = {
                 "picked" : null,
@@ -5791,8 +5794,8 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
             };
             if (req.x >= 0 && req.x <= 1 && req.y >= 0 && req.y <= 1) {
                 // perform object picking pass
-                node.shader.mgrl_select_mode = true;
-                please.render(node);
+                picking_node.shader.mgrl_select_mode = true;
+                please.render(root_node);
                 id_color = please.gl.pick(req.x, req.y);
                 // picked is the object actually clicked on
                 info.picked = graph.__picked_node(id_color);
@@ -5801,8 +5804,8 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
                     info.selected = info.picked.__find_selection();
                     // optionally perform object location picking
                     if (!graph.picking.skip_location_info) {
-                        node.shader.mgrl_select_mode = false;
-                        please.render(node);
+                        picking_node.shader.mgrl_select_mode = false;
+                        please.render(root_node);
                         loc_color = please.gl.pick(req.x, req.y);
                         var vbo = info.picked.__last_vbo;
                         var tmp_coord = new Float32Array(3);
