@@ -30,6 +30,7 @@
 "use strict";
 
 #include "m.macros.js"
+#include "m.polyfills.js"
 #include "m.defs.js"
 #include "m.pages.js"
 #include "m.qa.js"
