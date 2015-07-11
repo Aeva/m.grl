@@ -5416,7 +5416,7 @@ please.GraphNode.prototype = {
         // will clear the entire cache for the object.
         if (!var_name) {
             for (var name in this.__ani_cache) if (this.__ani_cache.hasOwnProperty(name)) {
-                this.clear_cache(name);
+                this.manual_cache_clear(name);
             }
         }
         else {
