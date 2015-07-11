@@ -32,18 +32,7 @@
   javascript, are no longer visible, but may leave some unusual
   structures.
  */
-// - m.defs.js  ------------------------------------------------------------- //
-/* [+]
- *
- * This part of the module is responsible primarily for polyfills of
- * language features that are present in Firefox but absent from other
- * browsers.  This file also implements some helper functions that are
- * widely used within M.GRL's codebase, and defines the module's faux
- * namespace 'please'.
- * 
- */
-// Define said namespace:
-if (window.please === undefined) { window.please = {} };
+// - m.polyfills.js --------------------------------------------------------- //
 // Ensure window.requestAnimationFrame is implemented:
 if (!window.requestAnimationFrame) {
     // why did we ever think vendor extensions were ever a good idea??
@@ -150,27 +139,58 @@ if (!window.CustomEvent) {
         window.CustomEvent = CustomEvent;
     })();
 }
-/**
- * Variation of array.map for non-array objects:
- * @function
- * @memberOf mgrl.defs
+// Polyfill <TypedArray>.slice for Chrome and whoever else :P
+(function () {
+    var types = [
+        "Int8Array",
+        "Uint8Array",
+        "Uint8ClampedArray",
+        "Int16Array",
+        "Uint16Array",
+        "Int32Array",
+        "Uint32Array",
+        "Float16Array",
+        "Float32Array",
+        "Float64Array",
+    ];
+    for (var i=0; i<types.length; i+=1) {
+        var type = types[i];
+        if (window[type] && ! window[type].prototype.slice) {
+            window[type].prototype.slice = Array.prototype.slice;
+        }
+    }
+})();
+// - m.defs.js  ------------------------------------------------------------- //
+/* [+]
  *
- * @param {Object} dict
- * An object to be enumerated.
- *
- * @param {Function} callback
- * A function to be called for each of the object's properties.
- *
- * @returns {Object} 
- * Returns an object with same keys as the dict parameter, but who's
- * values are the callback return values.
- *
- * @example
- * var some_ob = {"prop_name" : "prop_value"};
- * please.prop_map(some_ob, function(key, value, dict) {
- *     console.info(key + " = " + value);
- * });
+ * This part of the module is responsible primarily for polyfills of
+ * language features that are present in Firefox but absent from other
+ * browsers.  This file also implements some helper functions that are
+ * widely used within M.GRL's codebase, and defines the module's faux
+ * namespace 'please'.
+ * 
  */
+// Define said namespace:
+if (window.please === undefined) { window.please = {} };
+// [+] please.prop_map(dict, callback)
+//
+// Variation of array.map for non-array objects:
+//
+// - **dict** an object to be enumerated.
+//
+// - **callback** A function to be called for each of the object's
+//   properties.
+//
+// Returns an object with same keys as the dict parameter, but who's
+// values are the callback return values.
+//
+// ```
+// var some_ob = {"prop_name" : "prop_value"};
+// please.prop_map(some_ob, function(key, value, dict) {
+//     console.info(key + " = " + value);
+// });
+// ```
+//
 please.prop_map = function (dict, callback) {
     var results = {};
     for (var key in dict) if (dict.hasOwnProperty(key)) {
