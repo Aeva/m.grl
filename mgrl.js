@@ -150,6 +150,27 @@ if (!window.CustomEvent) {
         window.CustomEvent = CustomEvent;
     })();
 }
+// Polyfill <TypedArray>.slice for Chrome
+(function () {
+    var types = [
+        "Int8Array",
+        "Uint8Array",
+        "Uint8ClampedArray",
+        "Int16Array",
+        "Uint16Array",
+        "Int32Array",
+        "Uint32Array",
+        "Float16Array",
+        "Float32Array",
+        "Float64Array",
+    ];
+    for (var i=0; i<types.length; i+=1) {
+        var type = types[i];
+        if (window[type] && ! window[type].prototype.slice) {
+            window[type].prototype.slice = Array.slice;
+        }
+    }
+})();
 /**
  * Variation of array.map for non-array objects:
  * @function
