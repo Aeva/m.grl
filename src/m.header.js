@@ -48,6 +48,7 @@
 #include "m.compositing.js"
 #include "m.effects.js"
 #include "m.prefab.js"
+#include "m.struct.js"
 #endif
 #ifdef GLSL_ASSETS
 #include "tmp/glsl_assets.js"
