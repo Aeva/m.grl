@@ -167,7 +167,7 @@ if (!window.CustomEvent) {
     for (var i=0; i<types.length; i+=1) {
         var type = types[i];
         if (window[type] && ! window[type].prototype.slice) {
-            window[type].prototype.slice = Array.slice;
+            window[type].prototype.slice = Array.prototype.slice;
         }
     }
 })();
