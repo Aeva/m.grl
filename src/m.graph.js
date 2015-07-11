@@ -547,7 +547,7 @@ please.GraphNode.prototype = {
         // will clear the entire cache for the object.
         if (!var_name) {
             ITER_PROPS(name, this.__ani_cache) {
-                this.clear_cache(name);
+                this.manual_cache_clear(name);
             }
         }
         else {
