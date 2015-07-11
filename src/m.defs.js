@@ -158,7 +158,7 @@ if (!window.CustomEvent) {
     ITER(i, types) {
         var type = types[i];
         if (window[type] && ! window[type].prototype.slice) {
-            window[type].prototype.slice = Array.slice;
+            window[type].prototype.slice = Array.prototype.slice;
         }
     }
 })();
