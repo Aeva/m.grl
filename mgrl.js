@@ -6808,7 +6808,7 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     tracker.setup = setup;
     tracker.update = update;
     var struct = [
-        ["start", 1],
+        ["start" , 1],
         ["expire", 1],
         ["world_matrix", 16],
     ];
@@ -6829,6 +6829,7 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     }
     tracker.blob = new please.StructArray(struct, tracker.limit);
     tracker.view = new please.StructView(tracker.blob);
+    tracker.last = window.performance.now();
     tracker.live = 0;
 };
 please.ParticleEmitter.prototype = Object.create(please.GraphNode.prototype);
@@ -6878,17 +6879,21 @@ please.ParticleEmitter.prototype.clear = function () {
 please.ParticleEmitter.prototype.draw = function() {
     var tracker = this.__tracker.live;
     var particle = tracker.view;
-    var age, now = please.pipeline.__framestart;
     var cache = tracker.stamp.__ani_cache;
-    var first = true;
+    var now = please.pipeline.__framestart;
+    var last = now - tracker.last;
+    tracker.last = now;
+    // To quickly draw all of the particles with a single objcet, the
+    // object is set to manual cache invalidation and we overwrite
+    // it's animation cache for all applicable variables.  This allows
+    // us to override the world matrix driver.
     for (var i=0; i<tracker.live; i+=1) {
         particle.focus(i);
         if (now < particle["expire"]) {
             // The particle is alive, so we will figure out its
             // current age, and call the update function on it, and
             // then draw the particle on screen.
-            age = now - particle["start"];
-            tracker.update.call(this, particle, age);
+            tracker.update.call(this, particle);
             for (var k=0; k<tracker.blob.struct.length; k+=1) {
                 var name = tracker.blob.struct[i][0];
                 if (cache[name]) {
