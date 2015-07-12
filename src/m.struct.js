@@ -29,42 +29,52 @@ please.StructArray = function (struct, count) {
 please.StructView = function (struct_array) {
     console.assert(this !== window);
     this.__array = struct_array;
-    this.__index = 0;
-    this.cache = {};
+    this.__index = null;
+    this.__cache = {};
 
-    var add_handle = function (name, type, offset) {
+    var add_handle = function (name, type, cache) {
         Object.defineProperty(this, name, {
             get : function () {
-                return this.cache[name];
+                return cache[name];
             },
             set : function (val) {
-                for (var i=0; i<type; i+=1) {
-                    this.cache[name][i] = val[i];
+                RANGE(i, type) {
+                    cache[name][i] = (typeof(val) === "number") ? val : val[i];
                 }
-                return this.cache[name];
+                return cache[name];
             },
         });
     }.bind(this);
 
-    var pointer = 0;
     ITER(i, this.__array.struct) {
         var name = this.__array.struct[i][0];
         var type = this.__array.struct[i][1];
-        add_handle(name, type, pointer);
-        pointer += type;
+        add_handle(name, type, this.__cache);
     }
 
-    this.focus(this.__index);
+    this.focus(0);
 };
 please.StructView.prototype = {
     "focus" : function (index) {
-        this.__index = index;
-        var pointer = this.__array.struct.size * index;
-        ITER(i, this.__array.struct) {
-            var name = this.__array.struct[i][0];
-            var type = this.__array.struct[i][1];
-            this.cache[name] = this.__array.blob.subarray(pointer, pointer+type);
-            pointer += type;
+        if (index !== this.__index) {
+            this.__index = index;
+            var ptr = this.__array.struct.size * index;
+            ITER(i, this.__array.struct) {
+                var name = this.__array.struct[i][0];
+                var type = this.__array.struct[i][1];
+                this.__cache[name] = this.__array.blob.subarray(ptr, ptr+type);
+                ptr += type;
+            }
+        }
+    },
+    "dub" : function (src, dest) {
+        var struct_size = this.__array.struct.size;
+        var index_a = struct_size * src;
+        var index_b = struct_size * dest;
+        var prt_a = this.__array.blob.subarray(index_a, index_a + struct_size);
+        var prt_b = this.__array.blob.subarray(index_b, index_b + struct_size);
+        RANGE(i, this.__array.struct.size) {
+            prt_b[i] = prt_a[i];
         }
     },
 };
