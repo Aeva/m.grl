@@ -406,8 +406,8 @@ please.GraphNode = function () {
         if (event) {
             old = event.old_prog;
         }
-
-        var old_data = this.__ani_store;
+        // deep copy
+        var old_data = JSON.parse(JSON.stringify(this.__ani_store));
         this.shader = {};
         please.make_animatable(
             this, "world_matrix", this.__world_matrix_driver, this.shader, true);
@@ -424,18 +424,19 @@ please.GraphNode = function () {
         please.make_animatable_tripple(
             this, "object_index", "rgb", this.__object_id_driver, this.shader, true);
 
-        ITER_PROPS(name, old_data) {
-            var old_value = old_data[name];
-            if (old_value !== undefined && old_value !== null) {
-                this.__ani_store[name] = old_value;
-            }
-        }
-
         // prog.samplers is a subset of prog.vars
         for (var name, i=0; i<prog.uniform_list.length; i+=1) {
             name = prog.uniform_list[i];
             if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
                 please.make_animatable(this, name, null, this.shader);
+            }
+        }
+
+        // restore old values that were wiped out
+        ITER_PROPS(name, old_data) {
+            var old_value = old_data[name];
+            if (old_value !== undefined && old_value !== null) {
+                this.__ani_store[name] = old_value;
             }
         }
     }.bind(this);
