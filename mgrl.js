@@ -5280,6 +5280,8 @@ please.GraphNode = function () {
         if (event) {
             old = event.old_prog;
         }
+        // deep copy
+        var old_data = JSON.parse(JSON.stringify(this.__ani_store));
         this.shader = {};
         please.make_animatable(
             this, "world_matrix", this.__world_matrix_driver, this.shader, true);
@@ -5299,6 +5301,13 @@ please.GraphNode = function () {
             name = prog.uniform_list[i];
             if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
                 please.make_animatable(this, name, null, this.shader);
+            }
+        }
+        // restore old values that were wiped out
+        for (var name in old_data) if (old_data.hasOwnProperty(name)) {
+            var old_value = old_data[name];
+            if (old_value !== undefined && old_value !== null) {
+                this.__ani_store[name] = old_value;
             }
         }
     }.bind(this);
@@ -6677,6 +6686,240 @@ please.LoadingScreen = function () {
 // [+] please.StereoSplit
 //
 //
+// - m.struct.js ------------------------------------------------------------ //
+// [+] please.StructArray(struct, count)
+//
+// A StructArray is used to simulate a C-style array of structs.  This
+// is used by M.GRL's particle system to avoid cache locality problems
+// and garbage collection slowdowns when tracking thousands of
+// objects.
+//
+// You probably don't need to use this.
+//
+please.StructArray = function (struct, count) {
+    console.assert(this !== window);
+    this.count = count;
+    this.struct = struct;
+    this.struct.size = 0;
+    for (var i=0; i<this.struct.length; i+=1) {
+        this.struct.size += this.struct[i][1];
+    }
+    this.blob = new Float32Array(this.struct.size * this.count);
+};
+// [+] please.StructView(struct_array)
+//
+// Provides an efficient interface for modifying a StructArray.
+//
+please.StructView = function (struct_array) {
+    console.assert(this !== window);
+    this.__array = struct_array;
+    this.__index = null;
+    this.__cache = {};
+    var add_handle = function (name, type, cache) {
+        Object.defineProperty(this, name, {
+            get : function () {
+                return cache[name];
+            },
+            set : function (val) {
+                for (var i=0; i<type; i+=1) {
+                    cache[name][i] = (typeof(val) === "number") ? val : val[i];
+                }
+                return cache[name];
+            },
+        });
+    }.bind(this);
+    for (var i=0; i<this.__array.struct.length; i+=1) {
+        var name = this.__array.struct[i][0];
+        var type = this.__array.struct[i][1];
+        add_handle(name, type, this.__cache);
+    }
+    this.focus(0);
+};
+please.StructView.prototype = {
+    "focus" : function (index) {
+        if (index !== this.__index) {
+            this.__index = index;
+            var ptr = this.__array.struct.size * index;
+            for (var i=0; i<this.__array.struct.length; i+=1) {
+                var name = this.__array.struct[i][0];
+                var type = this.__array.struct[i][1];
+                this.__cache[name] = this.__array.blob.subarray(ptr, ptr+type);
+                ptr += type;
+            }
+        }
+    },
+    "dub" : function (src, dest) {
+        var struct_size = this.__array.struct.size;
+        var index_a = struct_size * src;
+        var index_b = struct_size * dest;
+        var prt_a = this.__array.blob.subarray(index_a, index_a + struct_size);
+        var prt_b = this.__array.blob.subarray(index_b, index_b + struct_size);
+        for (var i=0; i<this.__array.struct.size; i+=1) {
+            prt_b[i] = prt_a[i];
+        }
+    },
+};
+// - m.rain.js  ------------------------------------------------------------- //
+/* [+]
+ *
+ * This file provides M.GRL's particle system.
+ * 
+ */
+// [+] please.ParticleEmitter(asset, span, limit, setup, update, ext)
+//
+please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
+    please.GraphNode.call(this);
+    this.__is_particle_tracker = true;
+    this.__drawable = true;
+    var tracker = this.__tracker = {};
+    if (typeof(asset.instance) === "function") {
+        tracker.asset = asset;
+        tracker.stamp = asset.instance();
+        tracker.stamp.use_manual_cache_invalidation();
+        tracker.animated = !!tracker.stamp.play;
+    }
+    else {
+        throw("Invalid asset.  Did you pass a GraphNode by mistake?");
+    }
+    console.assert(typeof(span) === "number" || typeof(span) === "function");
+    console.assert(typeof(limit) === "number");
+    console.assert(typeof(setup) === "function");
+    console.assert(typeof(update) === "function");
+    tracker.span = span;
+    tracker.limit = limit;
+    tracker.setup = setup;
+    tracker.update = update;
+    var struct = [
+        ["start" , 1],
+        ["expire", 1],
+        ["world_matrix", 16],
+    ];
+    if (ext) {
+        for (var name in ext) if (ext.hasOwnProperty(name)) {
+            var prop = ext[name];
+            if (typeof(prop) === "number") {
+                struct.push([name, 1]);
+            }
+            else if (prop.length) {
+                struct.push([name, prop.length]);
+            }
+        }
+        tracker.defaults = ext;
+    }
+    else {
+        tracker.defaults = {};
+    }
+    tracker.var_names = [];
+    for (var i=0; i<struct.length; i+=1) {
+        tracker.var_names.push(struct[i][0]);
+    };
+    tracker.blob = new please.StructArray(struct, tracker.limit);
+    tracker.view = new please.StructView(tracker.blob);
+    tracker.last = window.performance.now();
+    tracker.live = 0;
+};
+please.ParticleEmitter.prototype = Object.create(please.GraphNode.prototype);
+// Add a new particle to the system
+please.ParticleEmitter.prototype.rain = function () {
+    var tracker = this.__tracker;
+    if (tracker.live === tracker.limit) {
+        console.error("Cannot add any more particles to emitter.");
+        return;
+    }
+    var p_index = tracker.live;
+    var particle = tracker.view;
+    particle.focus(p_index);
+    // upload defaults if applicable
+    if (tracker.defaults) {
+        for (var name in tracker.defaults) if (tracker.defaults.hasOwnProperty(name)) {
+            var start = tracker.defaults[name];
+            if (typeof(start) === "number") {
+                start = [start];
+            }
+            for (var i=0; i<start.length; i+=1) {
+                particle[name][i] = start[i];
+            }
+        }
+    }
+    // initialize builtins
+    var now = window.performance.now();
+    var span = (typeof(tracker.span) === "function" ? tracker.span() : tracker.span);
+    particle["start"][0] = now;
+    particle["expire"][0] = now + span;
+    mat4.copy(particle["world_matrix"], this.shader.world_matrix);
+    // call the particle initialization method
+    tracker.setup.call(this, particle);
+    tracker.live += 1;
+};
+// Create a new particle system with the same params as this one
+please.ParticleEmitter.prototype.copy = function () {
+    return new please.ParticleEmitter(
+        this.__tracker.asset, this.__tracker.span, this.__tracker.limit,
+        this.__tracker.setup, this.__tracker.update, this.__tracker.defaults);
+};
+// Clear out all active particles from this system
+please.ParticleEmitter.prototype.clear = function () {
+    this.__tracker.live = 0;
+};
+// Update and draw the particle system
+please.ParticleEmitter.prototype.draw = function() {
+    var tracker = this.__tracker;
+    var particle = tracker.view;
+    var cache = tracker.stamp.__ani_cache;
+    var store = tracker.stamp.__ani_store;
+    var now = please.pipeline.__framestart;
+    var delta = now - tracker.last;
+    tracker.last = now;
+    // To quickly draw all of the particles with a single objcet, the
+    // object is set to manual cache invalidation and we overwrite
+    // it's animation cache for all applicable variables.  This allows
+    // us to override the world matrix driver.
+    for (var i=0; i<tracker.live; i+=1) {
+        particle.focus(i);
+        if (now < particle["expire"][0]) {
+            // The particle is alive, so we will figure out its
+            // current age, and call the update function on it, and
+            // then draw the particle on screen.
+            tracker.update.call(this, particle, delta);
+            for (var name in this.shader) if (this.shader.hasOwnProperty(name)) {
+                if (tracker.var_names.indexOf(name) !== -1) {
+                    if (store[name]) {
+                        store[name] = particle[name];
+                        cache[name] = null;
+                    }
+                }
+                else {
+                    var copy_from = this;
+                    if (this.__ani_store[name] === undefined || this.__ani_store[name] === null) {
+                        copy_from = tracker.stamp;
+                    }
+                    store[name] = copy_from.__ani_store[name];
+                    cache[name] = copy_from.__ani_cache[name];
+                }
+            }
+            // FIXME if the 'stamp' is animated, then we should adjust
+            // the animation frame accordingly before drawing.  This
+            // might be only really possible with ganis, but that is ok.
+            tracker.stamp.__bind();
+            tracker.stamp.__draw();
+        }
+        else {
+            // The particle is dead, so it should be removed.  This is
+            // done by writting it over with the information about the
+            // last particle in the blob, and decrementing the
+            // particle counter.  The 'i' index is also decremented so
+            // as a new particle is now in the same slot.
+            this.__on_die(i);
+            i -= 1;
+        }
+    }
+};
+// Called to remove a dead particle
+please.ParticleEmitter.prototype.__on_die = function(index) {
+    var tracker = this.__tracker;
+    tracker.view.dub(tracker.live-1, index);
+    tracker.live -= 1;
+};
 // - bundled glsl shader assets --------------------------------------------- //
 addEventListener("mgrl_gl_context_created", function () {
     var lookup_table = {"picture_in_picture.frag": "\nprecision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform vec2 pip_size;\nuniform vec2 pip_coord;\nuniform float pip_alpha;\nuniform sampler2D main_texture;\nuniform sampler2D pip_texture;\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 screen_coord = pick(gl_FragCoord.xy);\n  vec4 color = texture2D(main_texture, screen_coord);\n\n  // scale the screen_coord to represent a percent\n  screen_coord *= 100.0;\n  vec2 pip_test = screen_coord - pip_coord;\n  if (pip_test.x >= 0.0 && pip_test.y >= 0.0 && pip_test.x <= pip_size.x && pip_test.y <= pip_size.y) {\n    vec4 pip_color = texture2D(pip_texture, pip_test / pip_size);\n    color = mix(color, pip_color, pip_color.a / pip_alpha);\n  }\n  gl_FragColor = color;\n}\n", "splat.vert": "\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\nattribute vec3 position;\n\n\nvoid main(void) {\n  gl_Position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);\n}\n", "simple.vert": "\n// matrices\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\n\n// vertex data\nattribute vec3 position;\nattribute vec3 normal;\nattribute vec2 tcoords;\n\n// misc adjustments\nuniform float mgrl_orthographic_scale;\n\n// interpolated vertex data in various transformations\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  // pass along to the fragment shader\n  local_position = position * mgrl_orthographic_scale;\n  local_normal = normal;\n  local_tcoords = tcoords;\n\n  // various coordinate transforms\n  vec4 world_space = (world_matrix * vec4(local_position, 1.0));\n  vec4 final_position = projection_matrix * view_matrix * world_space;\n  screen_position = final_position.xyz;\n  world_position = world_space.xyz;\n  gl_Position = final_position;\n}\n", "diffuse.frag": "\nprecision mediump float;\n\nuniform sampler2D diffuse_texture;\n\nuniform float alpha;\nuniform bool is_sprite;\nuniform bool is_transparent;\n\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  vec4 diffuse = texture2D(diffuse_texture, local_tcoords);\n  if (is_sprite) {\n    float cutoff = is_transparent ? 0.1 : 1.0;\n    if (diffuse.a < cutoff) {\n      discard;\n    }\n  }\n  else {\n    diffuse.a = alpha;\n  }\n  gl_FragColor = diffuse;\n}\n", "stereo.frag": "\n#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n\nuniform vec4 mgrl_clear_color;\nuniform float mgrl_frame_start;\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform sampler2D left_eye_texture;\nuniform sampler2D right_eye_texture;\n\nuniform bool stereo_split;\nuniform vec3 left_color;\nuniform vec3 right_color;\n\nvec4 sample_or_clear(sampler2D sampler, vec2 coord) {\n  vec4 color = texture2D(sampler, coord);\n  if (color.a == 0.0) {\n    color = mgrl_clear_color;\n  }\n  return color;\n}\n\nvoid main(void) {\n  vec2 coord = gl_FragCoord.xy / vec2(mgrl_buffer_width, mgrl_buffer_height);\n  vec4 color;\n\n  if (stereo_split) {\n    // FIXME: apply distortion effect needed for VR glasses\n    if (coord.x < 0.5) {\n      color = texture2D(left_eye_texture, vec2(coord.x*2.0, coord.y));\n    }\n    else {\n      color = texture2D(right_eye_texture, vec2((coord.x - 0.5)*2.0, coord.y));\n    }\n  }\n\n  else {\n    vec3 left = sample_or_clear(left_eye_texture, coord).rgb * left_color;\n    vec3 right = sample_or_clear(right_eye_texture, coord).rgb * right_color;\n    color = vec4((left+right), 1.0);\n  }\n  \n  gl_FragColor = color;\n}\n", "diagonal_wipe.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float blur_radius;\nuniform bool flip_axis;\nuniform bool flip_direction;\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  float slope = mgrl_buffer_height / mgrl_buffer_width;\n  if (flip_axis) {\n    slope *= -1.0;\n  }\n  float half_height = mgrl_buffer_height * 0.5;\n  float high_point = mgrl_buffer_height + half_height + blur_radius + 1.0;\n  float low_point = (half_height * -1.0) - blur_radius - 1.0;\n  float midpoint = mix(high_point, low_point, flip_direction ? 1.0 - progress : progress);\n  float test = ((gl_FragCoord.x - mgrl_buffer_width/2.0) * slope) + midpoint;\n\n  vec4 color;\n  float dist = gl_FragCoord.y - test;\n  if (dist <= blur_radius && dist >= (blur_radius*-1.0)) {\n    vec4 color_a = texture2D(texture_a, tcoords);\n    vec4 color_b = texture2D(texture_b, tcoords);\n    float blend = (dist + blur_radius) / (blur_radius*2.0);\n    color = mix(color_a, color_b, flip_direction ? 1.0 - blend : blend);\n  }\n  else {\n    if ((gl_FragCoord.y < test && !flip_direction) || (gl_FragCoord.y > test && flip_direction)) {\n      color = texture2D(texture_a, tcoords);\n    }\n    else {\n      color = texture2D(texture_b, tcoords);\n    }\n  }\n  gl_FragColor = color;\n}\n", "picking.frag": "\n#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n\nvarying vec3 local_position;\nuniform vec3 object_index;\nuniform bool mgrl_select_mode;\nuniform vec3 mgrl_model_local_min;\nuniform vec3 mgrl_model_local_size;\n\n\nvoid main(void) {\n  if (mgrl_select_mode) {\n    gl_FragColor = vec4(object_index, 1.0);\n  }\n  else {\n    vec3 shifted = local_position - mgrl_model_local_min;\n    vec3 scaled = shifted / mgrl_model_local_size;\n    gl_FragColor = vec4(scaled, 1.0);\n  };\n}\n", "disintegrate.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float px_size;\n\n\n// https://stackoverflow.com/questions/12964279/whats-the-origin-of-this-glsl-rand-one-liner\nfloat random_seed(vec2 co) {\n  return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);\n}\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 grid = gl_FragCoord.xy / px_size;\n  vec2 offset = fract(grid)*0.5;\n  float random = (random_seed(floor(grid + offset))*0.9) + 0.1;\n  random *= (1.0 - progress);\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  vec4 color;\n  if (random < 0.1) {\n    color = texture2D(texture_b, tcoords);\n  }\n  else {\n    color = texture2D(texture_a, tcoords);\n  }\n  gl_FragColor = color;\n}\n", "scatter_blur.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform sampler2D input_texture;\nuniform float blur_radius;\nuniform float samples;\n\nconst float max_samples = 32.0;\nconst float two_pi = 6.28318530718;\n\n\nvec2 screen_clamp(vec2 coord) {\n  return clamp(coord, vec2(0.0, 0.0), gl_FragCoord.xy);\n}\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvec2 prng(vec2 co) {\n  vec2 a = fract(co.yx * vec2(5.3983, 5.4427));\n  vec2 b = a.xy + vec2(21.5351, 14.3137);\n  vec2 c = a + dot(a.yx, b);\n  //return fract(c.x * c.y * 95.4337);\n  return fract(vec2(c.x*c.y*95.4337, c.x*c.y*97.597));\n}\n\n\nfloat prng(float n){\n  vec2 a = fract(n * vec2(5.3983, 5.4427));\n  vec2 b = a.xy + vec2(21.5351, 14.3137);\n  vec2 c = a + dot(a.yx, b);\n  return fract(c.x * c.y * 95.4337);\n}\n\n\nvoid main(void) {\n  float count = 0.0;\n  vec4 color = vec4(0.0, 0.0, 0.0, 0.0);\n\n  float x, y, radius;\n  float angle = two_pi * prng(gl_FragCoord.xy).x;\n  float angle_step = two_pi / samples;\n  \n  for (float i=0.0; i<max_samples; i+=1.0) {\n    radius = blur_radius * prng(angle);\n    x = gl_FragCoord.x + cos(angle)*radius;\n    y = gl_FragCoord.y + sin(angle)*radius;\n    angle += angle_step;\n    if (x < 0.0 || y < 0.0 || x >= mgrl_buffer_width || y >= mgrl_buffer_height) {\n      continue;\n    }\n    color += texture2D(input_texture, pick(vec2(x, y)));\n    count += 1.0;\n    if (count >= samples) {\n      break;\n    }\n  }\n  \n  if (count == 0.0) {\n    color = texture2D(input_texture, pick(gl_FragCoord.xy));\n    count = 1.0;\n  }\n  gl_FragColor = color / count;\n}\n"};
