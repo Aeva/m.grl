@@ -50,7 +50,7 @@ addEventListener("load", function() {
     
     // Queue up assets to be downloaded before the game starts.
     please.load("custom.frag");
-    please.load("coin.gani");
+    please.load("psycho.jta");
     please.load("floor_lamp.jta");
 
     // Register a render passes with the scheduler.  The autoscale
@@ -112,19 +112,32 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // Add a camera
     var camera = demo.main.camera = new please.CameraNode();
     camera.look_at = [2, -2, 5];
-    camera.location = [12, -12, 15];
+    camera.location = [12, -12, 30];
     graph.add(camera);
     camera.activate();
 
-    // Build the room
-    graph.add(new FloorNode());
+    // Add a floor
+    var floor = new FloorNode();
+    floor.use_manual_cache_invalidation();
+    graph.add(floor);
 
+    // Add a fixture in the middle of the floor
     var lamp = please.access("floor_lamp.jta").instance();
     graph.add(lamp);
     demo.main.lamp = lamp;
-
+    lamp.scale = [2,1,2];
+    lamp.location_z = -3;
     lamp.shader.is_floor = false;
+    lamp.use_manual_cache_invalidation();
 
+    // Add some particle effect thing
+    var fountain = new ParticleFountain();
+    graph.add(fountain);
+    demo.main.fountain = fountain;
+    for (var i=0; i<250; i+=1) {
+        fountain.rain();
+    }
+    
     // Add a renderer using the default shader.
     var renderer = demo.main.renderer = new please.RenderNode("default");
     renderer.clear_color = [.15, .15, .15, 1];
@@ -148,6 +161,48 @@ addEventListener("mgrl_media_ready", please.once(function () {
         demo.viewport = fade_out;
     }, 2000);
 }));
+
+
+var ParticleFountain = function() {
+    var asset = please.access("psycho.jta");
+    var span = Infinity;
+    var limit = 1000;
+    var ext = {
+        "vector" : [0,0,0],
+        "skitter" : 1,
+    };
+
+    var area = 25;
+    
+    var setup = function (particle) {
+        var coord = [
+            (Math.random()*area)-(area*.5),
+            (Math.random()*area)-(area*.5),
+            0];
+        mat4.translate(
+            particle.world_matrix, particle.world_matrix, coord);
+
+        particle.vector = [
+            (Math.random()*1)-.5,
+            (Math.random()*1)-.5,
+            0];
+
+        particle.skitter = Math.random()+0.5;
+    };
+    var update = function (particle, dt) {
+        var angle = please.degrees(dt/10000) * particle.skitter[0];
+        mat4.rotateZ(particle.world_matrix, particle.world_matrix, angle);
+        mat4.translate(
+            particle.world_matrix, particle.world_matrix, particle.vector);
+
+    };
+    var emitter = new please.ParticleEmitter(asset, span, limit, setup, update, ext);
+    emitter.shader.is_floor = false;
+    //emitter.sort_mode = "alpha";
+    //emitter.shader.alpha = 0.1;
+        
+    return emitter;
+};
 
 
 var FloorNode = function () {
