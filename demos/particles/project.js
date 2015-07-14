@@ -122,6 +122,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var lamp = please.access("floor_lamp.jta").instance();
     graph.add(lamp);
     demo.main.lamp = lamp;
+
     lamp.shader.is_floor = false;
 
     // Add a renderer using the default shader.
