@@ -12,6 +12,9 @@ attribute vec2 tcoords;
 // misc adjustments
 uniform float mgrl_orthographic_scale;
 
+// billboard sprites enabler
+uniform float billboard_mode;
+
 // interpolated vertex data in various transformations
 varying vec3 local_position;
 varying vec3 local_normal;
@@ -26,10 +29,26 @@ void main(void) {
   local_normal = normal;
   local_tcoords = tcoords;
 
+  // calculate modelview matrix
+  mat4 model_view = view_matrix * world_matrix;
+  if (billboard_mode > 0.0) {
+    // clear out rotation information
+    model_view[0][0] = 1.0;
+    model_view[0][1] = 0.0;
+    model_view[0][2] = 0.0;
+    model_view[2][0] = 0.0;
+    model_view[2][1] = 0.0;
+    model_view[2][2] = 1.0;
+    if (billboard_mode == 2.0) {
+      model_view[1][0] = 0.0; 
+      model_view[1][1] = 1.0; 
+      model_view[1][2] = 0.0; 
+    }
+  }
+
   // various coordinate transforms
-  vec4 world_space = (world_matrix * vec4(local_position, 1.0));
-  vec4 final_position = projection_matrix * view_matrix * world_space;
+  vec4 final_position = projection_matrix * model_view * vec4(local_position, 1.0);
+  world_position = (world_matrix * vec4(local_position, 1.0)).xyz;
   screen_position = final_position.xyz;
-  world_position = world_space.xyz;
   gl_Position = final_position;
 }

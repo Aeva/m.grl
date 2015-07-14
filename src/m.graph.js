@@ -423,6 +423,8 @@ please.GraphNode = function () {
             this, "is_transparent", this.__is_transparent_driver, this.shader, true);
         please.make_animatable_tripple(
             this, "object_index", "rgb", this.__object_id_driver, this.shader, true);
+        please.make_animatable(
+            this, "billboard_mode", this.__billboard_driver, this.shader, true);
 
         // prog.samplers is a subset of prog.vars
         for (var name, i=0; i<prog.uniform_list.length; i+=1) {
@@ -447,6 +449,7 @@ please.GraphNode = function () {
     this.visible = true;
     this.draw_type = "model"; // can be set to "sprite"
     this.sort_mode = "solid"; // can be set to "alpha"
+    this.billboard = false; // can be set to false, 'tree', or 'particle'
     this.__asset = null;
     this.__asset_hint = "";
     this.__is_camera = false; // set to true if the object is a camera
@@ -609,6 +612,20 @@ please.GraphNode.prototype = {
         id.dirty = true;
         return id;
     },
+    "__billboard_driver" : function () {
+        if (!this.billboard) {
+            return 0;
+        }
+        else if (this.billboard === "tree") {
+            return 1;
+        }
+        else if (this.billboard === "particle") {
+            return 2;
+        }
+        else {
+            throw("Unknown billboard type: " + this.billboard);
+        }
+    },
     "__find_selection" : function () {
         if (this.selectable) {
             return this;
@@ -644,8 +661,8 @@ please.GraphNode.prototype = {
             var prog = please.gl.get_program();
 
             // upload shader vars
-            for (var name in this.shader) {
-                if (prog.vars.hasOwnProperty(name)) {
+            ITER_PROPS(name, prog.vars) {
+                if (this.shader.hasOwnProperty(name)) {
                     var value = this.shader[name];
                     if (value !== null && value !== undefined) {
                         if (prog.samplers.hasOwnProperty(name)) {
