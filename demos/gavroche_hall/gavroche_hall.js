@@ -103,17 +103,12 @@ addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
 
     // configure asset search paths
-    please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "../gl_assets/img/");
     please.set_search_path("jta", "../gl_assets/models/");
     please.set_search_path("gani", "./");
 
     // files that load files will use relative file paths
     please.gl.relative_lookup = true;
-
-    // load shader sources
-    please.load("simple.vert");
-    please.load("simple.frag");
 
     // load our model files
     please.load("gavroche_hall.jta");
@@ -137,7 +132,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
-    var prog = please.glsl("default", "simple.vert", "simple.frag");
+    var prog = please.glsl("default", "simple.vert", "diffuse.frag");
     prog.activate();
 
     // setup default state stuff    
