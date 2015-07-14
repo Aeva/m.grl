@@ -134,6 +134,10 @@ please.ParticleEmitter.prototype.draw = function() {
     // object is set to manual cache invalidation and we overwrite
     // it's animation cache for all applicable variables.  This allows
     // us to override the world matrix driver.
+
+    if (tracker.live > 0) {
+        tracker.stamp.__bind();
+    }
     
     RANGE(i, tracker.live) {
         particle.focus(i);
@@ -161,7 +165,6 @@ please.ParticleEmitter.prototype.draw = function() {
             // FIXME if the 'stamp' is animated, then we should adjust
             // the animation frame accordingly before drawing.  This
             // might be only really possible with ganis, but that is ok.
-            tracker.stamp.__bind();
             tracker.stamp.__draw();
         }
         else {
