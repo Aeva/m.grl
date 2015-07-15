@@ -3365,7 +3365,10 @@ please.gl.set_context = function (canvas_id, options) {
         // set mgrl's default gl state settings:
         // - enable alpha blending
         gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.blendFuncSeparate(
+            //gl.SRC_ALPHA, gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE);
+            gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA, gl.ONE);
         // fire an event to indicate that a gl context exists now
         var ctx_event = new CustomEvent("mgrl_gl_context_created");
         window.dispatchEvent(ctx_event);
@@ -5735,6 +5738,7 @@ please.SceneGraph = function () {
             };
             this.__alpha.sort(z_sort_function);
             // draw translucent elements
+            gl.depthMask(false);
             for (var i=0; i<this.__alpha.length; i+=1) {
                 var child = this.__alpha[i];
                 if (exclude_test && exclude_test(child)) {
@@ -5743,6 +5747,7 @@ please.SceneGraph = function () {
                 child.__bind(prog);
                 child.__draw(prog);
             }
+            gl.depthMask(true);
         }
     };
 };

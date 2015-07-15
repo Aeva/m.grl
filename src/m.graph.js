@@ -884,6 +884,7 @@ please.SceneGraph = function () {
             this.__alpha.sort(z_sort_function);
 
             // draw translucent elements
+            gl.depthMask(false);
             ITER(i, this.__alpha) {
                 var child = this.__alpha[i];
                 if (exclude_test && exclude_test(child)) {
@@ -892,6 +893,7 @@ please.SceneGraph = function () {
                 child.__bind(prog);
                 child.__draw(prog);
             }
+            gl.depthMask(true);
         }
     };
 };
