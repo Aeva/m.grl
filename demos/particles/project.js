@@ -50,7 +50,7 @@ addEventListener("load", function() {
     
     // Queue up assets to be downloaded before the game starts.
     please.load("custom.frag");
-    please.load("psycho.jta");
+    please.load("smoke_particle.png");
     please.load("floor_lamp.jta");
 
     // Register a render passes with the scheduler.  The autoscale
@@ -126,7 +126,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(lamp);
     demo.main.lamp = lamp;
     lamp.scale = [2,1,2];
-    lamp.location_z = -3;
+    lamp.location_z = -1;
     lamp.shader.is_floor = false;
     lamp.use_manual_cache_invalidation();
 
@@ -134,7 +134,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var fountain = new ParticleFountain();
     graph.add(fountain);
     demo.main.fountain = fountain;
-    for (var i=0; i<250; i+=1) {
+    for (var i=0; i<500; i+=1) {
         fountain.rain();
     }
     
@@ -164,7 +164,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
 
 var ParticleFountain = function() {
-    var asset = please.access("psycho.jta");
+    var asset = please.access("smoke_particle.png");
     var span = Infinity;
     var limit = 1000;
     var ext = {
@@ -178,7 +178,7 @@ var ParticleFountain = function() {
         var coord = [
             (Math.random()*area)-(area*.5),
             (Math.random()*area)-(area*.5),
-            0];
+            Math.random()*.5];
         mat4.translate(
             particle.world_matrix, particle.world_matrix, coord);
 
@@ -190,7 +190,7 @@ var ParticleFountain = function() {
         particle.skitter = Math.random()+0.5;
     };
     var update = function (particle, dt) {
-        var angle = please.degrees(dt/10000) * particle.skitter[0];
+        var angle = please.degrees(dt/50000) * particle.skitter[0];
         mat4.rotateZ(particle.world_matrix, particle.world_matrix, angle);
         mat4.translate(
             particle.world_matrix, particle.world_matrix, particle.vector);
@@ -198,9 +198,9 @@ var ParticleFountain = function() {
     };
     var emitter = new please.ParticleEmitter(asset, span, limit, setup, update, ext);
     emitter.shader.is_floor = false;
-    //emitter.sort_mode = "alpha";
-    //emitter.shader.alpha = 0.1;
-        
+    emitter.billboard = 'particle';
+    emitter.draw_type = "sprite";
+    emitter.sort_mode = "alpha";
     return emitter;
 };
 
