@@ -6790,6 +6790,9 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     please.GraphNode.call(this);
     this.__is_particle_tracker = true;
     this.__drawable = true;
+    this.billboard = 'particle';
+    this.draw_type = "sprite";
+    this.sort_mode = "alpha";
     var tracker = this.__tracker = {};
     if (typeof(asset.instance) === "function") {
         tracker.asset = asset;
@@ -6842,6 +6845,14 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
 please.ParticleEmitter.prototype = Object.create(please.GraphNode.prototype);
 // Add a new particle to the system
 please.ParticleEmitter.prototype.rain = function () {
+    var args = [this.__rain.bind(this), 0];
+    for (var i=0; i<arguments.length; i+=1) {
+        args.push(arguments[i]);
+    }
+    window.setTimeout.apply(window, args);
+};
+// Add a new particle to the system
+please.ParticleEmitter.prototype.__rain = function () {
     var tracker = this.__tracker;
     if (tracker.live === tracker.limit) {
         console.error("Cannot add any more particles to emitter.");
@@ -6869,7 +6880,11 @@ please.ParticleEmitter.prototype.rain = function () {
     particle["expire"][0] = now + span;
     mat4.copy(particle["world_matrix"], this.shader.world_matrix);
     // call the particle initialization method
-    tracker.setup.call(this, particle);
+    var args = [particle];
+    for (var i=0; i<arguments.length; i+=1) {
+        args.push(arguments[i]);
+    }
+    tracker.setup.apply(this, args);
     tracker.live += 1;
 };
 // Create a new particle system with the same params as this one
