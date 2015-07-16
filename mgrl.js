@@ -5641,7 +5641,7 @@ please.SceneGraph = function () {
     var z_sort_function = function (lhs, rhs) {
         return rhs.__z_depth - lhs.__z_depth;
     };
-    this.tick = function () {
+    this.tick = function (exclude_test) {
         this.__last_framestart = please.pipeline.__framestart;
         // nodes in the z-sorting path
         this.__alpha = [];
@@ -5652,6 +5652,9 @@ please.SceneGraph = function () {
         for (var i=0; i<this.__flat.length; i+=1) {
             var element = this.__flat[i];
             element.__pick_index = i+1;
+            if (exclude_test && exclude_test(element)) {
+                continue;
+            }
             if (element.__drawable) {
                 if (element.sort_mode === "alpha") {
                     this.__alpha.push(element);
@@ -5687,7 +5690,7 @@ please.SceneGraph = function () {
         if (this.__last_framestart < please.pipeline.__framestart) {
             // note, this.__last_framestart can be null, but
             // null<positive_number will evaluate to true anyway.
-            this.tick();
+            this.tick(exclude_test);
         }
         var prog = please.gl.get_program();
         if (this.camera) {
@@ -5712,13 +5715,8 @@ please.SceneGraph = function () {
                 var children = this.__states[hint];
                 for (var i=0; i<children.length; i+=1) {
                     var child = children[i];
-                    if (exclude_test && exclude_test(child)) {
-                        continue;
-                    }
-                    else {
-                        child.__bind(prog);
-                        child.__draw(prog);
-                    }
+                    child.__bind(prog);
+                    child.__draw(prog);
                 }
             }
         }
@@ -5883,6 +5881,12 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
 //
 please.SceneGraph.prototype.__create_picking_node = function () {
     var node = new please.RenderNode("object_picking");
+    var exclude_test = function (item) {
+        return !!item.__is_particle_tracker
+    };
+    node.render = function () {
+        this.graph.draw(exclude_test);
+    };
     node.graph = this;
     return node;
 };
