@@ -809,14 +809,14 @@ please.__setup_ani_data = function(obj) {
     if (!obj.__ani_cache) {
         Object.defineProperty(obj, "__ani_cache", {
             enumerable : false,
-            writable : false,
+            writable : true,
             value : {},
         });
     }
     if (!obj.__ani_store) {
         Object.defineProperty(obj, "__ani_store", {
             enumerable : false,
-            writable : false,
+            writable : true,
             value : {},
         });
     }
@@ -3365,9 +3365,7 @@ please.gl.set_context = function (canvas_id, options) {
         // set mgrl's default gl state settings:
         // - enable alpha blending
         gl.enable(gl.BLEND);
-        //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.blendFuncSeparate(
-            //gl.SRC_ALPHA, gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE);
             gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA, gl.ONE);
         // fire an event to indicate that a gl context exists now
         var ctx_event = new CustomEvent("mgrl_gl_context_created");
@@ -5528,7 +5526,6 @@ please.GraphNode.prototype = {
         // applicable.  The binding code is set up to ignore redundant
         // binds, so as long as the calls are sorted, this extra
         // overhead should be insignificant.
-        var self = this;
         if (this.visible && this.__drawable && typeof(this.draw) === "function") {
             var prog = please.gl.get_program();
             // upload shader vars
@@ -6781,7 +6778,7 @@ please.StructView.prototype = {
         }
     },
 };
-// - m.rain.js  ------------------------------------------------------------- //
+// - m.particles.js --------------------------------------------------------- //
 /* [+]
  *
  * This file provides M.GRL's particle system.
@@ -6793,6 +6790,9 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     please.GraphNode.call(this);
     this.__is_particle_tracker = true;
     this.__drawable = true;
+    this.billboard = 'particle';
+    this.draw_type = "sprite";
+    this.sort_mode = "alpha";
     var tracker = this.__tracker = {};
     if (typeof(asset.instance) === "function") {
         tracker.asset = asset;
@@ -6803,6 +6803,8 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     else {
         throw("Invalid asset.  Did you pass a GraphNode by mistake?");
     }
+    this.__ani_cache = tracker.stamp.__ani_cache;
+    this.__ani_store = tracker.stamp.__ani_store;
     console.assert(typeof(span) === "number" || typeof(span) === "function");
     console.assert(typeof(limit) === "number");
     console.assert(typeof(setup) === "function");
@@ -6843,6 +6845,14 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
 please.ParticleEmitter.prototype = Object.create(please.GraphNode.prototype);
 // Add a new particle to the system
 please.ParticleEmitter.prototype.rain = function () {
+    var args = [this.__rain.bind(this), 0];
+    for (var i=0; i<arguments.length; i+=1) {
+        args.push(arguments[i]);
+    }
+    window.setTimeout.apply(window, args);
+};
+// Add a new particle to the system
+please.ParticleEmitter.prototype.__rain = function () {
     var tracker = this.__tracker;
     if (tracker.live === tracker.limit) {
         console.error("Cannot add any more particles to emitter.");
@@ -6870,7 +6880,11 @@ please.ParticleEmitter.prototype.rain = function () {
     particle["expire"][0] = now + span;
     mat4.copy(particle["world_matrix"], this.shader.world_matrix);
     // call the particle initialization method
-    tracker.setup.call(this, particle);
+    var args = [particle];
+    for (var i=0; i<arguments.length; i+=1) {
+        args.push(arguments[i]);
+    }
+    tracker.setup.apply(this, args);
     tracker.live += 1;
 };
 // Create a new particle system with the same params as this one
@@ -6883,22 +6897,20 @@ please.ParticleEmitter.prototype.copy = function () {
 please.ParticleEmitter.prototype.clear = function () {
     this.__tracker.live = 0;
 };
+// Wrap the bind function for our 'stamp'
+please.ParticleEmitter.prototype.bind = function () {
+    if (this.__tracker.live > 0) {
+        this.__tracker.stamp.bind();
+    }
+};
 // Update and draw the particle system
-please.ParticleEmitter.prototype.draw = function() {
+please.ParticleEmitter.prototype.draw = function () {
+    var prog = please.gl.get_program();
     var tracker = this.__tracker;
     var particle = tracker.view;
-    var cache = tracker.stamp.__ani_cache;
-    var store = tracker.stamp.__ani_store;
     var now = please.pipeline.__framestart;
     var delta = now - tracker.last;
     tracker.last = now;
-    // To quickly draw all of the particles with a single objcet, the
-    // object is set to manual cache invalidation and we overwrite
-    // it's animation cache for all applicable variables.  This allows
-    // us to override the world matrix driver.
-    if (tracker.live > 0) {
-        tracker.stamp.__bind();
-    }
     for (var i=0; i<tracker.live; i+=1) {
         particle.focus(i);
         if (now < particle["expire"][0]) {
@@ -6906,26 +6918,16 @@ please.ParticleEmitter.prototype.draw = function() {
             // current age, and call the update function on it, and
             // then draw the particle on screen.
             tracker.update.call(this, particle, delta);
-            for (var name in this.shader) if (this.shader.hasOwnProperty(name)) {
-                if (tracker.var_names.indexOf(name) !== -1) {
-                    if (store[name]) {
-                        store[name] = particle[name];
-                        cache[name] = null;
-                    }
-                }
-                else {
-                    var copy_from = this;
-                    if (this.__ani_store[name] === undefined || this.__ani_store[name] === null) {
-                        copy_from = tracker.stamp;
-                    }
-                    store[name] = copy_from.__ani_store[name];
-                    cache[name] = copy_from.__ani_cache[name];
+            for (var n=0; n<tracker.var_names.length; n+=1) {
+                var name = tracker.var_names[n];
+                if (prog.vars.hasOwnProperty(name)) {
+                    prog.vars[name] = particle[name];
                 }
             }
             // FIXME if the 'stamp' is animated, then we should adjust
             // the animation frame accordingly before drawing.  This
             // might be only really possible with ganis, but that is ok.
-            tracker.stamp.__draw();
+            tracker.stamp.draw();
         }
         else {
             // The particle is dead, so it should be removed.  This is

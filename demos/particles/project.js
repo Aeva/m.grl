@@ -134,7 +134,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var fountain = new ParticleFountain();
     graph.add(fountain);
     demo.main.fountain = fountain;
-    for (var i=0; i<500; i+=1) {
+    for (var i=0; i<1000; i+=1) {
         fountain.rain();
     }
     
@@ -198,9 +198,6 @@ var ParticleFountain = function() {
     };
     var emitter = new please.ParticleEmitter(asset, span, limit, setup, update, ext);
     emitter.shader.is_floor = false;
-    emitter.billboard = 'particle';
-    emitter.draw_type = "sprite";
-    emitter.sort_mode = "alpha";
     return emitter;
 };
 

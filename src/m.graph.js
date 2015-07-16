@@ -656,7 +656,6 @@ please.GraphNode.prototype = {
         // applicable.  The binding code is set up to ignore redundant
         // binds, so as long as the calls are sorted, this extra
         // overhead should be insignificant.
-        var self = this;
         if (this.visible && this.__drawable && typeof(this.draw) === "function") {
             var prog = please.gl.get_program();
 
