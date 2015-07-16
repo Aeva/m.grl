@@ -38,8 +38,8 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     
     tracker.span = span;
     tracker.limit = limit;
-    tracker.setup = setup;
-    tracker.update = update;
+    tracker.setup = setup.bind(this);
+    tracker.update = update.bind(this);
 
     var struct = [
         ["start" , 1],

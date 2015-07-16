@@ -1,7 +1,8 @@
 
 // matrices
-uniform mat4 world_matrix;
 uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform mat4 particle_matrix;
 uniform mat4 projection_matrix;
 
 // vertex data
@@ -33,16 +34,10 @@ void main(void) {
   mat4 model_view = view_matrix * world_matrix;
   if (billboard_mode > 0.0) {
     // clear out rotation information
-    model_view[0][0] = 1.0;
-    model_view[0][1] = 0.0;
-    model_view[0][2] = 0.0;
-    model_view[2][0] = 0.0;
-    model_view[2][1] = 0.0;
-    model_view[2][2] = 1.0;
+    model_view[0].xyz = world_matrix[0].xyz;
+    model_view[2].xyz = world_matrix[2].xyz;
     if (billboard_mode == 2.0) {
-      model_view[1][0] = 0.0; 
-      model_view[1][1] = 1.0; 
-      model_view[1][2] = 0.0; 
+      model_view[1].xyz = world_matrix[1].xyz;
     }
   }
 

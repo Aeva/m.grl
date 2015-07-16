@@ -194,7 +194,6 @@ var ParticleFountain = function() {
         mat4.rotateZ(particle.world_matrix, particle.world_matrix, angle);
         mat4.translate(
             particle.world_matrix, particle.world_matrix, particle.vector);
-
     };
     var emitter = new please.ParticleEmitter(asset, span, limit, setup, update, ext);
     emitter.shader.is_floor = false;
