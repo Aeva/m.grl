@@ -716,14 +716,14 @@ please.__setup_ani_data = function(obj) {
     if (!obj.__ani_cache) {
         Object.defineProperty(obj, "__ani_cache", {
             enumerable : false,
-            writable : false,
+            writable : true,
             value : {},
         });
     }
     if (!obj.__ani_store) {
         Object.defineProperty(obj, "__ani_store", {
             enumerable : false,
-            writable : false,
+            writable : true,
             value : {},
         });
     }
