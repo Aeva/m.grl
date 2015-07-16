@@ -132,6 +132,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // Add some particle effect thing
     var fountain = new ParticleFountain();
+    fountain.scale = [1.5, 1.5, 1.5];
     graph.add(fountain);
     demo.main.fountain = fountain;
     for (var i=0; i<1000; i+=1) {
@@ -172,7 +173,7 @@ var ParticleFountain = function() {
         "skitter" : 1,
     };
 
-    var area = 25;
+    var area = 20;
     
     var setup = function (particle) {
         var coord = [
