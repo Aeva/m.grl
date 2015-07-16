@@ -9,11 +9,11 @@
 
 // [+] please.ParticleEmitter(asset, span, limit, setup, update, ext)
 //
-please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
+please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {    
     please.GraphNode.call(this);
     this.__is_particle_tracker = true;
     this.__drawable = true;
-    
+
     var tracker = this.__tracker = {};
     if (typeof(asset.instance) === "function") {
         tracker.asset = asset;
@@ -24,6 +24,9 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     else {
         throw("Invalid asset.  Did you pass a GraphNode by mistake?");
     }
+
+    this.__ani_cache = tracker.stamp.__ani_cache;
+    this.__ani_store = tracker.stamp.__ani_store;
     
     console.assert(typeof(span) === "number" || typeof(span) === "function");
     console.assert(typeof(limit) === "number");
@@ -120,25 +123,23 @@ please.ParticleEmitter.prototype.clear = function () {
 };
 
 
+// Wrap the bind function for our 'stamp'
+please.ParticleEmitter.prototype.bind = function () {
+    if (this.__tracker.live > 0) {
+        this.__tracker.stamp.bind();
+    }
+};
+
+
 // Update and draw the particle system
-please.ParticleEmitter.prototype.draw = function() {
+please.ParticleEmitter.prototype.draw = function () {
+    var prog = please.gl.get_program();
     var tracker = this.__tracker;
     var particle = tracker.view;
-    var cache = tracker.stamp.__ani_cache;
-    var store = tracker.stamp.__ani_store;
     var now = please.pipeline.__framestart;
     var delta = now - tracker.last;
     tracker.last = now;
-    
-    // To quickly draw all of the particles with a single objcet, the
-    // object is set to manual cache invalidation and we overwrite
-    // it's animation cache for all applicable variables.  This allows
-    // us to override the world matrix driver.
 
-    if (tracker.live > 0) {
-        tracker.stamp.__bind();
-    }
-    
     RANGE(i, tracker.live) {
         particle.focus(i);
         if (now < particle["expire"][0]) {
@@ -146,26 +147,16 @@ please.ParticleEmitter.prototype.draw = function() {
             // current age, and call the update function on it, and
             // then draw the particle on screen.
             tracker.update.call(this, particle, delta);
-            ITER_PROPS(name, this.shader) {
-                if (tracker.var_names.indexOf(name) !== -1) {
-                    if (store[name]) {
-                        store[name] = particle[name];
-                        cache[name] = null;
-                    }
-                }
-                else {
-                    var copy_from = this;
-                    if (this.__ani_store[name] === undefined || this.__ani_store[name] === null) {
-                        copy_from = tracker.stamp;
-                    }
-                    store[name] = copy_from.__ani_store[name];
-                    cache[name] = copy_from.__ani_cache[name];
+            ITER(n, tracker.var_names) {
+                var name = tracker.var_names[n];
+                if (prog.vars.hasOwnProperty(name)) {
+                    prog.vars[name] = particle[name];
                 }
             }            
             // FIXME if the 'stamp' is animated, then we should adjust
             // the animation frame accordingly before drawing.  This
             // might be only really possible with ganis, but that is ok.
-            tracker.stamp.__draw();
+            tracker.stamp.draw();
         }
         else {
             // The particle is dead, so it should be removed.  This is
