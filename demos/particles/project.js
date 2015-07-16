@@ -198,9 +198,6 @@ var ParticleFountain = function() {
     };
     var emitter = new please.ParticleEmitter(asset, span, limit, setup, update, ext);
     emitter.shader.is_floor = false;
-    emitter.billboard = 'particle';
-    emitter.draw_type = "sprite";
-    emitter.sort_mode = "alpha";
     return emitter;
 };
 
