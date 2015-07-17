@@ -175,11 +175,14 @@ please.access = function (asset_name, no_error) {
         return please.media.errors.img;
     }
     var found = please.media.assets[asset_name];
+    var type = please.media.guess_type(asset_name);
     if (!found && !no_error) {
-        var type = please.media.guess_type(asset_name);
         if (type) {
             found = please.media.errors[type];
         }
+    }
+    if (found && !found.__mgrl_asset_type) {
+        found.__mgrl_asset_type = type;
     }
     return found;
 };

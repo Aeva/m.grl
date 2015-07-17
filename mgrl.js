@@ -1573,11 +1573,14 @@ please.access = function (asset_name, no_error) {
         return please.media.errors.img;
     }
     var found = please.media.assets[asset_name];
+    var type = please.media.guess_type(asset_name);
     if (!found && !no_error) {
-        var type = please.media.guess_type(asset_name);
         if (type) {
             found = please.media.errors[type];
         }
+    }
+    if (found && !found.__mgrl_asset_type) {
+        found.__mgrl_asset_type = type;
     }
     return found;
 };
@@ -6798,9 +6801,13 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     this.draw_type = "sprite";
     this.sort_mode = "alpha";
     var tracker = this.__tracker = {};
-    if (typeof(asset.instance) === "function") {
+    if (asset.__mgrl_asset_type) {
+        var instance_args = [];
+        if (asset.__mgrl_asset_type === "img") {
+            instance_args = [true];
+        }
         tracker.asset = asset;
-        tracker.stamp = asset.instance();
+        tracker.stamp = asset.instance(true);
         tracker.stamp.use_manual_cache_invalidation();
         tracker.animated = !!tracker.stamp.play;
     }

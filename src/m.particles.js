@@ -18,9 +18,13 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     this.sort_mode = "alpha";
 
     var tracker = this.__tracker = {};
-    if (typeof(asset.instance) === "function") {
+    if (asset.__mgrl_asset_type) {
+        var instance_args = [];
+        if (asset.__mgrl_asset_type === "img") {
+            instance_args = [true];
+        }
         tracker.asset = asset;
-        tracker.stamp = asset.instance();
+        tracker.stamp = asset.instance(true);
         tracker.stamp.use_manual_cache_invalidation();
         tracker.animated = !!tracker.stamp.play;
     }
