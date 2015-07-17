@@ -18,7 +18,7 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     this.sort_mode = "alpha";
 
     var tracker = this.__tracker = {};
-    if (asset.__mgrl_asset_type) {
+    if (typeof(asset.instance) === "function") {
         var instance_args = [];
         if (asset.__mgrl_asset_type === "img") {
             instance_args = [true];
@@ -146,7 +146,7 @@ please.ParticleEmitter.prototype.clear = function () {
 
 // Wrap the bind function for our 'stamp'
 please.ParticleEmitter.prototype.bind = function () {
-    if (this.__tracker.live > 0) {
+    if (this.__tracker.live > 0 && this.__tracker.stamp.bind) {
         this.__tracker.stamp.bind();
     }
 };
