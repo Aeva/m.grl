@@ -1573,11 +1573,14 @@ please.access = function (asset_name, no_error) {
         return please.media.errors.img;
     }
     var found = please.media.assets[asset_name];
+    var type = please.media.guess_type(asset_name);
     if (!found && !no_error) {
-        var type = please.media.guess_type(asset_name);
         if (type) {
             found = please.media.errors[type];
         }
+    }
+    if (found && !found.__mgrl_asset_type) {
+        found.__mgrl_asset_type = type;
     }
     return found;
 };
@@ -6799,8 +6802,12 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     this.sort_mode = "alpha";
     var tracker = this.__tracker = {};
     if (typeof(asset.instance) === "function") {
+        var instance_args = [];
+        if (asset.__mgrl_asset_type === "img") {
+            instance_args = [true];
+        }
         tracker.asset = asset;
-        tracker.stamp = asset.instance();
+        tracker.stamp = asset.instance(true);
         tracker.stamp.use_manual_cache_invalidation();
         tracker.animated = !!tracker.stamp.play;
     }
@@ -6903,7 +6910,7 @@ please.ParticleEmitter.prototype.clear = function () {
 };
 // Wrap the bind function for our 'stamp'
 please.ParticleEmitter.prototype.bind = function () {
-    if (this.__tracker.live > 0) {
+    if (this.__tracker.live > 0 && this.__tracker.stamp.bind) {
         this.__tracker.stamp.bind();
     }
 };

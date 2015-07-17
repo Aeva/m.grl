@@ -44,13 +44,14 @@ addEventListener("load", function() {
     // Define where m.grl is to find various assets when using the
     // load methed.
     please.set_search_path("glsl", "glsl/");
-    please.set_search_path("gani", "lpc_assets/keyframes/");
+    please.set_search_path("gani", "../lpc_assets/keyframes/");
     please.set_search_path("img", "../gl_assets/img/");
     please.set_search_path("jta", "../gl_assets/models/");
     
     // Queue up assets to be downloaded before the game starts.
     please.load("custom.frag");
     please.load("smoke_particle.png");
+    //please.load("coin.gani");
     please.load("floor_lamp.jta");
 
     // Register a render passes with the scheduler.  The autoscale
@@ -165,6 +166,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
 
 var ParticleFountain = function() {
+    //var asset = please.access("coin.gani");
     var asset = please.access("smoke_particle.png");
     var span = Infinity;
     var limit = 1000;
@@ -179,7 +181,7 @@ var ParticleFountain = function() {
         var coord = [
             (Math.random()*area)-(area*.5),
             (Math.random()*area)-(area*.5),
-            Math.random()*.5];
+            Math.random()*.5+1];
         mat4.translate(
             particle.world_matrix, particle.world_matrix, coord);
 
