@@ -531,13 +531,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             // sure the array length is appropriate for the expected
             // call type
 
-            if (type_array === prog.__cache.vars[data.name] && type_array.dirty === false) {
-                return;
-            }
-
             var value = type_array;
-            if (typeof(type_array) === "number" || typeof(type_array) === "boolean") {
-                if (is_array) {
+            if (is_array) {
+                if (type_array.length === undefined) {
                     if (data.type === gl.FLOAT) {
                         value = new Float32Array([type_array]);
                     }
@@ -545,6 +541,20 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                         value = new Int32Array([type_array]);
                     }
                 }
+
+                if (prog.__cache.vars[data.name]) {
+                    if (value.length === 1) {
+                        if (value[0] === prog.__cache.vars[data.name][0]) {
+                            return;
+                        }
+                    }
+                    else if (value === prog.__cache.vars[data.name] && value.dirty === false) {
+                        return;
+                    }
+                }
+            }
+            else if (prog.__cache.vars[data.name] === value) {
+                return;
             }
 
             // Cache the value to be saved.  Note that type arrays are

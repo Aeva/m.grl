@@ -52,7 +52,7 @@ addEventListener("load", function() {
     please.load("custom.frag");
     please.load("smoke_particle.png");
     //please.load("coin.gani");
-    please.load("floor_lamp.jta");
+    please.load("lamp_post.jta");
 
     // Register a render passes with the scheduler.  The autoscale
     // prefab is used to change the dimensions of the rendering canvas
@@ -123,12 +123,11 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(floor);
 
     // Add a fixture in the middle of the floor
-    var lamp = please.access("floor_lamp.jta").instance();
+    var lamp = please.access("lamp_post.jta").instance();
     graph.add(lamp);
     demo.main.lamp = lamp;
-    lamp.scale = [2,1,2];
-    lamp.location_z = -1;
     lamp.shader.is_floor = false;
+    lamp.scale = [2, 2, 2];
     lamp.use_manual_cache_invalidation();
 
     // Add some particle effect thing
@@ -173,9 +172,10 @@ var ParticleFountain = function() {
     var ext = {
         "vector" : [0,0,0],
         "skitter" : 1,
+        "alpha" : 1,
     };
 
-    var area = 20;
+    var area = 15;
     
     var setup = function (particle) {
         var coord = [
@@ -191,6 +191,7 @@ var ParticleFountain = function() {
             0];
 
         particle.skitter = Math.random()+0.5;
+        particle.alpha = Math.random()*.8;
     };
     var update = function (particle, dt) {
         var angle = please.degrees(dt/50000) * particle.skitter[0];
