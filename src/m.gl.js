@@ -526,57 +526,77 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         prog.__cache.vars[data.name] = null;
 
         prog.uniform_list.push(data.name);
-        prog.vars.__defineSetter__(data.name, function (type_array) {
-            // FIXME we could do some sanity checking here, eg, making
-            // sure the array length is appropriate for the expected
-            // call type
 
-            var value = type_array;
-            if (is_array) {
-                if (type_array.length === undefined) {
-                    if (data.type === gl.FLOAT) {
-                        value = new Float32Array([type_array]);
-                    }
-                    else if (data.type === gl.INT || data.type === gl.BOOL) {
-                        value = new Int32Array([type_array]);
-                    }
-                }
-
-                if (prog.__cache.vars[data.name]) {
-                    if (value.length === 1) {
-                        if (value[0] === prog.__cache.vars[data.name][0]) {
-                            return;
+        var setter_method;
+        if (is_array) {
+            if (uni.startsWith("uniform1")) {
+                if (data.type === gl.FLOAT) {
+                    // Setter for float type uniforms.
+                    setter_method = function (value) {
+                        var number, upload = value;
+                        if (value.length === undefined) {
+                            number = value;
+                            upload = new Float32Array([value]);
+                        }
+                        else {
+                            number = value[0];
+                        }
+                        if (prog.__cache.vars[data.name] !== number) {
+                            prog.__cache.vars[data.name] = number;
+                            return gl[uni](pointer, upload);
                         }
                     }
-                    else if (value === prog.__cache.vars[data.name] && value.dirty === false) {
-                        return;
+                }
+                else if (data.type === gl.INT || data.type === gl.BOOL) {
+                    // Setter for int and bool type uniforms.
+                    setter_method = function (value) {
+                        var number, upload = value;
+                        if (value.length === undefined) {
+                            number = value;
+                            upload = new Int32Array([value]);
+                        }
+                        else {
+                            number = value[0];
+                        }
+                        if (prog.__cache.vars[data.name] !== number) {
+                            prog.__cache.vars[data.name] = number;
+                            return gl[uni](pointer, upload);
+                        }
                     }
                 }
             }
-            else if (prog.__cache.vars[data.name] === value) {
-                return;
+            else {
+                if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
+                    // Setter method for matrices.
+                    setter_method = function (value) {
+                        // the 'transpose' arg is assumed to be false :P
+                        return gl[uni](pointer, false, value);
+                    }
+                }
+                else {
+                    // Setter method for vectors and arbitrary arrays.  In this
+                    // case we don't bother checking the cache as the performance
+                    // gains in doing so are dubious.  We still set it, though, so
+                    // that the corresponding getter still works.
+                    setter_method = function (value) {
+                        prog.__cache.vars[data.name] = value;
+                        return gl[uni](pointer, value);
+                    }
+                }
             }
-
-            // Cache the value to be saved.  Note that type arrays are
-            // compared as pointers, so changing the type array will
-            // also change this value.  Setting value.dirty is sort of
-            // a work around to allow the end user to flag that the
-            // cached value has expired.
-            try {
-                // catch statement is a fix for when running this in a
-                // pywebkit shell
-                value.dirty = false;
-            }
-            catch (err) {}
-            prog.__cache.vars[data.name] = value;
-
-            if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
-                // the 'transpose' arg is assumed to be false :P
-                return gl[uni](pointer, false, value);
-            }
-            return gl[uni](pointer, value);
-        });
-
+        }
+        else {
+            // This is the setter binding for sampler type uniforms variables.
+            setter_method = function (value) {
+                if (prog.__cache.vars[data.name] !== value) {
+                    prog.__cache.vars[data.name] = value;
+                    return gl[uni](pointer, value);
+                }
+            };
+        }
+        prog.vars.__defineSetter__(data.name, setter_method);
+        
+        
         prog.vars.__defineGetter__(data.name, function () {
             if (prog.__cache.vars[data.name] !== null) {
                 if (data.type === gl.BOOL) {
