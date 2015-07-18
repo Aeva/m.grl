@@ -135,7 +135,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     fountain.scale = [1.5, 1.5, 1.5];
     graph.add(fountain);
     demo.main.fountain = fountain;
-    for (var i=0; i<1000; i+=1) {
+    for (var i=0; i<800; i+=1) {
         fountain.rain();
     }
     
@@ -176,7 +176,7 @@ var ParticleFountain = function() {
     };
 
     var area = 15;
-    
+
     var setup = function (particle) {
         var coord = [
             (Math.random()*area)-(area*.5),
@@ -194,7 +194,7 @@ var ParticleFountain = function() {
         particle.alpha = Math.random()*.8;
     };
     var update = function (particle, dt) {
-        var angle = please.degrees(dt/50000) * particle.skitter[0];
+        var angle = please.degrees(dt/100000) * particle.skitter[0];
         mat4.rotateZ(particle.world_matrix, particle.world_matrix, angle);
         mat4.translate(
             particle.world_matrix, particle.world_matrix, particle.vector);

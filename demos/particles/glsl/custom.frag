@@ -25,11 +25,10 @@ void main(void) {
     bool check_x = fract((world_position.x+2.0) / checker_scale) < 0.5;
     bool check_y = fract((world_position.y-2.0) / checker_scale) < 0.5;
     if ((check_x && check_y) || (!check_x && !check_y)) {
-      //diffuse = vec4(0.8, 0.8, 0.8, 1.0);
       diffuse = vec4(0.3, 0.3, 0.3, 1.0);
     }
     else {
-      diffuse = vec4(0.37, 0.6, 0.14, 1.0);
+      diffuse = vec4(0.1, 0.11, 0.1, 1.0);
     }
   }
   else {
