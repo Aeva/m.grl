@@ -22,8 +22,6 @@ void main(void) {
       discard;
     }
   }
-  else {
-    diffuse.a = alpha;
-  }
+  diffuse.a *= alpha;
   gl_FragColor = diffuse;
 }
