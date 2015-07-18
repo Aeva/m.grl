@@ -5285,7 +5285,8 @@ please.GraphNode = function () {
             old = event.old_prog;
         }
         // deep copy
-        var old_data = JSON.parse(JSON.stringify(this.__ani_store));
+        var old_data = this.__ani_store;
+        this.__ani_store = {};
         this.shader = {};
         please.make_animatable(
             this, "world_matrix", this.__world_matrix_driver, this.shader, true);
