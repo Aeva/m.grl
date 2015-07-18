@@ -154,6 +154,36 @@ please.keys.normalize_dvorak = function (str) {
 };
 
 
+please.keys.__legacy_name = function (key) {
+    key = key.toLowerCase();
+    if (key.length === 1) {
+        return please.keys.normalize_dvorak(key);
+    }
+    else if (please.keys.__keyname_codes[key]) {
+        return key;
+    }
+    else if (key.length == 2 && please.keys.__keyname_codes[key.toUpperCase()]) {
+        return key.toUpperCase();
+    }
+    else if (key.startsWith("arrow")) {
+        return key.slice(5).toLowerCase();
+    }
+    else {
+        var maybe = {
+            "control" : "ctrl",
+            "pageup" : "page up",
+            "pagedown" : "page down",
+        }[key];
+        if (maybe) {
+            return maybe;
+        }
+        else {
+            console.warn("no legacy mapping for key id: " + key);
+        }
+    }
+};
+
+
 please.keys.__keycode_names = {
     8 : "backspace",
     9 : "tab",
@@ -220,6 +250,15 @@ please.keys.__keycode_names = {
 };
 
 
+please.keys.__keyname_codes = (function () {
+    var lookup = {};
+    ITER_PROPS(code, please.keys.__keycode_names) {
+        var name = please.keys.__keycode_names[code];
+        lookup[name] = code;
+    }
+    return lookup;
+})();
+
 // [+] please.keys.lookup\_keycode(code)
 //
 // This function returns a human readable identifier for a given
@@ -265,9 +304,14 @@ please.keys.__event_handler = function (event) {
     /* This function is responsible for determining what to do with
        DOM keyboard events and facilitates its own event routing in a
        way that is sane for games. */
-
-    var code = event.keyCode || event.which;
-    var key = please.keys.lookup_keycode(code).toLowerCase();
+    var key;
+    if (event.key) {
+        var key = please.keys.__legacy_name(event.key);
+    }
+    else {
+        var code = event.keyCode || event.which;
+        key = please.keys.lookup_keycode(code).toLowerCase();
+    }
     if (please.keys.handlers[key]) {
         event.preventDefault();
         var stats = please.keys.stats[key];
