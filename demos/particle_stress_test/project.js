@@ -50,7 +50,7 @@ addEventListener("load", function() {
     
     // Queue up assets to be downloaded before the game starts.
     please.load("custom.frag");
-    please.load("snow_flakes.png");
+    please.load("smoke_particle.png");
     //please.load("coin.gani");
     please.load("lamp_post.jta");
 
@@ -112,11 +112,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // Add a camera
     var camera = demo.main.camera = new please.CameraNode();
-    // camera.look_at = [5, 0, 8];
-    // camera.location = [-13.47, -18.97, .9];
-    camera.look_at = [5, 0, 7];
-    camera.location = [-15, -20, 4.0];
-
+    camera.look_at = [2, -2, 5];
+    camera.location = [12, -12, 30];
     graph.add(camera);
     camera.activate();
 
@@ -168,7 +165,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
 var ParticleFountain = function() {
     //var asset = please.access("coin.gani");
-    var asset = please.access("snow_flakes.png");
+    var asset = please.access("smoke_particle.png");
     var span = Infinity;
     var limit = 1000;
     var ext = {
@@ -183,7 +180,7 @@ var ParticleFountain = function() {
         var coord = [
             (Math.random()*area)-(area*.5),
             (Math.random()*area)-(area*.5),
-            Math.random()*15+1];
+            Math.random()*.5+1];
         mat4.translate(
             particle.world_matrix, particle.world_matrix, coord);
 
