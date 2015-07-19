@@ -809,14 +809,14 @@ please.__setup_ani_data = function(obj) {
     if (!obj.__ani_cache) {
         Object.defineProperty(obj, "__ani_cache", {
             enumerable : false,
-            writable : false,
+            writable : true,
             value : {},
         });
     }
     if (!obj.__ani_store) {
         Object.defineProperty(obj, "__ani_store", {
             enumerable : false,
-            writable : false,
+            writable : true,
             value : {},
         });
     }
@@ -1573,11 +1573,14 @@ please.access = function (asset_name, no_error) {
         return please.media.errors.img;
     }
     var found = please.media.assets[asset_name];
+    var type = please.media.guess_type(asset_name);
     if (!found && !no_error) {
-        var type = please.media.guess_type(asset_name);
         if (type) {
             found = please.media.errors[type];
         }
+    }
+    if (found && !found.__mgrl_asset_type) {
+        found.__mgrl_asset_type = type;
     }
     return found;
 };
@@ -2085,6 +2088,34 @@ please.keys.normalize_dvorak = function (str) {
         }
     }
 };
+please.keys.__legacy_name = function (key) {
+    key = key.toLowerCase();
+    if (key.length === 1) {
+        return please.keys.normalize_dvorak(key);
+    }
+    else if (please.keys.__keyname_codes[key]) {
+        return key;
+    }
+    else if (key.length == 2 && please.keys.__keyname_codes[key.toUpperCase()]) {
+        return key.toUpperCase();
+    }
+    else if (key.startsWith("arrow")) {
+        return key.slice(5).toLowerCase();
+    }
+    else {
+        var maybe = {
+            "control" : "ctrl",
+            "pageup" : "page up",
+            "pagedown" : "page down",
+        }[key];
+        if (maybe) {
+            return maybe;
+        }
+        else {
+            console.warn("no legacy mapping for key id: " + key);
+        }
+    }
+};
 please.keys.__keycode_names = {
     8 : "backspace",
     9 : "tab",
@@ -2149,6 +2180,14 @@ please.keys.__keycode_names = {
     221 : "]",
     222 : "'",
 };
+please.keys.__keyname_codes = (function () {
+    var lookup = {};
+    for (var code in please.keys.__keycode_names) if (please.keys.__keycode_names.hasOwnProperty(code)) {
+        var name = please.keys.__keycode_names[code];
+        lookup[name] = code;
+    }
+    return lookup;
+})();
 // [+] please.keys.lookup\_keycode(code)
 //
 // This function returns a human readable identifier for a given
@@ -2190,8 +2229,14 @@ please.keys.__event_handler = function (event) {
     /* This function is responsible for determining what to do with
        DOM keyboard events and facilitates its own event routing in a
        way that is sane for games. */
-    var code = event.keyCode || event.which;
-    var key = please.keys.lookup_keycode(code).toLowerCase();
+    var key;
+    if (event.key) {
+        var key = please.keys.__legacy_name(event.key);
+    }
+    else {
+        var code = event.keyCode || event.which;
+        key = please.keys.lookup_keycode(code).toLowerCase();
+    }
     if (please.keys.handlers[key]) {
         event.preventDefault();
         var stats = please.keys.stats[key];
@@ -3365,7 +3410,8 @@ please.gl.set_context = function (canvas_id, options) {
         // set mgrl's default gl state settings:
         // - enable alpha blending
         gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.blendFuncSeparate(
+            gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA, gl.ONE);
         // fire an event to indicate that a gl context exists now
         var ctx_event = new CustomEvent("mgrl_gl_context_created");
         window.dispatchEvent(ctx_event);
@@ -3762,42 +3808,74 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         // FIXME - set defaults per data type
         prog.__cache.vars[data.name] = null;
         prog.uniform_list.push(data.name);
-        prog.vars.__defineSetter__(data.name, function (type_array) {
-            // FIXME we could do some sanity checking here, eg, making
-            // sure the array length is appropriate for the expected
-            // call type
-            if (type_array === prog.__cache.vars[data.name] && type_array.dirty === false) {
-                return;
-            }
-            var value = type_array;
-            if (typeof(type_array) === "number" || typeof(type_array) === "boolean") {
-                if (is_array) {
-                    if (data.type === gl.FLOAT) {
-                        value = new Float32Array([type_array]);
+        var setter_method;
+        if (is_array) {
+            if (uni.startsWith("uniform1")) {
+                if (data.type === gl.FLOAT) {
+                    // Setter for float type uniforms.
+                    setter_method = function (value) {
+                        var number, upload = value;
+                        if (value.length === undefined) {
+                            number = value;
+                            upload = new Float32Array([value]);
+                        }
+                        else {
+                            number = value[0];
+                        }
+                        if (prog.__cache.vars[data.name] !== number) {
+                            prog.__cache.vars[data.name] = number;
+                            return gl[uni](pointer, upload);
+                        }
                     }
-                    else if (data.type === gl.INT || data.type === gl.BOOL) {
-                        value = new Int32Array([type_array]);
+                }
+                else if (data.type === gl.INT || data.type === gl.BOOL) {
+                    // Setter for int and bool type uniforms.
+                    setter_method = function (value) {
+                        var number, upload = value;
+                        if (value.length === undefined) {
+                            number = value;
+                            upload = new Int32Array([value]);
+                        }
+                        else {
+                            number = value[0];
+                        }
+                        if (prog.__cache.vars[data.name] !== number) {
+                            prog.__cache.vars[data.name] = number;
+                            return gl[uni](pointer, upload);
+                        }
                     }
                 }
             }
-            // Cache the value to be saved.  Note that type arrays are
-            // compared as pointers, so changing the type array will
-            // also change this value.  Setting value.dirty is sort of
-            // a work around to allow the end user to flag that the
-            // cached value has expired.
-            try {
-                // catch statement is a fix for when running this in a
-                // pywebkit shell
-                value.dirty = false;
+            else {
+                if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
+                    // Setter method for matrices.
+                    setter_method = function (value) {
+                        // the 'transpose' arg is assumed to be false :P
+                        return gl[uni](pointer, false, value);
+                    }
+                }
+                else {
+                    // Setter method for vectors and arbitrary arrays.  In this
+                    // case we don't bother checking the cache as the performance
+                    // gains in doing so are dubious.  We still set it, though, so
+                    // that the corresponding getter still works.
+                    setter_method = function (value) {
+                        prog.__cache.vars[data.name] = value;
+                        return gl[uni](pointer, value);
+                    }
+                }
             }
-            catch (err) {}
-            prog.__cache.vars[data.name] = value;
-            if (data.type >= gl.FLOAT_MAT2 && data.type <= gl.FLOAT_MAT4) {
-                // the 'transpose' arg is assumed to be false :P
-                return gl[uni](pointer, false, value);
-            }
-            return gl[uni](pointer, value);
-        });
+        }
+        else {
+            // This is the setter binding for sampler type uniforms variables.
+            setter_method = function (value) {
+                if (prog.__cache.vars[data.name] !== value) {
+                    prog.__cache.vars[data.name] = value;
+                    return gl[uni](pointer, value);
+                }
+            };
+        }
+        prog.vars.__defineSetter__(data.name, setter_method);
         prog.vars.__defineGetter__(data.name, function () {
             if (prog.__cache.vars[data.name] !== null) {
                 if (data.type === gl.BOOL) {
@@ -5281,7 +5359,8 @@ please.GraphNode = function () {
             old = event.old_prog;
         }
         // deep copy
-        var old_data = JSON.parse(JSON.stringify(this.__ani_store));
+        var old_data = this.__ani_store;
+        this.__ani_store = {};
         this.shader = {};
         please.make_animatable(
             this, "world_matrix", this.__world_matrix_driver, this.shader, true);
@@ -5525,7 +5604,6 @@ please.GraphNode.prototype = {
         // applicable.  The binding code is set up to ignore redundant
         // binds, so as long as the calls are sorted, this extra
         // overhead should be insignificant.
-        var self = this;
         if (this.visible && this.__drawable && typeof(this.draw) === "function") {
             var prog = please.gl.get_program();
             // upload shader vars
@@ -5641,7 +5719,7 @@ please.SceneGraph = function () {
     var z_sort_function = function (lhs, rhs) {
         return rhs.__z_depth - lhs.__z_depth;
     };
-    this.tick = function () {
+    this.tick = function (exclude_test) {
         this.__last_framestart = please.pipeline.__framestart;
         // nodes in the z-sorting path
         this.__alpha = [];
@@ -5652,6 +5730,9 @@ please.SceneGraph = function () {
         for (var i=0; i<this.__flat.length; i+=1) {
             var element = this.__flat[i];
             element.__pick_index = i+1;
+            if (exclude_test && exclude_test(element)) {
+                continue;
+            }
             if (element.__drawable) {
                 if (element.sort_mode === "alpha") {
                     this.__alpha.push(element);
@@ -5687,7 +5768,7 @@ please.SceneGraph = function () {
         if (this.__last_framestart < please.pipeline.__framestart) {
             // note, this.__last_framestart can be null, but
             // null<positive_number will evaluate to true anyway.
-            this.tick();
+            this.tick(exclude_test);
         }
         var prog = please.gl.get_program();
         if (this.camera) {
@@ -5712,13 +5793,8 @@ please.SceneGraph = function () {
                 var children = this.__states[hint];
                 for (var i=0; i<children.length; i+=1) {
                     var child = children[i];
-                    if (exclude_test && exclude_test(child)) {
-                        continue;
-                    }
-                    else {
-                        child.__bind(prog);
-                        child.__draw(prog);
-                    }
+                    child.__bind(prog);
+                    child.__draw(prog);
                 }
             }
         }
@@ -5735,6 +5811,7 @@ please.SceneGraph = function () {
             };
             this.__alpha.sort(z_sort_function);
             // draw translucent elements
+            gl.depthMask(false);
             for (var i=0; i<this.__alpha.length; i+=1) {
                 var child = this.__alpha[i];
                 if (exclude_test && exclude_test(child)) {
@@ -5743,6 +5820,7 @@ please.SceneGraph = function () {
                 child.__bind(prog);
                 child.__draw(prog);
             }
+            gl.depthMask(true);
         }
     };
 };
@@ -5881,6 +5959,12 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
 //
 please.SceneGraph.prototype.__create_picking_node = function () {
     var node = new please.RenderNode("object_picking");
+    var exclude_test = function (item) {
+        return !!item.__is_particle_tracker
+    };
+    node.render = function () {
+        this.graph.draw(exclude_test);
+    };
     node.graph = this;
     return node;
 };
@@ -6776,7 +6860,7 @@ please.StructView.prototype = {
         }
     },
 };
-// - m.rain.js  ------------------------------------------------------------- //
+// - m.particles.js --------------------------------------------------------- //
 /* [+]
  *
  * This file provides M.GRL's particle system.
@@ -6788,24 +6872,33 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     please.GraphNode.call(this);
     this.__is_particle_tracker = true;
     this.__drawable = true;
+    this.billboard = 'particle';
+    this.draw_type = "sprite";
+    this.sort_mode = "alpha";
     var tracker = this.__tracker = {};
     if (typeof(asset.instance) === "function") {
+        var instance_args = [];
+        if (asset.__mgrl_asset_type === "img") {
+            instance_args = [true];
+        }
         tracker.asset = asset;
-        tracker.stamp = asset.instance();
+        tracker.stamp = asset.instance(true);
         tracker.stamp.use_manual_cache_invalidation();
         tracker.animated = !!tracker.stamp.play;
     }
     else {
         throw("Invalid asset.  Did you pass a GraphNode by mistake?");
     }
+    this.__ani_cache = tracker.stamp.__ani_cache;
+    this.__ani_store = tracker.stamp.__ani_store;
     console.assert(typeof(span) === "number" || typeof(span) === "function");
     console.assert(typeof(limit) === "number");
     console.assert(typeof(setup) === "function");
     console.assert(typeof(update) === "function");
     tracker.span = span;
     tracker.limit = limit;
-    tracker.setup = setup;
-    tracker.update = update;
+    tracker.setup = setup.bind(this);
+    tracker.update = update.bind(this);
     var struct = [
         ["start" , 1],
         ["expire", 1],
@@ -6838,6 +6931,14 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
 please.ParticleEmitter.prototype = Object.create(please.GraphNode.prototype);
 // Add a new particle to the system
 please.ParticleEmitter.prototype.rain = function () {
+    var args = [this.__rain.bind(this), 0];
+    for (var i=0; i<arguments.length; i+=1) {
+        args.push(arguments[i]);
+    }
+    window.setTimeout.apply(window, args);
+};
+// Add a new particle to the system
+please.ParticleEmitter.prototype.__rain = function () {
     var tracker = this.__tracker;
     if (tracker.live === tracker.limit) {
         console.error("Cannot add any more particles to emitter.");
@@ -6865,7 +6966,11 @@ please.ParticleEmitter.prototype.rain = function () {
     particle["expire"][0] = now + span;
     mat4.copy(particle["world_matrix"], this.shader.world_matrix);
     // call the particle initialization method
-    tracker.setup.call(this, particle);
+    var args = [particle];
+    for (var i=0; i<arguments.length; i+=1) {
+        args.push(arguments[i]);
+    }
+    tracker.setup.apply(this, args);
     tracker.live += 1;
 };
 // Create a new particle system with the same params as this one
@@ -6878,22 +6983,20 @@ please.ParticleEmitter.prototype.copy = function () {
 please.ParticleEmitter.prototype.clear = function () {
     this.__tracker.live = 0;
 };
+// Wrap the bind function for our 'stamp'
+please.ParticleEmitter.prototype.bind = function () {
+    if (this.__tracker.live > 0 && this.__tracker.stamp.bind) {
+        this.__tracker.stamp.bind();
+    }
+};
 // Update and draw the particle system
-please.ParticleEmitter.prototype.draw = function() {
+please.ParticleEmitter.prototype.draw = function () {
+    var prog = please.gl.get_program();
     var tracker = this.__tracker;
     var particle = tracker.view;
-    var cache = tracker.stamp.__ani_cache;
-    var store = tracker.stamp.__ani_store;
     var now = please.pipeline.__framestart;
     var delta = now - tracker.last;
     tracker.last = now;
-    // To quickly draw all of the particles with a single objcet, the
-    // object is set to manual cache invalidation and we overwrite
-    // it's animation cache for all applicable variables.  This allows
-    // us to override the world matrix driver.
-    if (tracker.live > 0) {
-        tracker.stamp.__bind();
-    }
     for (var i=0; i<tracker.live; i+=1) {
         particle.focus(i);
         if (now < particle["expire"][0]) {
@@ -6901,26 +7004,16 @@ please.ParticleEmitter.prototype.draw = function() {
             // current age, and call the update function on it, and
             // then draw the particle on screen.
             tracker.update.call(this, particle, delta);
-            for (var name in this.shader) if (this.shader.hasOwnProperty(name)) {
-                if (tracker.var_names.indexOf(name) !== -1) {
-                    if (store[name]) {
-                        store[name] = particle[name];
-                        cache[name] = null;
-                    }
-                }
-                else {
-                    var copy_from = this;
-                    if (this.__ani_store[name] === undefined || this.__ani_store[name] === null) {
-                        copy_from = tracker.stamp;
-                    }
-                    store[name] = copy_from.__ani_store[name];
-                    cache[name] = copy_from.__ani_cache[name];
+            for (var n=0; n<tracker.var_names.length; n+=1) {
+                var name = tracker.var_names[n];
+                if (prog.vars.hasOwnProperty(name)) {
+                    prog.vars[name] = particle[name];
                 }
             }
             // FIXME if the 'stamp' is animated, then we should adjust
             // the animation frame accordingly before drawing.  This
             // might be only really possible with ganis, but that is ok.
-            tracker.stamp.__draw();
+            tracker.stamp.draw();
         }
         else {
             // The particle is dead, so it should be removed.  This is
@@ -6941,7 +7034,7 @@ please.ParticleEmitter.prototype.__on_die = function(index) {
 };
 // - bundled glsl shader assets --------------------------------------------- //
 addEventListener("mgrl_gl_context_created", function () {
-    var lookup_table = {"picture_in_picture.frag": "\nprecision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform vec2 pip_size;\nuniform vec2 pip_coord;\nuniform float pip_alpha;\nuniform sampler2D main_texture;\nuniform sampler2D pip_texture;\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 screen_coord = pick(gl_FragCoord.xy);\n  vec4 color = texture2D(main_texture, screen_coord);\n\n  // scale the screen_coord to represent a percent\n  screen_coord *= 100.0;\n  vec2 pip_test = screen_coord - pip_coord;\n  if (pip_test.x >= 0.0 && pip_test.y >= 0.0 && pip_test.x <= pip_size.x && pip_test.y <= pip_size.y) {\n    vec4 pip_color = texture2D(pip_texture, pip_test / pip_size);\n    color = mix(color, pip_color, pip_color.a / pip_alpha);\n  }\n  gl_FragColor = color;\n}\n", "splat.vert": "\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\nattribute vec3 position;\n\n\nvoid main(void) {\n  gl_Position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);\n}\n", "simple.vert": "\n// matrices\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\n\n// vertex data\nattribute vec3 position;\nattribute vec3 normal;\nattribute vec2 tcoords;\n\n// misc adjustments\nuniform float mgrl_orthographic_scale;\n\n// billboard sprites enabler\nuniform float billboard_mode;\n\n// interpolated vertex data in various transformations\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  // pass along to the fragment shader\n  local_position = position * mgrl_orthographic_scale;\n  local_normal = normal;\n  local_tcoords = tcoords;\n\n  // calculate modelview matrix\n  mat4 model_view = view_matrix * world_matrix;\n  if (billboard_mode > 0.0) {\n    // clear out rotation information\n    model_view[0][0] = 1.0;\n    model_view[0][1] = 0.0;\n    model_view[0][2] = 0.0;\n    model_view[2][0] = 0.0;\n    model_view[2][1] = 0.0;\n    model_view[2][2] = 1.0;\n    if (billboard_mode == 2.0) {\n      model_view[1][0] = 0.0; \n      model_view[1][1] = 1.0; \n      model_view[1][2] = 0.0; \n    }\n  }\n\n  // various coordinate transforms\n  vec4 final_position = projection_matrix * model_view * vec4(local_position, 1.0);\n  world_position = (world_matrix * vec4(local_position, 1.0)).xyz;\n  screen_position = final_position.xyz;\n  gl_Position = final_position;\n}\n", "diffuse.frag": "\nprecision mediump float;\n\nuniform sampler2D diffuse_texture;\n\nuniform float alpha;\nuniform bool is_sprite;\nuniform bool is_transparent;\n\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  vec4 diffuse = texture2D(diffuse_texture, local_tcoords);\n  if (is_sprite) {\n    float cutoff = is_transparent ? 0.1 : 1.0;\n    if (diffuse.a < cutoff) {\n      discard;\n    }\n  }\n  else {\n    diffuse.a = alpha;\n  }\n  gl_FragColor = diffuse;\n}\n", "stereo.frag": "\n#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n\nuniform vec4 mgrl_clear_color;\nuniform float mgrl_frame_start;\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform sampler2D left_eye_texture;\nuniform sampler2D right_eye_texture;\n\nuniform bool stereo_split;\nuniform vec3 left_color;\nuniform vec3 right_color;\n\nvec4 sample_or_clear(sampler2D sampler, vec2 coord) {\n  vec4 color = texture2D(sampler, coord);\n  if (color.a == 0.0) {\n    color = mgrl_clear_color;\n  }\n  return color;\n}\n\nvoid main(void) {\n  vec2 coord = gl_FragCoord.xy / vec2(mgrl_buffer_width, mgrl_buffer_height);\n  vec4 color;\n\n  if (stereo_split) {\n    // FIXME: apply distortion effect needed for VR glasses\n    if (coord.x < 0.5) {\n      color = texture2D(left_eye_texture, vec2(coord.x*2.0, coord.y));\n    }\n    else {\n      color = texture2D(right_eye_texture, vec2((coord.x - 0.5)*2.0, coord.y));\n    }\n  }\n\n  else {\n    vec3 left = sample_or_clear(left_eye_texture, coord).rgb * left_color;\n    vec3 right = sample_or_clear(right_eye_texture, coord).rgb * right_color;\n    color = vec4((left+right), 1.0);\n  }\n  \n  gl_FragColor = color;\n}\n", "diagonal_wipe.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float blur_radius;\nuniform bool flip_axis;\nuniform bool flip_direction;\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  float slope = mgrl_buffer_height / mgrl_buffer_width;\n  if (flip_axis) {\n    slope *= -1.0;\n  }\n  float half_height = mgrl_buffer_height * 0.5;\n  float high_point = mgrl_buffer_height + half_height + blur_radius + 1.0;\n  float low_point = (half_height * -1.0) - blur_radius - 1.0;\n  float midpoint = mix(high_point, low_point, flip_direction ? 1.0 - progress : progress);\n  float test = ((gl_FragCoord.x - mgrl_buffer_width/2.0) * slope) + midpoint;\n\n  vec4 color;\n  float dist = gl_FragCoord.y - test;\n  if (dist <= blur_radius && dist >= (blur_radius*-1.0)) {\n    vec4 color_a = texture2D(texture_a, tcoords);\n    vec4 color_b = texture2D(texture_b, tcoords);\n    float blend = (dist + blur_radius) / (blur_radius*2.0);\n    color = mix(color_a, color_b, flip_direction ? 1.0 - blend : blend);\n  }\n  else {\n    if ((gl_FragCoord.y < test && !flip_direction) || (gl_FragCoord.y > test && flip_direction)) {\n      color = texture2D(texture_a, tcoords);\n    }\n    else {\n      color = texture2D(texture_b, tcoords);\n    }\n  }\n  gl_FragColor = color;\n}\n", "picking.frag": "\n#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n\nvarying vec3 local_position;\nuniform vec3 object_index;\nuniform bool mgrl_select_mode;\nuniform vec3 mgrl_model_local_min;\nuniform vec3 mgrl_model_local_size;\n\n\nvoid main(void) {\n  if (mgrl_select_mode) {\n    gl_FragColor = vec4(object_index, 1.0);\n  }\n  else {\n    vec3 shifted = local_position - mgrl_model_local_min;\n    vec3 scaled = shifted / mgrl_model_local_size;\n    gl_FragColor = vec4(scaled, 1.0);\n  };\n}\n", "disintegrate.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float px_size;\n\n\n// https://stackoverflow.com/questions/12964279/whats-the-origin-of-this-glsl-rand-one-liner\nfloat random_seed(vec2 co) {\n  return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);\n}\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 grid = gl_FragCoord.xy / px_size;\n  vec2 offset = fract(grid)*0.5;\n  float random = (random_seed(floor(grid + offset))*0.9) + 0.1;\n  random *= (1.0 - progress);\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  vec4 color;\n  if (random < 0.1) {\n    color = texture2D(texture_b, tcoords);\n  }\n  else {\n    color = texture2D(texture_a, tcoords);\n  }\n  gl_FragColor = color;\n}\n", "scatter_blur.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform sampler2D input_texture;\nuniform float blur_radius;\nuniform float samples;\n\nconst float max_samples = 32.0;\nconst float two_pi = 6.28318530718;\n\n\nvec2 screen_clamp(vec2 coord) {\n  return clamp(coord, vec2(0.0, 0.0), gl_FragCoord.xy);\n}\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvec2 prng(vec2 co) {\n  vec2 a = fract(co.yx * vec2(5.3983, 5.4427));\n  vec2 b = a.xy + vec2(21.5351, 14.3137);\n  vec2 c = a + dot(a.yx, b);\n  //return fract(c.x * c.y * 95.4337);\n  return fract(vec2(c.x*c.y*95.4337, c.x*c.y*97.597));\n}\n\n\nfloat prng(float n){\n  vec2 a = fract(n * vec2(5.3983, 5.4427));\n  vec2 b = a.xy + vec2(21.5351, 14.3137);\n  vec2 c = a + dot(a.yx, b);\n  return fract(c.x * c.y * 95.4337);\n}\n\n\nvoid main(void) {\n  float count = 0.0;\n  vec4 color = vec4(0.0, 0.0, 0.0, 0.0);\n\n  float x, y, radius;\n  float angle = two_pi * prng(gl_FragCoord.xy).x;\n  float angle_step = two_pi / samples;\n  \n  for (float i=0.0; i<max_samples; i+=1.0) {\n    radius = blur_radius * prng(angle);\n    x = gl_FragCoord.x + cos(angle)*radius;\n    y = gl_FragCoord.y + sin(angle)*radius;\n    angle += angle_step;\n    if (x < 0.0 || y < 0.0 || x >= mgrl_buffer_width || y >= mgrl_buffer_height) {\n      continue;\n    }\n    color += texture2D(input_texture, pick(vec2(x, y)));\n    count += 1.0;\n    if (count >= samples) {\n      break;\n    }\n  }\n  \n  if (count == 0.0) {\n    color = texture2D(input_texture, pick(gl_FragCoord.xy));\n    count = 1.0;\n  }\n  gl_FragColor = color / count;\n}\n"};
+    var lookup_table = {"picture_in_picture.frag": "\nprecision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform vec2 pip_size;\nuniform vec2 pip_coord;\nuniform float pip_alpha;\nuniform sampler2D main_texture;\nuniform sampler2D pip_texture;\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 screen_coord = pick(gl_FragCoord.xy);\n  vec4 color = texture2D(main_texture, screen_coord);\n\n  // scale the screen_coord to represent a percent\n  screen_coord *= 100.0;\n  vec2 pip_test = screen_coord - pip_coord;\n  if (pip_test.x >= 0.0 && pip_test.y >= 0.0 && pip_test.x <= pip_size.x && pip_test.y <= pip_size.y) {\n    vec4 pip_color = texture2D(pip_texture, pip_test / pip_size);\n    color = mix(color, pip_color, pip_color.a / pip_alpha);\n  }\n  gl_FragColor = color;\n}\n", "splat.vert": "\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\nattribute vec3 position;\n\n\nvoid main(void) {\n  gl_Position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);\n}\n", "simple.vert": "\n// matrices\nuniform mat4 view_matrix;\nuniform mat4 world_matrix;\nuniform mat4 particle_matrix;\nuniform mat4 projection_matrix;\n\n// vertex data\nattribute vec3 position;\nattribute vec3 normal;\nattribute vec2 tcoords;\n\n// misc adjustments\nuniform float mgrl_orthographic_scale;\n\n// billboard sprites enabler\nuniform float billboard_mode;\n\n// interpolated vertex data in various transformations\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  // pass along to the fragment shader\n  local_position = position * mgrl_orthographic_scale;\n  local_normal = normal;\n  local_tcoords = tcoords;\n\n  // calculate modelview matrix\n  mat4 model_view = view_matrix * world_matrix;\n  if (billboard_mode > 0.0) {\n    // clear out rotation information\n    model_view[0].xyz = world_matrix[0].xyz;\n    model_view[2].xyz = world_matrix[2].xyz;\n    if (billboard_mode == 2.0) {\n      model_view[1].xyz = world_matrix[1].xyz;\n    }\n  }\n\n  // various coordinate transforms\n  vec4 final_position = projection_matrix * model_view * vec4(local_position, 1.0);\n  world_position = (world_matrix * vec4(local_position, 1.0)).xyz;\n  screen_position = final_position.xyz;\n  gl_Position = final_position;\n}\n", "diffuse.frag": "\nprecision mediump float;\n\nuniform sampler2D diffuse_texture;\n\nuniform float alpha;\nuniform bool is_sprite;\nuniform bool is_transparent;\n\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  vec4 diffuse = texture2D(diffuse_texture, local_tcoords);\n  if (is_sprite) {\n    float cutoff = is_transparent ? 0.1 : 1.0;\n    if (diffuse.a < cutoff) {\n      discard;\n    }\n  }\n  diffuse.a *= alpha;\n  gl_FragColor = diffuse;\n}\n", "stereo.frag": "\n#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n\nuniform vec4 mgrl_clear_color;\nuniform float mgrl_frame_start;\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform sampler2D left_eye_texture;\nuniform sampler2D right_eye_texture;\n\nuniform bool stereo_split;\nuniform vec3 left_color;\nuniform vec3 right_color;\n\nvec4 sample_or_clear(sampler2D sampler, vec2 coord) {\n  vec4 color = texture2D(sampler, coord);\n  if (color.a == 0.0) {\n    color = mgrl_clear_color;\n  }\n  return color;\n}\n\nvoid main(void) {\n  vec2 coord = gl_FragCoord.xy / vec2(mgrl_buffer_width, mgrl_buffer_height);\n  vec4 color;\n\n  if (stereo_split) {\n    // FIXME: apply distortion effect needed for VR glasses\n    if (coord.x < 0.5) {\n      color = texture2D(left_eye_texture, vec2(coord.x*2.0, coord.y));\n    }\n    else {\n      color = texture2D(right_eye_texture, vec2((coord.x - 0.5)*2.0, coord.y));\n    }\n  }\n\n  else {\n    vec3 left = sample_or_clear(left_eye_texture, coord).rgb * left_color;\n    vec3 right = sample_or_clear(right_eye_texture, coord).rgb * right_color;\n    color = vec4((left+right), 1.0);\n  }\n  \n  gl_FragColor = color;\n}\n", "diagonal_wipe.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float blur_radius;\nuniform bool flip_axis;\nuniform bool flip_direction;\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  float slope = mgrl_buffer_height / mgrl_buffer_width;\n  if (flip_axis) {\n    slope *= -1.0;\n  }\n  float half_height = mgrl_buffer_height * 0.5;\n  float high_point = mgrl_buffer_height + half_height + blur_radius + 1.0;\n  float low_point = (half_height * -1.0) - blur_radius - 1.0;\n  float midpoint = mix(high_point, low_point, flip_direction ? 1.0 - progress : progress);\n  float test = ((gl_FragCoord.x - mgrl_buffer_width/2.0) * slope) + midpoint;\n\n  vec4 color;\n  float dist = gl_FragCoord.y - test;\n  if (dist <= blur_radius && dist >= (blur_radius*-1.0)) {\n    vec4 color_a = texture2D(texture_a, tcoords);\n    vec4 color_b = texture2D(texture_b, tcoords);\n    float blend = (dist + blur_radius) / (blur_radius*2.0);\n    color = mix(color_a, color_b, flip_direction ? 1.0 - blend : blend);\n  }\n  else {\n    if ((gl_FragCoord.y < test && !flip_direction) || (gl_FragCoord.y > test && flip_direction)) {\n      color = texture2D(texture_a, tcoords);\n    }\n    else {\n      color = texture2D(texture_b, tcoords);\n    }\n  }\n  gl_FragColor = color;\n}\n", "picking.frag": "\n#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n\nvarying vec3 local_position;\nuniform vec3 object_index;\nuniform bool mgrl_select_mode;\nuniform vec3 mgrl_model_local_min;\nuniform vec3 mgrl_model_local_size;\n\n\nvoid main(void) {\n  if (mgrl_select_mode) {\n    gl_FragColor = vec4(object_index, 1.0);\n  }\n  else {\n    vec3 shifted = local_position - mgrl_model_local_min;\n    vec3 scaled = shifted / mgrl_model_local_size;\n    gl_FragColor = vec4(scaled, 1.0);\n  };\n}\n", "disintegrate.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float px_size;\n\n\n// https://stackoverflow.com/questions/12964279/whats-the-origin-of-this-glsl-rand-one-liner\nfloat random_seed(vec2 co) {\n  return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);\n}\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 grid = gl_FragCoord.xy / px_size;\n  vec2 offset = fract(grid)*0.5;\n  float random = (random_seed(floor(grid + offset))*0.9) + 0.1;\n  random *= (1.0 - progress);\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  vec4 color;\n  if (random < 0.1) {\n    color = texture2D(texture_b, tcoords);\n  }\n  else {\n    color = texture2D(texture_a, tcoords);\n  }\n  gl_FragColor = color;\n}\n", "scatter_blur.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform sampler2D input_texture;\nuniform float blur_radius;\nuniform float samples;\n\nconst float max_samples = 32.0;\nconst float two_pi = 6.28318530718;\n\n\nvec2 screen_clamp(vec2 coord) {\n  return clamp(coord, vec2(0.0, 0.0), gl_FragCoord.xy);\n}\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvec2 prng(vec2 co) {\n  vec2 a = fract(co.yx * vec2(5.3983, 5.4427));\n  vec2 b = a.xy + vec2(21.5351, 14.3137);\n  vec2 c = a + dot(a.yx, b);\n  //return fract(c.x * c.y * 95.4337);\n  return fract(vec2(c.x*c.y*95.4337, c.x*c.y*97.597));\n}\n\n\nfloat prng(float n){\n  vec2 a = fract(n * vec2(5.3983, 5.4427));\n  vec2 b = a.xy + vec2(21.5351, 14.3137);\n  vec2 c = a + dot(a.yx, b);\n  return fract(c.x * c.y * 95.4337);\n}\n\n\nvoid main(void) {\n  float count = 0.0;\n  vec4 color = vec4(0.0, 0.0, 0.0, 0.0);\n\n  float x, y, radius;\n  float angle = two_pi * prng(gl_FragCoord.xy).x;\n  float angle_step = two_pi / samples;\n  \n  for (float i=0.0; i<max_samples; i+=1.0) {\n    radius = blur_radius * prng(angle);\n    x = gl_FragCoord.x + cos(angle)*radius;\n    y = gl_FragCoord.y + sin(angle)*radius;\n    angle += angle_step;\n    if (x < 0.0 || y < 0.0 || x >= mgrl_buffer_width || y >= mgrl_buffer_height) {\n      continue;\n    }\n    color += texture2D(input_texture, pick(vec2(x, y)));\n    count += 1.0;\n    if (count >= samples) {\n      break;\n    }\n  }\n  \n  if (count == 0.0) {\n    color = texture2D(input_texture, pick(gl_FragCoord.xy));\n    count = 1.0;\n  }\n  gl_FragColor = color / count;\n}\n"};
     please.prop_map(lookup_table, function (name, src) {
         // see m.media.js's please.media.handlers.glsl for reference:
         please.media.assets[name] = please.gl.__build_shader(src, name);

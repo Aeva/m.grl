@@ -61,6 +61,24 @@ language features that are present in Firefox but absent from other
 browsers. This file also implements some helper functions that are
 widely used within M.GRL&#8217;s codebase, and defines the module&#8217;s faux
 namespace &#8216;please&#8217;.</p>
+<div class="section" id="please-prop-map">
+<h2>please.prop_map<a class="headerlink" href="#please-prop-map" title="Permalink to this headline">¶</a></h2>
+<p><em>please.prop_map</em> <strong>(dict, callback)</strong></p>
+<p>Variation of array.map for non-array objects:</p>
+<ul class="simple">
+<li><strong>dict</strong> an object to be enumerated.</li>
+<li><strong>callback</strong> A function to be called for each of the object&#8217;s
+properties.</li>
+</ul>
+<p>Returns an object with same keys as the dict parameter, but who&#8217;s values
+are the callback return values.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">some_ob</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;prop_name&quot;</span> <span class="o">:</span> <span class="s2">&quot;prop_value&quot;</span><span class="p">};</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">prop_map</span><span class="p">(</span><span class="nx">some_ob</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">key</span><span class="p">,</span> <span class="nx">value</span><span class="p">,</span> <span class="nx">dict</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="nx">key</span> <span class="o">+</span> <span class="s2">&quot; = &quot;</span> <span class="o">+</span> <span class="nx">value</span><span class="p">);</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+</div>
 <div class="section" id="please-once">
 <h2>please.once<a class="headerlink" href="#please-once" title="Permalink to this headline">¶</a></h2>
 <p><em>please.once</em> <strong>(callback)</strong></p>
@@ -324,6 +342,7 @@ removed. To clear the main handle&#8217;s driver function, set it to null.</p>
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">m.defs.js</a><ul>
+<li><a class="reference internal" href="#please-prop-map">please.prop_map</a></li>
 <li><a class="reference internal" href="#please-once">please.once</a></li>
 <li><a class="reference internal" href="#please-split-params">please.split_params</a></li>
 <li><a class="reference internal" href="#please-get-properties">please.get_properties</a></li>

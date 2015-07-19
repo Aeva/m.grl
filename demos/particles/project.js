@@ -127,7 +127,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(lamp);
     demo.main.lamp = lamp;
     lamp.shader.is_floor = false;
-    lamp.scale = [2, 2, 2];
     lamp.use_manual_cache_invalidation();
 
     // Add some particle effect thing
