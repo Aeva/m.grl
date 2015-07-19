@@ -15,6 +15,8 @@ API Reference
     m.media.rst
     m.multipass.rst
     m.pages.rst
+    m.particles.rst
     m.prefab.rst
     m.qa.rst
+    m.struct.rst
     m.time.rst

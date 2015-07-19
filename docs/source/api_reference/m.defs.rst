@@ -12,6 +12,28 @@ namespace 'please'.
 
 
 
+please.prop_map
+---------------
+*please.prop\_map* **(dict, callback)**
+
+Variation of array.map for non-array objects:
+
+-  **dict** an object to be enumerated.
+
+-  **callback** A function to be called for each of the object's
+   properties.
+
+Returns an object with same keys as the dict parameter, but who's values
+are the callback return values.
+
+.. code-block:: javascript
+
+    var some_ob = {"prop_name" : "prop_value"};
+    please.prop_map(some_ob, function(key, value, dict) {
+        console.info(key + " = " + value);
+    });
+
+
 please.once
 -----------
 *please.once* **(callback)**
