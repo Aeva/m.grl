@@ -57,11 +57,23 @@ void main(void) {
   float dist_a = distance(world_position, cone_a);
   float dist_b = distance(world_position, cone_b);
   vec3 cone = dist_a < dist_b ? cone_a : cone_b;
+  float angle_mod = is_sprite ? 1.8 : angle;
+
   if (world_position.z < cone.z) {
     float scale = distance(world_position.z, cone.z);
-    if (distance(world_position.xy, cone.xy) <= scale*angle) {
+    if (distance(world_position.xy, cone.xy) <= scale*angle_mod) {
       float dist = min(dist_a, dist_b);
       illuminated = 1.0 - (clamp(dist - falloff.x, 0.0, falloff.y) / falloff.y);
+    }
+  }
+
+
+  if (is_sprite) {
+    if (illuminated < 0.1) {
+      diffuse_color = vec4(0.8, 0.8, 0.8, 0.1);
+    }
+    else {
+      diffuse_color = vec4(1.0, 1.0, 1.0, 1.0);
     }
   }
 
@@ -71,7 +83,7 @@ void main(void) {
   vec3 bright_color = diffuse_color.rgb;
   vec3 applied_light = mix(dim_color, bright_color, illuminated);
   vec4 combined_color = vec4(applied_light, diffuse_color.a);
-
+  
 
   // determine the horizon falloff
   float dist = distance(world_position.xy, vec2(0.0, 0.0));
