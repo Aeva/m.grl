@@ -210,19 +210,33 @@ var ParticleFountain = function() {
     var emitter = new please.ParticleEmitter(asset, span, limit, setup, update, ext);
     emitter.shader.is_floor = false;
 
-    for (var i=0; i<limit; i+=1) {
-        emitter.rain(true);
-    }
-
-    function shaker () {
-        if (emitter.__tracker.live < limit) {
-            for (var i=0; i<10 && emitter.__tracker.live < limit-1; i+=1) {
+    
+    function shaker() {
+        var space = limit - emitter.__tracker.live;
+        if (space) {
+            var count = space < 10 ? space : 10;
+            for (var i=0; i<count; i+=1) {
                 emitter.rain();
             }
         }
         setTimeout(shaker, 50);
     };
     shaker();
+
+
+    function prepopulate() {
+        if (!document.hidden) {
+            var space = limit - emitter.__tracker.live;
+            for (var i=0; i<space; i+=1) {
+                emitter.rain(true);
+            }
+        }
+    };
+    prepopulate();
+
+    
+    document.addEventListener("visibilitychange", prepopulate, false);
+    
     
     return emitter;
 };
