@@ -7009,7 +7009,7 @@ please.ParticleEmitter.prototype.draw = function () {
                 // The particle is alive, so we will figure out its
                 // current age, and call the update function on it, and
                 // then draw the particle on screen.
-                age = (now - particle["start"][0]) / particle["expire"][0];
+                age = (now - particle["start"][0]) / (particle["expire"][0] - particle["start"][0]);
                 tracker.update.call(this, particle, delta, age);
                 for (var n=0; n<tracker.var_names.length; n+=1) {
                     var name = tracker.var_names[n];
