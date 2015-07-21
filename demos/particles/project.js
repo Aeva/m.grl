@@ -135,11 +135,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // Add some particle effect thing
     var fountain = new ParticleFountain();
     fountain.scale = [1.5, 1.5, 1.5];
+    fountain.max_fps = 24.0;
     graph.add(fountain);
     demo.main.fountain = fountain;
-    for (var i=0; i<800; i+=1) {
-        fountain.rain();
-    }
     
     // Add a renderer using the default shader.
     var renderer = demo.main.renderer = new please.RenderNode("default");
@@ -167,42 +165,65 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
 
 var ParticleFountain = function() {
-    //var asset = please.access("coin.gani");
     var asset = please.access("snow_flakes.png");
-    var span = Infinity;
-    var limit = 1000;
+    var span = function () { return 5000 + Math.random()*1000; };
+    var limit = 300;
     var ext = {
-        "vector" : [0,0,0],
-        "skitter" : 1,
-        "alpha" : 1,
+        "pt_1" : [0, 0, 0],
+        "pt_2" : [0, 0, 0],
+        "pt_3" : [0, 0, 0],
     };
 
-    var area = 15;
+    var area = 30;
 
-    var setup = function (particle) {
-        var coord = [
+    var setup = function (particle, accelerate) {
+        if (accelerate) {
+            var shift = (particle.expire[0] - particle.start[0]) * Math.random();
+            particle.start[0] -= shift;
+            particle.expire[0] -= shift;
+
+        }
+        vec3.copy(particle.pt_1, [
             (Math.random()*area)-(area*.5),
             (Math.random()*area)-(area*.5),
-            Math.random()*15+1];
+            15 + Math.random()*5]);
+
+        vec3.copy(particle.pt_2, [
+            (Math.random()*area)-(area*.5),
+            (Math.random()*area)-(area*.5),
+            Math.random()*25]);
+
+        vec3.copy(particle.pt_3, [
+            (Math.random()*area)-(area*.5),
+            (Math.random()*area)-(area*.5),
+                -5.0]);
+        
         mat4.translate(
-            particle.world_matrix, particle.world_matrix, coord);
-
-        particle.vector = [
-            (Math.random()*1)-.5,
-            (Math.random()*1)-.5,
-            0];
-
-        particle.skitter = Math.random()+0.5;
-        particle.alpha = Math.random()*.8;
+            particle.world_matrix, this.shader.world_matrix, particle.start);
     };
-    var update = function (particle, dt) {
-        var angle = please.degrees(dt/100000) * particle.skitter[0];
-        mat4.rotateZ(particle.world_matrix, particle.world_matrix, angle);
+    var update = function (particle, dt, a) {
         mat4.translate(
-            particle.world_matrix, particle.world_matrix, particle.vector);
+            particle.world_matrix,
+            this.shader.world_matrix,
+            please.bezier([particle.pt_1, particle.pt_2, particle.pt_3], a));
     };
     var emitter = new please.ParticleEmitter(asset, span, limit, setup, update, ext);
     emitter.shader.is_floor = false;
+
+    for (var i=0; i<limit; i+=1) {
+        emitter.rain(true);
+    }
+
+    function shaker () {
+        if (emitter.__tracker.live < limit) {
+            for (var i=0; i<10 && emitter.__tracker.live < limit-1; i+=1) {
+                emitter.rain();
+            }
+        }
+        setTimeout(shaker, 50);
+    };
+    shaker();
+    
     return emitter;
 };
 
