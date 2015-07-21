@@ -163,6 +163,7 @@ please.ParticleEmitter.prototype.draw = function () {
     var particle = tracker.view;
     var now = please.pipeline.__framestart;
     var delta = now - tracker.last;
+    var age;
     tracker.last = now;
 
     if (this.max_fps <= 0 || (now - tracker.__last_update) >= 1000/this.max_fps) {
@@ -170,11 +171,12 @@ please.ParticleEmitter.prototype.draw = function () {
 
         RANGE(i, tracker.live) {
             particle.focus(i);
-            if (now < particle["expire"][0]) {
+            if (now <= particle["expire"][0]) {
                 // The particle is alive, so we will figure out its
                 // current age, and call the update function on it, and
                 // then draw the particle on screen.
-                tracker.update.call(this, particle, delta);
+                age = (now - particle["start"][0]) / particle["expire"][0];
+                tracker.update.call(this, particle, delta, age);
                 ITER(n, tracker.var_names) {
                     var name = tracker.var_names[n];
                     if (prog.vars.hasOwnProperty(name)) {
