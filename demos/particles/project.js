@@ -138,9 +138,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     fountain.max_fps = 24.0;
     graph.add(fountain);
     demo.main.fountain = fountain;
-    for (var i=0; i<800; i+=1) {
-        fountain.rain();
-    }
     
     // Add a renderer using the default shader.
     var renderer = demo.main.renderer = new please.RenderNode("default");
@@ -168,19 +165,24 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
 
 var ParticleFountain = function() {
-    //var asset = please.access("coin.gani");
     var asset = please.access("snow_flakes.png");
-    var span = 5000;
-    var limit = 1000;
+    var span = function () { return 5000 + Math.random()*1000; };
+    var limit = 300;
     var ext = {
         "pt_1" : [0, 0, 0],
         "pt_2" : [0, 0, 0],
         "pt_3" : [0, 0, 0],
     };
 
-    var area = 5;
+    var area = 30;
 
-    var setup = function (particle) {
+    var setup = function (particle, accelerate) {
+        if (accelerate) {
+            var shift = (particle.expire[0] - particle.start[0]) * Math.random();
+            particle.start[0] -= shift;
+            particle.expire[0] -= shift;
+
+        }
         vec3.copy(particle.pt_1, [
             (Math.random()*area)-(area*.5),
             (Math.random()*area)-(area*.5),
@@ -189,7 +191,7 @@ var ParticleFountain = function() {
         vec3.copy(particle.pt_2, [
             (Math.random()*area)-(area*.5),
             (Math.random()*area)-(area*.5),
-            Math.random()*15]);
+            Math.random()*25]);
 
         vec3.copy(particle.pt_3, [
             (Math.random()*area)-(area*.5),
@@ -207,6 +209,21 @@ var ParticleFountain = function() {
     };
     var emitter = new please.ParticleEmitter(asset, span, limit, setup, update, ext);
     emitter.shader.is_floor = false;
+
+    for (var i=0; i<limit; i+=1) {
+        emitter.rain(true);
+    }
+
+    function shaker () {
+        if (emitter.__tracker.live < limit) {
+            for (var i=0; i<10 && emitter.__tracker.live < limit-1; i+=1) {
+                emitter.rain();
+            }
+        }
+        setTimeout(shaker, 50);
+    };
+    shaker();
+    
     return emitter;
 };
 
