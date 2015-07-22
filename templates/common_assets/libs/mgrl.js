@@ -6927,6 +6927,9 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     tracker.view = new please.StructView(tracker.blob);
     tracker.last = window.performance.now();
     tracker.live = 0;
+    // fps limiter for particle updates
+    tracker.__last_update = 0;
+    this.max_fps = 0;
 };
 please.ParticleEmitter.prototype = Object.create(please.GraphNode.prototype);
 // Add a new particle to the system
@@ -6996,33 +6999,50 @@ please.ParticleEmitter.prototype.draw = function () {
     var particle = tracker.view;
     var now = please.pipeline.__framestart;
     var delta = now - tracker.last;
+    var age;
     tracker.last = now;
-    for (var i=0; i<tracker.live; i+=1) {
-        particle.focus(i);
-        if (now < particle["expire"][0]) {
-            // The particle is alive, so we will figure out its
-            // current age, and call the update function on it, and
-            // then draw the particle on screen.
-            tracker.update.call(this, particle, delta);
+    if (this.max_fps <= 0 || (now - tracker.__last_update) >= 1000/this.max_fps) {
+        tracker.__last_update = now;
+        for (var i=0; i<tracker.live; i+=1) {
+            particle.focus(i);
+            if (now <= particle["expire"][0]) {
+                // The particle is alive, so we will figure out its
+                // current age, and call the update function on it, and
+                // then draw the particle on screen.
+                age = (now - particle["start"][0]) / (particle["expire"][0] - particle["start"][0]);
+                tracker.update.call(this, particle, delta, age);
+                for (var n=0; n<tracker.var_names.length; n+=1) {
+                    var name = tracker.var_names[n];
+                    if (prog.vars.hasOwnProperty(name)) {
+                        prog.vars[name] = particle[name];
+                    }
+                }
+                // FIXME if the 'stamp' is animated, then we should adjust
+                // the animation frame accordingly before drawing.  This
+                // might be only really possible with ganis, but that is ok.
+                tracker.stamp.draw();
+            }
+            else {
+                // The particle is dead, so it should be removed.  This is
+                // done by writting it over with the information about the
+                // last particle in the blob, and decrementing the
+                // particle counter.  The 'i' index is also decremented so
+                // as a new particle is now in the same slot.
+                this.__on_die(i);
+                i -= 1;
+            }
+        }
+    }
+    else {
+        for (var i=0; i<tracker.live; i+=1) {
+            particle.focus(i);
             for (var n=0; n<tracker.var_names.length; n+=1) {
                 var name = tracker.var_names[n];
                 if (prog.vars.hasOwnProperty(name)) {
                     prog.vars[name] = particle[name];
                 }
             }
-            // FIXME if the 'stamp' is animated, then we should adjust
-            // the animation frame accordingly before drawing.  This
-            // might be only really possible with ganis, but that is ok.
             tracker.stamp.draw();
-        }
-        else {
-            // The particle is dead, so it should be removed.  This is
-            // done by writting it over with the information about the
-            // last particle in the blob, and decrementing the
-            // particle counter.  The 'i' index is also decremented so
-            // as a new particle is now in the same slot.
-            this.__on_die(i);
-            i -= 1;
         }
     }
 };

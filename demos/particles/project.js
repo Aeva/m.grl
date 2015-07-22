@@ -175,6 +175,7 @@ var ParticleFountain = function() {
     };
 
     var area = 30;
+    var landing = 40;
 
     var setup = function (particle, accelerate) {
         if (accelerate) {
@@ -194,8 +195,8 @@ var ParticleFountain = function() {
             Math.random()*25]);
 
         vec3.copy(particle.pt_3, [
-            (Math.random()*area)-(area*.5),
-            (Math.random()*area)-(area*.5),
+            (Math.random()*landing)-(landing*.5),
+            (Math.random()*landing)-(landing*.5),
                 -5.0]);
         
         mat4.translate(
