@@ -113,8 +113,11 @@ def save(operator, context, options={}):
         used_selection = False
         if selection.dupli_type == "NONE" and selection.type == "MESH":
             model = Model(selection, scene, options, texture_store)
-            export_meshes.append(model)
-            used_selection = True
+            if not model.face_vertices:
+                print("Skipping empty mesh {0}".format(selection))
+            else:
+                export_meshes.append(model)
+                used_selection = True
 
         elif selection.type == "EMPTY":
             empty = Empty(selection, scene, options)
