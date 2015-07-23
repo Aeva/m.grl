@@ -99,7 +99,7 @@ window.addEventListener("load", function () {
 });
 
 
-addEventListener("mgrl_media_ready", function () {
+addEventListener("mgrl_media_ready", please.once(function () {
     // build the shader program
     var build_shader = function(name, vert_file, frag_file) {
         var vert = please.access(vert_file);
@@ -260,7 +260,7 @@ addEventListener("mgrl_media_ready", function () {
 
     // start the draw loop
     please.pipeline.start();
-});
+}));
 
 
 var FloorNode = function () {
