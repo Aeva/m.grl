@@ -103,8 +103,9 @@ class TextureStore(object):
         'refcode_for_model' behavior if the current rendering engine is
         blender internal.
         """
-        raise NotImplementedError(
-            "Searching for diffuse maps used by Blender internal.")
+        # HACK - assume there is only one material for this object
+        assert len(model.mesh.materials) == 1
+        return model.mesh.materials[0].texture_slots[0].texture.image
         
     def export(self):
         """
