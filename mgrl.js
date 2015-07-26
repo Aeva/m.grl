@@ -4379,6 +4379,12 @@ please.gl.pick = function (x, y) {
     return px;
 }
 // - m.jta.js ------------------------------------------------------------- //
+/* [+] 
+ *
+ * This part of M.GRL implements the importer for JTA encoded models
+ * and animations.
+ *
+ */
 // "jta" media type handler
 please.media.search_paths.jta = "";
 please.media.handlers.jta = function (url, asset_name, callback) {
@@ -4387,7 +4393,7 @@ please.media.handlers.jta = function (url, asset_name, callback) {
     };
     please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
 };
-// JTA model loader.  This will replace the old one once it works.
+// JTA model loader.
 please.gl.__jta_model = function (src, uri) {
     // The structure of a JTA file is json.  Large blocks of agregate
     // data are base64 encoded binary data.

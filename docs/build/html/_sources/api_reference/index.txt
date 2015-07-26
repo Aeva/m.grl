@@ -13,6 +13,7 @@ API Reference
     m.gl.rst
     m.graph.rst
     m.input.rst
+    m.jta.rst
     m.media.rst
     m.multipass.rst
     m.pages.rst
