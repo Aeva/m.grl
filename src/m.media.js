@@ -558,7 +558,7 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     this.scale_filter = "NEAREST";
 
     var builder = new please.builder.SpriteBuilder(center, scale, alpha);
-    var flat = builder.add_flat(x, y, this.width, this.height, width, height);
+    var flat = builder.add_flat(this.width, this.height, x, y, width, height);
     var hint = flat.hint;
 
     var data = please.media.__image_buffer_cache[hint];

@@ -1922,7 +1922,7 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     if (alpha === undefined) { alpha = true; };
     this.scale_filter = "NEAREST";
     var builder = new please.builder.SpriteBuilder(center, scale, alpha);
-    var flat = builder.add_flat(x, y, this.width, this.height, width, height);
+    var flat = builder.add_flat(this.width, this.height, x, y, width, height);
     var hint = flat.hint;
     var data = please.media.__image_buffer_cache[hint];
     if (!data) {
@@ -3327,7 +3327,7 @@ please.gani.build_gl_buffers = function (ani) {
                 var offset_x = part.x-24;
                 var offset_y = 48-part.y-clip_height;
                 var receipt = builder.add_flat(
-                    clip_x, clip_y, width, height,
+                    width, height, clip_x, clip_y,
                     clip_width, clip_height,
                     offset_x, offset_y);
                 part.ibo_start = receipt.offset;
@@ -6347,9 +6347,39 @@ please.StereoCamera.prototype._create_subcamera = function (position) {
     return eye;
 };
 // - m.builder.js -------------------------------------------------------- //
+/* [+]
+ *
+ * The functionality described in m.builder.js is used to construct
+ * vertex buffer objects of quads for rendering sprites.
+ *
+ */
 // namespace
 please.builder = {};
-// This is used to programatically populate drawable objects.
+// [+] please.builder.SpriteBuilder(center, resolution)
+//
+// The SpriteBuilder object is used to programatically generate a
+// drawable object.  The constructor arguments 'center' and
+// 'resolution' are optional and may be omitted.  They default to
+// 'false' and 64 respectively.
+//
+// To use the builder object, the "add_flat" method is called to add
+// quads to the final object, and the "build" method is used to
+// compile and return the vertex and index buffer objects to be used
+// for rendering elsewhere.
+//
+// The "add_flat" method takes the following arguments:
+// - **width**
+// - **height**
+// - **clip_x** defaults to 0
+// - **clip_y** defaults to 0
+// - **clip_width** defaults to width-offset_x
+// - **clip_height** defaults to height-offest_y
+// - **offset_x** defaults to 0
+// - **offset_y** defaults to 0
+//
+// The "build" method takes no arguments and returns an object with
+// the properties "vbo" and "ibo".
+// 
 please.builder.SpriteBuilder = function (center, resolution) {
     if (center === undefined) { center = false; };
     if (resolution === undefined) { resolution = 64; }; // pixels to gl unit
@@ -6365,7 +6395,7 @@ please.builder.SpriteBuilder = function (center, resolution) {
 };
 please.builder.SpriteBuilder.prototype = {
     // add a quad to the builder; returns the element draw range.
-    "add_flat" : function (clip_x, clip_y, width, height, clip_width, clip_height, offset_x, offset_y) {
+    "add_flat" : function (width, height, clip_x, clip_y, clip_width, clip_height, offset_x, offset_y) {
         if (clip_x === undefined) { clip_x = 0; };
         if (clip_y === undefined) { clip_y = 0; };
         if (clip_width === undefined) { clip_width = width-offset_x; };

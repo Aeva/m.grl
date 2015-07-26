@@ -1,10 +1,41 @@
 // - m.builder.js -------------------------------------------------------- //
 
+/* [+]
+ *
+ * The functionality described in m.builder.js is used to construct
+ * vertex buffer objects of quads for rendering sprites.
+ *
+ */
+
 // namespace
 please.builder = {};
 
 
-// This is used to programatically populate drawable objects.
+// [+] please.builder.SpriteBuilder(center, resolution)
+//
+// The SpriteBuilder object is used to programatically generate a
+// drawable object.  The constructor arguments 'center' and
+// 'resolution' are optional and may be omitted.  They default to
+// 'false' and 64 respectively.
+//
+// To use the builder object, the "add_flat" method is called to add
+// quads to the final object, and the "build" method is used to
+// compile and return the vertex and index buffer objects to be used
+// for rendering elsewhere.
+//
+// The "add_flat" method takes the following arguments:
+// - **width**
+// - **height**
+// - **clip_x** defaults to 0
+// - **clip_y** defaults to 0
+// - **clip_width** defaults to width-offset_x
+// - **clip_height** defaults to height-offest_y
+// - **offset_x** defaults to 0
+// - **offset_y** defaults to 0
+//
+// The "build" method takes no arguments and returns an object with
+// the properties "vbo" and "ibo".
+// 
 please.builder.SpriteBuilder = function (center, resolution) {
     DEFAULT(center, false);
     DEFAULT(resolution, 64); // pixels to gl unit
@@ -20,7 +51,7 @@ please.builder.SpriteBuilder = function (center, resolution) {
 };
 please.builder.SpriteBuilder.prototype = {
     // add a quad to the builder; returns the element draw range.
-    "add_flat" : function (clip_x, clip_y, width, height, clip_width, clip_height, offset_x, offset_y) {
+    "add_flat" : function (width, height, clip_x, clip_y, clip_width, clip_height, offset_x, offset_y) {
         DEFAULT(clip_x, 0);
         DEFAULT(clip_y, 0);
         DEFAULT(clip_width, width-offset_x);
