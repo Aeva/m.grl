@@ -53,7 +53,7 @@ please.pipeline.add_autoscale = function (max_height) {
 // In the future, this will be animated to show the progress of
 // pending assets.
 //
-please.LoadingScreen = function () {
+please.LoadingScreen = function (transition_effect) {
     var graph = new please.SceneGraph();
     var camera = new please.CameraNode();
     camera.look_at = function () { return [0.0, 0.0, 0.0]};
@@ -76,10 +76,24 @@ please.LoadingScreen = function () {
     graph.add(container);
     graph.add(camera);
     camera.activate();
-    
+
     var effect = new please.RenderNode("default");
     effect.graph = graph;
-    return effect;
+
+    var transition = typeof(transition_effect) === "function" ? new transition_effect() : transition_effect;
+    if (!transition) {
+        transition = new please.Disintegrate();
+        transition.shader.px_size = 50;
+    }
+    
+    transition.reset_to(effect);
+    transition.raise_curtains = function (target) {
+        window.setTimeout(function () {
+            transition.blend_to(target, 1500);
+        }, 2000);
+    };
+       
+    return transition;
 };
 
 
