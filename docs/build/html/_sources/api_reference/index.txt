@@ -7,6 +7,7 @@ API Reference
     
     m.builder.rst
     m.camera.rst
+    m.compositing.rst
     m.defs.rst
     m.effects.rst
     m.gani.rst

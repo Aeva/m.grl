@@ -1,0 +1,189 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>m.compositing.js &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="up" title="API Reference" href="index.html" />
+    <link rel="next" title="m.defs.js" href="m.defs.html" />
+    <link rel="prev" title="m.camera.js" href="m.camera.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.defs.html" title="m.defs.js"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="m.camera.html" title="m.camera.js"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="m-compositing-js">
+<h1>m.compositing.js<a class="headerlink" href="#m-compositing-js" title="Permalink to this headline">¶</a></h1>
+<p>The compositing graph is a system for automating and simplifying
+multipass rendering. A compositing node is an object that sates which
+shader program should be used durring, what texture variables it may
+set, and defines a function which contains the drawing code.</p>
+<p>The texture properties of a compositing node may be either a URI string
+denoting an image file, or it can be another compositing node instance.
+In the later case, a texture will be generated automatically by
+rendering the child node to a texture before rendering the parent.</p>
+<p>The compositing graph is able to solve the correct order in which nodes
+should be drawn, and so drawing a scene is a singular function call:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">please</span><span class="p">.</span><span class="nx">render</span><span class="p">(</span><span class="nx">some_compositing_node</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="section" id="please-rendernode">
+<h2>please.RenderNode<a class="headerlink" href="#please-rendernode" title="Permalink to this headline">¶</a></h2>
+<p><em>please.RenderNode</em> <strong>(shader_program)</strong></p>
+<p>This constructor function creates a compositing node. The
+&#8216;shader_program&#8217; argument is either the name of a compiled shader
+program or a shader program object. RenderNodes have the following
+properties and methods:</p>
+<ul class="simple">
+<li><strong>shader</strong> the shader object contains animatable bindings for all
+uniform variables defined by the provided shader. Sampler variables
+may be set as a URI string or another RenderNode object.</li>
+<li><strong>graph</strong> if this property is set to a graph node, the default render
+method will automatically draw this graph node.</li>
+<li><strong>peek</strong> may be null or a function that returns a graph node. This
+may be used to say that another render node should be rendered
+instead of this one.</li>
+<li><strong>render</strong> by default is a function that will call please.gl.splat if
+the graph property is null or will otherwise call graph.draw(). This
+function may be overridden to support custom drawing logic.</li>
+</ul>
+</div>
+<div class="section" id="please-render">
+<h2>please.render<a class="headerlink" href="#please-render" title="Permalink to this headline">¶</a></h2>
+<p><em>please.render</em> <strong>(node)</strong></p>
+<p>Renders the compositing tree.</p>
+</div>
+<div class="section" id="please-transitioneffect">
+<h2>please.TransitionEffect<a class="headerlink" href="#please-transitioneffect" title="Permalink to this headline">¶</a></h2>
+<p><em>please.TransitionEffect</em> <strong>(shader_program)</strong></p>
+<p>TransitionEffect nodes are RenderNodes with some different defaults.
+They are used to blend between two different RenderNodes.</p>
+<p>TransitionEffects differ from RenderNodes in the following ways:</p>
+<ul class="simple">
+<li>assumes the shader defines a float uniform named &#8220;progress&#8221;</li>
+<li>assumes the shader defines a sampler uniform named &#8220;texture_a&#8221;</li>
+<li>assumes the shader defines a sampler uniform named &#8220;texture_b&#8221;</li>
+<li>the render method always calls please.gl.splat()</li>
+<li>the peek method is defined so as to return one of the textures if
+shader.progress is either 0.0 or 1.0.</li>
+</ul>
+<p>TransitionEffect nodes also define the following:</p>
+<ul class="simple">
+<li><strong>reset_to(texture)</strong> sets shader.texture_a to texture and
+shader.progress to 0.0.</li>
+<li><strong>blend_to(texture, time)</strong> sets shader.texture_b to texture, and
+shader.progress to a driver that blends from 0.0 to 1.0 over the
+provide number of miliseconds.</li>
+<li><strong>blend_between(texture_a, texture_b, time)</strong> shorthand method for
+the above two functions.</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">m.compositing.js</a><ul>
+<li><a class="reference internal" href="#please-rendernode">please.RenderNode</a></li>
+<li><a class="reference internal" href="#please-render">please.render</a></li>
+<li><a class="reference internal" href="#please-transitioneffect">please.TransitionEffect</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="m.camera.html"
+                        title="previous chapter">m.camera.js</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="m.defs.html"
+                        title="next chapter">m.defs.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/m.compositing.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.defs.html" title="m.defs.js"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="m.camera.html" title="m.camera.js"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" >API Reference</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>
