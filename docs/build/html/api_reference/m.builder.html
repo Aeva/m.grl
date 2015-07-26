@@ -1,0 +1,158 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>m.builder.js &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="up" title="API Reference" href="index.html" />
+    <link rel="next" title="m.camera.js" href="m.camera.html" />
+    <link rel="prev" title="API Reference" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.camera.html" title="m.camera.js"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="API Reference"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="m-builder-js">
+<h1>m.builder.js<a class="headerlink" href="#m-builder-js" title="Permalink to this headline">¶</a></h1>
+<p>The functionality described in m.builder.js is used to construct vertex
+buffer objects of quads for rendering sprites.</p>
+<div class="section" id="please-builder-spritebuilder">
+<h2>please.builder.SpriteBuilder<a class="headerlink" href="#please-builder-spritebuilder" title="Permalink to this headline">¶</a></h2>
+<p><em>please.builder.SpriteBuilder</em> <strong>(center, resolution)</strong></p>
+<p>The SpriteBuilder object is used to programatically generate a drawable
+object. The constructor arguments &#8216;center&#8217; and &#8216;resolution&#8217; are optional
+and may be omitted. They default to &#8216;false&#8217; and 64 respectively.</p>
+<p>If &#8216;center&#8217; is true, then a quad&#8217;s position relative to (0,0) will be
+measured from its center, otherwise it will be measured from it&#8217;s bottom
+left corner.</p>
+<p>To use the builder object, the &#8220;add_flat&#8221; method is called to add quads
+to the final object, and the &#8220;build&#8221; method is used to compile and
+return the vertex and index buffer objects to be used for rendering
+elsewhere.</p>
+<p>The &#8220;add_flat&#8221; method takes the following arguments:</p>
+<ul class="simple">
+<li><strong>width</strong> is the width of the expected texture for the sprite</li>
+<li><strong>height</strong> is the height of the expected texture for the sprite</li>
+<li><strong>clip_x</strong> is the x coordinate for the left edge of the sprite
+within the image, and defaults to 0</li>
+<li><strong>clip_y</strong> is the y coordinate for the top edge of the sprite within
+the image, defaults to 0</li>
+<li><strong>clip_width</strong> is the width of the sprite, and defaults to
+width-offset_x</li>
+<li><strong>clip_height</strong> is the height of the sprite, defaults to
+height-offest_y</li>
+<li><strong>offset_x</strong> is an offset for the generated vbo coordinates, and
+defaults to 0</li>
+<li><strong>offset_y</strong> is an offset for the generated vbo coordinates, and
+defaults to 0</li>
+</ul>
+<p>The &#8220;build&#8221; method takes no arguments and returns an object with the
+properties &#8220;vbo&#8221; and &#8220;ibo&#8221;.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">m.builder.js</a><ul>
+<li><a class="reference internal" href="#please-builder-spritebuilder">please.builder.SpriteBuilder</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">API Reference</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="m.camera.html"
+                        title="next chapter">m.camera.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/m.builder.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.camera.html" title="m.camera.js"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="API Reference"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" >API Reference</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>

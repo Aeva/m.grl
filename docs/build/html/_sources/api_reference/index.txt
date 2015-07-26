@@ -5,6 +5,7 @@ API Reference
 
 .. toctree::    :maxdepth: 2
     
+    m.builder.rst
     m.camera.rst
     m.defs.rst
     m.effects.rst
