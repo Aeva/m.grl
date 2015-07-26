@@ -57,7 +57,19 @@
   <div class="section" id="m-jta-js">
 <h1>m.jta.js<a class="headerlink" href="#m-jta-js" title="Permalink to this headline">¶</a></h1>
 <p>This part of M.GRL implements the importer for JTA encoded models and
-animations.</p>
+animations. The basic usage of JTA models is as follows:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">jta_scene</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">access</span><span class="p">(</span><span class="s2">&quot;some_model.jta&quot;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">model_node</span> <span class="o">=</span> <span class="nx">jta_scene</span><span class="p">.</span><span class="nx">instance</span><span class="p">();</span>
+<span class="nx">your_scene_graph</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">model_node</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>When called with no arguments, the &#8221;.instance&#8221; method returns a graph
+node which contains all objects in the jta file, preserving inheritance.
+To select a specific object (and its children) in the scene, you can
+specify the name of the object like so instead:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">node</span> <span class="o">=</span> <span class="nx">jta_scene</span><span class="p">.</span><span class="nx">instance</span><span class="p">(</span><span class="s2">&quot;some_named_object&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
 </div>
 
 
