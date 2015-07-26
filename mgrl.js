@@ -1922,7 +1922,7 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
     if (alpha === undefined) { alpha = true; };
     this.scale_filter = "NEAREST";
     var builder = new please.builder.SpriteBuilder(center, scale, alpha);
-    var flat = builder.add_flat(x, y, this.width, this.height, width, height);
+    var flat = builder.add_flat(this.width, this.height, x, y, width, height);
     var hint = flat.hint;
     var data = please.media.__image_buffer_cache[hint];
     if (!data) {
@@ -3327,7 +3327,7 @@ please.gani.build_gl_buffers = function (ani) {
                 var offset_x = part.x-24;
                 var offset_y = 48-part.y-clip_height;
                 var receipt = builder.add_flat(
-                    clip_x, clip_y, width, height,
+                    width, height, clip_x, clip_y,
                     clip_width, clip_height,
                     offset_x, offset_y);
                 part.ibo_start = receipt.offset;
@@ -4379,6 +4379,27 @@ please.gl.pick = function (x, y) {
     return px;
 }
 // - m.jta.js ------------------------------------------------------------- //
+/* [+] 
+ *
+ * This part of M.GRL implements the importer for JTA encoded models
+ * and animations.  The basic usage of JTA models is as follows:
+ *
+ * ```
+ * var jta_scene = please.access("some_model.jta");
+ * var model_node = jta_scene.instance();
+ * your_scene_graph.add(model_node);
+ * ```
+ *
+ * When called with no arguments, the ".instance" method returns a
+ * graph node which contains all objects in the jta file, preserving
+ * inheritance.  To select a specific object (and its children) in the
+ * scene, you can specify the name of the object like so instead:
+ *
+ * ```
+ * var node = jta_scene.instance("some_named_object");
+ * ```
+ *
+ */
 // "jta" media type handler
 please.media.search_paths.jta = "";
 please.media.handlers.jta = function (url, asset_name, callback) {
@@ -4387,7 +4408,7 @@ please.media.handlers.jta = function (url, asset_name, callback) {
     };
     please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
 };
-// JTA model loader.  This will replace the old one once it works.
+// JTA model loader.
 please.gl.__jta_model = function (src, uri) {
     // The structure of a JTA file is json.  Large blocks of agregate
     // data are base64 encoded binary data.
@@ -6347,9 +6368,51 @@ please.StereoCamera.prototype._create_subcamera = function (position) {
     return eye;
 };
 // - m.builder.js -------------------------------------------------------- //
+/* [+]
+ *
+ * The functionality described in m.builder.js is used to construct
+ * vertex buffer objects of quads for rendering sprites.
+ *
+ */
 // namespace
 please.builder = {};
-// This is used to programatically populate drawable objects.
+// [+] please.builder.SpriteBuilder(center, resolution)
+//
+// The SpriteBuilder object is used to programatically generate a
+// drawable object.  The constructor arguments 'center' and
+// 'resolution' are optional and may be omitted.  They default to
+// 'false' and 64 respectively.
+//
+// If 'center' is true, then a quad's position relative to (0,0) will
+// be measured from its center, otherwise it will be measured from
+// it's bottom left corner.
+//
+// To use the builder object, the "add_flat" method is called to add
+// quads to the final object, and the "build" method is used to
+// compile and return the vertex and index buffer objects to be used
+// for rendering elsewhere.
+//
+// The "add_flat" method takes the following arguments:
+//
+//  - **width** is the width of the expected texture for the sprite
+//
+//  - **height** is the height of the expected texture for the sprite
+//
+//  - **clip_x** is the x coordinate for the left edge of the sprite within the image, and defaults to 0
+//
+//  - **clip_y** is the y coordinate for the top edge of the sprite within the image, defaults to 0
+//
+//  - **clip_width** is the width of the sprite, and defaults to width-offset_x
+//
+//  - **clip_height** is the height of the sprite, defaults to height-offest_y
+//
+//  - **offset_x** is an offset for the generated vbo coordinates, and defaults to 0
+//
+//  - **offset_y** is an offset for the generated vbo coordinates, and defaults to 0
+//
+// The "build" method takes no arguments and returns an object with
+// the properties "vbo" and "ibo".
+// 
 please.builder.SpriteBuilder = function (center, resolution) {
     if (center === undefined) { center = false; };
     if (resolution === undefined) { resolution = 64; }; // pixels to gl unit
@@ -6365,7 +6428,7 @@ please.builder.SpriteBuilder = function (center, resolution) {
 };
 please.builder.SpriteBuilder.prototype = {
     // add a quad to the builder; returns the element draw range.
-    "add_flat" : function (clip_x, clip_y, width, height, clip_width, clip_height, offset_x, offset_y) {
+    "add_flat" : function (width, height, clip_x, clip_y, clip_width, clip_height, offset_x, offset_y) {
         if (clip_x === undefined) { clip_x = 0; };
         if (clip_y === undefined) { clip_y = 0; };
         if (clip_width === undefined) { clip_width = width-offset_x; };
@@ -6867,6 +6930,26 @@ please.StructView.prototype = {
  * 
  */
 // [+] please.ParticleEmitter(asset, span, limit, setup, update, ext)
+//
+// Creates a new particle system tracker.  The asset parameter is the
+// result of please.access(...), and can be an image object, a gani
+// object, or a jta model object.  This determines the appearance of
+// the particle.
+//
+// The span parameter is either a number or a function that returns a
+// number, and determines the life of a particle in miliseconds.
+//
+// The limit parameter is the maximum number of particles to be
+// displayed in the system.
+//
+// The setup parameter is a callback used for defining the particle
+// upon creation.
+//
+// The update parameter is a callback used for updating the particle
+// periodically, facilitating the animation of the particle.
+//
+// The ext parameter is used to define what variables are available to
+// the particles in the system beyond the defaults.
 //
 please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
     please.GraphNode.call(this);

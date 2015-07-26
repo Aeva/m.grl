@@ -900,7 +900,7 @@ please.gani.build_gl_buffers = function (ani) {
                 var offset_x = part.x-24;
                 var offset_y = 48-part.y-clip_height;
                 var receipt = builder.add_flat(
-                    clip_x, clip_y, width, height, 
+                    width, height, clip_x, clip_y,
                     clip_width, clip_height, 
                     offset_x, offset_y);
                 part.ibo_start = receipt.offset;

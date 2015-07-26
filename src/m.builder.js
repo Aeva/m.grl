@@ -1,10 +1,53 @@
 // - m.builder.js -------------------------------------------------------- //
 
+/* [+]
+ *
+ * The functionality described in m.builder.js is used to construct
+ * vertex buffer objects of quads for rendering sprites.
+ *
+ */
+
 // namespace
 please.builder = {};
 
 
-// This is used to programatically populate drawable objects.
+// [+] please.builder.SpriteBuilder(center, resolution)
+//
+// The SpriteBuilder object is used to programatically generate a
+// drawable object.  The constructor arguments 'center' and
+// 'resolution' are optional and may be omitted.  They default to
+// 'false' and 64 respectively.
+//
+// If 'center' is true, then a quad's position relative to (0,0) will
+// be measured from its center, otherwise it will be measured from
+// it's bottom left corner.
+//
+// To use the builder object, the "add_flat" method is called to add
+// quads to the final object, and the "build" method is used to
+// compile and return the vertex and index buffer objects to be used
+// for rendering elsewhere.
+//
+// The "add_flat" method takes the following arguments:
+//
+//  - **width** is the width of the expected texture for the sprite
+//
+//  - **height** is the height of the expected texture for the sprite
+//
+//  - **clip_x** is the x coordinate for the left edge of the sprite within the image, and defaults to 0
+//
+//  - **clip_y** is the y coordinate for the top edge of the sprite within the image, defaults to 0
+//
+//  - **clip_width** is the width of the sprite, and defaults to width-offset_x
+//
+//  - **clip_height** is the height of the sprite, defaults to height-offest_y
+//
+//  - **offset_x** is an offset for the generated vbo coordinates, and defaults to 0
+//
+//  - **offset_y** is an offset for the generated vbo coordinates, and defaults to 0
+//
+// The "build" method takes no arguments and returns an object with
+// the properties "vbo" and "ibo".
+// 
 please.builder.SpriteBuilder = function (center, resolution) {
     DEFAULT(center, false);
     DEFAULT(resolution, 64); // pixels to gl unit
@@ -20,7 +63,7 @@ please.builder.SpriteBuilder = function (center, resolution) {
 };
 please.builder.SpriteBuilder.prototype = {
     // add a quad to the builder; returns the element draw range.
-    "add_flat" : function (clip_x, clip_y, width, height, clip_width, clip_height, offset_x, offset_y) {
+    "add_flat" : function (width, height, clip_x, clip_y, clip_width, clip_height, offset_x, offset_y) {
         DEFAULT(clip_x, 0);
         DEFAULT(clip_y, 0);
         DEFAULT(clip_width, width-offset_x);
