@@ -37,11 +37,11 @@
 #include "m.time.js"
 #include "m.media.js"
 #include "m.input.js"
+#include "m.overlay.js"
 #include "m.multipass.js"
-#include "m.gani.js"
-#ifdef WEBGL
 #include "m.gl.js"
 #include "m.jta.js"
+#include "m.gani.js"
 #include "m.graph.js"
 #include "m.camera.js"
 #include "m.builder.js"
@@ -50,7 +50,6 @@
 #include "m.prefab.js"
 #include "m.struct.js"
 #include "m.particles.js"
-#endif
 #ifdef GLSL_ASSETS
 #include "tmp/glsl_assets.js"
 #endif

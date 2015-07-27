@@ -28,14 +28,3 @@ canvas {
     left: 0px;
     z-index: 20;
 }
-
-#loading_screen {
-    position: fixed;
-    width: 100%;
-    left: 0px;
-    bottom: 25%;
-    font-size: 100px;
-    margin-bottom: -.75em;
-    text-align: center;
-    z-index: 15;
-}

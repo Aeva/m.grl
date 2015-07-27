@@ -23,7 +23,6 @@
 // local namespace
 var demo = {
     "viewport" : null, // the render pass that will be rendered
-    "loading" : {}, // used by loading screen
     "main" : {}, // used for main demo
 };
 
@@ -71,27 +70,8 @@ addEventListener("load", function() {
     please.pipeline.start();
 
     // Show a loading screen
-    setup_loading_screen();
+    demo.viewport = new please.LoadingScreen();
 });
-
-
-var setup_loading_screen = function () {
-    // This function sets up a loading screen.
-    
-    demo.loading.renderer = new please.LoadingScreen();
-    demo.viewport = demo.loading.renderer;
-
-    (function percent () {
-        if (please.media.pending.length > 0) {
-            var progress = please.media.get_progress();
-            if (progress.all > -1) {
-                var label = document.getElementById("loading_screen");
-                label.innerHTML = "" + Math.round(progress.all) + "%";
-            }
-            setTimeout(percent, 100);
-        }
-    })();
-};
 
 
 addEventListener("mgrl_fps", function (event) {
@@ -143,24 +123,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var renderer = demo.main.renderer = new please.RenderNode("default");
     renderer.clear_color = [.15, .15, .15, 1];
     renderer.graph = graph;
-    
-    // Add a timeout before the screen wipe to allow images etc to
-    // upload to the gpu, otherwise the transition will be choppy.
-    window.setTimeout(function () {
-        // Hide the loading screen html overlay.
-        document.getElementById("loading_screen").style.display = "none";
 
-        // An effect node is used to blend between the two render
-        // nodes.  In this case, we're using the disintigration
-        // effect.
-        var fade_out = new please.Disintegrate();
-        fade_out.blend_between(
-            demo.loading.renderer,
-            demo.main.renderer,
-            1500);
-        fade_out.shader.px_size = 50;
-        demo.viewport = fade_out;
-    }, 2000);
+    // Transition from the loading screen prefab to our renderer
+    demo.viewport.raise_curtains(demo.main.renderer);
 }));
 
 

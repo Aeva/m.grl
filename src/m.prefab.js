@@ -42,6 +42,7 @@ please.pipeline.add_autoscale = function (max_height) {
                 canvas.height = set_h;
                 gl.viewport(0, 0, set_w, set_h);
             }
+            please.__align_canvas_overlay();
         }).skip_when(skip_condition);
     }
 };
@@ -53,7 +54,7 @@ please.pipeline.add_autoscale = function (max_height) {
 // In the future, this will be animated to show the progress of
 // pending assets.
 //
-please.LoadingScreen = function () {
+please.LoadingScreen = function (transition_effect) {
     var graph = new please.SceneGraph();
     var camera = new please.CameraNode();
     camera.look_at = function () { return [0.0, 0.0, 0.0]};
@@ -76,10 +77,42 @@ please.LoadingScreen = function () {
     graph.add(container);
     graph.add(camera);
     camera.activate();
-    
+
+    var label = please.new_overlay_element(null, ["loading_screen", "progress_bar"]);
+    label.style.width = "100%";
+    label.style.left = "0px";
+    label.style.bottom = "25%";
+    label.style.fontSize = "100px";
+    label.style.marginBottom = "-.75em";
+    label.style.textAlign = "center";
+    (function percent () {
+        if (please.media.pending.length > 0) {
+            var progress = please.media.get_progress();
+            if (progress.all > -1) {
+                label.innerHTML = "" + Math.round(progress.all) + "%";
+            }
+            setTimeout(percent, 100);
+        }
+    })();
+
     var effect = new please.RenderNode("default");
     effect.graph = graph;
-    return effect;
+
+    var transition = typeof(transition_effect) === "function" ? new transition_effect() : transition_effect;
+    if (!transition) {
+        transition = new please.Disintegrate();
+        transition.shader.px_size = 50;
+    }
+    
+    transition.reset_to(effect);
+    transition.raise_curtains = function (target) {
+        window.setTimeout(function () {
+            please.remove_overlay_element_of_class("loading_screen");
+            transition.blend_to(target, 1500);
+        }, 2000);
+    };
+       
+    return transition;
 };
 
 

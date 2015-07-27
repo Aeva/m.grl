@@ -75,27 +75,9 @@ addEventListener("load", function setup () {
     // start the rendering pipeline
     please.pipeline.start();
 
-    // Custom loading screen handler
-    show_progress();
-});
-
-
-function show_progress() {
-    // This function sets up a loading screen.
-    
+    // Show a loading screen
     demo.viewport = new please.LoadingScreen();
-
-    (function percent () {
-        if (please.media.pending.length > 0) {
-            var progress = please.media.get_progress();
-            if (progress.all > -1) {
-                var label = document.getElementById("loading_screen");
-                label.innerHTML = "" + Math.round(progress.all) + "%";
-            }
-            setTimeout(percent, 100);
-        }
-    })();
-};
+});
 
 
 addEventListener("mgrl_fps", function (event) {
@@ -170,20 +152,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     pip_pass.shader.pip_texture = coord_pass;
     pip_pass.shader.pip_alpha = 0.75;
 
-    // The loading screen renderer was defined elsewhere in this file
-    var loading_screen = demo.viewport;
-
-    // Add a timeout before the screen wipe to allow images etc to
-    // upload to the gpu, otherwise the transition will be choppy.
-    window.setTimeout(function () {
-        // hide the loading screen
-        document.getElementById("loading_screen").style.display = "none";
-
-        // Make splice_pass the renderer.
-        //var fade_out = new please.DiagonalWipe();
-        var fade_out = new please.Disintegrate();
-        fade_out.blend_between(loading_screen, pip_pass, 1500);
-        fade_out.shader.px_size = 50;
-        demo.viewport = fade_out;
-    }, 2000);
+    // Transition from the loading screen prefab to our renderer
+    demo.viewport.raise_curtains(pip_pass);
 }));
