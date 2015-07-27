@@ -42,6 +42,7 @@ please.pipeline.add_autoscale = function (max_height) {
                 canvas.height = set_h;
                 gl.viewport(0, 0, set_w, set_h);
             }
+            please.__align_canvas_overlay();
         }).skip_when(skip_condition);
     }
 };

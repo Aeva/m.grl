@@ -45,6 +45,7 @@ please.gl.set_context = function (canvas_id, options) {
     }
 
     this.canvas = document.getElementById(canvas_id);
+    please.__create_canvas_overlay();
     try {
         var names = ["webgl", "experimental-webgl"];
         for (var n=0; n<names.length; n+=1) {
