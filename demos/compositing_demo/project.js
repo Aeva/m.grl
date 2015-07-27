@@ -75,27 +75,9 @@ addEventListener("load", function setup () {
     // start the rendering pipeline
     please.pipeline.start();
 
-    // Custom loading screen handler
-    show_progress();
-});
-
-
-function show_progress() {
-    // This function sets up a loading screen.
-    
+    // Show a loading screen
     demo.viewport = new please.LoadingScreen();
-
-    (function percent () {
-        if (please.media.pending.length > 0) {
-            var progress = please.media.get_progress();
-            if (progress.all > -1) {
-                var label = document.getElementById("loading_screen");
-                label.innerHTML = "" + Math.round(progress.all) + "%";
-            }
-            setTimeout(percent, 100);
-        }
-    })();
-};
+});
 
 
 addEventListener("mgrl_fps", function (event) {
@@ -169,9 +151,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     pip_pass.shader.main_texture = splice_pass;
     pip_pass.shader.pip_texture = coord_pass;
     pip_pass.shader.pip_alpha = 0.75;
-    
-    // Hide the loading screen html overlay.
-    document.getElementById("loading_screen").style.display = "none";
 
     // Transition from the loading screen prefab to our renderer
     demo.viewport.raise_curtains(pip_pass);

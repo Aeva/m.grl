@@ -78,6 +78,23 @@ please.LoadingScreen = function (transition_effect) {
     graph.add(camera);
     camera.activate();
 
+    var label = please.new_overlay_element(null, ["loading_screen", "progress_bar"]);
+    label.style.width = "100%";
+    label.style.left = "0px";
+    label.style.bottom = "25%";
+    label.style.fontSize = "100px";
+    label.style.marginBottom = "-.75em";
+    label.style.textAlign = "center";
+    (function percent () {
+        if (please.media.pending.length > 0) {
+            var progress = please.media.get_progress();
+            if (progress.all > -1) {
+                label.innerHTML = "" + Math.round(progress.all) + "%";
+            }
+            setTimeout(percent, 100);
+        }
+    })();
+
     var effect = new please.RenderNode("default");
     effect.graph = graph;
 
@@ -90,6 +107,7 @@ please.LoadingScreen = function (transition_effect) {
     transition.reset_to(effect);
     transition.raise_curtains = function (target) {
         window.setTimeout(function () {
+            please.remove_overlay_element_of_class("loading_screen");
             transition.blend_to(target, 1500);
         }, 2000);
     };
