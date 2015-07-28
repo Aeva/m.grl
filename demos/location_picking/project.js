@@ -131,7 +131,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
         }
     }
 
-    var player = new please.GraphNode();
+    var player = demo.main.player = new please.GraphNode();
     var model = char_model.instance();
     model.rotation_z = please.repeating_driver(360, 0, 1000);
     model.location_z = please.oscillating_driver(0, .5, 800);
