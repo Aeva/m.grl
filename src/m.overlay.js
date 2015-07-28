@@ -16,6 +16,7 @@ please.__create_canvas_overlay = function () {
         overlay.style.zIndex = 1000;
         overlay.style.position = "absolute";
         overlay.style.pointerEvents = "none";
+        overlay.style.overflow = "hidden";
         document.body.appendChild(canvas.overlay);
         please.__align_canvas_overlay();
     }
@@ -85,6 +86,7 @@ please.overlay.remove_element_of_class = function (class_name) {
 
 //
 please.pipeline.add(-1, "mgrl/overlay_sync", function () {
+    var origin = new Float32Array([0, 0, 0, 1]);
     ITER(i, please.overlay.__bindings) {
         var element = please.overlay.__bindings[i];
         var node = element.__graph_node;
@@ -100,10 +102,12 @@ please.pipeline.add(-1, "mgrl/overlay_sync", function () {
                 final_matrix,
                 graph.camera.projection_matrix,
                 modelview_matrix);
-            var position = vec3.create();
-            vec3.transformMat4(position, vec3.create(), final_matrix);
-            element.style.left = position[0] + "px";
-            element.style.top = position[1] + "px";
+            var position = vec4.create();
+            vec4.transformMat4(position, origin, final_matrix);
+            var x = ((position[0] / position[3]) + 1) * 0.5;
+            var y = ((position[1] / position[3]) + 1) * 0.5;
+            element.style.left = x*100 + "%";
+            element.style.top = y*100 + "%";
         }
     }
 }).skip_when(function () { return please.overlay.__bindings.length === 0; });
