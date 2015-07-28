@@ -85,27 +85,23 @@ please.overlay.remove_element_of_class = function (class_name) {
 
 //
 please.pipeline.add(-1, "mgrl/overlay_sync", function () {
-    var matrices = {};
     ITER(i, please.overlay.__bindings) {
         var element = please.overlay.__bindings[i];
         var node = element.__graph_node;
         var graph = node.graph_root;
         if (graph) {
-            var screen_matrix, matrix;
-            if (matrices[graph.__id] === undefined) {
-                screen_matrix = mat4.create();
-                mat4.multiply(
-                    screen_matrix,
-                    graph.camera.projection_matrix,
-                    graph.camera.view_matrix);
-                matrices[graph.__id] = screen_matrix;
-            }
-            else {
-                screen_matrix = matrices[graph.__id];
-            }
-            matrix = mat4.multiply(
-                mat4.create(), screen_matrix, node.shader.world_matrix);
-            var position = vec3.transformMat4(vec3.create(), node.location, matrix);
+            var modelview_matrix = mat4.create();
+            var final_matrix = mat4.create();
+            mat4.multiply(
+                modelview_matrix, 
+                node.shader.world_matrix,
+                graph.camera.view_matrix);
+            mat4.multiply(
+                final_matrix,
+                graph.camera.projection_matrix,
+                modelview_matrix);
+            var position = vec3.create();
+            vec3.transformMat4(position, vec3.create(), final_matrix);
             element.style.left = position[0] + "px";
             element.style.top = position[1] + "px";
         }
