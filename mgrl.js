@@ -2271,6 +2271,11 @@ please.keys.__full_stop = function () {
     }
 };
 // - m.overlays.js ---------------------------------------------------------- //
+// namespace
+please.overlay = {
+    "__bindings" : {},
+    "__has_bindings" : false,
+};
 //
 please.__create_canvas_overlay = function () {
     var canvas = please.gl.canvas;
@@ -2295,7 +2300,7 @@ please.__align_canvas_overlay = function () {
     overlay.style.height = rect.height + "px";
 };
 // creates and returns a new overlay child div
-please.new_overlay_element = function (id, classes) {
+please.overlay.new_element = function (id, classes) {
     var el = document.createElement("div");
     please.gl.canvas.overlay.appendChild(el);
     el.style.position = "absolute";
@@ -2313,7 +2318,7 @@ please.new_overlay_element = function (id, classes) {
     return el;
 };
 // removes all overlay children of a given id
-please.remove_overlay_element_of_id = function (id) {
+please.overlay.remove_element_of_id = function (id) {
     var overlay = please.gl.canvas.overlay;
     var found = document.getElementById(id);
     if (found) {
@@ -2323,7 +2328,7 @@ please.remove_overlay_element_of_id = function (id) {
     }
 };
 // removes all overlay children of a given class name
-please.remove_overlay_element_of_class = function (class_name) {
+please.overlay.remove_element_of_class = function (class_name) {
     var overlay = please.gl.canvas.overlay;
     var found = overlay.getElementsByClassName(class_name);
     for (var i=found.length-1; i>=0; i-=1) {
@@ -6983,7 +6988,7 @@ please.LoadingScreen = function (transition_effect) {
     graph.add(container);
     graph.add(camera);
     camera.activate();
-    var label = please.new_overlay_element(null, ["loading_screen", "progress_bar"]);
+    var label = please.overlay.new_element(null, ["loading_screen", "progress_bar"]);
     label.style.width = "100%";
     label.style.left = "0px";
     label.style.bottom = "25%";
@@ -7009,7 +7014,7 @@ please.LoadingScreen = function (transition_effect) {
     transition.reset_to(effect);
     transition.raise_curtains = function (target) {
         window.setTimeout(function () {
-            please.remove_overlay_element_of_class("loading_screen");
+            please.overlay.remove_element_of_class("loading_screen");
             transition.blend_to(target, 1500);
         }, 2000);
     };

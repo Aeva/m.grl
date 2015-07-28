@@ -1,6 +1,13 @@
 // - m.overlays.js ---------------------------------------------------------- //
 
 
+// namespace
+please.overlay = {
+    "__bindings" : {},
+    "__has_bindings" : false,
+};
+
+
 //
 please.__create_canvas_overlay = function () {
     var canvas = please.gl.canvas;
@@ -29,7 +36,7 @@ please.__align_canvas_overlay = function () {
 
 
 // creates and returns a new overlay child div
-please.new_overlay_element = function (id, classes) {
+please.overlay.new_element = function (id, classes) {
     var el = document.createElement("div");
     please.gl.canvas.overlay.appendChild(el);
     el.style.position = "absolute";
@@ -49,7 +56,7 @@ please.new_overlay_element = function (id, classes) {
 
 
 // removes all overlay children of a given id
-please.remove_overlay_element_of_id = function (id) {
+please.overlay.remove_element_of_id = function (id) {
     var overlay = please.gl.canvas.overlay;
     var found = document.getElementById(id);
     if (found) {
@@ -61,7 +68,7 @@ please.remove_overlay_element_of_id = function (id) {
 
 
 // removes all overlay children of a given class name
-please.remove_overlay_element_of_class = function (class_name) {
+please.overlay.remove_element_of_class = function (class_name) {
     var overlay = please.gl.canvas.overlay;
     var found = overlay.getElementsByClassName(class_name);
     DECR(i, found) {
