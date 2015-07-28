@@ -3,8 +3,7 @@
 
 // namespace
 please.overlay = {
-    "__bindings" : {},
-    "__has_bindings" : false,
+    "__bindings" : [],
 };
 
 
@@ -51,6 +50,13 @@ please.overlay.new_element = function (id, classes) {
             el.className = classes.join(" ");
         }
     }
+
+    el.__graph_node = null;
+    el.bind_to_node = function (node) {
+        el.__graph_node = node;
+        please.overlay.__bindings.push(this);
+    };
+    
     return el;
 };
 
@@ -75,3 +81,33 @@ please.overlay.remove_element_of_class = function (class_name) {
         overlay.removeChild(found[i]);
     }
 };
+
+
+//
+please.pipeline.add(-1, "mgrl/overlay_sync", function () {
+    var matrices = {};
+    ITER(i, please.overlay.__bindings) {
+        var element = please.overlay.__bindings[i];
+        var node = element.__graph_node;
+        var graph = node.graph_root;
+        if (graph) {
+            var screen_matrix, matrix;
+            if (matrices[graph.__id] === undefined) {
+                screen_matrix = mat4.create();
+                mat4.multiply(
+                    screen_matrix,
+                    graph.camera.projection_matrix,
+                    graph.camera.view_matrix);
+                matrices[graph.__id] = screen_matrix;
+            }
+            else {
+                screen_matrix = matrices[graph.__id];
+            }
+            matrix = mat4.multiply(
+                mat4.create(), screen_matrix, node.shader.world_matrix);
+            var position = vec3.transformMat4(vec3.create(), node.location, matrix);
+            element.style.left = position[0] + "px";
+            element.style.top = position[1] + "px";
+        }
+    }
+}).skip_when(function () { return please.overlay.__bindings.length === 0; });
