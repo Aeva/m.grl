@@ -2572,8 +2572,10 @@ please.overlay.new_element = function (id, classes) {
         }
     }
     el.__graph_node = null;
+    el.auto_center = false;
     el.bind_to_node = function (node) {
         el.__graph_node = node;
+        el.auto_center = true;
         please.overlay.__bindings.push(this);
     };
     return el;
@@ -2619,6 +2621,9 @@ please.pipeline.add(-1, "mgrl/overlay_sync", function () {
             var y = ((position[1] / position[3]) + 1) * 0.5;
             element.style.left = x*100 + "%";
             element.style.bottom = y*100 + "%";
+            if (element.auto_center) {
+                element.style.marginLeft = element.getBoundingClientRect().width/-2 + "px";
+            }
         }
     }
 }).skip_when(function () { return please.overlay.__bindings.length === 0; });
