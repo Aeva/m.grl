@@ -22,8 +22,8 @@
 
 // local namespace
 var demo = {
+    "loading_screen" : null, // loading screen compositing node
     "viewport" : null, // the render pass that will be rendered
-    "loading" : {}, // used by loading screen
     "main" : {}, // used for main demo
 };
 
@@ -74,7 +74,7 @@ addEventListener("load", function() {
     please.pipeline.start();
 
     // Show a loading screen
-    demo.viewport = new please.LoadingScreen();
+    demo.viewport = demo.loading_screen = new please.LoadingScreen();
 });
 
 
@@ -157,6 +157,30 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
         slot.add(critter);
     }
+
+
+    // Add a "gameplay" hint
+    var label = demo.main.label = please.overlay.new_element("text_label");
+    label.hide_when = function () { return demo.loading_screen.is_active; };
+    label.innerHTML = "" +
+        "click these<br/>" +
+        "critters";
+    //label.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+    label.style.backgroundColor = "#000"
+    label.style.textAlign = "center";
+    label.style.color = "#fff";
+    label.style.fontSize = "24px";
+    label.style.padding = "8px";
+    label.style.paddingBottom = "4px";
+    label.style.borderRadius = "4px";
+
+    // Bind the hint to a graph node that will hover over the
+    // right-most critter
+    var handle = new please.GraphNode();
+    slot.children.slice(-1)[0].add(handle);
+    label.bind_to_node(handle);
+    handle.location_z = 3;
+
 
     // Activate picking passes for the scene graph:
     graph.picking.enabled = true;
