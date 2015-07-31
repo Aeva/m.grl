@@ -2578,6 +2578,7 @@ please.overlay.new_element = function (id, classes) {
         el.auto_center = true;
         please.overlay.__bindings.push(this);
     };
+    el.hide_when = null;
     return el;
 };
 // removes all overlay children of a given id
@@ -2600,6 +2601,7 @@ please.overlay.remove_element_of_class = function (class_name) {
 };
 //
 please.pipeline.add(-1, "mgrl/overlay_sync", function () {
+    var parent = document.getElementById("mgrl_overlay");
     var origin = new Float32Array([0, 0, 0, 1]);
     for (var i=0; i<please.overlay.__bindings.length; i+=1) {
         var element = please.overlay.__bindings[i];
@@ -2626,7 +2628,13 @@ please.pipeline.add(-1, "mgrl/overlay_sync", function () {
             }
         }
     }
-}).skip_when(function () { return please.overlay.__bindings.length === 0; });
+    for (var i=0; i<parent.children.length; i+=1) {
+        var el = parent.children[i];
+        if (typeof(el.hide_when) === "function") {
+            el.style.display = el.hide_when() ? "none" : "block";
+        }
+    }
+});
 // - m.gl.js ------------------------------------------------------------- //
 // "glsl" media type handler
 please.media.search_paths.glsl = "",
@@ -7054,6 +7062,12 @@ please.LoadingScreen = function (transition_effect) {
             transition.blend_to(target, 1500);
         }, 2000);
     };
+    Object.defineProperty(transition, "is_active", {
+        enumerable: true,
+        get : function () {
+            return transition.shader.progress <= 0.5;
+        },
+    });
     return transition;
 };
 // [+] please.StereoSplit

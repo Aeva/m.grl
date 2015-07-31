@@ -59,6 +59,8 @@ please.overlay.new_element = function (id, classes) {
         el.auto_center = true;
         please.overlay.__bindings.push(this);
     };
+
+    el.hide_when = null;
     
     return el;
 };
@@ -88,6 +90,7 @@ please.overlay.remove_element_of_class = function (class_name) {
 
 //
 please.pipeline.add(-1, "mgrl/overlay_sync", function () {
+    var parent = document.getElementById("mgrl_overlay");
     var origin = new Float32Array([0, 0, 0, 1]);
     ITER(i, please.overlay.__bindings) {
         var element = please.overlay.__bindings[i];
@@ -116,4 +119,11 @@ please.pipeline.add(-1, "mgrl/overlay_sync", function () {
             }
         }
     }
-}).skip_when(function () { return please.overlay.__bindings.length === 0; });
+    
+    ITER(i, parent.children) {
+        var el = parent.children[i];
+        if (typeof(el.hide_when) === "function") {
+            el.style.display = el.hide_when() ? "none" : "block";
+        }
+    }
+});

@@ -111,6 +111,13 @@ please.LoadingScreen = function (transition_effect) {
             transition.blend_to(target, 1500);
         }, 2000);
     };
+
+    Object.defineProperty(transition, "is_active", {
+        enumerable: true,
+        get : function () {
+            return transition.shader.progress <= 0.5;
+        },
+    });
        
     return transition;
 };
