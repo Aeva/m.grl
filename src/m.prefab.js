@@ -78,7 +78,7 @@ please.LoadingScreen = function (transition_effect) {
     graph.add(camera);
     camera.activate();
 
-    var label = please.new_overlay_element(null, ["loading_screen", "progress_bar"]);
+    var label = please.overlay.new_element(null, ["loading_screen", "progress_bar"]);
     label.style.width = "100%";
     label.style.left = "0px";
     label.style.bottom = "25%";
@@ -107,7 +107,7 @@ please.LoadingScreen = function (transition_effect) {
     transition.reset_to(effect);
     transition.raise_curtains = function (target) {
         window.setTimeout(function () {
-            please.remove_overlay_element_of_class("loading_screen");
+            please.overlay.remove_element_of_class("loading_screen");
             transition.blend_to(target, 1500);
         }, 2000);
     };
