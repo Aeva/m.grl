@@ -2604,22 +2604,21 @@ please.pipeline.add(-1, "mgrl/overlay_sync", function () {
         var node = element.__graph_node;
         var graph = node.graph_root;
         if (graph) {
-            var modelview_matrix = mat4.create();
             var final_matrix = mat4.create();
             mat4.multiply(
-                modelview_matrix,
-                node.shader.world_matrix,
-                graph.camera.view_matrix);
-            mat4.multiply(
                 final_matrix,
-                graph.camera.projection_matrix,
-                modelview_matrix);
+                mat4.multiply(
+                    mat4.create(),
+                    graph.camera.projection_matrix,
+                    graph.camera.view_matrix
+                ),
+                node.shader.world_matrix);
             var position = vec4.create();
             vec4.transformMat4(position, origin, final_matrix);
             var x = ((position[0] / position[3]) + 1) * 0.5;
             var y = ((position[1] / position[3]) + 1) * 0.5;
             element.style.left = x*100 + "%";
-            element.style.top = y*100 + "%";
+            element.style.bottom = y*100 + "%";
         }
     }
 }).skip_when(function () { return please.overlay.__bindings.length === 0; });
