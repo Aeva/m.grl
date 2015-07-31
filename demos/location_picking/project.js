@@ -139,6 +139,18 @@ addEventListener("mgrl_media_ready", please.once(function () {
     player.add(model);
     graph.add(player);
 
+    // add a "gameplay" hint
+    var label = demo.main.label = please.overlay.new_element("text_label");
+    label.innerHTML = "" +
+        "Click somewhere in the tiled<br/>" +
+        "area to move the character.";        
+    label.style.backgroundColor = "rgba(255, 255, 255, 0.8)";
+    label.style.fontSize = "24px";
+    label.style.padding = "4px";
+    label.style.borderRadius = "4px";
+    label.style.right = "100px";
+    label.style.bottom = "100px";
+    
     // Activate picking passes for the scene graph:
     graph.picking.enabled = true;
 
