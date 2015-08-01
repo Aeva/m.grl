@@ -153,10 +153,17 @@ if (!window.CustomEvent) {
         "Float32Array",
         "Float64Array",
     ];
+    var methods = [
+        "slice",
+        "join",
+    ];
     for (var i=0; i<types.length; i+=1) {
-        var type = types[i];
-        if (window[type] && ! window[type].prototype.slice) {
-            window[type].prototype.slice = Array.prototype.slice;
+        for (var k=0; k<methods.length; k+=1) {
+            var type = types[i];
+            var method = methods[k];
+            if (window[type] && ! window[type].prototype[method]) {
+                window[type].prototype[method] = Array.prototype[method];
+            }
         }
     }
 })();
