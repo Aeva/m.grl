@@ -1,0 +1,194 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>m.overlay.js &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="up" title="API Reference" href="index.html" />
+    <link rel="next" title="m.pages.js" href="m.pages.html" />
+    <link rel="prev" title="m.multipass.js" href="m.multipass.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.pages.html" title="m.pages.js"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="m.multipass.html" title="m.multipass.js"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="m-overlay-js">
+<h1>m.overlay.js<a class="headerlink" href="#m-overlay-js" title="Permalink to this headline">¶</a></h1>
+<p>The functionality described in m.overlays.js is used to create html
+overlays on top of the 3D canvas. These overlays can have their
+positions locked to appear over the screen position of any GraphNode in
+use.</p>
+<p>The #mgrl_overlay div is created when the OpenGL rendering context is
+established. While you can interact with this directly if you like, it
+is generally advised to use the overlay API to add and destroy widgets
+intended to function seamlessly with the WebGL content.</p>
+<p>Please note that the overlay currently sets the &#8220;pointer-events&#8221; css
+property to &#8220;none&#8221; on the div element itself. To receive pointer events
+on divs that have mgrl_overlay as an ancestor, the property must be
+explicitely overridden (see the new_element method below for an
+example).</p>
+<div class="section" id="please-overlay-new-element">
+<h2>please.overlay.new_element<a class="headerlink" href="#please-overlay-new-element" title="Permalink to this headline">¶</a></h2>
+<p><em>please.overlay.new_element</em> <strong>(id, classes)</strong></p>
+<p>Creates and returns a new overlay child div. This div is automatically
+added to the dom. The arguments to this function are both optional. The
+first sets the dom id of the element, and the second sets the class list
+for the element. The &#8220;classes&#8221; argument may be either a string or an
+array of strings.</p>
+<p>The new div features some extra properties, as well as some different
+defaults than you may be used to:</p>
+<ul class="simple">
+<li><strong>style.pointerEvents</strong> is &#8220;none&#8221; by default</li>
+<li><strong>auto_center</strong> determines the centering behavior when bound to a
+GraphNode this is set to be true by default.</li>
+<li><strong>bind_to_node(graph_node)</strong> Causes mgrl to override the &#8216;left&#8217;
+&#8216;bottom&#8217; css properties of the element, such that the element appears
+over the node on screen.</li>
+<li><strong>hide_when</strong> Defaults to null, may be a function that when returns
+true, causes the element&#8217;s &#8216;display&#8217; css property to be set to &#8216;none&#8217;
+(otherwise, the &#8216;display&#8217; css property will be coerced to &#8216;block&#8217;).</li>
+</ul>
+<p>This function returns the newly added div element so that you may
+customize it further. Example of use:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">label</span> <span class="o">=</span> <span class="nx">demo</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">label</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">overlay</span><span class="p">.</span><span class="nx">new_element</span><span class="p">(</span><span class="s2">&quot;text_label&quot;</span><span class="p">);</span>
+<span class="nx">label</span><span class="p">.</span><span class="nx">hide_when</span> <span class="o">=</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span> <span class="k">return</span> <span class="nx">demo</span><span class="p">.</span><span class="nx">loading_screen</span><span class="p">.</span><span class="nx">is_active</span><span class="p">;</span> <span class="p">};</span>
+<span class="nx">label</span><span class="p">.</span><span class="nx">innerHTML</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="o">+</span>
+    <span class="s2">&quot;Click somewhere in the tiled&lt;br/&gt;&quot;</span> <span class="o">+</span>
+    <span class="s2">&quot;area to move the character.&quot;</span><span class="p">;</span>
+<span class="nx">label</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">backgroundColor</span> <span class="o">=</span> <span class="s2">&quot;rgba(255, 255, 255, 0.8)&quot;</span><span class="p">;</span>
+<span class="nx">label</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">fontSize</span> <span class="o">=</span> <span class="s2">&quot;24px&quot;</span><span class="p">;</span>
+<span class="nx">label</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">padding</span> <span class="o">=</span> <span class="s2">&quot;4px&quot;</span><span class="p">;</span>
+<span class="nx">label</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">borderRadius</span> <span class="o">=</span> <span class="s2">&quot;4px&quot;</span><span class="p">;</span>
+<span class="nx">label</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">right</span> <span class="o">=</span> <span class="s2">&quot;100px&quot;</span><span class="p">;</span>
+<span class="nx">label</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">bottom</span> <span class="o">=</span> <span class="s2">&quot;100px&quot;</span><span class="p">;</span>
+<span class="nx">label</span><span class="p">.</span><span class="nx">style</span><span class="p">.</span><span class="nx">pointerEvents</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span><span class="p">;</span> <span class="c1">// restore mouse events</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="please-overlay-remove-element">
+<h2>please.overlay.remove_element<a class="headerlink" href="#please-overlay-remove-element" title="Permalink to this headline">¶</a></h2>
+<p><em>please.overlay.remove_element</em> <strong>(element)</strong></p>
+<p>Remove the element (or an array of elements) passed as an argument from
+#mgrl_overlay if present, and remove any bindings to graph nodes if
+applicable.</p>
+</div>
+<div class="section" id="please-overlay-remove-element-of-id">
+<h2>please.overlay.remove_element_of_id<a class="headerlink" href="#please-overlay-remove-element-of-id" title="Permalink to this headline">¶</a></h2>
+<p><em>please.overlay.remove_element_of_id</em> <strong>(id)</strong></p>
+<p>Removes off children to #mgrl_overlay of the given dom id.</p>
+</div>
+<div class="section" id="please-overlay-remove-element-of-class">
+<h2>please.overlay.remove_element_of_class<a class="headerlink" href="#please-overlay-remove-element-of-class" title="Permalink to this headline">¶</a></h2>
+<p><em>please.overlay.remove_element_of_class</em> <strong>(class_name)</strong></p>
+<p>Removes off children to #mgrl_overlay of the given css class name.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">m.overlay.js</a><ul>
+<li><a class="reference internal" href="#please-overlay-new-element">please.overlay.new_element</a></li>
+<li><a class="reference internal" href="#please-overlay-remove-element">please.overlay.remove_element</a></li>
+<li><a class="reference internal" href="#please-overlay-remove-element-of-id">please.overlay.remove_element_of_id</a></li>
+<li><a class="reference internal" href="#please-overlay-remove-element-of-class">please.overlay.remove_element_of_class</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="m.multipass.html"
+                        title="previous chapter">m.multipass.js</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="m.pages.html"
+                        title="next chapter">m.pages.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/m.overlay.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.pages.html" title="m.pages.js"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="m.multipass.html" title="m.multipass.js"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" >API Reference</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>
