@@ -142,10 +142,17 @@ if (!window.CustomEvent) {
         "Float32Array",
         "Float64Array",
     ];
+    var methods = [
+        "slice",
+        "join",
+    ];
     ITER(i, types) {
-        var type = types[i];
-        if (window[type] && ! window[type].prototype.slice) {
-            window[type].prototype.slice = Array.prototype.slice;
+        ITER(k, methods) {
+            var type = types[i];
+            var method = methods[k];
+            if (window[type] && ! window[type].prototype[method]) {
+                window[type].prototype[method] = Array.prototype[method];
+            }
         }
     }
 })();
