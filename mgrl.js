@@ -860,7 +860,7 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
     var last_update = 0;
     // Define the getters and setters for the new property.
     var getter = function () {
-        if (typeof(store[prop]) === "function") {
+        if (typeof(store[prop]) === "function" && store[prop].stops === undefined) {
             // determine if the cached value is too old
             if (cache[prop] === null || (please.pipeline.__framestart > last_update && ! obj.__manual_cache_invalidation)) {
                 cache[prop] = store[prop].call(obj);
@@ -3073,6 +3073,29 @@ please.gl.__build_shader = function (src, uri) {
     }
     return glsl;
 };
+//
+// This function takes a path/curve function and a uniform discription
+// object and returns a flat array containing uniform samples of the path.
+//
+please.gl.__flatten_path = function(path, data) {
+    // data.type -> built in gl type enum
+    // data.size -> array size
+    var acc = [];
+    var step = 1.0/data.size;
+    var sample, alpha = 0.0;
+    for (var i=0; i<data.size; i+=1) {
+        sample = path(alpha);
+        if (sample.length) {
+            for (var k=0; k<sample.length; k+=1) {
+                acc.push(sample[k]);
+            }
+        }
+        else {
+            acc.push(sample);
+        }
+        alpha += step;
+    }
+};
 // [+] please.glsl(name /*, shader_a, shader_b,... */)
 //
 // Constructor function for building a shader program.  Give the
@@ -3289,6 +3312,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     // gains in doing so are dubious.  We still set it, though, so
                     // that the corresponding getter still works.
                     setter_method = function (value) {
+                        if (typeof(value) === "function" && value.stops) {
+                            value = please.gl.__flatten_path(value, data);
+                        }
                         prog.__cache.vars[binding_name] = value;
                         return gl[uni](pointer, value);
                     }

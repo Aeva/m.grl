@@ -388,6 +388,32 @@ please.gl.__build_shader = function (src, uri) {
 };
 
 
+//
+// This function takes a path/curve function and a uniform discription
+// object and returns a flat array containing uniform samples of the path.
+//
+please.gl.__flatten_path = function(path, data) {
+    // data.type -> built in gl type enum
+    // data.size -> array size
+
+    var acc = [];
+    var step = 1.0/data.size;
+    var sample, alpha = 0.0;
+    for (var i=0; i<data.size; i+=1) {
+        sample = path(alpha);
+        if (sample.length) {
+            ITER(k, sample) {
+                acc.push(sample[k]);
+            }
+        }
+        else {
+            acc.push(sample);
+        }
+        alpha += step;
+    }
+};
+
+
 // [+] please.glsl(name /*, shader_a, shader_b,... */)
 //
 // Constructor function for building a shader program.  Give the
@@ -624,6 +650,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     // gains in doing so are dubious.  We still set it, though, so
                     // that the corresponding getter still works.
                     setter_method = function (value) {
+                        if (typeof(value) === "function" && value.stops) {
+                            value = please.gl.__flatten_path(value, data);
+                        }
                         prog.__cache.vars[binding_name] = value;
                         return gl[uni](pointer, value);
                     }
