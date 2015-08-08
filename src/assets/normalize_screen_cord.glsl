@@ -6,5 +6,5 @@
 //
 vec2 normalize_screen_cord(vec2 coord) {
   return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);
-};
+}
 

@@ -1730,7 +1730,7 @@ please.media.guess_type = function (file_name) {
         "gani" : [".gani"],
         "audio" : [".wav", ".mp3", ".ogg"],
         "glsl" : [".vert", ".frag"],
-        "text" : [".txt"],
+        "text" : [".txt", ".glsl"],
     };
     for (var type in type_map) if (type_map.hasOwnProperty(type)) {
         var extensions = type_map[type];
@@ -3009,12 +3009,36 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
         return please.gl.__cache.textures[uri];
     }
 };
+//
+please.gl.__glsl_macros = {
+    "include" : function(data) {
+        var asset_name = data.slice(1,-1);
+        return please.access(asset_name, true);
+    },
+};
+//
+please.gl.__apply_glsl_macros = function (src) {
+    var lines = src.split("\n");
+    var output = [];
+    for (var i=0; i<lines.length; i+=1) {
+        var line = lines[i].trim();
+        var replace = null;
+        for (var name in please.gl.__glsl_macros) if (please.gl.__glsl_macros.hasOwnProperty(name)) {
+            var macro = please.gl.__glsl_macros[name];
+            if (line.startsWith("#"+name)) {
+                replace = macro(line.slice(name.length+2)) || "";
+            }
+        }
+        output.push(replace ? replace : lines[i]);
+    }
+    return output.join("\n");
+};
 // Constructor function for GLSL Shaders
 please.gl.__build_shader = function (src, uri) {
     var glsl = {
         "id" : null,
         "type" : null,
-        "src" : src,
+        "src" : please.gl.__apply_glsl_macros(src),
         "uri" : uri,
         "ready" : false,
         "error" : false,
@@ -7402,35 +7426,49 @@ please.ParticleEmitter.prototype.draw = function () {
     var delta = now - tracker.last;
     var age;
     tracker.last = now;
-    if (this.max_fps <= 0 || (now - tracker.__last_update) >= 1000/this.max_fps) {
-        tracker.__last_update = now;
-        for (var i=0; i<tracker.live; i+=1) {
-            particle.focus(i);
-            if (now <= particle["expire"][0]) {
-                // The particle is alive, so we will figure out its
-                // current age, and call the update function on it, and
-                // then draw the particle on screen.
-                age = (now - particle["start"][0]) / (particle["expire"][0] - particle["start"][0]);
-                tracker.update.call(this, particle, delta, age);
+    if (!tracker.freeze) {
+        if (this.max_fps <= 0 || (now - tracker.__last_update) >= 1000/this.max_fps) {
+            tracker.__last_update = now;
+            for (var i=0; i<tracker.live; i+=1) {
+                particle.focus(i);
+                if (now <= particle["expire"][0]) {
+                    // The particle is alive, so we will figure out its
+                    // current age, and call the update function on it, and
+                    // then draw the particle on screen.
+                    age = (now - particle["start"][0]) / (particle["expire"][0] - particle["start"][0]);
+                    tracker.update.call(this, particle, delta, age);
+                    for (var n=0; n<tracker.var_names.length; n+=1) {
+                        var name = tracker.var_names[n];
+                        if (prog.vars.hasOwnProperty(name)) {
+                            prog.vars[name] = particle[name];
+                        }
+                    }
+                    // FIXME if the 'stamp' is animated, then we should adjust
+                    // the animation frame accordingly before drawing.  This
+                    // might be only really possible with ganis, but that is ok.
+                    tracker.stamp.draw();
+                }
+                else {
+                    // The particle is dead, so it should be removed.  This is
+                    // done by writting it over with the information about the
+                    // last particle in the blob, and decrementing the
+                    // particle counter.  The 'i' index is also decremented so
+                    // as a new particle is now in the same slot.
+                    this.__on_die(i);
+                    i -= 1;
+                }
+            }
+        }
+        else {
+            for (var i=0; i<tracker.live; i+=1) {
+                particle.focus(i);
                 for (var n=0; n<tracker.var_names.length; n+=1) {
                     var name = tracker.var_names[n];
                     if (prog.vars.hasOwnProperty(name)) {
                         prog.vars[name] = particle[name];
                     }
                 }
-                // FIXME if the 'stamp' is animated, then we should adjust
-                // the animation frame accordingly before drawing.  This
-                // might be only really possible with ganis, but that is ok.
                 tracker.stamp.draw();
-            }
-            else {
-                // The particle is dead, so it should be removed.  This is
-                // done by writting it over with the information about the
-                // last particle in the blob, and decrementing the
-                // particle counter.  The 'i' index is also decremented so
-                // as a new particle is now in the same slot.
-                this.__on_die(i);
-                i -= 1;
             }
         }
     }
@@ -7453,12 +7491,20 @@ please.ParticleEmitter.prototype.__on_die = function(index) {
     tracker.view.dub(tracker.live-1, index);
     tracker.live -= 1;
 };
-// - bundled glsl shader assets --------------------------------------------- //
+// - bundled textual assets ------------------------------------------------- //
 addEventListener("mgrl_gl_context_created", function () {
-    var lookup_table = {"picture_in_picture.frag": "\nprecision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform vec2 pip_size;\nuniform vec2 pip_coord;\nuniform float pip_alpha;\nuniform sampler2D main_texture;\nuniform sampler2D pip_texture;\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 screen_coord = pick(gl_FragCoord.xy);\n  vec4 color = texture2D(main_texture, screen_coord);\n\n  // scale the screen_coord to represent a percent\n  screen_coord *= 100.0;\n  vec2 pip_test = screen_coord - pip_coord;\n  if (pip_test.x >= 0.0 && pip_test.y >= 0.0 && pip_test.x <= pip_size.x && pip_test.y <= pip_size.y) {\n    vec4 pip_color = texture2D(pip_texture, pip_test / pip_size);\n    color = mix(color, pip_color, pip_color.a / pip_alpha);\n  }\n  gl_FragColor = color;\n}\n", "splat.vert": "\nuniform mat4 world_matrix;\nuniform mat4 view_matrix;\nuniform mat4 projection_matrix;\nattribute vec3 position;\n\n\nvoid main(void) {\n  gl_Position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);\n}\n", "simple.vert": "\n// matrices\nuniform mat4 view_matrix;\nuniform mat4 world_matrix;\nuniform mat4 particle_matrix;\nuniform mat4 projection_matrix;\n\n// vertex data\nattribute vec3 position;\nattribute vec3 normal;\nattribute vec2 tcoords;\n\n// misc adjustments\nuniform float mgrl_orthographic_scale;\n\n// billboard sprites enabler\nuniform float billboard_mode;\n\n// interpolated vertex data in various transformations\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  // pass along to the fragment shader\n  local_position = position * mgrl_orthographic_scale;\n  local_normal = normal;\n  local_tcoords = tcoords;\n\n  // calculate modelview matrix\n  mat4 model_view = view_matrix * world_matrix;\n  if (billboard_mode > 0.0) {\n    // clear out rotation information\n    model_view[0].xyz = world_matrix[0].xyz;\n    model_view[2].xyz = world_matrix[2].xyz;\n    if (billboard_mode == 2.0) {\n      model_view[1].xyz = world_matrix[1].xyz;\n    }\n  }\n\n  // various coordinate transforms\n  vec4 final_position = projection_matrix * model_view * vec4(local_position, 1.0);\n  world_position = (world_matrix * vec4(local_position, 1.0)).xyz;\n  screen_position = final_position.xyz;\n  gl_Position = final_position;\n}\n", "diffuse.frag": "\nprecision mediump float;\n\nuniform sampler2D diffuse_texture;\n\nuniform float alpha;\nuniform bool is_sprite;\nuniform bool is_transparent;\n\nvarying vec3 local_position;\nvarying vec3 local_normal;\nvarying vec2 local_tcoords;\nvarying vec3 world_position;\nvarying vec3 screen_position;\n\n\nvoid main(void) {\n  vec4 diffuse = texture2D(diffuse_texture, local_tcoords);\n  if (is_sprite) {\n    float cutoff = is_transparent ? 0.1 : 1.0;\n    if (diffuse.a < cutoff) {\n      discard;\n    }\n  }\n  diffuse.a *= alpha;\n  gl_FragColor = diffuse;\n}\n", "stereo.frag": "\n#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n\nuniform vec4 mgrl_clear_color;\nuniform float mgrl_frame_start;\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform sampler2D left_eye_texture;\nuniform sampler2D right_eye_texture;\n\nuniform bool stereo_split;\nuniform vec3 left_color;\nuniform vec3 right_color;\n\nvec4 sample_or_clear(sampler2D sampler, vec2 coord) {\n  vec4 color = texture2D(sampler, coord);\n  if (color.a == 0.0) {\n    color = mgrl_clear_color;\n  }\n  return color;\n}\n\nvoid main(void) {\n  vec2 coord = gl_FragCoord.xy / vec2(mgrl_buffer_width, mgrl_buffer_height);\n  vec4 color;\n\n  if (stereo_split) {\n    // FIXME: apply distortion effect needed for VR glasses\n    if (coord.x < 0.5) {\n      color = texture2D(left_eye_texture, vec2(coord.x*2.0, coord.y));\n    }\n    else {\n      color = texture2D(right_eye_texture, vec2((coord.x - 0.5)*2.0, coord.y));\n    }\n  }\n\n  else {\n    vec3 left = sample_or_clear(left_eye_texture, coord).rgb * left_color;\n    vec3 right = sample_or_clear(right_eye_texture, coord).rgb * right_color;\n    color = vec4((left+right), 1.0);\n  }\n  \n  gl_FragColor = color;\n}\n", "diagonal_wipe.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float blur_radius;\nuniform bool flip_axis;\nuniform bool flip_direction;\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  float slope = mgrl_buffer_height / mgrl_buffer_width;\n  if (flip_axis) {\n    slope *= -1.0;\n  }\n  float half_height = mgrl_buffer_height * 0.5;\n  float high_point = mgrl_buffer_height + half_height + blur_radius + 1.0;\n  float low_point = (half_height * -1.0) - blur_radius - 1.0;\n  float midpoint = mix(high_point, low_point, flip_direction ? 1.0 - progress : progress);\n  float test = ((gl_FragCoord.x - mgrl_buffer_width/2.0) * slope) + midpoint;\n\n  vec4 color;\n  float dist = gl_FragCoord.y - test;\n  if (dist <= blur_radius && dist >= (blur_radius*-1.0)) {\n    vec4 color_a = texture2D(texture_a, tcoords);\n    vec4 color_b = texture2D(texture_b, tcoords);\n    float blend = (dist + blur_radius) / (blur_radius*2.0);\n    color = mix(color_a, color_b, flip_direction ? 1.0 - blend : blend);\n  }\n  else {\n    if ((gl_FragCoord.y < test && !flip_direction) || (gl_FragCoord.y > test && flip_direction)) {\n      color = texture2D(texture_a, tcoords);\n    }\n    else {\n      color = texture2D(texture_b, tcoords);\n    }\n  }\n  gl_FragColor = color;\n}\n", "picking.frag": "\n#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n\nvarying vec3 local_position;\nuniform vec3 object_index;\nuniform bool mgrl_select_mode;\nuniform vec3 mgrl_model_local_min;\nuniform vec3 mgrl_model_local_size;\n\n\nvoid main(void) {\n  if (mgrl_select_mode) {\n    gl_FragColor = vec4(object_index, 1.0);\n  }\n  else {\n    vec3 shifted = local_position - mgrl_model_local_min;\n    vec3 scaled = shifted / mgrl_model_local_size;\n    gl_FragColor = vec4(scaled, 1.0);\n  };\n}\n", "disintegrate.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform float progress;\nuniform sampler2D texture_a;\nuniform sampler2D texture_b;\n\nuniform float px_size;\n\n\n// https://stackoverflow.com/questions/12964279/whats-the-origin-of-this-glsl-rand-one-liner\nfloat random_seed(vec2 co) {\n  return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);\n}\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvoid main(void) {\n  vec2 grid = gl_FragCoord.xy / px_size;\n  vec2 offset = fract(grid)*0.5;\n  float random = (random_seed(floor(grid + offset))*0.9) + 0.1;\n  random *= (1.0 - progress);\n  vec2 tcoords = pick(gl_FragCoord.xy);\n  vec4 color;\n  if (random < 0.1) {\n    color = texture2D(texture_b, tcoords);\n  }\n  else {\n    color = texture2D(texture_a, tcoords);\n  }\n  gl_FragColor = color;\n}\n", "scatter_blur.frag": "precision mediump float;\n\nuniform float mgrl_buffer_width;\nuniform float mgrl_buffer_height;\n\nuniform sampler2D input_texture;\nuniform float blur_radius;\nuniform float samples;\n\nconst float max_samples = 32.0;\nconst float two_pi = 6.28318530718;\n\n\nvec2 screen_clamp(vec2 coord) {\n  return clamp(coord, vec2(0.0, 0.0), gl_FragCoord.xy);\n}\n\n\nvec2 pick(vec2 coord) {\n  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);\n}\n\n\nvec2 prng(vec2 co) {\n  vec2 a = fract(co.yx * vec2(5.3983, 5.4427));\n  vec2 b = a.xy + vec2(21.5351, 14.3137);\n  vec2 c = a + dot(a.yx, b);\n  //return fract(c.x * c.y * 95.4337);\n  return fract(vec2(c.x*c.y*95.4337, c.x*c.y*97.597));\n}\n\n\nfloat prng(float n){\n  vec2 a = fract(n * vec2(5.3983, 5.4427));\n  vec2 b = a.xy + vec2(21.5351, 14.3137);\n  vec2 c = a + dot(a.yx, b);\n  return fract(c.x * c.y * 95.4337);\n}\n\n\nvoid main(void) {\n  float count = 0.0;\n  vec4 color = vec4(0.0, 0.0, 0.0, 0.0);\n\n  float x, y, radius;\n  float angle = two_pi * prng(gl_FragCoord.xy).x;\n  float angle_step = two_pi / samples;\n  \n  for (float i=0.0; i<max_samples; i+=1.0) {\n    radius = blur_radius * prng(angle);\n    x = gl_FragCoord.x + cos(angle)*radius;\n    y = gl_FragCoord.y + sin(angle)*radius;\n    angle += angle_step;\n    if (x < 0.0 || y < 0.0 || x >= mgrl_buffer_width || y >= mgrl_buffer_height) {\n      continue;\n    }\n    color += texture2D(input_texture, pick(vec2(x, y)));\n    count += 1.0;\n    if (count >= samples) {\n      break;\n    }\n  }\n  \n  if (count == 0.0) {\n    color = texture2D(input_texture, pick(gl_FragCoord.xy));\n    count = 1.0;\n  }\n  gl_FragColor = color / count;\n}\n"};
+    var lookup_table = {"normalize_screen_cord.glsl": "Ly8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0ZyYWdDb29yZC54eSwg\nd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNjcmVlbiBjb29yZGlu\nYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0ZSB0aGF0IGlzIG5v\ncm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0byAxLjAuCi8vCnZl\nYzIgbm9ybWFsaXplX3NjcmVlbl9jb3JkKHZlYzIgY29vcmQpIHsKICByZXR1cm4gdmVjMihjb29y\nZC54L21ncmxfYnVmZmVyX3dpZHRoLCBjb29yZC55L21ncmxfYnVmZmVyX2hlaWdodCk7Cn0KCg==\n"};
     please.prop_map(lookup_table, function (name, src) {
         // see m.media.js's please.media.handlers.glsl for reference:
-        please.media.assets[name] = please.gl.__build_shader(src, name);
+        please.media.assets[name] = atob(src);
+    });
+});
+// - bundled glsl shader assets --------------------------------------------- //
+addEventListener("mgrl_gl_context_created", function () {
+    var lookup_table = {"picture_in_picture.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl93aWR0\naDsKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl9oZWlnaHQ7Cgp1bmlmb3JtIHZlYzIgcGlwX3Np\nemU7CnVuaWZvcm0gdmVjMiBwaXBfY29vcmQ7CnVuaWZvcm0gZmxvYXQgcGlwX2FscGhhOwp1bmlm\nb3JtIHNhbXBsZXIyRCBtYWluX3RleHR1cmU7CnVuaWZvcm0gc2FtcGxlcjJEIHBpcF90ZXh0dXJl\nOwoKCnZlYzIgcGljayh2ZWMyIGNvb3JkKSB7CiAgcmV0dXJuIHZlYzIoY29vcmQueC9tZ3JsX2J1\nZmZlcl93aWR0aCwgY29vcmQueS9tZ3JsX2J1ZmZlcl9oZWlnaHQpOwp9CgoKdm9pZCBtYWluKHZv\naWQpIHsKICB2ZWMyIHNjcmVlbl9jb29yZCA9IHBpY2soZ2xfRnJhZ0Nvb3JkLnh5KTsKICB2ZWM0\nIGNvbG9yID0gdGV4dHVyZTJEKG1haW5fdGV4dHVyZSwgc2NyZWVuX2Nvb3JkKTsKCiAgLy8gc2Nh\nbGUgdGhlIHNjcmVlbl9jb29yZCB0byByZXByZXNlbnQgYSBwZXJjZW50CiAgc2NyZWVuX2Nvb3Jk\nICo9IDEwMC4wOwogIHZlYzIgcGlwX3Rlc3QgPSBzY3JlZW5fY29vcmQgLSBwaXBfY29vcmQ7CiAg\naWYgKHBpcF90ZXN0LnggPj0gMC4wICYmIHBpcF90ZXN0LnkgPj0gMC4wICYmIHBpcF90ZXN0Lngg\nPD0gcGlwX3NpemUueCAmJiBwaXBfdGVzdC55IDw9IHBpcF9zaXplLnkpIHsKICAgIHZlYzQgcGlw\nX2NvbG9yID0gdGV4dHVyZTJEKHBpcF90ZXh0dXJlLCBwaXBfdGVzdCAvIHBpcF9zaXplKTsKICAg\nIGNvbG9yID0gbWl4KGNvbG9yLCBwaXBfY29sb3IsIHBpcF9jb2xvci5hIC8gcGlwX2FscGhhKTsK\nICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3I7Cn0K\n", "splat.vert": "CnVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7CnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5p\nZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4OwphdHRyaWJ1dGUgdmVjMyBwb3NpdGlvbjsKCgp2\nb2lkIG1haW4odm9pZCkgewogIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2aWV3\nX21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7Cn0K\n", "simple.vert": "Ci8vIG1hdHJpY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2pl\nY3Rpb25fbWF0cml4OwoKLy8gdmVydGV4IGRhdGEKYXR0cmlidXRlIHZlYzMgcG9zaXRpb247CmF0\ndHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZlYzIgdGNvb3JkczsKCi8vIG1pc2MgYWRq\ndXN0bWVudHMKdW5pZm9ybSBmbG9hdCBtZ3JsX29ydGhvZ3JhcGhpY19zY2FsZTsKCi8vIGJpbGxi\nb2FyZCBzcHJpdGVzIGVuYWJsZXIKdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKCi8vIGlu\ndGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBpbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5n\nIHZlYzMgbG9jYWxfcG9zaXRpb247CnZhcnlpbmcgdmVjMyBsb2NhbF9ub3JtYWw7CnZhcnlpbmcg\ndmVjMiBsb2NhbF90Y29vcmRzOwp2YXJ5aW5nIHZlYzMgd29ybGRfcG9zaXRpb247CnZhcnlpbmcg\ndmVjMyBzY3JlZW5fcG9zaXRpb247CgoKdm9pZCBtYWluKHZvaWQpIHsKICAvLyBwYXNzIGFsb25n\nIHRvIHRoZSBmcmFnbWVudCBzaGFkZXIKICBsb2NhbF9wb3NpdGlvbiA9IHBvc2l0aW9uICogbWdy\nbF9vcnRob2dyYXBoaWNfc2NhbGU7CiAgbG9jYWxfbm9ybWFsID0gbm9ybWFsOwogIGxvY2FsX3Rj\nb29yZHMgPSB0Y29vcmRzOwoKICAvLyBjYWxjdWxhdGUgbW9kZWx2aWV3IG1hdHJpeAogIG1hdDQg\nbW9kZWxfdmlldyA9IHZpZXdfbWF0cml4ICogd29ybGRfbWF0cml4OwogIGlmIChiaWxsYm9hcmRf\nbW9kZSA+IDAuMCkgewogICAgLy8gY2xlYXIgb3V0IHJvdGF0aW9uIGluZm9ybWF0aW9uCiAgICBt\nb2RlbF92aWV3WzBdLnh5eiA9IHdvcmxkX21hdHJpeFswXS54eXo7CiAgICBtb2RlbF92aWV3WzJd\nLnh5eiA9IHdvcmxkX21hdHJpeFsyXS54eXo7CiAgICBpZiAoYmlsbGJvYXJkX21vZGUgPT0gMi4w\nKSB7CiAgICAgIG1vZGVsX3ZpZXdbMV0ueHl6ID0gd29ybGRfbWF0cml4WzFdLnh5ejsKICAgIH0K\nICB9CgogIC8vIHZhcmlvdXMgY29vcmRpbmF0ZSB0cmFuc2Zvcm1zCiAgdmVjNCBmaW5hbF9wb3Np\ndGlvbiA9IHByb2plY3Rpb25fbWF0cml4ICogbW9kZWxfdmlldyAqIHZlYzQobG9jYWxfcG9zaXRp\nb24sIDEuMCk7CiAgd29ybGRfcG9zaXRpb24gPSAod29ybGRfbWF0cml4ICogdmVjNChsb2NhbF9w\nb3NpdGlvbiwgMS4wKSkueHl6OwogIHNjcmVlbl9wb3NpdGlvbiA9IGZpbmFsX3Bvc2l0aW9uLnh5\nejsKICBnbF9Qb3NpdGlvbiA9IGZpbmFsX3Bvc2l0aW9uOwp9Cg==\n", "diffuse.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0\ndXJlOwoKdW5pZm9ybSBmbG9hdCBhbHBoYTsKdW5pZm9ybSBib29sIGlzX3Nwcml0ZTsKdW5pZm9y\nbSBib29sIGlzX3RyYW5zcGFyZW50OwoKdmFyeWluZyB2ZWMzIGxvY2FsX3Bvc2l0aW9uOwp2YXJ5\naW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2YXJ5aW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWlu\nZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgc2NyZWVuX3Bvc2l0aW9uOwoKCnZv\naWQgbWFpbih2b2lkKSB7CiAgdmVjNCBkaWZmdXNlID0gdGV4dHVyZTJEKGRpZmZ1c2VfdGV4dHVy\nZSwgbG9jYWxfdGNvb3Jkcyk7CiAgaWYgKGlzX3Nwcml0ZSkgewogICAgZmxvYXQgY3V0b2ZmID0g\naXNfdHJhbnNwYXJlbnQgPyAwLjEgOiAxLjA7CiAgICBpZiAoZGlmZnVzZS5hIDwgY3V0b2ZmKSB7\nCiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgfQogIGRpZmZ1c2UuYSAqPSBhbHBoYTsKICBnbF9GcmFn\nQ29sb3IgPSBkaWZmdXNlOwp9Cg==\n", "stereo.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnVuaWZvcm0gdmVjNCBtZ3Js\nX2NsZWFyX2NvbG9yOwp1bmlmb3JtIGZsb2F0IG1ncmxfZnJhbWVfc3RhcnQ7CnVuaWZvcm0gZmxv\nYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfaGVpZ2h0OwoK\ndW5pZm9ybSBzYW1wbGVyMkQgbGVmdF9leWVfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgcmln\naHRfZXllX3RleHR1cmU7Cgp1bmlmb3JtIGJvb2wgc3RlcmVvX3NwbGl0Owp1bmlmb3JtIHZlYzMg\nbGVmdF9jb2xvcjsKdW5pZm9ybSB2ZWMzIHJpZ2h0X2NvbG9yOwoKdmVjNCBzYW1wbGVfb3JfY2xl\nYXIoc2FtcGxlcjJEIHNhbXBsZXIsIHZlYzIgY29vcmQpIHsKICB2ZWM0IGNvbG9yID0gdGV4dHVy\nZTJEKHNhbXBsZXIsIGNvb3JkKTsKICBpZiAoY29sb3IuYSA9PSAwLjApIHsKICAgIGNvbG9yID0g\nbWdybF9jbGVhcl9jb2xvcjsKICB9CiAgcmV0dXJuIGNvbG9yOwp9Cgp2b2lkIG1haW4odm9pZCkg\newogIHZlYzIgY29vcmQgPSBnbF9GcmFnQ29vcmQueHkgLyB2ZWMyKG1ncmxfYnVmZmVyX3dpZHRo\nLCBtZ3JsX2J1ZmZlcl9oZWlnaHQpOwogIHZlYzQgY29sb3I7CgogIGlmIChzdGVyZW9fc3BsaXQp\nIHsKICAgIC8vIEZJWE1FOiBhcHBseSBkaXN0b3J0aW9uIGVmZmVjdCBuZWVkZWQgZm9yIFZSIGds\nYXNzZXMKICAgIGlmIChjb29yZC54IDwgMC41KSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKGxl\nZnRfZXllX3RleHR1cmUsIHZlYzIoY29vcmQueCoyLjAsIGNvb3JkLnkpKTsKICAgIH0KICAgIGVs\nc2UgewogICAgICBjb2xvciA9IHRleHR1cmUyRChyaWdodF9leWVfdGV4dHVyZSwgdmVjMigoY29v\ncmQueCAtIDAuNSkqMi4wLCBjb29yZC55KSk7CiAgICB9CiAgfQoKICBlbHNlIHsKICAgIHZlYzMg\nbGVmdCA9IHNhbXBsZV9vcl9jbGVhcihsZWZ0X2V5ZV90ZXh0dXJlLCBjb29yZCkucmdiICogbGVm\ndF9jb2xvcjsKICAgIHZlYzMgcmlnaHQgPSBzYW1wbGVfb3JfY2xlYXIocmlnaHRfZXllX3RleHR1\ncmUsIGNvb3JkKS5yZ2IgKiByaWdodF9jb2xvcjsKICAgIGNvbG9yID0gdmVjNCgobGVmdCtyaWdo\ndCksIDEuMCk7CiAgfQogIAogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "diagonal_wipe.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBibHVyX3JhZGl1czsKdW5pZm9ybSBib29sIGZsaXBfYXhpczsK\ndW5pZm9ybSBib29sIGZsaXBfZGlyZWN0aW9uOwoKCnZlYzIgcGljayh2ZWMyIGNvb3JkKSB7CiAg\ncmV0dXJuIHZlYzIoY29vcmQueC9tZ3JsX2J1ZmZlcl93aWR0aCwgY29vcmQueS9tZ3JsX2J1ZmZl\ncl9oZWlnaHQpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsKICB2ZWMyIHRjb29yZHMgPSBwaWNrKGds\nX0ZyYWdDb29yZC54eSk7CiAgZmxvYXQgc2xvcGUgPSBtZ3JsX2J1ZmZlcl9oZWlnaHQgLyBtZ3Js\nX2J1ZmZlcl93aWR0aDsKICBpZiAoZmxpcF9heGlzKSB7CiAgICBzbG9wZSAqPSAtMS4wOwogIH0K\nICBmbG9hdCBoYWxmX2hlaWdodCA9IG1ncmxfYnVmZmVyX2hlaWdodCAqIDAuNTsKICBmbG9hdCBo\naWdoX3BvaW50ID0gbWdybF9idWZmZXJfaGVpZ2h0ICsgaGFsZl9oZWlnaHQgKyBibHVyX3JhZGl1\ncyArIDEuMDsKICBmbG9hdCBsb3dfcG9pbnQgPSAoaGFsZl9oZWlnaHQgKiAtMS4wKSAtIGJsdXJf\ncmFkaXVzIC0gMS4wOwogIGZsb2F0IG1pZHBvaW50ID0gbWl4KGhpZ2hfcG9pbnQsIGxvd19wb2lu\ndCwgZmxpcF9kaXJlY3Rpb24gPyAxLjAgLSBwcm9ncmVzcyA6IHByb2dyZXNzKTsKICBmbG9hdCB0\nZXN0ID0gKChnbF9GcmFnQ29vcmQueCAtIG1ncmxfYnVmZmVyX3dpZHRoLzIuMCkgKiBzbG9wZSkg\nKyBtaWRwb2ludDsKCiAgdmVjNCBjb2xvcjsKICBmbG9hdCBkaXN0ID0gZ2xfRnJhZ0Nvb3JkLnkg\nLSB0ZXN0OwogIGlmIChkaXN0IDw9IGJsdXJfcmFkaXVzICYmIGRpc3QgPj0gKGJsdXJfcmFkaXVz\nKi0xLjApKSB7CiAgICB2ZWM0IGNvbG9yX2EgPSB0ZXh0dXJlMkQodGV4dHVyZV9hLCB0Y29vcmRz\nKTsKICAgIHZlYzQgY29sb3JfYiA9IHRleHR1cmUyRCh0ZXh0dXJlX2IsIHRjb29yZHMpOwogICAg\nZmxvYXQgYmxlbmQgPSAoZGlzdCArIGJsdXJfcmFkaXVzKSAvIChibHVyX3JhZGl1cyoyLjApOwog\nICAgY29sb3IgPSBtaXgoY29sb3JfYSwgY29sb3JfYiwgZmxpcF9kaXJlY3Rpb24gPyAxLjAgLSBi\nbGVuZCA6IGJsZW5kKTsKICB9CiAgZWxzZSB7CiAgICBpZiAoKGdsX0ZyYWdDb29yZC55IDwgdGVz\ndCAmJiAhZmxpcF9kaXJlY3Rpb24pIHx8IChnbF9GcmFnQ29vcmQueSA+IHRlc3QgJiYgZmxpcF9k\naXJlY3Rpb24pKSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKHRleHR1cmVfYSwgdGNvb3Jkcyk7\nCiAgICB9CiAgICBlbHNlIHsKICAgICAgY29sb3IgPSB0ZXh0dXJlMkQodGV4dHVyZV9iLCB0Y29v\ncmRzKTsKICAgIH0KICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3I7Cn0K\n", "picking.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnZhcnlpbmcgdmVjMyBsb2Nh\nbF9wb3NpdGlvbjsKdW5pZm9ybSB2ZWMzIG9iamVjdF9pbmRleDsKdW5pZm9ybSBib29sIG1ncmxf\nc2VsZWN0X21vZGU7CnVuaWZvcm0gdmVjMyBtZ3JsX21vZGVsX2xvY2FsX21pbjsKdW5pZm9ybSB2\nZWMzIG1ncmxfbW9kZWxfbG9jYWxfc2l6ZTsKCgp2b2lkIG1haW4odm9pZCkgewogIGlmIChtZ3Js\nX3NlbGVjdF9tb2RlKSB7CiAgICBnbF9GcmFnQ29sb3IgPSB2ZWM0KG9iamVjdF9pbmRleCwgMS4w\nKTsKICB9CiAgZWxzZSB7CiAgICB2ZWMzIHNoaWZ0ZWQgPSBsb2NhbF9wb3NpdGlvbiAtIG1ncmxf\nbW9kZWxfbG9jYWxfbWluOwogICAgdmVjMyBzY2FsZWQgPSBzaGlmdGVkIC8gbWdybF9tb2RlbF9s\nb2NhbF9zaXplOwogICAgZ2xfRnJhZ0NvbG9yID0gdmVjNChzY2FsZWQsIDEuMCk7CiAgfTsKfQo=\n", "disintegrate.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBweF9zaXplOwoKCiNpbmNsdWRlICJub3JtYWxpemVfc2NyZWVu\nX2NvcmQuZ2xzbCIKCgovLyBodHRwczovL3N0YWNrb3ZlcmZsb3cuY29tL3F1ZXN0aW9ucy8xMjk2\nNDI3OS93aGF0cy10aGUtb3JpZ2luLW9mLXRoaXMtZ2xzbC1yYW5kLW9uZS1saW5lcgpmbG9hdCBy\nYW5kb21fc2VlZCh2ZWMyIGNvKSB7CiAgcmV0dXJuIGZyYWN0KHNpbihkb3QoY28ueHkgLHZlYzIo\nMTIuOTg5OCw3OC4yMzMpKSkgKiA0Mzc1OC41NDUzKTsKfQoKCnZvaWQgbWFpbih2b2lkKSB7CiAg\ndmVjMiBncmlkID0gZ2xfRnJhZ0Nvb3JkLnh5IC8gcHhfc2l6ZTsKICB2ZWMyIG9mZnNldCA9IGZy\nYWN0KGdyaWQpKjAuNTsKICBmbG9hdCByYW5kb20gPSAocmFuZG9tX3NlZWQoZmxvb3IoZ3JpZCAr\nIG9mZnNldCkpKjAuOSkgKyAwLjE7CiAgcmFuZG9tICo9ICgxLjAgLSBwcm9ncmVzcyk7CiAgdmVj\nMiB0Y29vcmRzID0gbm9ybWFsaXplX3NjcmVlbl9jb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAgdmVj\nNCBjb2xvcjsKICBpZiAocmFuZG9tIDwgMC4xKSB7CiAgICBjb2xvciA9IHRleHR1cmUyRCh0ZXh0\ndXJlX2IsIHRjb29yZHMpOwogIH0KICBlbHNlIHsKICAgIGNvbG9yID0gdGV4dHVyZTJEKHRleHR1\ncmVfYSwgdGNvb3Jkcyk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "scatter_blur.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gZmxvYXQgYmx1cl9yYWRpdXM7CnVuaWZvcm0gZmxvYXQgc2Ft\ncGxlczsKCmNvbnN0IGZsb2F0IG1heF9zYW1wbGVzID0gMzIuMDsKY29uc3QgZmxvYXQgdHdvX3Bp\nID0gNi4yODMxODUzMDcxODsKCgp2ZWMyIHNjcmVlbl9jbGFtcCh2ZWMyIGNvb3JkKSB7CiAgcmV0\ndXJuIGNsYW1wKGNvb3JkLCB2ZWMyKDAuMCwgMC4wKSwgZ2xfRnJhZ0Nvb3JkLnh5KTsKfQoKCnZl\nYzIgcGljayh2ZWMyIGNvb3JkKSB7CiAgcmV0dXJuIHZlYzIoY29vcmQueC9tZ3JsX2J1ZmZlcl93\naWR0aCwgY29vcmQueS9tZ3JsX2J1ZmZlcl9oZWlnaHQpOwp9CgoKdmVjMiBwcm5nKHZlYzIgY28p\nIHsKICB2ZWMyIGEgPSBmcmFjdChjby55eCAqIHZlYzIoNS4zOTgzLCA1LjQ0MjcpKTsKICB2ZWMy\nIGIgPSBhLnh5ICsgdmVjMigyMS41MzUxLCAxNC4zMTM3KTsKICB2ZWMyIGMgPSBhICsgZG90KGEu\neXgsIGIpOwogIC8vcmV0dXJuIGZyYWN0KGMueCAqIGMueSAqIDk1LjQzMzcpOwogIHJldHVybiBm\ncmFjdCh2ZWMyKGMueCpjLnkqOTUuNDMzNywgYy54KmMueSo5Ny41OTcpKTsKfQoKCmZsb2F0IHBy\nbmcoZmxvYXQgbil7CiAgdmVjMiBhID0gZnJhY3QobiAqIHZlYzIoNS4zOTgzLCA1LjQ0MjcpKTsK\nICB2ZWMyIGIgPSBhLnh5ICsgdmVjMigyMS41MzUxLCAxNC4zMTM3KTsKICB2ZWMyIGMgPSBhICsg\nZG90KGEueXgsIGIpOwogIHJldHVybiBmcmFjdChjLnggKiBjLnkgKiA5NS40MzM3KTsKfQoKCnZv\naWQgbWFpbih2b2lkKSB7CiAgZmxvYXQgY291bnQgPSAwLjA7CiAgdmVjNCBjb2xvciA9IHZlYzQo\nMC4wLCAwLjAsIDAuMCwgMC4wKTsKCiAgZmxvYXQgeCwgeSwgcmFkaXVzOwogIGZsb2F0IGFuZ2xl\nID0gdHdvX3BpICogcHJuZyhnbF9GcmFnQ29vcmQueHkpLng7CiAgZmxvYXQgYW5nbGVfc3RlcCA9\nIHR3b19waSAvIHNhbXBsZXM7CiAgCiAgZm9yIChmbG9hdCBpPTAuMDsgaTxtYXhfc2FtcGxlczsg\naSs9MS4wKSB7CiAgICByYWRpdXMgPSBibHVyX3JhZGl1cyAqIHBybmcoYW5nbGUpOwogICAgeCA9\nIGdsX0ZyYWdDb29yZC54ICsgY29zKGFuZ2xlKSpyYWRpdXM7CiAgICB5ID0gZ2xfRnJhZ0Nvb3Jk\nLnkgKyBzaW4oYW5nbGUpKnJhZGl1czsKICAgIGFuZ2xlICs9IGFuZ2xlX3N0ZXA7CiAgICBpZiAo\neCA8IDAuMCB8fCB5IDwgMC4wIHx8IHggPj0gbWdybF9idWZmZXJfd2lkdGggfHwgeSA+PSBtZ3Js\nX2J1ZmZlcl9oZWlnaHQpIHsKICAgICAgY29udGludWU7CiAgICB9CiAgICBjb2xvciArPSB0ZXh0\ndXJlMkQoaW5wdXRfdGV4dHVyZSwgcGljayh2ZWMyKHgsIHkpKSk7CiAgICBjb3VudCArPSAxLjA7\nCiAgICBpZiAoY291bnQgPj0gc2FtcGxlcykgewogICAgICBicmVhazsKICAgIH0KICB9CiAgCiAg\naWYgKGNvdW50ID09IDAuMCkgewogICAgY29sb3IgPSB0ZXh0dXJlMkQoaW5wdXRfdGV4dHVyZSwg\ncGljayhnbF9GcmFnQ29vcmQueHkpKTsKICAgIGNvdW50ID0gMS4wOwogIH0KICBnbF9GcmFnQ29s\nb3IgPSBjb2xvciAvIGNvdW50Owp9Cg==\n"};
+    please.prop_map(lookup_table, function (name, src) {
+        // see m.media.js's please.media.handlers.glsl for reference:
+        please.media.assets[name] = please.gl.__build_shader(atob(src), name);
     });
 });
 // - bundled image assets --------------------------------------------------- //
