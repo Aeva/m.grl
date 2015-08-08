@@ -18,7 +18,7 @@ def find_assets(extensions, path="src/assets/"):
                 print msg.format(warn_limit_kb, os.path.split(asset_path)[-1])
                 
             file_name = os.path.split(asset_path)[-1]
-            bundle[file_name] = open(asset_path, "r").read()
+            bundle[file_name] = base64.encodestring(open(asset_path, "r").read())
     return bundle
 
 
@@ -28,12 +28,17 @@ def save(data, target):
     template = open(template_file, "r").read()
     open(output_file, "w").write(
         template.replace("#### JSON HERE ####", json.dumps(data)))
-    
+
 
 def glsl_assets():
     bundle = find_assets(["vert", "frag"])
     save(bundle, "glsl")
 
+
+def text_assets():
+    bundle = find_assets(["txt", "glsl"])
+    save(bundle, "text")
+    
 
 def image_assets():
     types = {
@@ -42,9 +47,8 @@ def image_assets():
         "jpeg" : "image/jpeg",
         }
     bundle = find_assets(types.keys())
-    for handle, raw_data in bundle.items():
+    for handle, data in bundle.items():
         ext = handle.split(".")[-1]
-        data = base64.encodestring(raw_data)
         bundle[handle] = "data:{0};base64,{1}".format(types[ext], data)
     save(bundle, "image")
 
@@ -52,5 +56,6 @@ if __name__ == "__main__":
     if not os.path.isdir("src/tmp/"):
         os.mkdir("src/tmp/")
 
+    text_assets()
     glsl_assets()
     image_assets()
