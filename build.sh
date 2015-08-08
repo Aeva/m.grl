@@ -1,10 +1,10 @@
 #!/usr/bin/env sh
 
-# bundle glsl assets
-python regen_glsl_bundle.py
+# bundle assets
+python regen_asset_bundle.py
 
 # build m.grl
-sh jspp.sh src/m.header.js mgrl.js -DBSIDES -DWEBGL -DGLSL_ASSETS -DIMAGE_ASSETS
+sh jspp.sh src/m.header.js mgrl.js -DBSIDES -DWEBGL -DGLSL_ASSETS -DASSETS
 
 # copy core lib into the project templates
 cp mgrl.js templates/common_assets/libs/

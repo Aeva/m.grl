@@ -50,10 +50,9 @@
 #include "m.prefab.js"
 #include "m.struct.js"
 #include "m.particles.js"
-#ifdef GLSL_ASSETS
+#ifdef ASSETS
+#include "tmp/text_assets.js"
 #include "tmp/glsl_assets.js"
-#endif
-#ifdef IMAGE_ASSETS
 #include "tmp/image_assets.js"
 #endif
 

@@ -11,13 +11,11 @@ uniform sampler2D main_texture;
 uniform sampler2D pip_texture;
 
 
-vec2 pick(vec2 coord) {
-  return vec2(coord.x/mgrl_buffer_width, coord.y/mgrl_buffer_height);
-}
+#include "normalize_screen_cord.glsl"
 
 
 void main(void) {
-  vec2 screen_coord = pick(gl_FragCoord.xy);
+  vec2 screen_coord = normalize_screen_cord(gl_FragCoord.xy);
   vec4 color = texture2D(main_texture, screen_coord);
 
   // scale the screen_coord to represent a percent

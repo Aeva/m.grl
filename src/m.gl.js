@@ -314,12 +314,41 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
 };
 
 
+//
+please.gl.__glsl_macros = {
+    "include" : function(data) {
+        var asset_name = data.slice(1,-1);
+        return please.access(asset_name, true);
+    },
+};
+
+
+//
+please.gl.__apply_glsl_macros = function (src) {
+    var lines = src.split("\n");
+    var output = [];
+    ITER(i, lines) {
+        var line = lines[i].trim();
+        var replace = null;
+        ITER_PROPS(name, please.gl.__glsl_macros) {
+            var macro = please.gl.__glsl_macros[name];
+            if (line.startsWith("#"+name)) {
+                replace = macro(line.slice(name.length+2)) || "";
+            }
+        }
+        output.push(replace ? replace : lines[i]);
+    }
+
+    return output.join("\n");
+};
+
+
 // Constructor function for GLSL Shaders
 please.gl.__build_shader = function (src, uri) {
     var glsl = {
         "id" : null,
         "type" : null,
-        "src" : src,
+        "src" : please.gl.__apply_glsl_macros(src),
         "uri" : uri,
         "ready" : false,
         "error" : false,

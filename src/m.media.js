@@ -339,7 +339,7 @@ please.media.guess_type = function (file_name) {
         "gani" : [".gani"],
         "audio" : [".wav", ".mp3", ".ogg"],
         "glsl" : [".vert", ".frag"],
-        "text" : [".txt"],
+        "text" : [".txt", ".glsl"],
     };
 
     ITER_PROPS (type, type_map) {
