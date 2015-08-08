@@ -3209,24 +3209,37 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     u_map[gl.BOOL_VEC3] = "3iv";
     u_map[gl.BOOL_VEC4] = "4iv";
     u_map[gl.SAMPLER_2D] = "1i";
+    var type_sizes = {};
+    for (var gl_type in u_map) if (u_map.hasOwnProperty(gl_type)) {
+        var hint = u_map[gl_type];
+        if (hint.startsWith("Matrix")) {
+            var period = Number(hint[6]);
+            type_sizes[gl_type] = period * period;
+        }
+        else {
+            type_sizes[gl_type] = Number(hint[0]);
+        }
+    }
     // 
     var sampler_uniforms = [];
     // create helper functions for uniform vars
-    var bind_uniform = function (data) {
+    var bind_uniform = function (data, binding_name) {
         // data.name -> variable name
         // data.type -> built in gl type enum
         // data.size -> array size
+        // binding_name is usually data.name, but differs for array
         // vectors and matricies are expressed in their type
         // vars with a size >1 are arrays.
         var pointer = gl.getUniformLocation(prog.id, data.name);
         var uni = "uniform" + u_map[data.type];
-        var is_array = uni.endsWith("v");
+        var non_sampler = uni.endsWith("v");
+        var is_array = data.size > 1;
         // FIXME - set defaults per data type
-        prog.__cache.vars[data.name] = null;
-        prog.uniform_list.push(data.name);
+        prog.__cache.vars[binding_name] = null;
+        prog.uniform_list.push(binding_name);
         var setter_method;
-        if (is_array) {
-            if (uni.startsWith("uniform1")) {
+        if (non_sampler) {
+            if (uni.startsWith("uniform1") && !is_array) {
                 if (data.type === gl.FLOAT) {
                     // Setter for float type uniforms.
                     setter_method = function (value) {
@@ -3238,8 +3251,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                         else {
                             number = value[0];
                         }
-                        if (prog.__cache.vars[data.name] !== number) {
-                            prog.__cache.vars[data.name] = number;
+                        if (prog.__cache.vars[binding_name] !== number) {
+                            prog.__cache.vars[binding_name] = number;
                             return gl[uni](pointer, upload);
                         }
                     }
@@ -3255,8 +3268,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                         else {
                             number = value[0];
                         }
-                        if (prog.__cache.vars[data.name] !== number) {
-                            prog.__cache.vars[data.name] = number;
+                        if (prog.__cache.vars[binding_name] !== number) {
+                            prog.__cache.vars[binding_name] = number;
                             return gl[uni](pointer, upload);
                         }
                     }
@@ -3276,7 +3289,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     // gains in doing so are dubious.  We still set it, though, so
                     // that the corresponding getter still works.
                     setter_method = function (value) {
-                        prog.__cache.vars[data.name] = value;
+                        prog.__cache.vars[binding_name] = value;
                         return gl[uni](pointer, value);
                     }
                 }
@@ -3285,37 +3298,37 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         else {
             // This is the setter binding for sampler type uniforms variables.
             setter_method = function (value) {
-                if (prog.__cache.vars[data.name] !== value) {
-                    prog.__cache.vars[data.name] = value;
+                if (prog.__cache.vars[binding_name] !== value) {
+                    prog.__cache.vars[binding_name] = value;
                     return gl[uni](pointer, value);
                 }
             };
         }
-        prog.vars.__defineSetter__(data.name, setter_method);
-        prog.vars.__defineGetter__(data.name, function () {
-            if (prog.__cache.vars[data.name] !== null) {
+        prog.vars.__defineSetter__(binding_name, setter_method);
+        prog.vars.__defineGetter__(binding_name, function () {
+            if (prog.__cache.vars[binding_name] !== null) {
                 if (data.type === gl.BOOL) {
-                    return prog.__cache.vars[data.name][0];
+                    return prog.__cache.vars[binding_name][0];
                 }
                 else if (data.type === gl.FLOAT || data.type === gl.INT) {
-                    prog.__cache.vars[data.name][0];
+                    prog.__cache.vars[binding_name][0];
                 }
             }
-            return prog.__cache.vars[data.name];
+            return prog.__cache.vars[binding_name];
         });
         if (data.type === gl.SAMPLER_2D) {
             data.t_unit = sampler_uniforms.length;
-            prog.sampler_list.push(data.name);
-            sampler_uniforms.push(data.name);
+            prog.sampler_list.push(binding_name);
+            sampler_uniforms.push(binding_name);
             data.t_symbol = gl["TEXTURE"+data.t_unit];
             if (!data.t_symbol) {
                 console.error("Exceeded number of available texture units.  Doing nothing.");
                 return;
             }
-            prog.__cache.samplers[data.name] = null;
-            prog.samplers.__defineSetter__(data.name, function (uri) {
+            prog.__cache.samplers[binding_name] = null;
+            prog.samplers.__defineSetter__(binding_name, function (uri) {
                 // FIXME: allow an option for a placeholder texture somehow.
-                if (uri === prog.__cache.samplers[data.name]) {
+                if (uri === prog.__cache.samplers[binding_name]) {
                     // redundant state change, do nothing
                     return;
                 }
@@ -3323,12 +3336,12 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 if (t_id !== null) {
                     gl.activeTexture(data.t_symbol);
                     gl.bindTexture(gl.TEXTURE_2D, t_id);
-                    prog.vars[data.name] = data.t_unit;
-                    prog.__cache.samplers[data.name] = uri;
+                    prog.vars[binding_name] = data.t_unit;
+                    prog.__cache.samplers[binding_name] = uri;
                 }
             });
-            prog.samplers.__defineGetter__(data.name, function () {
-                return prog.__cache.samplers[data.name];
+            prog.samplers.__defineGetter__(binding_name, function () {
+                return prog.__cache.samplers[binding_name];
             });
         }
     };
@@ -3336,9 +3349,13 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     var uni_count = gl.getProgramParameter(prog.id, gl.ACTIVE_UNIFORMS);
     for (var i=0; i<uni_count; i+=1) {
         var uniform_data = gl.getActiveUniform(prog.id, i)
-        bind_uniform(uniform_data);
+        var binding_name = uniform_data.name;
+        if (binding_name.endsWith("[0]")) {
+            binding_name = binding_name.slice(0,-3);
+        }
+        bind_uniform(uniform_data, binding_name);
         // store this data so that we can introspect elsewhere
-        prog.binding_info[uniform_data.name] = uniform_data;
+        prog.binding_info[uniform_data.name, binding_name] = uniform_data;
     }
     // create handlers for available attributes + getter/setter for
     // enabling/disabling them
