@@ -6,6 +6,7 @@
 
 #define ITER(i, list) for (var i=0; i<list.length; i+=1)
 #define ITER_PROPS(p, obj) for (var p in obj) if (obj.hasOwnProperty(p))
+#define ITER_REGEX(m, reg, txt) var m; while ((m = reg.exec(txt)) !== null)
 #define DECR(i, list) for (var i=list.length-1; i>=0; i-=1)
 #define RANGE(i, n) for (var i=0; i<n; i+=1)
 #define DEFAULT(x, value) if (x === undefined) { x = value; }

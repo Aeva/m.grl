@@ -21,6 +21,7 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
+    "__macros" : [],
 };
 
 
@@ -315,31 +316,14 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
 
 
 //
-please.gl.__glsl_macros = {
-    "include" : function(data) {
-        var asset_name = data.slice(1,-1);
-        return please.access(asset_name, true);
-    },
-};
-
-
+// mechanism for applying all registered glsl macros, in order, to a
+// given body of code.
 //
-please.gl.__apply_glsl_macros = function (src) {
-    var lines = src.split("\n");
-    var output = [];
-    ITER(i, lines) {
-        var line = lines[i].trim();
-        var replace = null;
-        ITER_PROPS(name, please.gl.__glsl_macros) {
-            var macro = please.gl.__glsl_macros[name];
-            if (line.startsWith("#"+name)) {
-                replace = macro(line.slice(name.length+2)) || "";
-            }
-        }
-        output.push(replace ? replace : lines[i]);
+please.gl.apply_glsl_macros = function (src) {
+    ITER(i, please.gl.__macros) {
+        src = please.gl.__macros[i](src);
     }
-
-    return output.join("\n");
+    return src;
 };
 
 
@@ -348,7 +332,7 @@ please.gl.__build_shader = function (src, uri) {
     var glsl = {
         "id" : null,
         "type" : null,
-        "src" : please.gl.__apply_glsl_macros(src),
+        "src" : please.gl.apply_glsl_macros(src),
         "uri" : uri,
         "ready" : false,
         "error" : false,
@@ -385,6 +369,33 @@ please.gl.__build_shader = function (src, uri) {
     }
 
     return glsl;
+};
+
+
+//
+// This function takes a path/curve function and a uniform discription
+// object and returns a flat array containing uniform samples of the path.
+//
+please.gl.__flatten_path = function(path, data) {
+    // data.type -> built in gl type enum
+    // data.size -> array size
+
+    var acc = [];
+    var step = 1.0/(data.size-1);
+    var sample, alpha = 0.0;
+    for (var i=0; i<data.size; i+=1) {
+        sample = path(alpha);
+        if (sample.length) {
+            ITER(k, sample) {
+                acc.push(sample[k]);
+            }
+        }
+        else {
+            acc.push(sample);
+        }
+        alpha += step;
+    }
+    return acc;
 };
 
 
@@ -624,6 +635,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     // gains in doing so are dubious.  We still set it, though, so
                     // that the corresponding getter still works.
                     setter_method = function (value) {
+                        if (typeof(value) === "function" && value.stops) {
+                            value = please.gl.__flatten_path(value, data);
+                        }
                         prog.__cache.vars[binding_name] = value;
                         return gl[uni](pointer, value);
                     }

@@ -860,7 +860,7 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
     var last_update = 0;
     // Define the getters and setters for the new property.
     var getter = function () {
-        if (typeof(store[prop]) === "function") {
+        if (typeof(store[prop]) === "function" && store[prop].stops === undefined) {
             // determine if the cached value is too old
             if (cache[prop] === null || (please.pipeline.__framestart > last_update && ! obj.__manual_cache_invalidation)) {
                 cache[prop] = store[prop].call(obj);
@@ -2749,6 +2749,7 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
+    "__macros" : [],
 };
 // [+] please.gl.set_context(canvas_id, options)
 //
@@ -3010,35 +3011,21 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
     }
 };
 //
-please.gl.__glsl_macros = {
-    "include" : function(data) {
-        var asset_name = data.slice(1,-1);
-        return please.access(asset_name, true);
-    },
-};
+// mechanism for applying all registered glsl macros, in order, to a
+// given body of code.
 //
-please.gl.__apply_glsl_macros = function (src) {
-    var lines = src.split("\n");
-    var output = [];
-    for (var i=0; i<lines.length; i+=1) {
-        var line = lines[i].trim();
-        var replace = null;
-        for (var name in please.gl.__glsl_macros) if (please.gl.__glsl_macros.hasOwnProperty(name)) {
-            var macro = please.gl.__glsl_macros[name];
-            if (line.startsWith("#"+name)) {
-                replace = macro(line.slice(name.length+2)) || "";
-            }
-        }
-        output.push(replace ? replace : lines[i]);
+please.gl.apply_glsl_macros = function (src) {
+    for (var i=0; i<please.gl.__macros.length; i+=1) {
+        src = please.gl.__macros[i](src);
     }
-    return output.join("\n");
+    return src;
 };
 // Constructor function for GLSL Shaders
 please.gl.__build_shader = function (src, uri) {
     var glsl = {
         "id" : null,
         "type" : null,
-        "src" : please.gl.__apply_glsl_macros(src),
+        "src" : please.gl.apply_glsl_macros(src),
         "uri" : uri,
         "ready" : false,
         "error" : false,
@@ -3072,6 +3059,30 @@ please.gl.__build_shader = function (src, uri) {
         throw("Cannot create shader - unknown type for: " + uri);
     }
     return glsl;
+};
+//
+// This function takes a path/curve function and a uniform discription
+// object and returns a flat array containing uniform samples of the path.
+//
+please.gl.__flatten_path = function(path, data) {
+    // data.type -> built in gl type enum
+    // data.size -> array size
+    var acc = [];
+    var step = 1.0/(data.size-1);
+    var sample, alpha = 0.0;
+    for (var i=0; i<data.size; i+=1) {
+        sample = path(alpha);
+        if (sample.length) {
+            for (var k=0; k<sample.length; k+=1) {
+                acc.push(sample[k]);
+            }
+        }
+        else {
+            acc.push(sample);
+        }
+        alpha += step;
+    }
+    return acc;
 };
 // [+] please.glsl(name /*, shader_a, shader_b,... */)
 //
@@ -3289,6 +3300,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     // gains in doing so are dubious.  We still set it, though, so
                     // that the corresponding getter still works.
                     setter_method = function (value) {
+                        if (typeof(value) === "function" && value.stops) {
+                            value = please.gl.__flatten_path(value, data);
+                        }
                         prog.__cache.vars[binding_name] = value;
                         return gl[uni](pointer, value);
                     }
@@ -3811,6 +3825,68 @@ please.gl.pick = function (x, y) {
     gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
     return px;
 }
+// - m.gl_macros.js ------------------------------------------------------ //
+//
+// mechanism for adding your own glsl macros
+//
+please.gl.define_macro = function (macro) {
+    please.gl.__macros.push(macro);
+    return macro;
+};
+//
+// the include macro
+//
+please.gl.define_macro (function(src) {
+    // this regex is written out weird to avoid a conflict with the
+    // macro of the same name in the GNU c preprocessor, used by mgrl
+    var macro_def = new RegExp('^#'+'include "([^"]*)"', 'mig');
+    var found = {};
+    var match; while ((match = macro_def.exec(src)) !== null) {
+        var file_path = match[1];
+        var replace_line = match[0];
+        found[file_path] = replace_line;
+    }
+    for (var file_path in found) if (found.hasOwnProperty(file_path)) {
+        var included = please.access(file_path, true);
+        if (included) {
+            src = src.replace(found[file_path], included);
+        }
+    }
+    return src;
+});
+//
+// the curve macro
+//
+window.test = please.gl.define_macro (function(src) {
+    var template = please.access("curve_template.glsl", true);
+    var apply_template = function (gl_type, array_len) {
+        var tmp = template.replace(new RegExp("GL_TYPE", "g"), gl_type);
+        tmp = tmp.replace(new RegExp("ARRAY_LEN", "g"), array_len);
+        return tmp;
+    };
+    var macro_def = /^#curve\(([A-Za-z_]+)\)/mig;
+    var found = {};
+    var match; while ((match = macro_def.exec(src)) !== null) {
+        var curve_name = match[1];
+        var replace_line = match[0];
+        var re = new RegExp('([A-Za-z]+[0-9]*) '+curve_name+'\\[(\\d+)\\]', 'mi');
+        var introspected = re.exec(src);
+        var array_len = introspected[2];
+        var gl_type = introspected[1];
+        var key = gl_type + array_len;
+        if (!found[key]) {
+            found[key] = apply_template(gl_type, array_len);
+        }
+    }
+    var curve_methods = ""
+    for (var key in found) if (found.hasOwnProperty(key)) {
+        curve_methods += found[key];
+    }
+    var insert = src.search(macro_def);
+    src = src.replace(macro_def, '');
+    src = src.slice(0, insert) + curve_methods + src.slice(insert);
+    return src;
+});
 // - m.jta.js ------------------------------------------------------------- //
 /* [+] 
  *
@@ -7496,7 +7572,7 @@ please.ParticleEmitter.prototype.__on_die = function(index) {
 };
 // - bundled textual assets ------------------------------------------------- //
 addEventListener("mgrl_gl_context_created", function () {
-    var lookup_table = {"normalize_screen_cord.glsl": "Ly8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0ZyYWdDb29yZC54eSwg\nd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNjcmVlbiBjb29yZGlu\nYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0ZSB0aGF0IGlzIG5v\ncm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0byAxLjAuCi8vCnZl\nYzIgbm9ybWFsaXplX3NjcmVlbl9jb3JkKHZlYzIgY29vcmQpIHsKICByZXR1cm4gdmVjMihjb29y\nZC54L21ncmxfYnVmZmVyX3dpZHRoLCBjb29yZC55L21ncmxfYnVmZmVyX2hlaWdodCk7Cn0KCg==\n"};
+    var lookup_table = {"normalize_screen_cord.glsl": "Ly8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0ZyYWdDb29yZC54eSwg\nd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNjcmVlbiBjb29yZGlu\nYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0ZSB0aGF0IGlzIG5v\ncm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0byAxLjAuCi8vCnZl\nYzIgbm9ybWFsaXplX3NjcmVlbl9jb3JkKHZlYzIgY29vcmQpIHsKICByZXR1cm4gdmVjMihjb29y\nZC54L21ncmxfYnVmZmVyX3dpZHRoLCBjb29yZC55L21ncmxfYnVmZmVyX2hlaWdodCk7Cn0KCg==\n", "curve_template.glsl": "Ly8gIERvIG5vdCBjYWxsICNpbmNsdWRlIG9uIGN1cnZlX3RlbXBsYXRlLmdsc2wgaW4geW91ciBz\nb3VyY2UgZmlsZXMuCi8vICBVc2UgdGhlICNjdXJ2ZSBtYWNybyBpbnN0ZWFkISEhCgpHTF9UWVBF\nIGxpbmVhcl9jdXJ2ZShHTF9UWVBFIHNhbXBsZXNbQVJSQVlfTEVOXSwgZmxvYXQgYWxwaGEpIHsK\nICBmbG9hdCBwaWNrID0gKEFSUkFZX0xFTi4wIC0gMS4wKSAqIGFscGhhOwogIGZsb2F0IGxvdyA9\nIGZsb29yKHBpY2spOwogIGZsb2F0IGhpZ2ggPSBjZWlsKHBpY2spOwogIGZsb2F0IGJldGEgPSBm\ncmFjdChwaWNrKTsKICByZXR1cm4gbWl4KHNhbXBsZXNbbG93XSxzYW1wbGVzW2hpZ2hdLGJldGEp\nOwp9Cg==\n"};
     please.prop_map(lookup_table, function (name, src) {
         // see m.media.js's please.media.handlers.glsl for reference:
         please.media.assets[name] = atob(src);
