@@ -1587,7 +1587,9 @@ please.access = function (asset_name, no_error) {
         }
     }
     if (found && !found.__mgrl_asset_type) {
-        found.__mgrl_asset_type = type;
+        try {
+            found.__mgrl_asset_type = type;
+        } catch (err) {}
     }
     return found;
 };
@@ -3857,7 +3859,7 @@ please.gl.define_macro (function(src) {
 //
 // the curve macro
 //
-window.test = please.gl.define_macro (function(src) {
+please.gl.define_macro (function(src) {
     var template = please.access("curve_template.glsl", true);
     var apply_template = function (gl_type, array_len) {
         var tmp = template.replace(new RegExp("GL_TYPE", "g"), gl_type);
