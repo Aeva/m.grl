@@ -182,7 +182,9 @@ please.access = function (asset_name, no_error) {
         }
     }
     if (found && !found.__mgrl_asset_type) {
-        found.__mgrl_asset_type = type;
+        try {
+            found.__mgrl_asset_type = type;
+        } catch (err) {}
     }
     return found;
 };
