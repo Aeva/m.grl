@@ -3081,7 +3081,7 @@ please.gl.__flatten_path = function(path, data) {
     // data.type -> built in gl type enum
     // data.size -> array size
     var acc = [];
-    var step = 1.0/data.size;
+    var step = 1.0/(data.size-1);
     var sample, alpha = 0.0;
     for (var i=0; i<data.size; i+=1) {
         sample = path(alpha);
@@ -3095,6 +3095,7 @@ please.gl.__flatten_path = function(path, data) {
         }
         alpha += step;
     }
+    return acc;
 };
 // [+] please.glsl(name /*, shader_a, shader_b,... */)
 //
