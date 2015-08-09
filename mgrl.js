@@ -3840,8 +3840,8 @@ please.gl.define_macro (function(src) {
     // this regex is written out weird to avoid a conflict with the
     // macro of the same name in the GNU c preprocessor, used by mgrl
     var macro_def = new RegExp('^#'+'include "([^"]*)"', 'mig');
-    var match, found = {};
-    while ((match = macro_def.exec(src)) !== null) {
+    var found = {};
+    var match; while ((match = macro_def.exec(src)) !== null) {
         var file_path = match[1];
         var replace_line = match[0];
         found[file_path] = replace_line;
@@ -3857,13 +3857,36 @@ please.gl.define_macro (function(src) {
 //
 // the curve macro
 //
-// GLSL_MACRO (function(src) {
-//     var macro_def = /^#curve\(([A-Za-z_]+)\)/mig;
-//     var match, found = {};
-//     while ((match = macro_def.exec(src)) !== null) {
-//     }
-//     return src;
-// });
+window.test = please.gl.define_macro (function(src) {
+    var template = please.access("curve_template.glsl", true);
+    var apply_template = function (gl_type, array_len) {
+        var tmp = template.replace(new RegExp("GL_TYPE", "g"), gl_type);
+        tmp = tmp.replace(new RegExp("ARRAY_LEN", "g"), array_len);
+        return tmp;
+    };
+    var macro_def = /^#curve\(([A-Za-z_]+)\)/mig;
+    var found = {};
+    var match; while ((match = macro_def.exec(src)) !== null) {
+        var curve_name = match[1];
+        var replace_line = match[0];
+        var re = new RegExp('([A-Za-z]+[0-9]*) '+curve_name+'\\[(\\d+)\\]', 'mi');
+        var introspected = re.exec(src);
+        var array_len = introspected[2];
+        var gl_type = introspected[1];
+        var key = gl_type + array_len;
+        if (!found[key]) {
+            found[key] = apply_template(gl_type, array_len);
+        }
+    }
+    var curve_methods = ""
+    for (var key in found) if (found.hasOwnProperty(key)) {
+        curve_methods += found[key];
+    }
+    var insert = src.search(macro_def);
+    src = src.replace(macro_def, '');
+    src = src.slice(0, insert) + curve_methods + src.slice(insert);
+    return src;
+});
 // - m.jta.js ------------------------------------------------------------- //
 /* [+] 
  *
@@ -7549,7 +7572,7 @@ please.ParticleEmitter.prototype.__on_die = function(index) {
 };
 // - bundled textual assets ------------------------------------------------- //
 addEventListener("mgrl_gl_context_created", function () {
-    var lookup_table = {"normalize_screen_cord.glsl": "Ly8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0ZyYWdDb29yZC54eSwg\nd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNjcmVlbiBjb29yZGlu\nYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0ZSB0aGF0IGlzIG5v\ncm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0byAxLjAuCi8vCnZl\nYzIgbm9ybWFsaXplX3NjcmVlbl9jb3JkKHZlYzIgY29vcmQpIHsKICByZXR1cm4gdmVjMihjb29y\nZC54L21ncmxfYnVmZmVyX3dpZHRoLCBjb29yZC55L21ncmxfYnVmZmVyX2hlaWdodCk7Cn0KCg==\n"};
+    var lookup_table = {"normalize_screen_cord.glsl": "Ly8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0ZyYWdDb29yZC54eSwg\nd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNjcmVlbiBjb29yZGlu\nYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0ZSB0aGF0IGlzIG5v\ncm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0byAxLjAuCi8vCnZl\nYzIgbm9ybWFsaXplX3NjcmVlbl9jb3JkKHZlYzIgY29vcmQpIHsKICByZXR1cm4gdmVjMihjb29y\nZC54L21ncmxfYnVmZmVyX3dpZHRoLCBjb29yZC55L21ncmxfYnVmZmVyX2hlaWdodCk7Cn0KCg==\n", "curve_template.glsl": "Ly8gIERvIG5vdCBjYWxsICNpbmNsdWRlIG9uIGN1cnZlX3RlbXBsYXRlLmdsc2wgaW4geW91ciBz\nb3VyY2UgZmlsZXMuCi8vICBVc2UgdGhlICNjdXJ2ZSBtYWNybyBpbnN0ZWFkISEhCgpHTF9UWVBF\nIGxpbmVhcl9jdXJ2ZShHTF9UWVBFIHNhbXBsZXNbQVJSQVlfTEVOXSwgZmxvYXQgYWxwaGEpIHsK\nICBmbG9hdCBwaWNrID0gKEFSUkFZX0xFTi4wIC0gMS4wKSAqIGFscGhhOwogIGZsb2F0IGxvdyA9\nIGZsb29yKHBpY2spOwogIGZsb2F0IGhpZ2ggPSBjZWlsKHBpY2spOwogIGZsb2F0IGJldGEgPSBm\ncmFjdChwaWNrKTsKICByZXR1cm4gbWl4KHNhbXBsZXNbbG93XSxzYW1wbGVzW2hpZ2hdLGJldGEp\nOwp9Cg==\n"};
     please.prop_map(lookup_table, function (name, src) {
         // see m.media.js's please.media.handlers.glsl for reference:
         please.media.assets[name] = atob(src);
