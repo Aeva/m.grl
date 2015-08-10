@@ -136,6 +136,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // Add color curve adjustment
     var curve_pass = demo.curve_pass = new please.ColorCurve();
     curve_pass.shader.input_texture = fancy_pass;
+    curve_pass.shader.value_curve = please.bezier_path(
+        [0, 0, 0, .1, .1, .5, .75, 1]);
+    curve_pass.shader.red_curve = please.linear_path(.1, 1);
 
     // Add something we'll picture-in-picture later.
     please.glsl("coordinate_pass", "simple.vert", "test.frag");
