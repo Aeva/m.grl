@@ -14,7 +14,7 @@ uniform float blue_curve[16];
 #curve(green_curve)
 #curve(blue_curve)
 
-#include "normalize_screen_cord.glsl"
+#include "normalize_screen_coord.glsl"
 
 
 float value(vec3 color) {
@@ -23,7 +23,7 @@ float value(vec3 color) {
 
 
 void main(void) {
-  vec2 tcoords = normalize_screen_cord(gl_FragCoord.xy);
+  vec2 tcoords = normalize_screen_coord(gl_FragCoord.xy);
   vec3 color = texture2D(input_texture, tcoords).rgb;
 
   float v1 = value(color);
