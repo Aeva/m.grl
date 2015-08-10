@@ -103,3 +103,22 @@ please.ScatterBlur = function () {
     
     return effect;
 };
+
+
+// [ ]
+//
+//
+please.ColorCurve = function () {
+    var prog = please.gl.get_program(["splat.vert", "color_curve.frag"]);
+    if (!prog) {
+        prog = please.glsl("color_curve", "splat.vert", "color_curve.frag");
+    }
+    
+    // handle
+    var effect = new please.RenderNode(prog);
+    effect.shader.red_curve = please.linear_path(0.0, 1.0);
+    effect.shader.blue_curve = please.linear_path(0.0, 1.0);
+    effect.shader.green_curve = please.linear_path(0.0, 1.0);
+    effect.shader.value_curve = please.linear_path(0.0, 1.0);
+    return effect;
+};

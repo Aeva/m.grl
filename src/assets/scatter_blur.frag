@@ -11,7 +11,7 @@ const float max_samples = 32.0;
 const float two_pi = 6.28318530718;
 
 
-#include "normalize_screen_cord.glsl"
+#include "normalize_screen_coord.glsl"
 
 
 vec2 screen_clamp(vec2 coord) {
@@ -52,7 +52,7 @@ void main(void) {
     if (x < 0.0 || y < 0.0 || x >= mgrl_buffer_width || y >= mgrl_buffer_height) {
       continue;
     }
-    color += texture2D(input_texture, normalize_screen_cord(vec2(x, y)));
+    color += texture2D(input_texture, normalize_screen_coord(vec2(x, y)));
     count += 1.0;
     if (count >= samples) {
       break;
@@ -60,7 +60,7 @@ void main(void) {
   }
   
   if (count == 0.0) {
-    color = texture2D(input_texture, normalize_screen_cord(gl_FragCoord.xy));
+    color = texture2D(input_texture, normalize_screen_coord(gl_FragCoord.xy));
     count = 1.0;
   }
   gl_FragColor = color / count;

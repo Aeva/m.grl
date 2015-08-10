@@ -353,6 +353,20 @@ please.gl.__build_shader = function (src, uri) {
         gl.compileShader(glsl.id);
         // check compiler output
         if (!gl.getShaderParameter(glsl.id, gl.COMPILE_STATUS)) {
+            var line, lines = glsl.src.split("\n");
+            var line_label, debug = [];
+            ITER(i, lines) {
+                line = lines[i];
+                if (line.trim().length) {
+                    line_label = String(i+1);
+                    while (line_label.length < String(lines.length).length) {
+                        line_label = " " + line_label;
+                    }
+                    debug.push(line_label + " | " + line);
+                }
+            }
+            console.debug(
+                "----- semicompiled shader ----------------\n" + debug.join("\n"));
             glsl.error = gl.getShaderInfoLog(glsl.id);
             console.error(
                 "Shader compilation error for: " + uri + " \n" + glsl.error);

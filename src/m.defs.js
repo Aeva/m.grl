@@ -171,6 +171,12 @@ please.degrees = function (radians) {
 // true.
 //
 please.mix = function (lhs, rhs, a) {
+    if (typeof(lhs) === "function") {
+        lhs = lhs();
+    }
+    if (typeof(rhs) === "function") {
+        rhs = rhs();
+    }
     if (typeof(lhs) === "number" && typeof(lhs) === typeof(rhs)) {
         // Linear interpolation of two scalar values:
         return lhs + a*(rhs-lhs);

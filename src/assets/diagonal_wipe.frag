@@ -12,11 +12,11 @@ uniform bool flip_axis;
 uniform bool flip_direction;
 
 
-#include "normalize_screen_cord.glsl"
+#include "normalize_screen_coord.glsl"
 
 
 void main(void) {
-  vec2 tcoords = normalize_screen_cord(gl_FragCoord.xy);
+  vec2 tcoords = normalize_screen_coord(gl_FragCoord.xy);
   float slope = mgrl_buffer_height / mgrl_buffer_width;
   if (flip_axis) {
     slope *= -1.0;

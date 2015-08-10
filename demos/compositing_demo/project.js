@@ -129,9 +129,16 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // Add a renderer using a custom shader.
     please.glsl("fancy_pass", "splat.vert", "warp_effect.frag");
-    var fancypass = new please.RenderNode("fancy_pass");
-    fancypass.shader.splat_texture = renderer;
-    fancypass.shader.blur_factor = 200;
+    var fancy_pass = new please.RenderNode("fancy_pass");
+    fancy_pass.shader.splat_texture = renderer;
+    fancy_pass.shader.blur_factor = 200;
+
+    // Add color curve adjustment
+    var curve_pass = demo.curve_pass = new please.ColorCurve();
+    curve_pass.shader.input_texture = fancy_pass;
+    curve_pass.shader.value_curve = please.bezier_path(
+        [0, 0, 0, .1, .1, .5, .75, 1]);
+    curve_pass.shader.red_curve = please.linear_path(.1, 1);
 
     // Add something we'll picture-in-picture later.
     please.glsl("coordinate_pass", "simple.vert", "test.frag");
@@ -141,7 +148,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // Add a renderer using a custom shader.
     please.glsl("splice_pass", "splat.vert", "diagonal_wipe.frag");
     var splice_pass = new please.RenderNode("splice_pass");
-    splice_pass.shader.texture_a = fancypass;
+    splice_pass.shader.texture_a = curve_pass;
     splice_pass.shader.texture_b = renderer;
     splice_pass.shader.progress = please.oscillating_driver(0.0, 1.0, 2500);
     splice_pass.shader.blur_radius = 200;
