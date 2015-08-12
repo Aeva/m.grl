@@ -4,15 +4,10 @@ uniform float mgrl_buffer_width;
 uniform float mgrl_buffer_height;
 
 uniform sampler2D input_texture;
-uniform float value_curve[16];
-uniform float red_curve[16];
-uniform float green_curve[16];
-uniform float blue_curve[16];
-
-#curve(value_curve)
-#curve(red_curve)
-#curve(green_curve)
-#curve(blue_curve)
+uniform curve float value_curve[16];
+uniform curve float red_curve[16];
+uniform curve float green_curve[16];
+uniform curve float blue_curve[16];
 
 #include "normalize_screen_coord.glsl"
 

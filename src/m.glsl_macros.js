@@ -44,31 +44,37 @@ GLSL_MACRO (function(src) {
         tmp = tmp.replace(new RegExp("ARRAY_LEN", "g"), array_len);
         return tmp;
     };
-    
-    var macro_def = /^#curve\(([A-Za-z_]+)\)/mig;
-    var found = {};
+
+    var macro_def = /uniform curve (float|vec2|vec3|vec4) ([A-Za-z_]+)\[(\d+)\];/mig;
+    var rewrite = [];
+    var found_types = {};
     ITER_REGEX(match, macro_def, src) {
-        var curve_name = match[1];
-        var replace_line = match[0];
-        var re = new RegExp('([A-Za-z]+[0-9]*) '+curve_name+'\\[(\\d+)\\]', 'mi');
-        var introspected = re.exec(src);
-        var array_len = introspected[2];
-        var gl_type = introspected[1];
-        var key = gl_type + array_len;
-        if (!found[key]) {
-            found[key] = apply_template(gl_type, array_len);
+        var line = match[0];
+        var type = match[1];
+        var name = match[2];
+        var size = match[3];
+
+        var hint = type + size;
+        if (!found_types[hint]) {
+            found_types[hint] = apply_template(type, size);
+        }
+        rewrite.push([line, "uniform "+type+" "+name+"["+size+"];"])
+    }
+
+    if (rewrite.length) {
+        var curve_methods = ""
+        ITER_PROPS(key, found_types) {
+            curve_methods += found_types[key];
+        }
+        rewrite[0][1] += "\n" + curve_methods + "\n\n";
+
+        ITER(i, rewrite) {
+            var original = rewrite[i][0];
+            var compiled = rewrite[i][1];
+            src = src.replace(original, compiled);
         }
     }
-    
-    var curve_methods = ""
-    ITER_PROPS(key, found) {
-        curve_methods += found[key];
-    }
-    
-    var insert = src.search(macro_def);
-    src = src.replace(macro_def, '');
-    src = src.slice(0, insert) + curve_methods + src.slice(insert);
-    
+        
     return src;
 });
 
