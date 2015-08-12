@@ -22,12 +22,12 @@ void main(void) {
   vec3 color = texture2D(input_texture, tcoords).rgb;
 
   float v1 = value(color);
-  float v2 = linear_curve(value_curve, v1);
+  float v2 = sample_curve(value_curve, v1);
   float scale = 1.0 / v1;
   color = color * scale * v2;
   
-  color.r = linear_curve(red_curve, color.r);
-  color.g = linear_curve(green_curve, color.g);
-  color.b = linear_curve(blue_curve, color.b);
+  color.r = sample_curve(red_curve, color.r);
+  color.g = sample_curve(green_curve, color.g);
+  color.b = sample_curve(blue_curve, color.b);
   gl_FragColor = vec4(color, 1.0);
 }
