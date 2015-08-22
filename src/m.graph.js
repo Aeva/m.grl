@@ -493,10 +493,12 @@ please.GraphNode.prototype = {
     "remove" : function (entity) {
         //  Remove the given entity from this object's children.
         if (this.has_child(entity)) {
+            if (this.graph_root) {
+                this.graph_root.__ignore(entity);
+            }
             var children = please.graph_index[this.__id].children;
             children.splice(children.indexOf(entity.__id), 1);
         }
-        this.graph_root.__ignore(entity);
     },
     "destroy" : function () {
         var parent = this.parent;
