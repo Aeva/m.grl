@@ -337,8 +337,8 @@ please.mix = function (lhs, rhs, a) {
         // which case we're dealing with arrays that might be
         // stored in one of two places, so find what we actually
         // care about:
-        var _lhs = lhs.location ? lhs.location : lhs;
-        var _rhs = rhs.location ? rhs.location : rhs;
+        var _lhs = lhs.world_location ? lhs.world_location : lhs;
+        var _rhs = rhs.world_location ? rhs.world_location : rhs;
         if (_lhs.length && _lhs.length === _rhs.length) {
             if (_lhs.length === 4 && !(_lhs.not_quat || _rhs.not_quat)) {
                 // Linear interpolation of two quaternions:
@@ -369,14 +369,14 @@ please.mix = function (lhs, rhs, a) {
 // methods instead.
 //
 please.distance = function(lhs, rhs) {
-    if (lhs.location !== undefined) {
-        lhs = lhs.location;
+    if (lhs.world_location !== undefined) {
+        lhs = lhs.world_location;
     }
     else if (typeof(lhs) === "number") {
         lhs = [lhs];
     }
-    if (rhs.location !== undefined) {
-        rhs = rhs.location;
+    if (rhs.world_location !== undefined) {
+        rhs = rhs.world_location;
     }
     else if (typeof(rhs) === "number") {
         rhs = [rhs];
@@ -981,8 +981,8 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
             if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
                 return target[prop][i];
             }
-            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("location")) {
-                return store[prop+"_focus"].location[i];
+            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("world_location")) {
+                return store[prop+"_focus"].world_location[i];
             }
             else {
                 if (typeof(store[prop+"_"+swizzle][i]) === "function") {
@@ -1031,8 +1031,8 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
                 }
                 return cache[prop];
             }
-            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("location")) {
-                return store[prop+"_focus"].location;
+            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("world_location")) {
+                return store[prop+"_focus"].world_location;
             }
             else {
                 var out = [];
@@ -5476,6 +5476,9 @@ please.gani.build_gl_buffers = function (ani) {
 //  - **rotation** Animatable tripple, define's the object's rotation
 //    in euler notation.
 //
+//  - **world_location** Read only getter which provides a the
+//    object's coordinates in world space.
+//
 //  - **quaternion** Animatable tripple, by default, it is a getter
 //    that returns the quaternion for the rotation defined on the
 //    'rotation' property.  If you set this, the 'rotation' property
@@ -5642,6 +5645,8 @@ please.GraphNode = function () {
     });
     please.make_animatable_tripple(this, "location", "xyz", [0, 0, 0]);
     please.make_animatable_tripple(this, "scale", "xyz", [1, 1, 1]);
+    please.make_animatable(
+        this, "world_location", this.__world_coordinate_driver, null, true);
     // The rotation animatable property is represented in euler
     // rotation, whereas the quaternion animatable property is
     // represented in, well, quaternions.  Which one is used is
@@ -5810,10 +5815,12 @@ please.GraphNode.prototype = {
     "remove" : function (entity) {
         //  Remove the given entity from this object's children.
         if (this.has_child(entity)) {
+            if (this.graph_root) {
+                this.graph_root.__ignore(entity);
+            }
             var children = please.graph_index[this.__id].children;
             children.splice(children.indexOf(entity.__id), 1);
         }
-        this.graph_root.__ignore(entity);
     },
     "destroy" : function () {
         var parent = this.parent;
@@ -5915,6 +5922,9 @@ please.GraphNode.prototype = {
         mat3.transpose(normal_matrix, normal_matrix);
         normal_matrix.dirty = true;
         return normal_matrix;
+    },
+    "__world_coordinate_driver" : function () {
+        return vec3.transformMat4(vec3.create(), vec3.create(), this.shader.world_matrix);
     },
     "__is_sprite_driver" : function () {
         return this.draw_type === "sprite";
