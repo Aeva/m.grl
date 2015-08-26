@@ -559,7 +559,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     u_map[gl.BOOL_VEC2] = "2iv";
     u_map[gl.BOOL_VEC3] = "3iv";
     u_map[gl.BOOL_VEC4] = "4iv";
-    u_map[gl.SAMPLER_2D] = "1i";
+    u_map[gl.SAMPLER_2D] = "1iv";
 
     // 
     var sampler_uniforms = [];
@@ -577,7 +577,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 
         var pointer = gl.getUniformLocation(prog.id, data.name);
         var uni = "uniform" + u_map[data.type];
-        var non_sampler = uni.endsWith("v");
+        var non_sampler = data.type !== gl.SAMPLER_2D;
         var is_array = data.size > 1;
 
         // FIXME - set defaults per data type
@@ -647,13 +647,24 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
         }
         else {
-            // This is the setter binding for sampler type uniforms variables.
-            setter_method = function (value) {
-                if (prog.__cache.vars[binding_name] !== value) {
-                    prog.__cache.vars[binding_name] = value;
-                    return gl[uni](pointer, value);
-                }
-            };
+            if (!is_array) {
+                // This is the setter binding for sampler type uniforms variables.
+                setter_method = function (value) {
+                    if (prog.__cache.vars[binding_name] !== value) {
+                        prog.__cache.vars[binding_name] = value;
+                        return gl[uni](pointer, new Int32Array([value]));
+                    }
+                };
+            }
+            else {
+                // This is the setter binding for sampler arrays.
+                setter_method = function (value) {
+                    if (prog.__cache.vars[binding_name] !== value) {
+                        prog.__cache.vars[binding_name] = value;
+                        return gl[uni](pointer, value);
+                    }
+                };
+            }
         }
         prog.vars.__defineSetter__(binding_name, setter_method);
         
