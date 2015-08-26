@@ -186,8 +186,8 @@ please.mix = function (lhs, rhs, a) {
         // which case we're dealing with arrays that might be
         // stored in one of two places, so find what we actually
         // care about:
-        var _lhs = lhs.location ? lhs.location : lhs;
-        var _rhs = rhs.location ? rhs.location : rhs;
+        var _lhs = lhs.world_location ? lhs.world_location : lhs;
+        var _rhs = rhs.world_location ? rhs.world_location : rhs;
         
         if (_lhs.length && _lhs.length === _rhs.length) {
             if (_lhs.length === 4 && !(_lhs.not_quat || _rhs.not_quat)) {
@@ -221,14 +221,14 @@ please.mix = function (lhs, rhs, a) {
 // methods instead.
 //
 please.distance = function(lhs, rhs) {
-    if (lhs.location !== undefined) {
-        lhs = lhs.location;
+    if (lhs.world_location !== undefined) {
+        lhs = lhs.world_location;
     }
     else if (typeof(lhs) === "number") {
         lhs = [lhs];
     }
-    if (rhs.location !== undefined) {
-        rhs = rhs.location;
+    if (rhs.world_location !== undefined) {
+        rhs = rhs.world_location;
     }
     else if (typeof(rhs) === "number") {
         rhs = [rhs];
