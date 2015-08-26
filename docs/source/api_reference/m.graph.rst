@@ -138,6 +138,9 @@ GraphNodes have some special properties:
 -  **rotation** Animatable tripple, define's the object's rotation in
    euler notation.
 
+-  **world\_location** Read only getter which provides a the object's
+   coordinates in world space.
+
 -  **quaternion** Animatable tripple, by default, it is a getter that
    returns the quaternion for the rotation defined on the 'rotation'
    property. If you set this, the 'rotation' property will be
