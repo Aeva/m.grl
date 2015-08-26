@@ -3242,17 +3242,6 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     u_map[gl.BOOL_VEC3] = "3iv";
     u_map[gl.BOOL_VEC4] = "4iv";
     u_map[gl.SAMPLER_2D] = "1i";
-    var type_sizes = {};
-    for (var gl_type in u_map) if (u_map.hasOwnProperty(gl_type)) {
-        var hint = u_map[gl_type];
-        if (hint.startsWith("Matrix")) {
-            var period = Number(hint[6]);
-            type_sizes[gl_type] = period * period;
-        }
-        else {
-            type_sizes[gl_type] = Number(hint[0]);
-        }
-    }
     // 
     var sampler_uniforms = [];
     // create helper functions for uniform vars

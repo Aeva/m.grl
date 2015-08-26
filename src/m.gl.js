@@ -561,18 +561,6 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     u_map[gl.BOOL_VEC4] = "4iv";
     u_map[gl.SAMPLER_2D] = "1i";
 
-    var type_sizes = {};
-    ITER_PROPS(gl_type, u_map) {
-        var hint = u_map[gl_type];
-        if (hint.startsWith("Matrix")) {
-            var period = Number(hint[6]);
-            type_sizes[gl_type] = period * period;
-        }
-        else {
-            type_sizes[gl_type] = Number(hint[0]);
-        }
-    }
-
     // 
     var sampler_uniforms = [];
 
