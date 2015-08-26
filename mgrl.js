@@ -3364,16 +3364,30 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             prog.__cache.samplers[binding_name] = null;
             prog.samplers.__defineSetter__(binding_name, function (uri) {
                 // FIXME: allow an option for a placeholder texture somehow.
-                if (uri === prog.__cache.samplers[binding_name]) {
-                    // redundant state change, do nothing
-                    return;
+                if (uri.constructor === Array) {
+                    // FIXME: texture array upload
+                    //
+                    // var t_id, t_id_set = [];
+                    // ITER(i, uri) {
+                    //     t_id = please.gl.get_texture(uri[i]);
+                    //     if (t_id !== null) {
+                    //         gl.activeTexture(data.t_symbol);
+                    //         gl.bindTexture(gl.TEXTURE_2D, t_id);
+                    //     }
+                    // }
                 }
-                var t_id = please.gl.get_texture(uri);
-                if (t_id !== null) {
-                    gl.activeTexture(data.t_symbol);
-                    gl.bindTexture(gl.TEXTURE_2D, t_id);
-                    prog.vars[binding_name] = data.t_unit;
-                    prog.__cache.samplers[binding_name] = uri;
+                else {
+                    if (uri === prog.__cache.samplers[binding_name]) {
+                        // redundant state change, do nothing
+                        return;
+                    }
+                    var t_id = please.gl.get_texture(uri);
+                    if (t_id !== null) {
+                        gl.activeTexture(data.t_symbol);
+                        gl.bindTexture(gl.TEXTURE_2D, t_id);
+                        prog.vars[binding_name] = data.t_unit;
+                        prog.__cache.samplers[binding_name] = uri;
+                    }
                 }
             });
             prog.samplers.__defineGetter__(binding_name, function () {
