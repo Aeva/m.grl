@@ -896,8 +896,8 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
             if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
                 return target[prop][i];
             }
-            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("location")) {
-                return store[prop+"_focus"].location[i];
+            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("world_location")) {
+                return store[prop+"_focus"].world_location[i];
             }
             else {
                 if (typeof(store[prop+"_"+swizzle][i]) === "function") {
@@ -948,8 +948,8 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
                 }
                 return cache[prop];
             }
-            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("location")) {
-                return store[prop+"_focus"].location;
+            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("world_location")) {
+                return store[prop+"_focus"].world_location;
             }
             else {
                 var out = [];
