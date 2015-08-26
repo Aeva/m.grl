@@ -5476,6 +5476,9 @@ please.gani.build_gl_buffers = function (ani) {
 //  - **rotation** Animatable tripple, define's the object's rotation
 //    in euler notation.
 //
+//  - **world_location** Read only getter which provides a the
+//    object's coordinates in world space.
+//
 //  - **quaternion** Animatable tripple, by default, it is a getter
 //    that returns the quaternion for the rotation defined on the
 //    'rotation' property.  If you set this, the 'rotation' property
@@ -5642,6 +5645,8 @@ please.GraphNode = function () {
     });
     please.make_animatable_tripple(this, "location", "xyz", [0, 0, 0]);
     please.make_animatable_tripple(this, "scale", "xyz", [1, 1, 1]);
+    please.make_animatable(
+        this, "world_location", this.__world_coordinate_driver, null, true);
     // The rotation animatable property is represented in euler
     // rotation, whereas the quaternion animatable property is
     // represented in, well, quaternions.  Which one is used is
@@ -5917,6 +5922,9 @@ please.GraphNode.prototype = {
         mat3.transpose(normal_matrix, normal_matrix);
         normal_matrix.dirty = true;
         return normal_matrix;
+    },
+    "__world_coordinate_driver" : function () {
+        return vec3.transformMat4(vec3.create(), vec3.create(), this.shader.world_matrix);
     },
     "__is_sprite_driver" : function () {
         return this.draw_type === "sprite";
