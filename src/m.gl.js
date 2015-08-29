@@ -68,6 +68,13 @@ please.gl.set_context = function (canvas_id, options) {
         var search = [
             'EXT_texture_filter_anisotropic',
             'OES_element_index_uint',
+            'OES_texture_float',
+            'OES_texture_float_linear',
+            'OES_texture_half_float',
+            'OES_texture_half_float_linear',
+            'WEBGL_depth_texture',
+            'WEBGL_draw_buffers',
+            'WEBGL_color_buffer_float',
         ];
         for (var i=0; i<search.length; i+=1) {
             var name = search[i];
@@ -1048,7 +1055,8 @@ please.gl.register_framebuffer = function (handle, _options) {
         "height" : 512,
         "mag_filter" : gl.NEAREST,
         "min_filter" : gl.NEAREST,
-        "pixel_format" : gl.RGBA,
+        "type" : gl.UNSIGNED_BYTE,
+        "format" : gl.RGBA,
     };
     if (_options) {
         please.prop_map(_options, function (key, value) {
@@ -1072,9 +1080,9 @@ please.gl.register_framebuffer = function (handle, _options) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, opt.mag_filter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, opt.min_filter);
 
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, opt.width, opt.height, 0, 
-                  opt.pixel_format, gl.UNSIGNED_BYTE, null);
-
+    gl.texImage2D(gl.TEXTURE_2D, 0, opt.format, opt.width, opt.height, 0, 
+                  opt.format, opt.type, null);
+    
     // Create the new renderbuffer
     var render = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, render);

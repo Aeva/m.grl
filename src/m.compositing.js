@@ -48,7 +48,7 @@
 //    call graph.draw().  This function may be overridden to support
 //    custom drawing logic.
 //
-please.RenderNode = function (prog) {
+please.RenderNode = function (prog, options) {
     console.assert(this !== window);
     prog = typeof(prog) === "string" ? please.gl.get_program(prog) : prog;
 
@@ -70,7 +70,8 @@ please.RenderNode = function (prog) {
     });
 
     // render buffer
-    this.__buffer = please.gl.register_framebuffer(this.__id, {});
+    DEFAULT(options, {});
+    this.__buffer = please.gl.register_framebuffer(this.__id, options);
 
     // glsl variable bindings
     this.shader = {};
