@@ -75,6 +75,7 @@ please.gl.set_context = function (canvas_id, options) {
             'WEBGL_depth_texture',
             'WEBGL_draw_buffers',
             'WEBGL_color_buffer_float',
+            'WEBGL_color_buffer_half_float',
         ];
         for (var i=0; i<search.length; i+=1) {
             var name = search[i];
