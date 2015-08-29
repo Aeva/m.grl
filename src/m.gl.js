@@ -68,6 +68,14 @@ please.gl.set_context = function (canvas_id, options) {
         var search = [
             'EXT_texture_filter_anisotropic',
             'OES_element_index_uint',
+            'OES_texture_float',
+            'OES_texture_float_linear',
+            'OES_texture_half_float',
+            'OES_texture_half_float_linear',
+            'WEBGL_depth_texture',
+            'WEBGL_draw_buffers',
+            'WEBGL_color_buffer_float',
+            'WEBGL_color_buffer_half_float',
         ];
         for (var i=0; i<search.length; i+=1) {
             var name = search[i];
@@ -559,19 +567,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     u_map[gl.BOOL_VEC2] = "2iv";
     u_map[gl.BOOL_VEC3] = "3iv";
     u_map[gl.BOOL_VEC4] = "4iv";
-    u_map[gl.SAMPLER_2D] = "1i";
-
-    var type_sizes = {};
-    ITER_PROPS(gl_type, u_map) {
-        var hint = u_map[gl_type];
-        if (hint.startsWith("Matrix")) {
-            var period = Number(hint[6]);
-            type_sizes[gl_type] = period * period;
-        }
-        else {
-            type_sizes[gl_type] = Number(hint[0]);
-        }
-    }
+    u_map[gl.SAMPLER_2D] = "1iv";
 
     // 
     var sampler_uniforms = [];
@@ -589,7 +585,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 
         var pointer = gl.getUniformLocation(prog.id, data.name);
         var uni = "uniform" + u_map[data.type];
-        var non_sampler = uni.endsWith("v");
+        var non_sampler = data.type !== gl.SAMPLER_2D;
         var is_array = data.size > 1;
 
         // FIXME - set defaults per data type
@@ -659,13 +655,24 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
         }
         else {
-            // This is the setter binding for sampler type uniforms variables.
-            setter_method = function (value) {
-                if (prog.__cache.vars[binding_name] !== value) {
-                    prog.__cache.vars[binding_name] = value;
-                    return gl[uni](pointer, value);
-                }
-            };
+            if (!is_array) {
+                // This is the setter binding for sampler type uniforms variables.
+                setter_method = function (value) {
+                    if (prog.__cache.vars[binding_name] !== value) {
+                        prog.__cache.vars[binding_name] = value;
+                        return gl[uni](pointer, new Int32Array([value]));
+                    }
+                };
+            }
+            else {
+                // This is the setter binding for sampler arrays.
+                setter_method = function (value) {
+                    if (prog.__cache.vars[binding_name] !== value) {
+                        prog.__cache.vars[binding_name] = value;
+                        return gl[uni](pointer, value);
+                    }
+                };
+            }
         }
         prog.vars.__defineSetter__(binding_name, setter_method);
         
@@ -697,17 +704,31 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             prog.samplers.__defineSetter__(binding_name, function (uri) {
                 // FIXME: allow an option for a placeholder texture somehow.
 
-                if (uri === prog.__cache.samplers[binding_name]) {
-                    // redundant state change, do nothing
-                    return;
+                if (uri.constructor === Array) {
+                    // FIXME: texture array upload
+                    //
+                    // var t_id, t_id_set = [];
+                    // ITER(i, uri) {
+                    //     t_id = please.gl.get_texture(uri[i]);
+                    //     if (t_id !== null) {
+                    //         gl.activeTexture(data.t_symbol);
+                    //         gl.bindTexture(gl.TEXTURE_2D, t_id);
+                    //     }
+                    // }
                 }
+                else {
+                    if (uri === prog.__cache.samplers[binding_name]) {
+                        // redundant state change, do nothing
+                        return;
+                    }
 
-                var t_id = please.gl.get_texture(uri);
-                if (t_id !== null) {
-                    gl.activeTexture(data.t_symbol);
-                    gl.bindTexture(gl.TEXTURE_2D, t_id);
-                    prog.vars[binding_name] = data.t_unit;
-                    prog.__cache.samplers[binding_name] = uri;
+                    var t_id = please.gl.get_texture(uri);
+                    if (t_id !== null) {
+                        gl.activeTexture(data.t_symbol);
+                        gl.bindTexture(gl.TEXTURE_2D, t_id);
+                        prog.vars[binding_name] = data.t_unit;
+                        prog.__cache.samplers[binding_name] = uri;
+                    }
                 }
             });
 
@@ -1035,7 +1056,8 @@ please.gl.register_framebuffer = function (handle, _options) {
         "height" : 512,
         "mag_filter" : gl.NEAREST,
         "min_filter" : gl.NEAREST,
-        "pixel_format" : gl.RGBA,
+        "type" : gl.UNSIGNED_BYTE,
+        "format" : gl.RGBA,
     };
     if (_options) {
         please.prop_map(_options, function (key, value) {
@@ -1059,9 +1081,9 @@ please.gl.register_framebuffer = function (handle, _options) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, opt.mag_filter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, opt.min_filter);
 
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, opt.width, opt.height, 0, 
-                  opt.pixel_format, gl.UNSIGNED_BYTE, null);
-
+    gl.texImage2D(gl.TEXTURE_2D, 0, opt.format, opt.width, opt.height, 0, 
+                  opt.format, opt.type, null);
+    
     // Create the new renderbuffer
     var render = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, render);
