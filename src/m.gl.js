@@ -1094,7 +1094,16 @@ please.gl.register_framebuffer = function (handle, _options) {
     fbo.options = opt;
     
     // Create the new render texture
-    var tex = please.gl.blank_texture(opt);
+    var tex;
+    if (!opt.buffers) {
+        tex = please.gl.blank_texture(opt);
+    }
+    else {
+        tex = [];
+        ITER(i, opt.buffers) {
+            tex.push(please.gl.blank_texture(opt));
+        }
+    }
     
     // Create the new renderbuffer
     var render = gl.createRenderbuffer();
@@ -1102,8 +1111,20 @@ please.gl.register_framebuffer = function (handle, _options) {
     gl.renderbufferStorage(
         gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, opt.width, opt.height);
 
-    gl.framebufferTexture2D(
-        gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    if (!opt.buffers) {
+        gl.framebufferTexture2D(
+            gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    }
+    else {
+        ITER(i, opt.buffers) {
+            var attach = gl["COLOR_ATTACHMENT" + i];
+            if (i === undefined) {
+                throw ("Insufficient color buffer attachments.  Requested " + opt.buffers.length +", got " + i + " buffers.");
+            }
+            gl.framebufferTexture2D(
+                gl.FRAMEBUFFER, attach, gl.TEXTURE_2D, tex[i], 0);
+        }
+    }
 
     gl.framebufferRenderbuffer(
         gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, render);
@@ -1112,8 +1133,18 @@ please.gl.register_framebuffer = function (handle, _options) {
     gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-    please.gl.__cache.textures[handle] = tex;
-    please.gl.__cache.textures[handle].fbo = fbo;
+    if (!opt.buffers) {
+        please.gl.__cache.textures[handle] = tex;
+        please.gl.__cache.textures[handle].fbo = fbo;
+    }
+    else {
+        please.gl.__cache.textures[handle] = tex[0];
+        please.gl.__cache.textures[handle].fbo = fbo;
+        fbo.buffers = {};
+        ITER(i, opt.buffers) {
+            fbo.buffers[opt.buffers[i]] = tex[i];
+        }
+    }
 
     return tex;
 };
