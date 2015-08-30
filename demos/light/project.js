@@ -23,6 +23,12 @@
 // local namespace
 var demo = {
     "viewport" : null, // the render pass that will be rendered
+    "manifest" : [
+        "deferred.vert",
+        "deferred.frag",
+        "shadow_test.jta",
+        "shadow_test_bake.jta",
+    ],
 };
 
 
@@ -39,6 +45,9 @@ addEventListener("load", function() {
     gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.CULL_FACE);
 
+    // Turn off alpha blending.
+    gl.disable(gl.BLEND);
+    
     // Define where m.grl is to find various assets when using the
     // load methed.
     please.set_search_path("glsl", "glsl/");
@@ -46,8 +55,7 @@ addEventListener("load", function() {
     please.set_search_path("jta", "../gl_assets/models/");
     
     // Queue up assets to be downloaded before the game starts.
-    please.load("shadow_test_bake.png");
-    please.load("shadow_test.jta");
+    demo.manifest.map(please.load);
 
     // Register a render passes with the scheduler.  The autoscale
     // prefab is used to change the dimensions of the rendering canvas
@@ -79,6 +87,10 @@ addEventListener("mgrl_fps", function (event) {
 
 
 addEventListener("mgrl_media_ready", please.once(function () {
+    // Build our custom shader program
+    var prog = please.glsl("deferred_rendering", "deferred.vert", "deferred.frag");
+    prog.activate();
+    
     // Scere Graph object
     var graph = demo.graph = new please.SceneGraph();
 
@@ -98,9 +110,13 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(level);
         
     // Add a renderer using the default shader.
-    var renderer = demo.renderer = new please.RenderNode("default");
-    renderer.clear_color = [.15, .15, .15, 1];
-    renderer.graph = graph;
+    var gbuffers = demo.gbuffers = new please.RenderNode("deferred_rendering");
+    gbuffers.clear_color = [.15, .15, .15, 1];
+    gbuffers.graph = graph;
+    gbuffers.shader.shader_pass = 0;
+    gbuffers.shader.geometry_pass = true;
+    
+    
 
     // Transition from the loading screen prefab to our renderer
     demo.viewport.raise_curtains(demo.renderer);
