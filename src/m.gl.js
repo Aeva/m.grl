@@ -1041,9 +1041,26 @@ please.gl.ibo = function (data, options) {
 };
 
 
+// [+] please.gl.blank_texture(options)
+//
+// Create a new render texture.  This is mostly intended to be used by
+// please.gl.register_framebuffer
+//
+please.gl.blank_texture = function (opt) {
+    var tex = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, opt.mag_filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, opt.min_filter);
+
+    gl.texImage2D(gl.TEXTURE_2D, 0, opt.format, opt.width, opt.height, 0, 
+                  opt.format, opt.type, null);
+    return tex;
+};
+
+
 // [+] please.gl.register_framebuffer(handle, options)
 //
-// Create a new render texture
+// Create a new framebuffer with a render texture attached.
 //
 please.gl.register_framebuffer = function (handle, _options) {
     if (please.gl.__cache.textures[handle]) {
@@ -1058,6 +1075,7 @@ please.gl.register_framebuffer = function (handle, _options) {
         "min_filter" : gl.NEAREST,
         "type" : gl.UNSIGNED_BYTE,
         "format" : gl.RGBA,
+        "buffers" : null,
     };
     if (_options) {
         please.prop_map(_options, function (key, value) {
@@ -1076,13 +1094,7 @@ please.gl.register_framebuffer = function (handle, _options) {
     fbo.options = opt;
     
     // Create the new render texture
-    var tex = gl.createTexture()
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, opt.mag_filter);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, opt.min_filter);
-
-    gl.texImage2D(gl.TEXTURE_2D, 0, opt.format, opt.width, opt.height, 0, 
-                  opt.format, opt.type, null);
+    var tex = please.gl.blank_texture(opt);
     
     // Create the new renderbuffer
     var render = gl.createRenderbuffer();
