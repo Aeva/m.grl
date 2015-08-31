@@ -1,4 +1,4 @@
-
+#extension GL_EXT_draw_buffers : require
 precision mediump float;
 
 // mgrl builtins
@@ -39,7 +39,7 @@ void main(void) {
   else if (shader_pass == 1) {
     // light perspective pass
     float depth = linear_depth;
-    gl_FragColor = vec4(depth, depth, depth, depth);
+    gl_FragData[0] = vec4(depth, depth, depth, depth);
   }
   else if (shader_pass == 2) {
     // illumination pass

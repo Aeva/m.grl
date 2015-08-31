@@ -110,14 +110,20 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(level);
         
     // Add a renderer using the default shader.
-    var gbuffers = demo.gbuffers = new please.RenderNode("deferred_rendering");
+    var options = {
+        "buffers" : ["color", "spatial"],
+    };
+    var gbuffers = demo.gbuffers = new please.RenderNode(
+        "deferred_rendering", options);
     gbuffers.clear_color = [.15, .15, .15, 1];
     gbuffers.graph = graph;
     gbuffers.shader.shader_pass = 0;
     gbuffers.shader.geometry_pass = true;
     
-    
+    var pip = new please.PictureInPicture();
+    pip.shader.main_texture = gbuffers.color;
+    pip.shader.pip_texture = gbuffers.spatial;
 
     // Transition from the loading screen prefab to our renderer
-    demo.viewport.raise_curtains(demo.renderer);
+    demo.viewport.raise_curtains(/*demo.renderer*/pip);
 }));
