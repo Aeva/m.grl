@@ -121,8 +121,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     gbuffers.shader.geometry_pass = true;
     
     var pip = new please.PictureInPicture();
-    pip.shader.main_texture = gbuffers.color;
-    pip.shader.pip_texture = gbuffers.spatial;
+    pip.shader.main_texture = gbuffers.buffers.color;
+    pip.shader.pip_texture = gbuffers.buffers.spatial;
 
     // Transition from the loading screen prefab to our renderer
     demo.viewport.raise_curtains(/*demo.renderer*/pip);
