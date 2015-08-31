@@ -112,7 +112,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // light test
     var light = demo.light = new SpotLightNode();
     light.location = [10, -14, 17];
-    light.look_at = [0, 0, 5];
+    light.look_at = [0, 0, 0];
     light.fov = 60;
     graph.add(light);
         
@@ -137,21 +137,28 @@ addEventListener("mgrl_media_ready", please.once(function () {
         this.graph.draw();
         camera.activate();
     };
-    // light_pass.shader.light_count = 1;
-    // light_pass.shader.light_index = 0;
-    // light_pass.shader.diffuse_texture = gbuffers.buffers.color;
-    // light_pass.shader.spatial_texture = gbuffers.buffers.spatial;
-    // light_pass.shader.light_view_matrix = function () {
-    //     return light.view_matrix;
-    // };
-    // light_pass.shader.light_projection_matrix = function () {
-    //     return light.projection_matrix;
-    // };
+
+    var apply_lighting = demo.apply_lighting = new please.RenderNode(
+        "deferred_rendering", {"buffers" : ["color"]});
+    apply_lighting.shader.shader_pass = 2;
+    apply_lighting.shader.geometry_pass = false;
+
+    apply_lighting.shader.diffuse_texture = gbuffers.buffers.color;
+    apply_lighting.shader.spatial_texture = gbuffers.buffers.spatial;
+    apply_lighting.shader.light_texture = light_pass;
+    apply_lighting.shader.light_count = 1;
+    apply_lighting.shader.light_index = 0;
+    apply_lighting.shader.light_view_matrix = function () {
+        return light.view_matrix;
+    };
+    apply_lighting.shader.light_projection_matrix = function () {
+        return light.projection_matrix;
+    };
     
     var pip = new please.PictureInPicture();
     pip.shader.main_texture = gbuffers.buffers.color;
     //pip.shader.pip_texture = gbuffers.buffers.spatial;
-    pip.shader.pip_texture = light_pass;
+    pip.shader.pip_texture = apply_lighting;
 
     // Transition from the loading screen prefab to our renderer
     demo.viewport.raise_curtains(/*demo.renderer*/pip);
