@@ -452,6 +452,14 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "frag" : null,
         "ready" : false,
         "error" : false,
+        "cache_clear" : function () {
+            ITER_PROPS(name, this.__cache.vars) {
+                this.__cache.vars[name] = null;
+            }
+            ITER_PROPS(name, this.__cache.samplers) {
+                this.__cache.samplers[name] = null;
+            }
+        },
         "activate" : function () {
             var old = null;
             var prog = this;
@@ -1142,6 +1150,7 @@ please.gl.register_framebuffer = function (handle, _options) {
         please.gl.__cache.textures[handle].fbo = fbo;
         fbo.buffers = {};
         ITER(i, opt.buffers) {
+            please.gl.__cache.textures[handle + "::" + opt.buffers[i]] = tex[i];
             fbo.buffers[opt.buffers[i]] = tex[i];
         }
     }

@@ -3143,6 +3143,14 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "frag" : null,
         "ready" : false,
         "error" : false,
+        "cache_clear" : function () {
+            for (var name in this.__cache.vars) if (this.__cache.vars.hasOwnProperty(name)) {
+                this.__cache.vars[name] = null;
+            }
+            for (var name in this.__cache.samplers) if (this.__cache.samplers.hasOwnProperty(name)) {
+                this.__cache.samplers[name] = null;
+            }
+        },
         "activate" : function () {
             var old = null;
             var prog = this;
@@ -3766,6 +3774,7 @@ please.gl.register_framebuffer = function (handle, _options) {
         please.gl.__cache.textures[handle].fbo = fbo;
         fbo.buffers = {};
         for (var i=0; i<opt.buffers.length; i+=1) {
+            please.gl.__cache.textures[handle + "::" + opt.buffers[i]] = tex[i];
             fbo.buffers[opt.buffers[i]] = tex[i];
         }
     }
@@ -6995,6 +7004,19 @@ please.RenderNode = function (prog, options) {
     // render buffer
     if (options === undefined) { options = {}; };
     this.__buffer = please.gl.register_framebuffer(this.__id, options);
+    // render targets
+    if (options.buffers) {
+        this.buffers = {};
+        for (var i=0; i<options.buffers.length; i+=1) {
+            var name = options.buffers[i];
+            var proxy = Object.create(this);
+            proxy.selected_texture = name;
+            this.buffers[name] = proxy;
+        }
+    }
+    else {
+        this.buffers = null;
+    }
     // glsl variable bindings
     this.shader = {};
     // type introspection table
@@ -7019,6 +7041,7 @@ please.RenderNode = function (prog, options) {
     // optional mechanism for specifying that a graph should be
     // rendered, without giving a custom render function.
     this.graph = null;
+    prog.cache_clear();
 };
 please.RenderNode.prototype = {
     "peek" : null,
@@ -7116,7 +7139,12 @@ please.render = function(node) {
         gl.clearColor.apply(gl, please.__clear_color);
     }
     // return the uuid of the render node if we're doing indirect rendering
-    return node.__cached;
+    if (node.__cached && node.selected_texture) {
+        return node.__id + "::" + node.selected_texture;
+    }
+    else {
+        return node.__cached;
+    }
 };
 // [+] please.TransitionEffect(shader_program)
 //
