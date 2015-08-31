@@ -71,7 +71,7 @@ please.RenderNode = function (prog, options) {
 
     // render buffer
     DEFAULT(options, {});
-    this.__buffer = please.gl.register_framebuffer(this.__id, options);
+    please.gl.register_framebuffer(this.__id, options);
 
     // render targets
     if (options.buffers) {

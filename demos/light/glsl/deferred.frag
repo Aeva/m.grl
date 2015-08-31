@@ -34,8 +34,8 @@ void main(void) {
       discard;
     }
     gl_FragData[0] = diffuse;
-    //gl_FragData[1] = vec4(world_position, linear_depth);
-    gl_FragData[1] = vec4(world_position.xyz, 1.0);
+    gl_FragData[1] = vec4(world_position, linear_depth);
+    //gl_FragData[1] = vec4(world_position.xyz, 1.0);
   }
   else if (shader_pass == 1) {
     // light perspective pass

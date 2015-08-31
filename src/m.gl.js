@@ -1124,14 +1124,19 @@ please.gl.register_framebuffer = function (handle, _options) {
             gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
     }
     else {
+        var extension = please.gl.ext["WEBGL_draw_buffers"] || gl;
+        var buffer_config = [];
         ITER(i, opt.buffers) {
-            var attach = gl["COLOR_ATTACHMENT" + i];
-            if (i === undefined) {
+            var attach_point = "COLOR_ATTACHMENT" + i;
+            var attach = extension[attach_point+"_WEBGL"] || extension[attach_point];
+            buffer_config.push(attach);
+            if (attach === undefined) {
                 throw ("Insufficient color buffer attachments.  Requested " + opt.buffers.length +", got " + i + " buffers.");
             }
             gl.framebufferTexture2D(
                 gl.FRAMEBUFFER, attach, gl.TEXTURE_2D, tex[i], 0);
         }
+        extension.drawBuffersWEBGL(buffer_config);
     }
 
     gl.framebufferRenderbuffer(
