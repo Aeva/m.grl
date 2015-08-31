@@ -108,6 +108,13 @@ addEventListener("mgrl_media_ready", please.once(function () {
     level.shader.is_floor = false;
     level.use_manual_cache_invalidation();
     graph.add(level);
+
+    // light test
+    var light = demo.light = new SpotLightNode();
+    light.location = [10, -14, 17];
+    light.look_at = [0, 0, 5];
+    light.fov = 60;
+    graph.add(light);
         
     // Add a renderer using the default shader.
     var options = {
@@ -119,11 +126,42 @@ addEventListener("mgrl_media_ready", please.once(function () {
     gbuffers.graph = graph;
     gbuffers.shader.shader_pass = 0;
     gbuffers.shader.geometry_pass = true;
+
+    var light_pass = demo.lighting = new please.RenderNode(
+        "deferred_rendering", {"buffers" : ["color"]});
+    light_pass.graph = graph;
+    light_pass.shader.shader_pass = 1;
+    light_pass.shader.geometry_pass = true;
+    light_pass.shader.render = function () {
+        light.activate();
+        this.graph.draw();
+        camera.activate();
+    };
+    // light_pass.shader.light_count = 1;
+    // light_pass.shader.light_index = 0;
+    // light_pass.shader.diffuse_texture = gbuffers.buffers.color;
+    // light_pass.shader.spatial_texture = gbuffers.buffers.spatial;
+    // light_pass.shader.light_view_matrix = function () {
+    //     return light.view_matrix;
+    // };
+    // light_pass.shader.light_projection_matrix = function () {
+    //     return light.projection_matrix;
+    // };
     
     var pip = new please.PictureInPicture();
     pip.shader.main_texture = gbuffers.buffers.color;
-    pip.shader.pip_texture = gbuffers.buffers.spatial;
+    //pip.shader.pip_texture = gbuffers.buffers.spatial;
+    pip.shader.pip_texture = light_pass;
 
     // Transition from the loading screen prefab to our renderer
     demo.viewport.raise_curtains(/*demo.renderer*/pip);
 }));
+
+
+var SpotLightNode = function () {    
+    please.CameraNode.call(this);
+    this.width = 1;
+    this.height = 1;
+    this.near = 10;
+};
+SpotLightNode.prototype = Object.create(please.CameraNode.prototype);

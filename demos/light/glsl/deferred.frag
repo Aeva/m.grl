@@ -25,6 +25,33 @@ uniform sampler2D light_texture;
 // mode switching
 uniform int shader_pass;
 
+#include "normalize_screen_coord.glsl"
+
+
+// float illumination(vec3 _position, float _depth) {
+//   // transform the world coordinate into the light's view space  
+//   vec3 position = (light_view_matrix * vec4(_position, 1.0)).xyz;
+
+//   // apply the light's projection matrix
+//   vec4 light_projected = light_projection_matrix * vec4(position, 1.0);
+  
+//   // determine the vector from the light source to the fragment
+//   vec2 light_normal = light_projected.xy/light_projected.w;
+//   vec2 light_uv = light_normal*0.5+0.5;
+
+//   if (light_uv.x < 0.0 || light_uv.y < 0.0 || light_uv.x > 1.0 || light_uv.y > 1.0) {
+//     return 0.0;
+//   }
+
+//   float bias = 0.1;
+//   float light_depth_1 = texture2D(depth_texture, light_uv).r;
+//   float light_depth_2 = length(position);
+//   float illuminated = step(light_depth_2, light_depth_1 + bias);
+//   //float illuminated = step(light_depth_1, light_depth_2 + bias);
+
+//   return illuminated;
+// }
+
 
 void main(void) {
   if (shader_pass == 0) {
@@ -35,14 +62,16 @@ void main(void) {
     }
     gl_FragData[0] = diffuse;
     gl_FragData[1] = vec4(world_position, linear_depth);
-    //gl_FragData[1] = vec4(world_position.xyz, 1.0);
   }
   else if (shader_pass == 1) {
-    // light perspective pass
-    float depth = linear_depth;
-    gl_FragData[0] = vec4(depth, depth, depth, depth);
+    float depth = linear_depth / 100.0;
+    gl_FragData[0] = vec4(depth, depth, depth, 1.0);
   }
   else if (shader_pass == 2) {
-    // illumination pass
+    // // light perspective pass
+    // vec2 screen_coords = normalize_screen_coord(gl_FragCoord.xy);
+    // vec4 space = texture2D(spacial_texture, tcoords);
+    // vec3 position = space.xyz;
+    // float depth = space.w;
   }
 }
