@@ -43,12 +43,16 @@ float illumination(vec3 _position, float _depth) {
     return 0.0;
   }
 
-  float bias = 0.1;
-  float light_depth_1 = texture2D(light_texture, light_uv).r;
-  float light_depth_2 = length(position);
-  float illuminated = step(light_depth_2, light_depth_1 + bias);
-
-  return illuminated;
+  if (length(light_normal) <=1.0) {
+    float bias = 0.1;
+    float light_depth_1 = texture2D(light_texture, light_uv).r;
+    float light_depth_2 = length(position);
+    float illuminated = step(light_depth_2, light_depth_1 + bias);
+    return illuminated;
+  }
+  else {
+    return 0.0;
+  }
 }
 
 
@@ -86,7 +90,8 @@ void main(void) {
       discard;
     }
     vec4 lightmap = texture2D(light_texture, tcoords);
-    vec3 color = mix(vec3(0.0), diffuse.rgb, lightmap.rgb);
+    vec3 shadow = diffuse.rgb * 0.2;
+    vec3 color = mix(shadow, diffuse.rgb, lightmap.rgb);
     gl_FragData[0] = vec4(color, 1.0);
   }
 }

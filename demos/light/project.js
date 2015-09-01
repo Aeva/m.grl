@@ -121,7 +121,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     //light.location = [0, -15, 5];
     light.location = handle;
     light.look_at = [0, 0, 0];
-    light.fov = 60;
+    light.fov = 80;
     graph.add(light);
     //light.location_x = please.oscillating_driver(-15, 15, 3000);
         
