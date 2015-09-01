@@ -109,12 +109,21 @@ addEventListener("mgrl_media_ready", please.once(function () {
     level.use_manual_cache_invalidation();
     graph.add(level);
 
+    // spinner
+    var spinner = new please.GraphNode();
+    spinner.rotation_z = please.repeating_driver(-360, 0, 5000);
+    var handle = new please.GraphNode();
+    handle.location = [0, -10, 5];
+    spinner.add(handle);
+
     // light test
     var light = demo.light = new SpotLightNode();
-    light.location = [0, 15, 17];
+    //light.location = [0, -15, 5];
+    light.location = handle;
     light.look_at = [0, 0, 0];
     light.fov = 60;
     graph.add(light);
+    //light.location_x = please.oscillating_driver(-15, 15, 3000);
         
     // Add a renderer using the default shader.
     var options = {
@@ -145,7 +154,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     var apply_lighting = demo.apply_lighting = new please.RenderNode(
         "deferred_rendering", {"buffers" : ["color"]});
-    apply_lighting.clear_color = [1.0, 0.0, 0.0, 1.0];
+    apply_lighting.clear_color = [0.0, 0.0, 0.0, 0.0];
     apply_lighting.shader.shader_pass = 2;
     apply_lighting.shader.geometry_pass = false;
 
@@ -176,6 +185,5 @@ var SpotLightNode = function () {
     please.CameraNode.call(this);
     this.width = 1;
     this.height = 1;
-    this.near = 10;
 };
 SpotLightNode.prototype = Object.create(please.CameraNode.prototype);
