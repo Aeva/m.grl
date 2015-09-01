@@ -71,7 +71,21 @@ please.RenderNode = function (prog, options) {
 
     // render buffer
     DEFAULT(options, {});
-    this.__buffer = please.gl.register_framebuffer(this.__id, options);
+    please.gl.register_framebuffer(this.__id, options);
+
+    // render targets
+    if (options.buffers) {
+        this.buffers = {};
+        ITER(i, options.buffers) {
+            var name = options.buffers[i];
+            var proxy = Object.create(this);
+            proxy.selected_texture = name;
+            this.buffers[name] = proxy;
+        }
+    }
+    else {
+        this.buffers = null;
+    }
 
     // glsl variable bindings
     this.shader = {};
@@ -102,6 +116,8 @@ please.RenderNode = function (prog, options) {
     // optional mechanism for specifying that a graph should be
     // rendered, without giving a custom render function.
     this.graph = null;
+
+    prog.cache_clear();
 };
 please.RenderNode.prototype = {
     "peek" : null,
@@ -212,7 +228,12 @@ please.render = function(node) {
     }
 
     // return the uuid of the render node if we're doing indirect rendering
-    return node.__cached;
+    if (node.__cached && node.selected_texture) {
+        return node.__id + "::" + node.selected_texture;
+    }
+    else {
+        return node.__cached;
+    }
 };
 
 
