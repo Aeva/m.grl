@@ -142,7 +142,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     light_pass.graph = graph;
     light_pass.shader.shader_pass = 1;
     light_pass.shader.geometry_pass = true;
-    light_pass.shader.render = function () {
+    light_pass.render = function () {
         light.activate();
         this.graph.draw();
         camera.activate();
