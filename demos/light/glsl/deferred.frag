@@ -69,9 +69,14 @@ void main(void) {
   else if (shader_pass == 2) {
     // light perspective pass
     vec2 tcoords = normalize_screen_coord(gl_FragCoord.xy);
-    vec4 diffuse = texture2D(diffuse_texture, tcoords);
     vec4 space = texture2D(spatial_texture, tcoords);
-    float light = illumination(space.xyz, space.w);
-    gl_FragData[0] = vec4(light, light, light, 1.0);
+    if (space.w == -1.0) {
+      discard;
+    }
+    else {
+      vec4 diffuse = texture2D(diffuse_texture, tcoords);
+      float light = illumination(space.xyz, space.w);
+      gl_FragData[0] = vec4(light, light, light, 1.0);
+    }
   }
 }

@@ -111,7 +111,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // light test
     var light = demo.light = new SpotLightNode();
-    light.location = [10, -14, 17];
+    light.location = [0, 15, 17];
     light.look_at = [0, 0, 0];
     light.fov = 60;
     graph.add(light);
@@ -119,16 +119,17 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // Add a renderer using the default shader.
     var options = {
         "buffers" : ["color", "spatial"],
+        "type":gl.FLOAT,
     };
     var gbuffers = demo.gbuffers = new please.RenderNode(
         "deferred_rendering", options);
-    gbuffers.clear_color = [.15, .15, .15, 1];
+    gbuffers.clear_color = [-1, -1, -1, -1];
     gbuffers.graph = graph;
     gbuffers.shader.shader_pass = 0;
     gbuffers.shader.geometry_pass = true;
 
     var light_pass = demo.lighting = new please.RenderNode(
-        "deferred_rendering", {"buffers" : ["color"]});
+        "deferred_rendering", {"buffers" : ["color"], "type":gl.FLOAT});
     light_pass.graph = graph;
     light_pass.shader.shader_pass = 1;
     light_pass.shader.geometry_pass = true;
@@ -137,9 +138,14 @@ addEventListener("mgrl_media_ready", please.once(function () {
         this.graph.draw();
         camera.activate();
     };
+    light_pass.clear_color = function () {
+        var max_depth = light.far;
+        return [max_depth, max_depth, max_depth, max_depth];
+    };
 
     var apply_lighting = demo.apply_lighting = new please.RenderNode(
         "deferred_rendering", {"buffers" : ["color"]});
+    apply_lighting.clear_color = [1.0, 0.0, 0.0, 1.0];
     apply_lighting.shader.shader_pass = 2;
     apply_lighting.shader.geometry_pass = false;
 
@@ -158,6 +164,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var pip = new please.PictureInPicture();
     pip.shader.main_texture = gbuffers.buffers.color;
     //pip.shader.pip_texture = gbuffers.buffers.spatial;
+    //pip.shader.pip_texture = light_pass;
     pip.shader.pip_texture = apply_lighting;
 
     // Transition from the loading screen prefab to our renderer
