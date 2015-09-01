@@ -74,9 +74,19 @@ void main(void) {
       discard;
     }
     else {
-      vec4 diffuse = texture2D(diffuse_texture, tcoords);
       float light = illumination(space.xyz, space.w);
       gl_FragData[0] = vec4(light, light, light, 1.0);
     }
+  }
+  else if (shader_pass == 3) {
+    // combine the lighting and diffuse passes and display
+    vec2 tcoords = normalize_screen_coord(gl_FragCoord.xy);
+    vec4 diffuse = texture2D(diffuse_texture, tcoords);
+    if (diffuse.w == -1.0) {
+      discard;
+    }
+    vec4 lightmap = texture2D(light_texture, tcoords);
+    vec3 color = mix(vec3(0.0), diffuse.rgb, lightmap.rgb);
+    gl_FragData[0] = vec4(color, 1.0);
   }
 }

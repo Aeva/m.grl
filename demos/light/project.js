@@ -158,7 +158,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     apply_lighting.shader.shader_pass = 2;
     apply_lighting.shader.geometry_pass = false;
 
-    apply_lighting.shader.diffuse_texture = gbuffers.buffers.color;
     apply_lighting.shader.spatial_texture = gbuffers.buffers.spatial;
     apply_lighting.shader.light_texture = light_pass;
     apply_lighting.shader.light_count = 1;
@@ -169,15 +168,24 @@ addEventListener("mgrl_media_ready", please.once(function () {
     apply_lighting.shader.light_projection_matrix = function () {
         return light.projection_matrix;
     };
+
+    var combine = demo.combine = new please.RenderNode(
+        "deferred_rendering", {"buffers" : ["color"]});
+    combine.clear_color = [0.15, 0.15, 0.15, 1.0];
+    combine.shader.shader_pass = 3;
+    combine.shader.geometry_pass = false;
+    combine.shader.diffuse_texture = gbuffers.buffers.color;
+    combine.shader.light_texture = apply_lighting;
     
-    var pip = new please.PictureInPicture();
-    pip.shader.main_texture = gbuffers.buffers.color;
-    //pip.shader.pip_texture = gbuffers.buffers.spatial;
-    //pip.shader.pip_texture = light_pass;
-    pip.shader.pip_texture = apply_lighting;
+    // var pip = new please.PictureInPicture();
+    // pip.shader.main_texture = gbuffers.buffers.color;
+    // //pip.shader.pip_texture = gbuffers.buffers.spatial;
+    // //pip.shader.pip_texture = light_pass;
+    // pip.shader.pip_texture = apply_lighting;
 
     // Transition from the loading screen prefab to our renderer
-    demo.viewport.raise_curtains(/*demo.renderer*/pip);
+    //demo.viewport.raise_curtains(pip);
+    demo.viewport.raise_curtains(combine);
 }));
 
 
