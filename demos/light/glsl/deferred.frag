@@ -45,7 +45,7 @@ float illumination(vec3 _position, float _depth) {
   }
 
   if (length(light_normal) <=1.0) {
-    float bias = 0.1;
+    float bias = 0.0;
     float light_depth_1 = texture2D(light_texture, light_uv).r;
     float light_depth_2 = length(position);
     float illuminated = step(light_depth_2, light_depth_1 + bias);
