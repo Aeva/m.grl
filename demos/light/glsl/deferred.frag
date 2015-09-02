@@ -9,6 +9,7 @@ uniform float mgrl_buffer_height;
 // for lighting
 uniform mat4 light_projection_matrix;
 uniform mat4 light_view_matrix;
+uniform vec2 light_texture_size;
 uniform int light_count;
 uniform int light_index;
 

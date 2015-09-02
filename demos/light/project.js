@@ -162,6 +162,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
     apply_lighting.shader.light_texture = light_pass;
     apply_lighting.shader.light_count = 1;
     apply_lighting.shader.light_index = 0;
+    apply_lighting.shader.light_texture_size = function () {
+        var opt = please.gl.get_texture(this.__id).fbo.options;
+        return [opt.width, opt.height];
+    };
     apply_lighting.shader.light_view_matrix = function () {
         return light.view_matrix;
     };
