@@ -191,6 +191,11 @@ please.render = function(node) {
         }
     }
 
+    // call the before_render method, if applicable
+    if (node.before_render) {
+        node.before_render();
+    }
+
     // remove this node from the stack
     stack.pop();
 
@@ -243,7 +248,7 @@ please.render = function(node) {
 // Nothing is drawn on screen by this function.
 //
 please.indirect_render = function(node) {
-    return please.render(node, [null]);
+    return please.render(node, null, [null]);
 };
 
 
