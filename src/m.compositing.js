@@ -237,6 +237,16 @@ please.render = function(node) {
 };
 
 
+// [+] please.indirect_render(node)
+//
+// Renders the compositing tree, always into indirect buffers.
+// Nothing is drawn on screen by this function.
+//
+please.indirect_render = function(node) {
+    return please.render(node, [null]);
+};
+
+
 // [+] please.TransitionEffect(shader_program)
 //
 // TransitionEffect nodes are RenderNodes with some different
