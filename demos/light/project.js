@@ -120,14 +120,19 @@ addEventListener("mgrl_media_ready", please.once(function () {
     spinner.add(handle);
 
     // light test
-    var light = demo.light = new SpotLightNode();
-    //light.location = [0, -15, 5];
+    var light = new SpotLightNode();
     light.location = handle;
     light.look_at = [0, 0, 0];
-    light.fov = 80;
+    light.fov = 40;
     graph.add(light);
     graph.lights.push(light);
-    //light.location_x = please.oscillating_driver(-15, 15, 3000);
+
+    var light = new SpotLightNode();
+    light.location = [8, 0, 8];
+    light.look_at = [5, 0, 0];
+    light.fov = 60;
+    graph.add(light);
+    graph.lights.push(light);
         
     // Add a renderer using the default shader.
     var options = {
@@ -141,15 +146,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
     gbuffers.shader.shader_pass = 0;
     gbuffers.shader.geometry_pass = true;
 
-    // render the lights' depth buffers
-    for (var i=0; i<graph.lights.length; i+=1) {
-        var light = graph.lights[i];
-        please.indirect_render(light.light_pass);
-    }
-
     var apply_lighting = demo.apply_lighting = new please.RenderNode(
         "deferred_rendering", {"buffers" : ["color"]});
-    apply_lighting.clear_color = [0.0, 0.0, 0.0, 0.0];
+    apply_lighting.clear_color = [0.0, 0.0, 0.0, 1.0];
     apply_lighting.shader.shader_pass = 2;
     apply_lighting.shader.geometry_pass = false;
 
@@ -167,13 +166,27 @@ addEventListener("mgrl_media_ready", please.once(function () {
     apply_lighting.shader.light_projection_matrix = function () {
         return light.projection_matrix;
     };
+    apply_lighting.before_render = function () {
+        this.targets = [];
+        for (var i=0; i<graph.lights.length; i+=1) {
+            var node = graph.lights[i].light_pass;
+            please.indirect_render(node)
+            this.targets.push(node.__cached);
+        }
+    };
     apply_lighting.render = function () {
+        gl.disable(gl.DEPTH_TEST);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE);
+        // gl.blendFuncSeparate(
+        //     gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA, gl.ONE);
         camera.activate();
         for (var i=0; i<graph.lights.length; i+=1) {
-            gl.clear(gl.DEPTH_BUFFER_BIT);
-            this.shader.light_texture = graph.lights[i].light_pass;
+            this.__prog.samplers.light_texture = this.targets[i];;
             please.gl.splat();
         }
+        gl.disable(gl.BLEND);
+        gl.enable(gl.DEPTH_TEST);
     };
 
     var combine = demo.combine = new please.RenderNode(
@@ -185,14 +198,16 @@ addEventListener("mgrl_media_ready", please.once(function () {
     combine.shader.light_texture = apply_lighting;
     
     // var pip = new please.PictureInPicture();
-    // pip.shader.main_texture = gbuffers.buffers.color;
+    // pip.shader.main_texture = combine;
     // //pip.shader.pip_texture = gbuffers.buffers.spatial;
     // //pip.shader.pip_texture = light_pass;
-    // pip.shader.pip_texture = apply_lighting;
+    // //pip.shader.pip_texture = apply_lighting;
+    // pip.shader.pip_texture = graph.lights[0].light_pass;
 
-    // Transition from the loading screen prefab to our renderer
+    //Transition from the loading screen prefab to our renderer
     //demo.viewport.raise_curtains(pip);
-    demo.viewport.raise_curtains(combine);
+    demo.viewport.raise_curtains(apply_lighting);
+    //demo.viewport.raise_curtains(combine);
 }));
 
 
