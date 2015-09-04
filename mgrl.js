@@ -7113,6 +7113,10 @@ please.render = function(node) {
             }
         }
     }
+    // call the before_render method, if applicable
+    if (node.before_render) {
+        node.before_render();
+    }
     // remove this node from the stack
     stack.pop();
     // activate the shader program
@@ -7150,6 +7154,14 @@ please.render = function(node) {
     else {
         return node.__cached;
     }
+};
+// [+] please.indirect_render(node)
+//
+// Renders the compositing tree, always into indirect buffers.
+// Nothing is drawn on screen by this function.
+//
+please.indirect_render = function(node) {
+    return please.render(node, null, [null]);
 };
 // [+] please.TransitionEffect(shader_program)
 //

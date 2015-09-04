@@ -9,9 +9,6 @@ uniform float mgrl_buffer_height;
 // for lighting
 uniform mat4 light_projection_matrix;
 uniform mat4 light_view_matrix;
-uniform vec2 light_texture_size;
-uniform int light_count;
-uniform int light_index;
 
 // varying
 varying vec2 local_tcoords;
@@ -49,7 +46,7 @@ float illumination(vec3 _position, float _depth) {
     float light_depth_1 = texture2D(light_texture, light_uv).r;
     float light_depth_2 = length(position);
     float illuminated = step(light_depth_2, light_depth_1 + bias);
-    return illuminated;
+    return illuminated * 0.6;
   }
   else {
     return 0.0;
