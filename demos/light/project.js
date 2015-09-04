@@ -116,7 +116,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var spinner = new please.GraphNode();
     spinner.rotation_z = please.repeating_driver(-360, 0, 5000);
     var handle = new please.GraphNode();
-    handle.location = [0, -10, 5];
+    handle.location = [0, -15, 5];
     spinner.add(handle);
 
     // light test
@@ -129,7 +129,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     var light = new SpotLightNode();
     light.location = [8, 0, 8];
+    light.location_y = please.oscillating_driver(-4, 4, 2000);
     light.look_at = [5, 0, 0];
+    light.look_at_x = please.oscillating_driver(4, 6, 2000);
+    light.look_at_y = please.oscillating_driver(-5, 5, 2000);
     light.fov = 60;
     graph.add(light);
     graph.lights.push(light);
@@ -151,21 +154,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     apply_lighting.clear_color = [0.0, 0.0, 0.0, 1.0];
     apply_lighting.shader.shader_pass = 2;
     apply_lighting.shader.geometry_pass = false;
-
     apply_lighting.shader.spatial_texture = gbuffers.buffers.spatial;
-    //apply_lighting.shader.light_texture = light_pass;
-    apply_lighting.shader.light_count = 1;
-    apply_lighting.shader.light_index = 0;
-    apply_lighting.shader.light_texture_size = function () {
-        var opt = please.gl.get_texture(this.__id).fbo.options;
-        return [opt.width, opt.height];
-    };
-    apply_lighting.shader.light_view_matrix = function () {
-        return light.view_matrix;
-    };
-    apply_lighting.shader.light_projection_matrix = function () {
-        return light.projection_matrix;
-    };
     apply_lighting.before_render = function () {
         this.targets = [];
         for (var i=0; i<graph.lights.length; i+=1) {
@@ -178,11 +167,12 @@ addEventListener("mgrl_media_ready", please.once(function () {
         gl.disable(gl.DEPTH_TEST);
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE);
-        // gl.blendFuncSeparate(
-        //     gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA, gl.ONE);
         camera.activate();
         for (var i=0; i<graph.lights.length; i+=1) {
-            this.__prog.samplers.light_texture = this.targets[i];;
+            var light = graph.lights[i];
+            this.__prog.samplers.light_texture = this.targets[i];
+            this.__prog.vars.light_view_matrix = light.view_matrix;
+            this.__prog.vars.light_projection_matrix = light.projection_matrix;
             please.gl.splat();
         }
         gl.disable(gl.BLEND);
@@ -206,8 +196,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     //Transition from the loading screen prefab to our renderer
     //demo.viewport.raise_curtains(pip);
-    demo.viewport.raise_curtains(apply_lighting);
-    //demo.viewport.raise_curtains(combine);
+    //demo.viewport.raise_curtains(apply_lighting);
+    demo.viewport.raise_curtains(combine);
 }));
 
 
