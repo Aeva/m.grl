@@ -123,7 +123,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var light = new SpotLightNode();
     light.location = handle;
     light.look_at = [0, 0, 0];
-    light.fov = 40;
+    light.fov = 60;
     graph.add(light);
     graph.lights.push(light);
 
@@ -133,7 +133,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     light.look_at = [5, 0, 0];
     light.look_at_x = please.oscillating_driver(4, 6, 2000);
     light.look_at_y = please.oscillating_driver(-5, 5, 2000);
-    light.fov = 60;
+    light.fov = 70;
     graph.add(light);
     graph.lights.push(light);
         
