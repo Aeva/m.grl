@@ -7012,6 +7012,7 @@ please.RenderNode = function (prog, options) {
         this.frequency = options.frequency;
     }
     // optional streaming callback
+    this.__stream_cache = null;
     this.stream_callback = null;
     if (options && options.stream_callback) {
         if (typeof(options.stream_callback) === "function") {
@@ -7189,7 +7190,9 @@ please.render = function(node) {
             console.warn("Cannot read pixels from non-rgba buffers!");
         }
         if (type && period) {
-            var pixels = new ArrayType(width*height*period);
+            if (!node.__stream_cache) {
+                node.__stream_cache = new ArrayType(width*height*period);
+            }
             var info = {
                 "width" : width,
                 "height" : height,
@@ -7197,8 +7200,8 @@ please.render = function(node) {
                 "type" : type,
                 "period" : period,
             };
-            gl.readPixels(0, 0, width, height, format, type, pixels);
-            node.stream_callback(pixels, info);
+            gl.readPixels(0, 0, width, height, format, type, node.__stream_cache);
+            node.stream_callback(node.__stream_cache, info);
         }
     }
     // clean up
