@@ -123,7 +123,7 @@ please.DeferredRenderer = function () {
         "buffers" : ["color", "spatial"],
         "type":gl.FLOAT,
     };
-    var gbuffers = demo.gbuffers = new please.RenderNode(prog, gbuffer_options);
+    var gbuffers = new please.RenderNode(prog, gbuffer_options);
     gbuffers.clear_color = [-1, -1, -1, -1];
     gbuffers.shader.shader_pass = 0;
     gbuffers.shader.geometry_pass = true;
