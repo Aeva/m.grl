@@ -69,6 +69,12 @@ please.RenderNode = function (prog, options) {
         value : prog,
     });
 
+    // optional render frequency
+    this.frequency = null;
+    if (options && options.frequency) {
+        this.frequency = options.frequency;
+    }
+
     // optional streaming callback
     this.stream_callback = null;
     if (options && options.stream_callback) {
@@ -149,13 +155,18 @@ please.RenderNode.prototype = {
 // Renders the compositing tree.
 //
 please.render = function(node) {
-    var expire = arguments[1] || window.performance.now();
+    var expire = arguments[1] || please.pipeline.__framestart;
     var stack = arguments[2] || [];
     if (stack.indexOf(node)>=0) {
         throw("M.GRL doesn't currently suport render graph cycles.");
     }
 
-    if (stack.length > 0 && node.__last_framestart >= expire && node.__cached) {
+    var delay = 0;
+    if (node.frequency) {
+        delay = (1/node.frequency)*1000;
+    }
+
+    if (stack.length > 0 && (node.__last_framestart+delay) >= expire && node.__cached) {
         return node.__cached;
     }
     else {
