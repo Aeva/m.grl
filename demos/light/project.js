@@ -84,13 +84,13 @@ addEventListener("mgrl_fps", function (event) {
 });
 
 
-addEventListener("mgrl_media_ready", please.once(function () {
-    // Build our custom shader program
-    var prog = please.glsl("deferred_rendering", "deferred.vert", "deferred.frag");
-    prog.activate();
-    
+addEventListener("mgrl_media_ready", please.once(function () {    
     // Scere Graph object
     var graph = demo.graph = new please.SceneGraph();
+
+    // Define our renderer
+    demo.renderer = new please.DeferredRenderer();
+    demo.renderer.graph = graph;
 
     // Add a camera
     var camera = demo.camera = new please.CameraNode();
@@ -143,10 +143,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     //     }
     //     console.info(accumulate / info.width*info.height);
     // }
-    
-    // Add deferred rendering
-    demo.renderer = new please.DeferredRenderer();
-    demo.renderer.graph = graph;
-    
+        
     demo.viewport.raise_curtains(demo.renderer);
 }));
