@@ -48,6 +48,7 @@
 #include "m.builder.js"
 #include "m.compositing.js"
 #include "m.effects.js"
+#include "m.lights.js"
 #include "m.prefab.js"
 #include "m.struct.js"
 #include "m.particles.js"
