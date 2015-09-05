@@ -3143,6 +3143,14 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "frag" : null,
         "ready" : false,
         "error" : false,
+        "cache_clear" : function () {
+            for (var name in this.__cache.vars) if (this.__cache.vars.hasOwnProperty(name)) {
+                this.__cache.vars[name] = null;
+            }
+            for (var name in this.__cache.samplers) if (this.__cache.samplers.hasOwnProperty(name)) {
+                this.__cache.samplers[name] = null;
+            }
+        },
         "activate" : function () {
             var old = null;
             var prog = this;
@@ -3676,9 +3684,23 @@ please.gl.ibo = function (data, options) {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
     return ibo;
 };
+// [+] please.gl.blank_texture(options)
+//
+// Create a new render texture.  This is mostly intended to be used by
+// please.gl.register_framebuffer
+//
+please.gl.blank_texture = function (opt) {
+    var tex = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, opt.mag_filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, opt.min_filter);
+    gl.texImage2D(gl.TEXTURE_2D, 0, opt.format, opt.width, opt.height, 0,
+                  opt.format, opt.type, null);
+    return tex;
+};
 // [+] please.gl.register_framebuffer(handle, options)
 //
-// Create a new render texture
+// Create a new framebuffer with a render texture attached.
 //
 please.gl.register_framebuffer = function (handle, _options) {
     if (please.gl.__cache.textures[handle]) {
@@ -3692,6 +3714,7 @@ please.gl.register_framebuffer = function (handle, _options) {
         "min_filter" : gl.NEAREST,
         "type" : gl.UNSIGNED_BYTE,
         "format" : gl.RGBA,
+        "buffers" : null,
     };
     if (_options) {
         please.prop_map(_options, function (key, value) {
@@ -3708,26 +3731,58 @@ please.gl.register_framebuffer = function (handle, _options) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     fbo.options = opt;
     // Create the new render texture
-    var tex = gl.createTexture()
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, opt.mag_filter);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, opt.min_filter);
-    gl.texImage2D(gl.TEXTURE_2D, 0, opt.format, opt.width, opt.height, 0,
-                  opt.format, opt.type, null);
+    var tex;
+    if (!opt.buffers) {
+        tex = please.gl.blank_texture(opt);
+    }
+    else {
+        tex = [];
+        for (var i=0; i<opt.buffers.length; i+=1) {
+            tex.push(please.gl.blank_texture(opt));
+        }
+    }
     // Create the new renderbuffer
     var render = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, render);
     gl.renderbufferStorage(
         gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, opt.width, opt.height);
-    gl.framebufferTexture2D(
-        gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    if (!opt.buffers) {
+        gl.framebufferTexture2D(
+            gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    }
+    else {
+        var extension = please.gl.ext["WEBGL_draw_buffers"] || gl;
+        var buffer_config = [];
+        for (var i=0; i<opt.buffers.length; i+=1) {
+            var attach_point = "COLOR_ATTACHMENT" + i;
+            var attach = extension[attach_point+"_WEBGL"] || extension[attach_point];
+            buffer_config.push(attach);
+            if (attach === undefined) {
+                throw ("Insufficient color buffer attachments.  Requested " + opt.buffers.length +", got " + i + " buffers.");
+            }
+            gl.framebufferTexture2D(
+                gl.FRAMEBUFFER, attach, gl.TEXTURE_2D, tex[i], 0);
+        }
+        extension.drawBuffersWEBGL(buffer_config);
+    }
     gl.framebufferRenderbuffer(
         gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, render);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    please.gl.__cache.textures[handle] = tex;
-    please.gl.__cache.textures[handle].fbo = fbo;
+    if (!opt.buffers) {
+        please.gl.__cache.textures[handle] = tex;
+        please.gl.__cache.textures[handle].fbo = fbo;
+    }
+    else {
+        please.gl.__cache.textures[handle] = tex[0];
+        please.gl.__cache.textures[handle].fbo = fbo;
+        fbo.buffers = {};
+        for (var i=0; i<opt.buffers.length; i+=1) {
+            please.gl.__cache.textures[handle + "::" + opt.buffers[i]] = tex[i];
+            fbo.buffers[opt.buffers[i]] = tex[i];
+        }
+    }
     return tex;
 };
 // [+] please.gl.set_framebuffer(handle)
@@ -6951,9 +7006,39 @@ please.RenderNode = function (prog, options) {
         writable : false,
         value : prog,
     });
+    // optional render frequency
+    this.frequency = null;
+    if (options && options.frequency) {
+        this.frequency = options.frequency;
+    }
+    // optional streaming callback
+    this.__stream_cache = null;
+    this.stream_callback = null;
+    if (options && options.stream_callback) {
+        if (typeof(options.stream_callback) === "function") {
+            this.stream_callback = options.stream_callback;
+        }
+        else {
+            console.warn("RenderNode stream_callback option was not a function!");
+            delete options.stream_callback;
+        }
+    }
     // render buffer
     if (options === undefined) { options = {}; };
-    this.__buffer = please.gl.register_framebuffer(this.__id, options);
+    please.gl.register_framebuffer(this.__id, options);
+    // render targets
+    if (options.buffers) {
+        this.buffers = {};
+        for (var i=0; i<options.buffers.length; i+=1) {
+            var name = options.buffers[i];
+            var proxy = Object.create(this);
+            proxy.selected_texture = name;
+            this.buffers[name] = proxy;
+        }
+    }
+    else {
+        this.buffers = null;
+    }
     // glsl variable bindings
     this.shader = {};
     // type introspection table
@@ -6978,6 +7063,7 @@ please.RenderNode = function (prog, options) {
     // optional mechanism for specifying that a graph should be
     // rendered, without giving a custom render function.
     this.graph = null;
+    prog.cache_clear();
 };
 please.RenderNode.prototype = {
     "peek" : null,
@@ -6995,12 +7081,16 @@ please.RenderNode.prototype = {
 // Renders the compositing tree.
 //
 please.render = function(node) {
-    var expire = arguments[1] || window.performance.now();
+    var expire = arguments[1] || please.pipeline.__framestart;
     var stack = arguments[2] || [];
     if (stack.indexOf(node)>=0) {
         throw("M.GRL doesn't currently suport render graph cycles.");
     }
-    if (stack.length > 0 && node.__last_framestart >= expire && node.__cached) {
+    var delay = 0;
+    if (node.frequency) {
+        delay = (1/node.frequency)*1000;
+    }
+    if (stack.length > 0 && (node.__last_framestart+delay) >= expire && node.__cached) {
         return node.__cached;
     }
     else {
@@ -7044,6 +7134,10 @@ please.render = function(node) {
             }
         }
     }
+    // call the before_render method, if applicable
+    if (node.before_render) {
+        node.before_render();
+    }
     // remove this node from the stack
     stack.pop();
     // activate the shader program
@@ -7070,12 +7164,65 @@ please.render = function(node) {
     node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     node.render();
+    // optionally pull the texture data into an array and trigger a
+    // callback
+    if (node.stream_callback && node.__cached) {
+        var fbo = please.gl.__cache.textures[node.__cached].fbo;
+        var width = fbo.options.width;
+        var height = fbo.options.height;
+        var format = fbo.options.format;
+        var type = fbo.options.type;
+        var ArrayType = null;
+        if (type === gl.UNSIGNED_BYTE) {
+            ArrayType = Uint8Array;
+        }
+        else if (type === gl.FLOAT) {
+            ArrayType = Float32Array;
+        }
+        else {
+            console.warn("Cannot read pixels from buffer of unknown type!");
+        }
+        var period = null;
+        if (format === gl.RGBA) {
+            period = 4;
+        }
+        else {
+            console.warn("Cannot read pixels from non-rgba buffers!");
+        }
+        if (type && period) {
+            if (!node.__stream_cache) {
+                node.__stream_cache = new ArrayType(width*height*period);
+            }
+            var info = {
+                "width" : width,
+                "height" : height,
+                "format" : format,
+                "type" : type,
+                "period" : period,
+            };
+            gl.readPixels(0, 0, width, height, format, type, node.__stream_cache);
+            node.stream_callback(node.__stream_cache, info);
+        }
+    }
     // clean up
     if (stack.length === 0) {
         gl.clearColor.apply(gl, please.__clear_color);
     }
     // return the uuid of the render node if we're doing indirect rendering
-    return node.__cached;
+    if (node.__cached && node.selected_texture) {
+        return node.__id + "::" + node.selected_texture;
+    }
+    else {
+        return node.__cached;
+    }
+};
+// [+] please.indirect_render(node)
+//
+// Renders the compositing tree, always into indirect buffers.
+// Nothing is drawn on screen by this function.
+//
+please.indirect_render = function(node) {
+    return please.render(node, null, [null]);
 };
 // [+] please.TransitionEffect(shader_program)
 //
