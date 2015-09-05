@@ -3143,6 +3143,14 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "frag" : null,
         "ready" : false,
         "error" : false,
+        "cache_clear" : function () {
+            for (var name in this.__cache.vars) if (this.__cache.vars.hasOwnProperty(name)) {
+                this.__cache.vars[name] = null;
+            }
+            for (var name in this.__cache.samplers) if (this.__cache.samplers.hasOwnProperty(name)) {
+                this.__cache.samplers[name] = null;
+            }
+        },
         "activate" : function () {
             var old = null;
             var prog = this;
@@ -3676,9 +3684,23 @@ please.gl.ibo = function (data, options) {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
     return ibo;
 };
+// [+] please.gl.blank_texture(options)
+//
+// Create a new render texture.  This is mostly intended to be used by
+// please.gl.register_framebuffer
+//
+please.gl.blank_texture = function (opt) {
+    var tex = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, opt.mag_filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, opt.min_filter);
+    gl.texImage2D(gl.TEXTURE_2D, 0, opt.format, opt.width, opt.height, 0,
+                  opt.format, opt.type, null);
+    return tex;
+};
 // [+] please.gl.register_framebuffer(handle, options)
 //
-// Create a new render texture
+// Create a new framebuffer with a render texture attached.
 //
 please.gl.register_framebuffer = function (handle, _options) {
     if (please.gl.__cache.textures[handle]) {
@@ -3692,6 +3714,7 @@ please.gl.register_framebuffer = function (handle, _options) {
         "min_filter" : gl.NEAREST,
         "type" : gl.UNSIGNED_BYTE,
         "format" : gl.RGBA,
+        "buffers" : null,
     };
     if (_options) {
         please.prop_map(_options, function (key, value) {
@@ -3708,26 +3731,58 @@ please.gl.register_framebuffer = function (handle, _options) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     fbo.options = opt;
     // Create the new render texture
-    var tex = gl.createTexture()
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, opt.mag_filter);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, opt.min_filter);
-    gl.texImage2D(gl.TEXTURE_2D, 0, opt.format, opt.width, opt.height, 0,
-                  opt.format, opt.type, null);
+    var tex;
+    if (!opt.buffers) {
+        tex = please.gl.blank_texture(opt);
+    }
+    else {
+        tex = [];
+        for (var i=0; i<opt.buffers.length; i+=1) {
+            tex.push(please.gl.blank_texture(opt));
+        }
+    }
     // Create the new renderbuffer
     var render = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, render);
     gl.renderbufferStorage(
         gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, opt.width, opt.height);
-    gl.framebufferTexture2D(
-        gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    if (!opt.buffers) {
+        gl.framebufferTexture2D(
+            gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    }
+    else {
+        var extension = please.gl.ext["WEBGL_draw_buffers"] || gl;
+        var buffer_config = [];
+        for (var i=0; i<opt.buffers.length; i+=1) {
+            var attach_point = "COLOR_ATTACHMENT" + i;
+            var attach = extension[attach_point+"_WEBGL"] || extension[attach_point];
+            buffer_config.push(attach);
+            if (attach === undefined) {
+                throw ("Insufficient color buffer attachments.  Requested " + opt.buffers.length +", got " + i + " buffers.");
+            }
+            gl.framebufferTexture2D(
+                gl.FRAMEBUFFER, attach, gl.TEXTURE_2D, tex[i], 0);
+        }
+        extension.drawBuffersWEBGL(buffer_config);
+    }
     gl.framebufferRenderbuffer(
         gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, render);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    please.gl.__cache.textures[handle] = tex;
-    please.gl.__cache.textures[handle].fbo = fbo;
+    if (!opt.buffers) {
+        please.gl.__cache.textures[handle] = tex;
+        please.gl.__cache.textures[handle].fbo = fbo;
+    }
+    else {
+        please.gl.__cache.textures[handle] = tex[0];
+        please.gl.__cache.textures[handle].fbo = fbo;
+        fbo.buffers = {};
+        for (var i=0; i<opt.buffers.length; i+=1) {
+            please.gl.__cache.textures[handle + "::" + opt.buffers[i]] = tex[i];
+            fbo.buffers[opt.buffers[i]] = tex[i];
+        }
+    }
     return tex;
 };
 // [+] please.gl.set_framebuffer(handle)
@@ -6077,15 +6132,18 @@ please.SceneGraph = function () {
     // of what the graph looks like and only update it when the graph
     // changes.
     this.__flat = [];
+    this.__lights = [];
     this.__track = function (node) {
-        if (this.__flat.indexOf(node) === -1) {
-            this.__flat.push(node);
+        var group = node.__is_light ? this.__lights : this.__flat;
+        if (group.indexOf(node) === -1) {
+            group.push(node);
         }
     };
     this.__ignore = function (node) {
-        var index = this.__flat.indexOf(node);
+        var group = node.__is_light ? this.__lights : this.__flat;
+        var index = group.indexOf(node);
         if (index !== -1) {
-            this.__flat.splice(index, 1);
+            group.splice(index, 1);
             for (var i=0; i<node.children.length; i+=1) {
                 this.__ignore(node.children[i]);
             }
@@ -6951,9 +7009,39 @@ please.RenderNode = function (prog, options) {
         writable : false,
         value : prog,
     });
+    // optional render frequency
+    this.frequency = null;
+    if (options && options.frequency) {
+        this.frequency = options.frequency;
+    }
+    // optional streaming callback
+    this.__stream_cache = null;
+    this.stream_callback = null;
+    if (options && options.stream_callback) {
+        if (typeof(options.stream_callback) === "function") {
+            this.stream_callback = options.stream_callback;
+        }
+        else {
+            console.warn("RenderNode stream_callback option was not a function!");
+            delete options.stream_callback;
+        }
+    }
     // render buffer
     if (options === undefined) { options = {}; };
-    this.__buffer = please.gl.register_framebuffer(this.__id, options);
+    please.gl.register_framebuffer(this.__id, options);
+    // render targets
+    if (options.buffers) {
+        this.buffers = {};
+        for (var i=0; i<options.buffers.length; i+=1) {
+            var name = options.buffers[i];
+            var proxy = Object.create(this);
+            proxy.selected_texture = name;
+            this.buffers[name] = proxy;
+        }
+    }
+    else {
+        this.buffers = null;
+    }
     // glsl variable bindings
     this.shader = {};
     // type introspection table
@@ -6978,6 +7066,7 @@ please.RenderNode = function (prog, options) {
     // optional mechanism for specifying that a graph should be
     // rendered, without giving a custom render function.
     this.graph = null;
+    prog.cache_clear();
 };
 please.RenderNode.prototype = {
     "peek" : null,
@@ -6995,12 +7084,16 @@ please.RenderNode.prototype = {
 // Renders the compositing tree.
 //
 please.render = function(node) {
-    var expire = arguments[1] || window.performance.now();
+    var expire = arguments[1] || please.pipeline.__framestart;
     var stack = arguments[2] || [];
     if (stack.indexOf(node)>=0) {
         throw("M.GRL doesn't currently suport render graph cycles.");
     }
-    if (stack.length > 0 && node.__last_framestart >= expire && node.__cached) {
+    var delay = 0;
+    if (node.frequency) {
+        delay = (1/node.frequency)*1000;
+    }
+    if (stack.length > 0 && (node.__last_framestart+delay) >= expire && node.__cached) {
         return node.__cached;
     }
     else {
@@ -7044,6 +7137,10 @@ please.render = function(node) {
             }
         }
     }
+    // call the before_render method, if applicable
+    if (node.before_render) {
+        node.before_render();
+    }
     // remove this node from the stack
     stack.pop();
     // activate the shader program
@@ -7070,12 +7167,65 @@ please.render = function(node) {
     node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     node.render();
+    // optionally pull the texture data into an array and trigger a
+    // callback
+    if (node.stream_callback && node.__cached) {
+        var fbo = please.gl.__cache.textures[node.__cached].fbo;
+        var width = fbo.options.width;
+        var height = fbo.options.height;
+        var format = fbo.options.format;
+        var type = fbo.options.type;
+        var ArrayType = null;
+        if (type === gl.UNSIGNED_BYTE) {
+            ArrayType = Uint8Array;
+        }
+        else if (type === gl.FLOAT) {
+            ArrayType = Float32Array;
+        }
+        else {
+            console.warn("Cannot read pixels from buffer of unknown type!");
+        }
+        var period = null;
+        if (format === gl.RGBA) {
+            period = 4;
+        }
+        else {
+            console.warn("Cannot read pixels from non-rgba buffers!");
+        }
+        if (type && period) {
+            if (!node.__stream_cache) {
+                node.__stream_cache = new ArrayType(width*height*period);
+            }
+            var info = {
+                "width" : width,
+                "height" : height,
+                "format" : format,
+                "type" : type,
+                "period" : period,
+            };
+            gl.readPixels(0, 0, width, height, format, type, node.__stream_cache);
+            node.stream_callback(node.__stream_cache, info);
+        }
+    }
     // clean up
     if (stack.length === 0) {
         gl.clearColor.apply(gl, please.__clear_color);
     }
     // return the uuid of the render node if we're doing indirect rendering
-    return node.__cached;
+    if (node.__cached && node.selected_texture) {
+        return node.__id + "::" + node.selected_texture;
+    }
+    else {
+        return node.__cached;
+    }
+};
+// [+] please.indirect_render(node)
+//
+// Renders the compositing tree, always into indirect buffers.
+// Nothing is drawn on screen by this function.
+//
+please.indirect_render = function(node) {
+    return please.render(node, null, [null]);
 };
 // [+] please.TransitionEffect(shader_program)
 //
@@ -7249,6 +7399,161 @@ please.ColorCurve = function () {
     effect.shader.green_curve = please.linear_path(0.0, 1.0);
     effect.shader.value_curve = please.linear_path(0.0, 1.0);
     return effect;
+};
+// - m.lights.js ------------------------------------------------------------ //
+/* [+]
+ *
+ * M.GRL provides a (work-in-progress and very much unstable) system
+ * for applying light and shadow to a scene, via the compositing
+ * graph.  This system currently makes use of a deferred rendering
+ * system, and requires several opengl extensions to be able to run
+ * correctly.  Hopefully in the near future, there will also be a
+ * fallback mode for when extensions are missing, but that is not the
+ * case right now.  Use with caution.
+ * 
+ */
+// [+] please.SpotLightNode(options)
+//
+// This constructor function creates a graph node which represents a
+// spot light.  This object also creates a render node used for
+// calculating shadows.  The buffer settings for this render node can
+// be configured by passing them as an object in the "options"
+// argument.  Most likely, this would be to change the size of the
+// light texture.  The "options" argument may be omitted.
+//
+please.SpotLightNode = function (options) {
+    please.GraphNode.call(this);
+    this.__is_light = true;
+    var prog = please.gl.get_program(["deferred.vert", "deferred.frag"]);
+    if (!prog) {
+        prog = please.glsl("deferred_rendering", "deferred.vert", "deferred.frag");
+    }
+    this.camera = new please.CameraNode();
+    this.camera.width = 1;
+    this.camera.height = 1;
+    this.__last_camera = null;
+    please.make_animatable(this, "fov", 45);;
+    please.make_animatable(this, "energy", 1);;
+    please.make_animatable(this, "falloff", 25);;
+    please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
+    please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
+    please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
+    var light = this;
+    this.camera.fov = function () { return light.fov; };
+    this.camera.far = function () { return light.falloff * 2; };
+    this.camera.look_at = function () { return light.look_at; };
+    this.camera.up_vector = function () { return light.up_vector; };
+    this.camera.location = this;
+    if (!options) {
+        options = {};
+    }
+    if (options.buffers === undefined) { options.buffers = ["color"]; }
+    if (options.type === undefined) { options.type = gl.FLOAT; }
+    if (options.mag_filter === undefined) { options.mag_filter = gl.LINEAR; }
+    if (options.min_filter === undefined) { options.min_filter = gl.LINEAR; }
+    this.depth_pass = new please.RenderNode(prog, options);
+    Object.defineProperty(this.depth_pass, "graph", {
+        "configurable" : true,
+        "get" : function () {
+            return this.graph_root;
+        },
+    });
+    this.depth_pass.shader.shader_pass = 1;
+    this.depth_pass.shader.geometry_pass = true;
+    this.depth_pass.render = function () {
+        this.activate();
+        this.graph_root.draw();
+        this.deactivate();
+    }.bind(this);
+    this.depth_pass.clear_color = function () {
+        var max_depth = this.camera.far;
+        return [max_depth, max_depth, max_depth, max_depth];
+    }.bind(this);
+};
+please.SpotLightNode.prototype = Object.create(please.GraphNode.prototype);
+please.SpotLightNode.prototype.activate = function () {
+    var graph = this.graph_root;
+    if (graph !== null) {
+        if (graph.camera && typeof(graph.camera.on_inactive) === "function") {
+            this.__last_camera = graph.camera;
+            graph.camera.on_inactive();
+        }
+        else {
+            this.__last_camera = null;
+        }
+        graph.camera = this.camera;
+    }
+};
+please.SpotLightNode.prototype.deactivate = function () {
+    this.camera.on_inactive();
+    this.graph_root.camera = this.__last_camera;
+};
+// [+] please.DeferredRenderer()
+//
+// Creates a RenderNode encapsulating the deferred rendering
+// functionality.  This api is experimental, so expect it to change
+// dramatically until it is stabilized.
+//
+please.DeferredRenderer = function () {
+    var prog = please.gl.get_program(["deferred.vert", "deferred.frag"]);
+    if (!prog) {
+        prog = please.glsl("deferred_rendering", "deferred.vert", "deferred.frag");
+    }
+    var assembly = new please.RenderNode(prog, {"buffers" : ["color"]});
+    assembly.clear_color = [0.15, 0.15, 0.15, 1.0];
+    assembly.shader.shader_pass = 3;
+    assembly.shader.geometry_pass = false;
+    assembly.render = function () {
+        please.gl.splat();
+    }
+    assembly.graph = null;
+    var gbuffer_options = {
+        "buffers" : ["color", "spatial"],
+        "type":gl.FLOAT,
+    };
+    var gbuffers = demo.gbuffers = new please.RenderNode(prog, gbuffer_options);
+    gbuffers.clear_color = [-1, -1, -1, -1];
+    gbuffers.shader.shader_pass = 0;
+    gbuffers.shader.geometry_pass = true;
+    gbuffers.render = function () {
+        if (assembly.graph !== null) {
+            assembly.graph.draw();
+        }
+    }
+    var apply_lighting = new please.RenderNode(prog, {"buffers" : ["color"]});
+    apply_lighting.clear_color = [0.0, 0.0, 0.0, 1.0];
+    apply_lighting.shader.shader_pass = 2;
+    apply_lighting.shader.geometry_pass = false;
+    apply_lighting.shader.spatial_texture = gbuffers.buffers.spatial;
+    apply_lighting.before_render = function () {
+        if (assembly.graph !== null) {
+            this.targets = [];
+            for (var i=0; i<assembly.graph.__lights.length; i+=1) {
+                var node = assembly.graph.__lights[i].depth_pass;
+                please.indirect_render(node)
+                this.targets.push(node.__cached);
+            }
+        }
+    };
+    apply_lighting.render = function () {
+        if (assembly.graph !== null) {
+            gl.disable(gl.DEPTH_TEST);
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.ONE, gl.ONE);
+            for (var i=0; i<assembly.graph.__lights.length; i+=1) {
+                var light = assembly.graph.__lights[i];
+                this.__prog.samplers.light_texture = this.targets[i];
+                this.__prog.vars.light_view_matrix = light.camera.view_matrix;
+                this.__prog.vars.light_projection_matrix = light.camera.projection_matrix;
+                please.gl.splat();
+            }
+            gl.disable(gl.BLEND);
+            gl.enable(gl.DEPTH_TEST);
+        }
+    };
+    assembly.shader.diffuse_texture = gbuffers.buffers.color;
+    assembly.shader.light_texture = apply_lighting;
+    return assembly;
 };
 // - m.prefab.js ------------------------------------------------------------ //
 // [+] please.pipeline.add_autoscale(max_height)
@@ -7657,7 +7962,7 @@ addEventListener("mgrl_gl_context_created", function () {
 });
 // - bundled glsl shader assets --------------------------------------------- //
 addEventListener("mgrl_gl_context_created", function () {
-    var lookup_table = {"picture_in_picture.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl93aWR0\naDsKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl9oZWlnaHQ7Cgp1bmlmb3JtIHZlYzIgcGlwX3Np\nemU7CnVuaWZvcm0gdmVjMiBwaXBfY29vcmQ7CnVuaWZvcm0gZmxvYXQgcGlwX2FscGhhOwp1bmlm\nb3JtIHNhbXBsZXIyRCBtYWluX3RleHR1cmU7CnVuaWZvcm0gc2FtcGxlcjJEIHBpcF90ZXh0dXJl\nOwoKCiNpbmNsdWRlICJub3JtYWxpemVfc2NyZWVuX2Nvb3JkLmdsc2wiCgoKdm9pZCBtYWluKHZv\naWQpIHsKICB2ZWMyIHNjcmVlbl9jb29yZCA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJh\nZ0Nvb3JkLnh5KTsKICB2ZWM0IGNvbG9yID0gdGV4dHVyZTJEKG1haW5fdGV4dHVyZSwgc2NyZWVu\nX2Nvb3JkKTsKCiAgLy8gc2NhbGUgdGhlIHNjcmVlbl9jb29yZCB0byByZXByZXNlbnQgYSBwZXJj\nZW50CiAgc2NyZWVuX2Nvb3JkICo9IDEwMC4wOwogIHZlYzIgcGlwX3Rlc3QgPSBzY3JlZW5fY29v\ncmQgLSBwaXBfY29vcmQ7CiAgaWYgKHBpcF90ZXN0LnggPj0gMC4wICYmIHBpcF90ZXN0LnkgPj0g\nMC4wICYmIHBpcF90ZXN0LnggPD0gcGlwX3NpemUueCAmJiBwaXBfdGVzdC55IDw9IHBpcF9zaXpl\nLnkpIHsKICAgIHZlYzQgcGlwX2NvbG9yID0gdGV4dHVyZTJEKHBpcF90ZXh0dXJlLCBwaXBfdGVz\ndCAvIHBpcF9zaXplKTsKICAgIGNvbG9yID0gbWl4KGNvbG9yLCBwaXBfY29sb3IsIHBpcF9jb2xv\nci5hIC8gcGlwX2FscGhhKTsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3I7Cn0K\n", "splat.vert": "CnVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7CnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5p\nZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4OwphdHRyaWJ1dGUgdmVjMyBwb3NpdGlvbjsKCgp2\nb2lkIG1haW4odm9pZCkgewogIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2aWV3\nX21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7Cn0K\n", "simple.vert": "Ci8vIG1hdHJpY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2pl\nY3Rpb25fbWF0cml4OwoKLy8gdmVydGV4IGRhdGEKYXR0cmlidXRlIHZlYzMgcG9zaXRpb247CmF0\ndHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZlYzIgdGNvb3JkczsKCi8vIG1pc2MgYWRq\ndXN0bWVudHMKdW5pZm9ybSBmbG9hdCBtZ3JsX29ydGhvZ3JhcGhpY19zY2FsZTsKCi8vIGJpbGxi\nb2FyZCBzcHJpdGVzIGVuYWJsZXIKdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKCi8vIGlu\ndGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBpbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5n\nIHZlYzMgbG9jYWxfcG9zaXRpb247CnZhcnlpbmcgdmVjMyBsb2NhbF9ub3JtYWw7CnZhcnlpbmcg\ndmVjMiBsb2NhbF90Y29vcmRzOwp2YXJ5aW5nIHZlYzMgd29ybGRfcG9zaXRpb247CnZhcnlpbmcg\ndmVjMyBzY3JlZW5fcG9zaXRpb247CnZhcnlpbmcgZmxvYXQgbGluZWFyX2RlcHRoOwoKCnZvaWQg\nbWFpbih2b2lkKSB7CiAgLy8gcGFzcyBhbG9uZyB0byB0aGUgZnJhZ21lbnQgc2hhZGVyCiAgbG9j\nYWxfcG9zaXRpb24gPSBwb3NpdGlvbiAqIG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwogIGxvY2Fs\nX25vcm1hbCA9IG5vcm1hbDsKICBsb2NhbF90Y29vcmRzID0gdGNvb3JkczsKCiAgLy8gY2FsY3Vs\nYXRlIG1vZGVsdmlldyBtYXRyaXgKICBtYXQ0IG1vZGVsX3ZpZXcgPSB2aWV3X21hdHJpeCAqIHdv\ncmxkX21hdHJpeDsKICBpZiAoYmlsbGJvYXJkX21vZGUgPiAwLjApIHsKICAgIC8vIGNsZWFyIG91\ndCByb3RhdGlvbiBpbmZvcm1hdGlvbgogICAgbW9kZWxfdmlld1swXS54eXogPSB3b3JsZF9tYXRy\naXhbMF0ueHl6OwogICAgbW9kZWxfdmlld1syXS54eXogPSB3b3JsZF9tYXRyaXhbMl0ueHl6Owog\nICAgaWYgKGJpbGxib2FyZF9tb2RlID09IDIuMCkgewogICAgICBtb2RlbF92aWV3WzFdLnh5eiA9\nIHdvcmxkX21hdHJpeFsxXS54eXo7CiAgICB9CiAgfQoKICAvLyB2YXJpb3VzIGNvb3JkaW5hdGUg\ndHJhbnNmb3JtcwogIHZlYzQgZmluYWxfcG9zaXRpb24gPSBwcm9qZWN0aW9uX21hdHJpeCAqIG1v\nZGVsX3ZpZXcgKiB2ZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApOwogIHdvcmxkX3Bvc2l0aW9uID0g\nKHdvcmxkX21hdHJpeCAqIHZlYzQobG9jYWxfcG9zaXRpb24sIDEuMCkpLnh5ejsKICBzY3JlZW5f\ncG9zaXRpb24gPSBmaW5hbF9wb3NpdGlvbi54eXo7CiAgbGluZWFyX2RlcHRoID0gbGVuZ3RoKCht\nb2RlbF92aWV3ICogdmVjNChsb2NhbF9wb3NpdGlvbiwgMS4wKSkpOwogIGdsX1Bvc2l0aW9uID0g\nZmluYWxfcG9zaXRpb247Cn0K\n", "picking.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnZhcnlpbmcgdmVjMyBsb2Nh\nbF9wb3NpdGlvbjsKdW5pZm9ybSB2ZWMzIG9iamVjdF9pbmRleDsKdW5pZm9ybSBib29sIG1ncmxf\nc2VsZWN0X21vZGU7CnVuaWZvcm0gdmVjMyBtZ3JsX21vZGVsX2xvY2FsX21pbjsKdW5pZm9ybSB2\nZWMzIG1ncmxfbW9kZWxfbG9jYWxfc2l6ZTsKCgp2b2lkIG1haW4odm9pZCkgewogIGlmIChtZ3Js\nX3NlbGVjdF9tb2RlKSB7CiAgICBnbF9GcmFnQ29sb3IgPSB2ZWM0KG9iamVjdF9pbmRleCwgMS4w\nKTsKICB9CiAgZWxzZSB7CiAgICB2ZWMzIHNoaWZ0ZWQgPSBsb2NhbF9wb3NpdGlvbiAtIG1ncmxf\nbW9kZWxfbG9jYWxfbWluOwogICAgdmVjMyBzY2FsZWQgPSBzaGlmdGVkIC8gbWdybF9tb2RlbF9s\nb2NhbF9zaXplOwogICAgZ2xfRnJhZ0NvbG9yID0gdmVjNChzY2FsZWQsIDEuMCk7CiAgfTsKfQo=\n", "diffuse.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0\ndXJlOwoKdW5pZm9ybSBmbG9hdCBhbHBoYTsKdW5pZm9ybSBib29sIGlzX3Nwcml0ZTsKdW5pZm9y\nbSBib29sIGlzX3RyYW5zcGFyZW50OwoKdmFyeWluZyB2ZWMzIGxvY2FsX3Bvc2l0aW9uOwp2YXJ5\naW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2YXJ5aW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWlu\nZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgc2NyZWVuX3Bvc2l0aW9uOwoKCnZv\naWQgbWFpbih2b2lkKSB7CiAgdmVjNCBkaWZmdXNlID0gdGV4dHVyZTJEKGRpZmZ1c2VfdGV4dHVy\nZSwgbG9jYWxfdGNvb3Jkcyk7CiAgaWYgKGlzX3Nwcml0ZSkgewogICAgZmxvYXQgY3V0b2ZmID0g\naXNfdHJhbnNwYXJlbnQgPyAwLjEgOiAxLjA7CiAgICBpZiAoZGlmZnVzZS5hIDwgY3V0b2ZmKSB7\nCiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgfQogIGRpZmZ1c2UuYSAqPSBhbHBoYTsKICBnbF9GcmFn\nQ29sb3IgPSBkaWZmdXNlOwp9Cg==\n", "stereo.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnVuaWZvcm0gdmVjNCBtZ3Js\nX2NsZWFyX2NvbG9yOwp1bmlmb3JtIGZsb2F0IG1ncmxfZnJhbWVfc3RhcnQ7CnVuaWZvcm0gZmxv\nYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfaGVpZ2h0OwoK\ndW5pZm9ybSBzYW1wbGVyMkQgbGVmdF9leWVfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgcmln\naHRfZXllX3RleHR1cmU7Cgp1bmlmb3JtIGJvb2wgc3RlcmVvX3NwbGl0Owp1bmlmb3JtIHZlYzMg\nbGVmdF9jb2xvcjsKdW5pZm9ybSB2ZWMzIHJpZ2h0X2NvbG9yOwoKdmVjNCBzYW1wbGVfb3JfY2xl\nYXIoc2FtcGxlcjJEIHNhbXBsZXIsIHZlYzIgY29vcmQpIHsKICB2ZWM0IGNvbG9yID0gdGV4dHVy\nZTJEKHNhbXBsZXIsIGNvb3JkKTsKICBpZiAoY29sb3IuYSA9PSAwLjApIHsKICAgIGNvbG9yID0g\nbWdybF9jbGVhcl9jb2xvcjsKICB9CiAgcmV0dXJuIGNvbG9yOwp9Cgp2b2lkIG1haW4odm9pZCkg\newogIHZlYzIgY29vcmQgPSBnbF9GcmFnQ29vcmQueHkgLyB2ZWMyKG1ncmxfYnVmZmVyX3dpZHRo\nLCBtZ3JsX2J1ZmZlcl9oZWlnaHQpOwogIHZlYzQgY29sb3I7CgogIGlmIChzdGVyZW9fc3BsaXQp\nIHsKICAgIC8vIEZJWE1FOiBhcHBseSBkaXN0b3J0aW9uIGVmZmVjdCBuZWVkZWQgZm9yIFZSIGds\nYXNzZXMKICAgIGlmIChjb29yZC54IDwgMC41KSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKGxl\nZnRfZXllX3RleHR1cmUsIHZlYzIoY29vcmQueCoyLjAsIGNvb3JkLnkpKTsKICAgIH0KICAgIGVs\nc2UgewogICAgICBjb2xvciA9IHRleHR1cmUyRChyaWdodF9leWVfdGV4dHVyZSwgdmVjMigoY29v\ncmQueCAtIDAuNSkqMi4wLCBjb29yZC55KSk7CiAgICB9CiAgfQoKICBlbHNlIHsKICAgIHZlYzMg\nbGVmdCA9IHNhbXBsZV9vcl9jbGVhcihsZWZ0X2V5ZV90ZXh0dXJlLCBjb29yZCkucmdiICogbGVm\ndF9jb2xvcjsKICAgIHZlYzMgcmlnaHQgPSBzYW1wbGVfb3JfY2xlYXIocmlnaHRfZXllX3RleHR1\ncmUsIGNvb3JkKS5yZ2IgKiByaWdodF9jb2xvcjsKICAgIGNvbG9yID0gdmVjNCgobGVmdCtyaWdo\ndCksIDEuMCk7CiAgfQogIAogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "diagonal_wipe.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBibHVyX3JhZGl1czsKdW5pZm9ybSBib29sIGZsaXBfYXhpczsK\ndW5pZm9ybSBib29sIGZsaXBfZGlyZWN0aW9uOwoKCiNpbmNsdWRlICJub3JtYWxpemVfc2NyZWVu\nX2Nvb3JkLmdsc2wiCgoKdm9pZCBtYWluKHZvaWQpIHsKICB2ZWMyIHRjb29yZHMgPSBub3JtYWxp\nemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAgZmxvYXQgc2xvcGUgPSBtZ3JsX2J1\nZmZlcl9oZWlnaHQgLyBtZ3JsX2J1ZmZlcl93aWR0aDsKICBpZiAoZmxpcF9heGlzKSB7CiAgICBz\nbG9wZSAqPSAtMS4wOwogIH0KICBmbG9hdCBoYWxmX2hlaWdodCA9IG1ncmxfYnVmZmVyX2hlaWdo\ndCAqIDAuNTsKICBmbG9hdCBoaWdoX3BvaW50ID0gbWdybF9idWZmZXJfaGVpZ2h0ICsgaGFsZl9o\nZWlnaHQgKyBibHVyX3JhZGl1cyArIDEuMDsKICBmbG9hdCBsb3dfcG9pbnQgPSAoaGFsZl9oZWln\naHQgKiAtMS4wKSAtIGJsdXJfcmFkaXVzIC0gMS4wOwogIGZsb2F0IG1pZHBvaW50ID0gbWl4KGhp\nZ2hfcG9pbnQsIGxvd19wb2ludCwgZmxpcF9kaXJlY3Rpb24gPyAxLjAgLSBwcm9ncmVzcyA6IHBy\nb2dyZXNzKTsKICBmbG9hdCB0ZXN0ID0gKChnbF9GcmFnQ29vcmQueCAtIG1ncmxfYnVmZmVyX3dp\nZHRoLzIuMCkgKiBzbG9wZSkgKyBtaWRwb2ludDsKCiAgdmVjNCBjb2xvcjsKICBmbG9hdCBkaXN0\nID0gZ2xfRnJhZ0Nvb3JkLnkgLSB0ZXN0OwogIGlmIChkaXN0IDw9IGJsdXJfcmFkaXVzICYmIGRp\nc3QgPj0gKGJsdXJfcmFkaXVzKi0xLjApKSB7CiAgICB2ZWM0IGNvbG9yX2EgPSB0ZXh0dXJlMkQo\ndGV4dHVyZV9hLCB0Y29vcmRzKTsKICAgIHZlYzQgY29sb3JfYiA9IHRleHR1cmUyRCh0ZXh0dXJl\nX2IsIHRjb29yZHMpOwogICAgZmxvYXQgYmxlbmQgPSAoZGlzdCArIGJsdXJfcmFkaXVzKSAvIChi\nbHVyX3JhZGl1cyoyLjApOwogICAgY29sb3IgPSBtaXgoY29sb3JfYSwgY29sb3JfYiwgZmxpcF9k\naXJlY3Rpb24gPyAxLjAgLSBibGVuZCA6IGJsZW5kKTsKICB9CiAgZWxzZSB7CiAgICBpZiAoKGds\nX0ZyYWdDb29yZC55IDwgdGVzdCAmJiAhZmxpcF9kaXJlY3Rpb24pIHx8IChnbF9GcmFnQ29vcmQu\neSA+IHRlc3QgJiYgZmxpcF9kaXJlY3Rpb24pKSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYSwgdGNvb3Jkcyk7CiAgICB9CiAgICBlbHNlIHsKICAgICAgY29sb3IgPSB0ZXh0dXJl\nMkQodGV4dHVyZV9iLCB0Y29vcmRzKTsKICAgIH0KICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3I7\nCn0K\n", "color_curve.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gY3VydmUgZmxvYXQgdmFsdWVfY3VydmVbMTZdOwp1bmlmb3Jt\nIGN1cnZlIGZsb2F0IHJlZF9jdXJ2ZVsxNl07CnVuaWZvcm0gY3VydmUgZmxvYXQgZ3JlZW5fY3Vy\ndmVbMTZdOwp1bmlmb3JtIGN1cnZlIGZsb2F0IGJsdWVfY3VydmVbMTZdOwoKI2luY2x1ZGUgIm5v\ncm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIKCgpmbG9hdCB2YWx1ZSh2ZWMzIGNvbG9yKSB7CiAg\ncmV0dXJuIG1heChjb2xvci5yLCBtYXgoY29sb3IuZywgY29sb3IuYikpOwp9CgoKdm9pZCBtYWlu\nKHZvaWQpIHsKICB2ZWMyIHRjb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdD\nb29yZC54eSk7CiAgdmVjMyBjb2xvciA9IHRleHR1cmUyRChpbnB1dF90ZXh0dXJlLCB0Y29vcmRz\nKS5yZ2I7CgogIGZsb2F0IHYxID0gdmFsdWUoY29sb3IpOwogIGZsb2F0IHYyID0gc2FtcGxlX2N1\ncnZlKHZhbHVlX2N1cnZlLCB2MSk7CiAgZmxvYXQgc2NhbGUgPSAxLjAgLyB2MTsKICBjb2xvciA9\nIGNvbG9yICogc2NhbGUgKiB2MjsKICAKICBjb2xvci5yID0gc2FtcGxlX2N1cnZlKHJlZF9jdXJ2\nZSwgY29sb3Iucik7CiAgY29sb3IuZyA9IHNhbXBsZV9jdXJ2ZShncmVlbl9jdXJ2ZSwgY29sb3Iu\nZyk7CiAgY29sb3IuYiA9IHNhbXBsZV9jdXJ2ZShibHVlX2N1cnZlLCBjb2xvci5iKTsKICBnbF9G\ncmFnQ29sb3IgPSB2ZWM0KGNvbG9yLCAxLjApOwp9Cg==\n", "disintegrate.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBweF9zaXplOwoKCiNpbmNsdWRlICJub3JtYWxpemVfc2NyZWVu\nX2Nvb3JkLmdsc2wiCgoKLy8gaHR0cHM6Ly9zdGFja292ZXJmbG93LmNvbS9xdWVzdGlvbnMvMTI5\nNjQyNzkvd2hhdHMtdGhlLW9yaWdpbi1vZi10aGlzLWdsc2wtcmFuZC1vbmUtbGluZXIKZmxvYXQg\ncmFuZG9tX3NlZWQodmVjMiBjbykgewogIHJldHVybiBmcmFjdChzaW4oZG90KGNvLnh5ICx2ZWMy\nKDEyLjk4OTgsNzguMjMzKSkpICogNDM3NTguNTQ1Myk7Cn0KCgp2b2lkIG1haW4odm9pZCkgewog\nIHZlYzIgZ3JpZCA9IGdsX0ZyYWdDb29yZC54eSAvIHB4X3NpemU7CiAgdmVjMiBvZmZzZXQgPSBm\ncmFjdChncmlkKSowLjU7CiAgZmxvYXQgcmFuZG9tID0gKHJhbmRvbV9zZWVkKGZsb29yKGdyaWQg\nKyBvZmZzZXQpKSowLjkpICsgMC4xOwogIHJhbmRvbSAqPSAoMS4wIC0gcHJvZ3Jlc3MpOwogIHZl\nYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nvb3JkLnh5KTsKICB2\nZWM0IGNvbG9yOwogIGlmIChyYW5kb20gPCAwLjEpIHsKICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYiwgdGNvb3Jkcyk7CiAgfQogIGVsc2UgewogICAgY29sb3IgPSB0ZXh0dXJlMkQodGV4\ndHVyZV9hLCB0Y29vcmRzKTsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3I7Cn0K\n", "scatter_blur.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gZmxvYXQgYmx1cl9yYWRpdXM7CnVuaWZvcm0gZmxvYXQgc2Ft\ncGxlczsKCmNvbnN0IGZsb2F0IG1heF9zYW1wbGVzID0gMzIuMDsKY29uc3QgZmxvYXQgdHdvX3Bp\nID0gNi4yODMxODUzMDcxODsKCgojaW5jbHVkZSAibm9ybWFsaXplX3NjcmVlbl9jb29yZC5nbHNs\nIgoKCnZlYzIgc2NyZWVuX2NsYW1wKHZlYzIgY29vcmQpIHsKICByZXR1cm4gY2xhbXAoY29vcmQs\nIHZlYzIoMC4wLCAwLjApLCBnbF9GcmFnQ29vcmQueHkpOwp9CgoKdmVjMiBwcm5nKHZlYzIgY28p\nIHsKICB2ZWMyIGEgPSBmcmFjdChjby55eCAqIHZlYzIoNS4zOTgzLCA1LjQ0MjcpKTsKICB2ZWMy\nIGIgPSBhLnh5ICsgdmVjMigyMS41MzUxLCAxNC4zMTM3KTsKICB2ZWMyIGMgPSBhICsgZG90KGEu\neXgsIGIpOwogIC8vcmV0dXJuIGZyYWN0KGMueCAqIGMueSAqIDk1LjQzMzcpOwogIHJldHVybiBm\ncmFjdCh2ZWMyKGMueCpjLnkqOTUuNDMzNywgYy54KmMueSo5Ny41OTcpKTsKfQoKCmZsb2F0IHBy\nbmcoZmxvYXQgbil7CiAgdmVjMiBhID0gZnJhY3QobiAqIHZlYzIoNS4zOTgzLCA1LjQ0MjcpKTsK\nICB2ZWMyIGIgPSBhLnh5ICsgdmVjMigyMS41MzUxLCAxNC4zMTM3KTsKICB2ZWMyIGMgPSBhICsg\nZG90KGEueXgsIGIpOwogIHJldHVybiBmcmFjdChjLnggKiBjLnkgKiA5NS40MzM3KTsKfQoKCnZv\naWQgbWFpbih2b2lkKSB7CiAgZmxvYXQgY291bnQgPSAwLjA7CiAgdmVjNCBjb2xvciA9IHZlYzQo\nMC4wLCAwLjAsIDAuMCwgMC4wKTsKCiAgZmxvYXQgeCwgeSwgcmFkaXVzOwogIGZsb2F0IGFuZ2xl\nID0gdHdvX3BpICogcHJuZyhnbF9GcmFnQ29vcmQueHkpLng7CiAgZmxvYXQgYW5nbGVfc3RlcCA9\nIHR3b19waSAvIHNhbXBsZXM7CiAgCiAgZm9yIChmbG9hdCBpPTAuMDsgaTxtYXhfc2FtcGxlczsg\naSs9MS4wKSB7CiAgICByYWRpdXMgPSBibHVyX3JhZGl1cyAqIHBybmcoYW5nbGUpOwogICAgeCA9\nIGdsX0ZyYWdDb29yZC54ICsgY29zKGFuZ2xlKSpyYWRpdXM7CiAgICB5ID0gZ2xfRnJhZ0Nvb3Jk\nLnkgKyBzaW4oYW5nbGUpKnJhZGl1czsKICAgIGFuZ2xlICs9IGFuZ2xlX3N0ZXA7CiAgICBpZiAo\neCA8IDAuMCB8fCB5IDwgMC4wIHx8IHggPj0gbWdybF9idWZmZXJfd2lkdGggfHwgeSA+PSBtZ3Js\nX2J1ZmZlcl9oZWlnaHQpIHsKICAgICAgY29udGludWU7CiAgICB9CiAgICBjb2xvciArPSB0ZXh0\ndXJlMkQoaW5wdXRfdGV4dHVyZSwgbm9ybWFsaXplX3NjcmVlbl9jb29yZCh2ZWMyKHgsIHkpKSk7\nCiAgICBjb3VudCArPSAxLjA7CiAgICBpZiAoY291bnQgPj0gc2FtcGxlcykgewogICAgICBicmVh\nazsKICAgIH0KICB9CiAgCiAgaWYgKGNvdW50ID09IDAuMCkgewogICAgY29sb3IgPSB0ZXh0dXJl\nMkQoaW5wdXRfdGV4dHVyZSwgbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkp\nKTsKICAgIGNvdW50ID0gMS4wOwogIH0KICBnbF9GcmFnQ29sb3IgPSBjb2xvciAvIGNvdW50Owp9\nCg==\n"};
+    var lookup_table = {"picture_in_picture.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl93aWR0\naDsKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl9oZWlnaHQ7Cgp1bmlmb3JtIHZlYzIgcGlwX3Np\nemU7CnVuaWZvcm0gdmVjMiBwaXBfY29vcmQ7CnVuaWZvcm0gZmxvYXQgcGlwX2FscGhhOwp1bmlm\nb3JtIHNhbXBsZXIyRCBtYWluX3RleHR1cmU7CnVuaWZvcm0gc2FtcGxlcjJEIHBpcF90ZXh0dXJl\nOwoKCiNpbmNsdWRlICJub3JtYWxpemVfc2NyZWVuX2Nvb3JkLmdsc2wiCgoKdm9pZCBtYWluKHZv\naWQpIHsKICB2ZWMyIHNjcmVlbl9jb29yZCA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJh\nZ0Nvb3JkLnh5KTsKICB2ZWM0IGNvbG9yID0gdGV4dHVyZTJEKG1haW5fdGV4dHVyZSwgc2NyZWVu\nX2Nvb3JkKTsKCiAgLy8gc2NhbGUgdGhlIHNjcmVlbl9jb29yZCB0byByZXByZXNlbnQgYSBwZXJj\nZW50CiAgc2NyZWVuX2Nvb3JkICo9IDEwMC4wOwogIHZlYzIgcGlwX3Rlc3QgPSBzY3JlZW5fY29v\ncmQgLSBwaXBfY29vcmQ7CiAgaWYgKHBpcF90ZXN0LnggPj0gMC4wICYmIHBpcF90ZXN0LnkgPj0g\nMC4wICYmIHBpcF90ZXN0LnggPD0gcGlwX3NpemUueCAmJiBwaXBfdGVzdC55IDw9IHBpcF9zaXpl\nLnkpIHsKICAgIHZlYzQgcGlwX2NvbG9yID0gdGV4dHVyZTJEKHBpcF90ZXh0dXJlLCBwaXBfdGVz\ndCAvIHBpcF9zaXplKTsKICAgIGNvbG9yID0gbWl4KGNvbG9yLCBwaXBfY29sb3IsIHBpcF9jb2xv\nci5hIC8gcGlwX2FscGhhKTsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3I7Cn0K\n", "splat.vert": "CnVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7CnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5p\nZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4OwphdHRyaWJ1dGUgdmVjMyBwb3NpdGlvbjsKCgp2\nb2lkIG1haW4odm9pZCkgewogIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2aWV3\nX21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7Cn0K\n", "simple.vert": "Ci8vIG1hdHJpY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2pl\nY3Rpb25fbWF0cml4OwoKLy8gdmVydGV4IGRhdGEKYXR0cmlidXRlIHZlYzMgcG9zaXRpb247CmF0\ndHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZlYzIgdGNvb3JkczsKCi8vIG1pc2MgYWRq\ndXN0bWVudHMKdW5pZm9ybSBmbG9hdCBtZ3JsX29ydGhvZ3JhcGhpY19zY2FsZTsKCi8vIGJpbGxi\nb2FyZCBzcHJpdGVzIGVuYWJsZXIKdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKCi8vIGlu\ndGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBpbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5n\nIHZlYzMgbG9jYWxfcG9zaXRpb247CnZhcnlpbmcgdmVjMyBsb2NhbF9ub3JtYWw7CnZhcnlpbmcg\ndmVjMiBsb2NhbF90Y29vcmRzOwp2YXJ5aW5nIHZlYzMgd29ybGRfcG9zaXRpb247CnZhcnlpbmcg\ndmVjMyBzY3JlZW5fcG9zaXRpb247CnZhcnlpbmcgZmxvYXQgbGluZWFyX2RlcHRoOwoKCnZvaWQg\nbWFpbih2b2lkKSB7CiAgLy8gcGFzcyBhbG9uZyB0byB0aGUgZnJhZ21lbnQgc2hhZGVyCiAgbG9j\nYWxfcG9zaXRpb24gPSBwb3NpdGlvbiAqIG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwogIGxvY2Fs\nX25vcm1hbCA9IG5vcm1hbDsKICBsb2NhbF90Y29vcmRzID0gdGNvb3JkczsKCiAgLy8gY2FsY3Vs\nYXRlIG1vZGVsdmlldyBtYXRyaXgKICBtYXQ0IG1vZGVsX3ZpZXcgPSB2aWV3X21hdHJpeCAqIHdv\ncmxkX21hdHJpeDsKICBpZiAoYmlsbGJvYXJkX21vZGUgPiAwLjApIHsKICAgIC8vIGNsZWFyIG91\ndCByb3RhdGlvbiBpbmZvcm1hdGlvbgogICAgbW9kZWxfdmlld1swXS54eXogPSB3b3JsZF9tYXRy\naXhbMF0ueHl6OwogICAgbW9kZWxfdmlld1syXS54eXogPSB3b3JsZF9tYXRyaXhbMl0ueHl6Owog\nICAgaWYgKGJpbGxib2FyZF9tb2RlID09IDIuMCkgewogICAgICBtb2RlbF92aWV3WzFdLnh5eiA9\nIHdvcmxkX21hdHJpeFsxXS54eXo7CiAgICB9CiAgfQoKICAvLyB2YXJpb3VzIGNvb3JkaW5hdGUg\ndHJhbnNmb3JtcwogIHZlYzQgZmluYWxfcG9zaXRpb24gPSBwcm9qZWN0aW9uX21hdHJpeCAqIG1v\nZGVsX3ZpZXcgKiB2ZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApOwogIHdvcmxkX3Bvc2l0aW9uID0g\nKHdvcmxkX21hdHJpeCAqIHZlYzQobG9jYWxfcG9zaXRpb24sIDEuMCkpLnh5ejsKICBzY3JlZW5f\ncG9zaXRpb24gPSBmaW5hbF9wb3NpdGlvbi54eXo7CiAgbGluZWFyX2RlcHRoID0gbGVuZ3RoKCht\nb2RlbF92aWV3ICogdmVjNChsb2NhbF9wb3NpdGlvbiwgMS4wKSkpOwogIGdsX1Bvc2l0aW9uID0g\nZmluYWxfcG9zaXRpb247Cn0K\n", "color_curve.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gY3VydmUgZmxvYXQgdmFsdWVfY3VydmVbMTZdOwp1bmlmb3Jt\nIGN1cnZlIGZsb2F0IHJlZF9jdXJ2ZVsxNl07CnVuaWZvcm0gY3VydmUgZmxvYXQgZ3JlZW5fY3Vy\ndmVbMTZdOwp1bmlmb3JtIGN1cnZlIGZsb2F0IGJsdWVfY3VydmVbMTZdOwoKI2luY2x1ZGUgIm5v\ncm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIKCgpmbG9hdCB2YWx1ZSh2ZWMzIGNvbG9yKSB7CiAg\ncmV0dXJuIG1heChjb2xvci5yLCBtYXgoY29sb3IuZywgY29sb3IuYikpOwp9CgoKdm9pZCBtYWlu\nKHZvaWQpIHsKICB2ZWMyIHRjb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdD\nb29yZC54eSk7CiAgdmVjMyBjb2xvciA9IHRleHR1cmUyRChpbnB1dF90ZXh0dXJlLCB0Y29vcmRz\nKS5yZ2I7CgogIGZsb2F0IHYxID0gdmFsdWUoY29sb3IpOwogIGZsb2F0IHYyID0gc2FtcGxlX2N1\ncnZlKHZhbHVlX2N1cnZlLCB2MSk7CiAgZmxvYXQgc2NhbGUgPSAxLjAgLyB2MTsKICBjb2xvciA9\nIGNvbG9yICogc2NhbGUgKiB2MjsKICAKICBjb2xvci5yID0gc2FtcGxlX2N1cnZlKHJlZF9jdXJ2\nZSwgY29sb3Iucik7CiAgY29sb3IuZyA9IHNhbXBsZV9jdXJ2ZShncmVlbl9jdXJ2ZSwgY29sb3Iu\nZyk7CiAgY29sb3IuYiA9IHNhbXBsZV9jdXJ2ZShibHVlX2N1cnZlLCBjb2xvci5iKTsKICBnbF9G\ncmFnQ29sb3IgPSB2ZWM0KGNvbG9yLCAxLjApOwp9Cg==\n", "diffuse.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0\ndXJlOwoKdW5pZm9ybSBmbG9hdCBhbHBoYTsKdW5pZm9ybSBib29sIGlzX3Nwcml0ZTsKdW5pZm9y\nbSBib29sIGlzX3RyYW5zcGFyZW50OwoKdmFyeWluZyB2ZWMzIGxvY2FsX3Bvc2l0aW9uOwp2YXJ5\naW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2YXJ5aW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWlu\nZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgc2NyZWVuX3Bvc2l0aW9uOwoKCnZv\naWQgbWFpbih2b2lkKSB7CiAgdmVjNCBkaWZmdXNlID0gdGV4dHVyZTJEKGRpZmZ1c2VfdGV4dHVy\nZSwgbG9jYWxfdGNvb3Jkcyk7CiAgaWYgKGlzX3Nwcml0ZSkgewogICAgZmxvYXQgY3V0b2ZmID0g\naXNfdHJhbnNwYXJlbnQgPyAwLjEgOiAxLjA7CiAgICBpZiAoZGlmZnVzZS5hIDwgY3V0b2ZmKSB7\nCiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgfQogIGRpZmZ1c2UuYSAqPSBhbHBoYTsKICBnbF9GcmFn\nQ29sb3IgPSBkaWZmdXNlOwp9Cg==\n", "stereo.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnVuaWZvcm0gdmVjNCBtZ3Js\nX2NsZWFyX2NvbG9yOwp1bmlmb3JtIGZsb2F0IG1ncmxfZnJhbWVfc3RhcnQ7CnVuaWZvcm0gZmxv\nYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfaGVpZ2h0OwoK\ndW5pZm9ybSBzYW1wbGVyMkQgbGVmdF9leWVfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgcmln\naHRfZXllX3RleHR1cmU7Cgp1bmlmb3JtIGJvb2wgc3RlcmVvX3NwbGl0Owp1bmlmb3JtIHZlYzMg\nbGVmdF9jb2xvcjsKdW5pZm9ybSB2ZWMzIHJpZ2h0X2NvbG9yOwoKdmVjNCBzYW1wbGVfb3JfY2xl\nYXIoc2FtcGxlcjJEIHNhbXBsZXIsIHZlYzIgY29vcmQpIHsKICB2ZWM0IGNvbG9yID0gdGV4dHVy\nZTJEKHNhbXBsZXIsIGNvb3JkKTsKICBpZiAoY29sb3IuYSA9PSAwLjApIHsKICAgIGNvbG9yID0g\nbWdybF9jbGVhcl9jb2xvcjsKICB9CiAgcmV0dXJuIGNvbG9yOwp9Cgp2b2lkIG1haW4odm9pZCkg\newogIHZlYzIgY29vcmQgPSBnbF9GcmFnQ29vcmQueHkgLyB2ZWMyKG1ncmxfYnVmZmVyX3dpZHRo\nLCBtZ3JsX2J1ZmZlcl9oZWlnaHQpOwogIHZlYzQgY29sb3I7CgogIGlmIChzdGVyZW9fc3BsaXQp\nIHsKICAgIC8vIEZJWE1FOiBhcHBseSBkaXN0b3J0aW9uIGVmZmVjdCBuZWVkZWQgZm9yIFZSIGds\nYXNzZXMKICAgIGlmIChjb29yZC54IDwgMC41KSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKGxl\nZnRfZXllX3RleHR1cmUsIHZlYzIoY29vcmQueCoyLjAsIGNvb3JkLnkpKTsKICAgIH0KICAgIGVs\nc2UgewogICAgICBjb2xvciA9IHRleHR1cmUyRChyaWdodF9leWVfdGV4dHVyZSwgdmVjMigoY29v\ncmQueCAtIDAuNSkqMi4wLCBjb29yZC55KSk7CiAgICB9CiAgfQoKICBlbHNlIHsKICAgIHZlYzMg\nbGVmdCA9IHNhbXBsZV9vcl9jbGVhcihsZWZ0X2V5ZV90ZXh0dXJlLCBjb29yZCkucmdiICogbGVm\ndF9jb2xvcjsKICAgIHZlYzMgcmlnaHQgPSBzYW1wbGVfb3JfY2xlYXIocmlnaHRfZXllX3RleHR1\ncmUsIGNvb3JkKS5yZ2IgKiByaWdodF9jb2xvcjsKICAgIGNvbG9yID0gdmVjNCgobGVmdCtyaWdo\ndCksIDEuMCk7CiAgfQogIAogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "diagonal_wipe.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBibHVyX3JhZGl1czsKdW5pZm9ybSBib29sIGZsaXBfYXhpczsK\ndW5pZm9ybSBib29sIGZsaXBfZGlyZWN0aW9uOwoKCiNpbmNsdWRlICJub3JtYWxpemVfc2NyZWVu\nX2Nvb3JkLmdsc2wiCgoKdm9pZCBtYWluKHZvaWQpIHsKICB2ZWMyIHRjb29yZHMgPSBub3JtYWxp\nemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAgZmxvYXQgc2xvcGUgPSBtZ3JsX2J1\nZmZlcl9oZWlnaHQgLyBtZ3JsX2J1ZmZlcl93aWR0aDsKICBpZiAoZmxpcF9heGlzKSB7CiAgICBz\nbG9wZSAqPSAtMS4wOwogIH0KICBmbG9hdCBoYWxmX2hlaWdodCA9IG1ncmxfYnVmZmVyX2hlaWdo\ndCAqIDAuNTsKICBmbG9hdCBoaWdoX3BvaW50ID0gbWdybF9idWZmZXJfaGVpZ2h0ICsgaGFsZl9o\nZWlnaHQgKyBibHVyX3JhZGl1cyArIDEuMDsKICBmbG9hdCBsb3dfcG9pbnQgPSAoaGFsZl9oZWln\naHQgKiAtMS4wKSAtIGJsdXJfcmFkaXVzIC0gMS4wOwogIGZsb2F0IG1pZHBvaW50ID0gbWl4KGhp\nZ2hfcG9pbnQsIGxvd19wb2ludCwgZmxpcF9kaXJlY3Rpb24gPyAxLjAgLSBwcm9ncmVzcyA6IHBy\nb2dyZXNzKTsKICBmbG9hdCB0ZXN0ID0gKChnbF9GcmFnQ29vcmQueCAtIG1ncmxfYnVmZmVyX3dp\nZHRoLzIuMCkgKiBzbG9wZSkgKyBtaWRwb2ludDsKCiAgdmVjNCBjb2xvcjsKICBmbG9hdCBkaXN0\nID0gZ2xfRnJhZ0Nvb3JkLnkgLSB0ZXN0OwogIGlmIChkaXN0IDw9IGJsdXJfcmFkaXVzICYmIGRp\nc3QgPj0gKGJsdXJfcmFkaXVzKi0xLjApKSB7CiAgICB2ZWM0IGNvbG9yX2EgPSB0ZXh0dXJlMkQo\ndGV4dHVyZV9hLCB0Y29vcmRzKTsKICAgIHZlYzQgY29sb3JfYiA9IHRleHR1cmUyRCh0ZXh0dXJl\nX2IsIHRjb29yZHMpOwogICAgZmxvYXQgYmxlbmQgPSAoZGlzdCArIGJsdXJfcmFkaXVzKSAvIChi\nbHVyX3JhZGl1cyoyLjApOwogICAgY29sb3IgPSBtaXgoY29sb3JfYSwgY29sb3JfYiwgZmxpcF9k\naXJlY3Rpb24gPyAxLjAgLSBibGVuZCA6IGJsZW5kKTsKICB9CiAgZWxzZSB7CiAgICBpZiAoKGds\nX0ZyYWdDb29yZC55IDwgdGVzdCAmJiAhZmxpcF9kaXJlY3Rpb24pIHx8IChnbF9GcmFnQ29vcmQu\neSA+IHRlc3QgJiYgZmxpcF9kaXJlY3Rpb24pKSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYSwgdGNvb3Jkcyk7CiAgICB9CiAgICBlbHNlIHsKICAgICAgY29sb3IgPSB0ZXh0dXJl\nMkQodGV4dHVyZV9iLCB0Y29vcmRzKTsKICAgIH0KICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3I7\nCn0K\n", "deferred.vert": "Ci8vIG1hdHJpY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2pl\nY3Rpb25fbWF0cml4OwoKLy8gdmVydGV4IGRhdGEKYXR0cmlidXRlIHZlYzMgcG9zaXRpb247CmF0\ndHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZlYzIgdGNvb3JkczsKCi8vIG1pc2MgYWRq\ndXN0bWVudHMKdW5pZm9ybSBmbG9hdCBtZ3JsX29ydGhvZ3JhcGhpY19zY2FsZTsKCi8vIGJpbGxi\nb2FyZCBzcHJpdGVzIGVuYWJsZXIKdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKCi8vIGlu\ndGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBpbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5n\nIHZlYzMgbG9jYWxfcG9zaXRpb247CnZhcnlpbmcgdmVjMyBsb2NhbF9ub3JtYWw7CnZhcnlpbmcg\ndmVjMiBsb2NhbF90Y29vcmRzOwp2YXJ5aW5nIHZlYzMgd29ybGRfcG9zaXRpb247CnZhcnlpbmcg\ndmVjMyBzY3JlZW5fcG9zaXRpb247CnZhcnlpbmcgZmxvYXQgbGluZWFyX2RlcHRoOwoKLy8gdW5p\nZm9ybQp1bmlmb3JtIGJvb2wgZ2VvbWV0cnlfcGFzczsKCgp2b2lkIG1haW4odm9pZCkgewogIGlm\nIChnZW9tZXRyeV9wYXNzKSB7CiAgICAvLyBwYXNzIGFsb25nIHRvIHRoZSBmcmFnbWVudCBzaGFk\nZXIKICAgIGxvY2FsX3Bvc2l0aW9uID0gcG9zaXRpb24gKiBtZ3JsX29ydGhvZ3JhcGhpY19zY2Fs\nZTsKICAgIGxvY2FsX25vcm1hbCA9IG5vcm1hbDsKICAgIGxvY2FsX3Rjb29yZHMgPSB0Y29vcmRz\nOwoKICAgIC8vIGNhbGN1bGF0ZSBtb2RlbHZpZXcgbWF0cml4CiAgICBtYXQ0IG1vZGVsX3ZpZXcg\nPSB2aWV3X21hdHJpeCAqIHdvcmxkX21hdHJpeDsKICAgIGlmIChiaWxsYm9hcmRfbW9kZSA+IDAu\nMCkgewogICAgICAvLyBjbGVhciBvdXQgcm90YXRpb24gaW5mb3JtYXRpb24KICAgICAgbW9kZWxf\ndmlld1swXS54eXogPSB3b3JsZF9tYXRyaXhbMF0ueHl6OwogICAgICBtb2RlbF92aWV3WzJdLnh5\neiA9IHdvcmxkX21hdHJpeFsyXS54eXo7CiAgICAgIGlmIChiaWxsYm9hcmRfbW9kZSA9PSAyLjAp\nIHsKICAgICAgICBtb2RlbF92aWV3WzFdLnh5eiA9IHdvcmxkX21hdHJpeFsxXS54eXo7CiAgICAg\nIH0KICAgIH0KCiAgICAvLyB2YXJpb3VzIGNvb3JkaW5hdGUgdHJhbnNmb3JtcwogICAgdmVjNCBm\naW5hbF9wb3NpdGlvbiA9IHByb2plY3Rpb25fbWF0cml4ICogbW9kZWxfdmlldyAqIHZlYzQobG9j\nYWxfcG9zaXRpb24sIDEuMCk7CiAgICB3b3JsZF9wb3NpdGlvbiA9ICh3b3JsZF9tYXRyaXggKiB2\nZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApKS54eXo7CiAgICBzY3JlZW5fcG9zaXRpb24gPSBmaW5h\nbF9wb3NpdGlvbi54eXo7CiAgICBsaW5lYXJfZGVwdGggPSBsZW5ndGgoKG1vZGVsX3ZpZXcgKiB2\nZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApKSk7CiAgICBnbF9Qb3NpdGlvbiA9IGZpbmFsX3Bvc2l0\naW9uOwogIH0KICBlbHNlIHsKICAgIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2\naWV3X21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7CiAgfQp9Cg==\n", "disintegrate.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBweF9zaXplOwoKCiNpbmNsdWRlICJub3JtYWxpemVfc2NyZWVu\nX2Nvb3JkLmdsc2wiCgoKLy8gaHR0cHM6Ly9zdGFja292ZXJmbG93LmNvbS9xdWVzdGlvbnMvMTI5\nNjQyNzkvd2hhdHMtdGhlLW9yaWdpbi1vZi10aGlzLWdsc2wtcmFuZC1vbmUtbGluZXIKZmxvYXQg\ncmFuZG9tX3NlZWQodmVjMiBjbykgewogIHJldHVybiBmcmFjdChzaW4oZG90KGNvLnh5ICx2ZWMy\nKDEyLjk4OTgsNzguMjMzKSkpICogNDM3NTguNTQ1Myk7Cn0KCgp2b2lkIG1haW4odm9pZCkgewog\nIHZlYzIgZ3JpZCA9IGdsX0ZyYWdDb29yZC54eSAvIHB4X3NpemU7CiAgdmVjMiBvZmZzZXQgPSBm\ncmFjdChncmlkKSowLjU7CiAgZmxvYXQgcmFuZG9tID0gKHJhbmRvbV9zZWVkKGZsb29yKGdyaWQg\nKyBvZmZzZXQpKSowLjkpICsgMC4xOwogIHJhbmRvbSAqPSAoMS4wIC0gcHJvZ3Jlc3MpOwogIHZl\nYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nvb3JkLnh5KTsKICB2\nZWM0IGNvbG9yOwogIGlmIChyYW5kb20gPCAwLjEpIHsKICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYiwgdGNvb3Jkcyk7CiAgfQogIGVsc2UgewogICAgY29sb3IgPSB0ZXh0dXJlMkQodGV4\ndHVyZV9hLCB0Y29vcmRzKTsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3I7Cn0K\n", "deferred.frag": "I2V4dGVuc2lvbiBHTF9FWFRfZHJhd19idWZmZXJzIDogcmVxdWlyZQpwcmVjaXNpb24gbWVkaXVt\ncCBmbG9hdDsKCi8vIG1ncmwgYnVpbHRpbnMKdW5pZm9ybSB2ZWM0IG1ncmxfY2xlYXJfY29sb3I7\nCnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZm\nZXJfaGVpZ2h0OwoKLy8gZm9yIGxpZ2h0aW5nCnVuaWZvcm0gbWF0NCBsaWdodF9wcm9qZWN0aW9u\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IGxpZ2h0X3ZpZXdfbWF0cml4OwoKLy8gdmFyeWluZwp2YXJ5\naW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2YXJ5\naW5nIGZsb2F0IGxpbmVhcl9kZXB0aDsKCi8vIHNhbXBsZXJzCnVuaWZvcm0gc2FtcGxlcjJEIGRp\nZmZ1c2VfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgc3BhdGlhbF90ZXh0dXJlOwp1bmlmb3Jt\nIHNhbXBsZXIyRCBsaWdodF90ZXh0dXJlOwoKLy8gbW9kZSBzd2l0Y2hpbmcKdW5pZm9ybSBpbnQg\nc2hhZGVyX3Bhc3M7CgojaW5jbHVkZSAibm9ybWFsaXplX3NjcmVlbl9jb29yZC5nbHNsIgoKCmZs\nb2F0IGlsbHVtaW5hdGlvbih2ZWMzIF9wb3NpdGlvbiwgZmxvYXQgX2RlcHRoKSB7CiAgLy8gdHJh\nbnNmb3JtIHRoZSB3b3JsZCBjb29yZGluYXRlIGludG8gdGhlIGxpZ2h0J3MgdmlldyBzcGFjZSAg\nCiAgdmVjMyBwb3NpdGlvbiA9IChsaWdodF92aWV3X21hdHJpeCAqIHZlYzQoX3Bvc2l0aW9uLCAx\nLjApKS54eXo7CgogIC8vIGFwcGx5IHRoZSBsaWdodCdzIHByb2plY3Rpb24gbWF0cml4CiAgdmVj\nNCBsaWdodF9wcm9qZWN0ZWQgPSBsaWdodF9wcm9qZWN0aW9uX21hdHJpeCAqIHZlYzQocG9zaXRp\nb24sIDEuMCk7CiAgCiAgLy8gZGV0ZXJtaW5lIHRoZSB2ZWN0b3IgZnJvbSB0aGUgbGlnaHQgc291\ncmNlIHRvIHRoZSBmcmFnbWVudAogIHZlYzIgbGlnaHRfbm9ybWFsID0gbGlnaHRfcHJvamVjdGVk\nLnh5L2xpZ2h0X3Byb2plY3RlZC53OwogIHZlYzIgbGlnaHRfdXYgPSBsaWdodF9ub3JtYWwqMC41\nKzAuNTsKCiAgaWYgKGxpZ2h0X3V2LnggPCAwLjAgfHwgbGlnaHRfdXYueSA8IDAuMCB8fCBsaWdo\ndF91di54ID4gMS4wIHx8IGxpZ2h0X3V2LnkgPiAxLjApIHsKICAgIHJldHVybiAwLjA7CiAgfQoK\nICBpZiAobGVuZ3RoKGxpZ2h0X25vcm1hbCkgPD0xLjApIHsKICAgIGZsb2F0IGJpYXMgPSAwLjA7\nCiAgICBmbG9hdCBsaWdodF9kZXB0aF8xID0gdGV4dHVyZTJEKGxpZ2h0X3RleHR1cmUsIGxpZ2h0\nX3V2KS5yOwogICAgZmxvYXQgbGlnaHRfZGVwdGhfMiA9IGxlbmd0aChwb3NpdGlvbik7CiAgICBm\nbG9hdCBpbGx1bWluYXRlZCA9IHN0ZXAobGlnaHRfZGVwdGhfMiwgbGlnaHRfZGVwdGhfMSArIGJp\nYXMpOwogICAgcmV0dXJuIGlsbHVtaW5hdGVkICogMC42OwogIH0KICBlbHNlIHsKICAgIHJldHVy\nbiAwLjA7CiAgfQp9CgoKdm9pZCBtYWluKHZvaWQpIHsKICBpZiAoc2hhZGVyX3Bhc3MgPT0gMCkg\newogICAgLy8gZy1idWZmZXIgcGFzcwogICAgdmVjNCBkaWZmdXNlID0gdGV4dHVyZTJEKGRpZmZ1\nc2VfdGV4dHVyZSwgbG9jYWxfdGNvb3Jkcyk7CiAgICBpZiAoZGlmZnVzZS5hIDwgMS4wKSB7CiAg\nICAgIGRpc2NhcmQ7CiAgICB9CiAgICBnbF9GcmFnRGF0YVswXSA9IGRpZmZ1c2U7CiAgICBnbF9G\ncmFnRGF0YVsxXSA9IHZlYzQod29ybGRfcG9zaXRpb24sIGxpbmVhcl9kZXB0aCk7CiAgfQogIGVs\nc2UgaWYgKHNoYWRlcl9wYXNzID09IDEpIHsKICAgIGZsb2F0IGRlcHRoID0gbGluZWFyX2RlcHRo\nOwogICAgZ2xfRnJhZ0RhdGFbMF0gPSB2ZWM0KGRlcHRoLCBkZXB0aCwgZGVwdGgsIDEuMCk7CiAg\nfQogIGVsc2UgaWYgKHNoYWRlcl9wYXNzID09IDIpIHsKICAgIC8vIGxpZ2h0IHBlcnNwZWN0aXZl\nIHBhc3MKICAgIHZlYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nv\nb3JkLnh5KTsKICAgIHZlYzQgc3BhY2UgPSB0ZXh0dXJlMkQoc3BhdGlhbF90ZXh0dXJlLCB0Y29v\ncmRzKTsKICAgIGlmIChzcGFjZS53ID09IC0xLjApIHsKICAgICAgZGlzY2FyZDsKICAgIH0KICAg\nIGVsc2UgewogICAgICBmbG9hdCBsaWdodCA9IGlsbHVtaW5hdGlvbihzcGFjZS54eXosIHNwYWNl\nLncpOwogICAgICBnbF9GcmFnRGF0YVswXSA9IHZlYzQobGlnaHQsIGxpZ2h0LCBsaWdodCwgMS4w\nKTsKICAgIH0KICB9CiAgZWxzZSBpZiAoc2hhZGVyX3Bhc3MgPT0gMykgewogICAgLy8gY29tYmlu\nZSB0aGUgbGlnaHRpbmcgYW5kIGRpZmZ1c2UgcGFzc2VzIGFuZCBkaXNwbGF5CiAgICB2ZWMyIHRj\nb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAgICB2ZWM0\nIGRpZmZ1c2UgPSB0ZXh0dXJlMkQoZGlmZnVzZV90ZXh0dXJlLCB0Y29vcmRzKTsKICAgIGlmIChk\naWZmdXNlLncgPT0gLTEuMCkgewogICAgICBkaXNjYXJkOwogICAgfQogICAgdmVjNCBsaWdodG1h\ncCA9IHRleHR1cmUyRChsaWdodF90ZXh0dXJlLCB0Y29vcmRzKTsKICAgIHZlYzMgc2hhZG93ID0g\nZGlmZnVzZS5yZ2IgKiAwLjI7CiAgICB2ZWMzIGNvbG9yID0gbWl4KHNoYWRvdywgZGlmZnVzZS5y\nZ2IsIGxpZ2h0bWFwLnJnYik7CiAgICBnbF9GcmFnRGF0YVswXSA9IHZlYzQoY29sb3IsIDEuMCk7\nCiAgfQp9Cg==\n", "picking.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnZhcnlpbmcgdmVjMyBsb2Nh\nbF9wb3NpdGlvbjsKdW5pZm9ybSB2ZWMzIG9iamVjdF9pbmRleDsKdW5pZm9ybSBib29sIG1ncmxf\nc2VsZWN0X21vZGU7CnVuaWZvcm0gdmVjMyBtZ3JsX21vZGVsX2xvY2FsX21pbjsKdW5pZm9ybSB2\nZWMzIG1ncmxfbW9kZWxfbG9jYWxfc2l6ZTsKCgp2b2lkIG1haW4odm9pZCkgewogIGlmIChtZ3Js\nX3NlbGVjdF9tb2RlKSB7CiAgICBnbF9GcmFnQ29sb3IgPSB2ZWM0KG9iamVjdF9pbmRleCwgMS4w\nKTsKICB9CiAgZWxzZSB7CiAgICB2ZWMzIHNoaWZ0ZWQgPSBsb2NhbF9wb3NpdGlvbiAtIG1ncmxf\nbW9kZWxfbG9jYWxfbWluOwogICAgdmVjMyBzY2FsZWQgPSBzaGlmdGVkIC8gbWdybF9tb2RlbF9s\nb2NhbF9zaXplOwogICAgZ2xfRnJhZ0NvbG9yID0gdmVjNChzY2FsZWQsIDEuMCk7CiAgfTsKfQo=\n", "scatter_blur.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gZmxvYXQgYmx1cl9yYWRpdXM7CnVuaWZvcm0gZmxvYXQgc2Ft\ncGxlczsKCmNvbnN0IGZsb2F0IG1heF9zYW1wbGVzID0gMzIuMDsKY29uc3QgZmxvYXQgdHdvX3Bp\nID0gNi4yODMxODUzMDcxODsKCgojaW5jbHVkZSAibm9ybWFsaXplX3NjcmVlbl9jb29yZC5nbHNs\nIgoKCnZlYzIgc2NyZWVuX2NsYW1wKHZlYzIgY29vcmQpIHsKICByZXR1cm4gY2xhbXAoY29vcmQs\nIHZlYzIoMC4wLCAwLjApLCBnbF9GcmFnQ29vcmQueHkpOwp9CgoKdmVjMiBwcm5nKHZlYzIgY28p\nIHsKICB2ZWMyIGEgPSBmcmFjdChjby55eCAqIHZlYzIoNS4zOTgzLCA1LjQ0MjcpKTsKICB2ZWMy\nIGIgPSBhLnh5ICsgdmVjMigyMS41MzUxLCAxNC4zMTM3KTsKICB2ZWMyIGMgPSBhICsgZG90KGEu\neXgsIGIpOwogIC8vcmV0dXJuIGZyYWN0KGMueCAqIGMueSAqIDk1LjQzMzcpOwogIHJldHVybiBm\ncmFjdCh2ZWMyKGMueCpjLnkqOTUuNDMzNywgYy54KmMueSo5Ny41OTcpKTsKfQoKCmZsb2F0IHBy\nbmcoZmxvYXQgbil7CiAgdmVjMiBhID0gZnJhY3QobiAqIHZlYzIoNS4zOTgzLCA1LjQ0MjcpKTsK\nICB2ZWMyIGIgPSBhLnh5ICsgdmVjMigyMS41MzUxLCAxNC4zMTM3KTsKICB2ZWMyIGMgPSBhICsg\nZG90KGEueXgsIGIpOwogIHJldHVybiBmcmFjdChjLnggKiBjLnkgKiA5NS40MzM3KTsKfQoKCnZv\naWQgbWFpbih2b2lkKSB7CiAgZmxvYXQgY291bnQgPSAwLjA7CiAgdmVjNCBjb2xvciA9IHZlYzQo\nMC4wLCAwLjAsIDAuMCwgMC4wKTsKCiAgZmxvYXQgeCwgeSwgcmFkaXVzOwogIGZsb2F0IGFuZ2xl\nID0gdHdvX3BpICogcHJuZyhnbF9GcmFnQ29vcmQueHkpLng7CiAgZmxvYXQgYW5nbGVfc3RlcCA9\nIHR3b19waSAvIHNhbXBsZXM7CiAgCiAgZm9yIChmbG9hdCBpPTAuMDsgaTxtYXhfc2FtcGxlczsg\naSs9MS4wKSB7CiAgICByYWRpdXMgPSBibHVyX3JhZGl1cyAqIHBybmcoYW5nbGUpOwogICAgeCA9\nIGdsX0ZyYWdDb29yZC54ICsgY29zKGFuZ2xlKSpyYWRpdXM7CiAgICB5ID0gZ2xfRnJhZ0Nvb3Jk\nLnkgKyBzaW4oYW5nbGUpKnJhZGl1czsKICAgIGFuZ2xlICs9IGFuZ2xlX3N0ZXA7CiAgICBpZiAo\neCA8IDAuMCB8fCB5IDwgMC4wIHx8IHggPj0gbWdybF9idWZmZXJfd2lkdGggfHwgeSA+PSBtZ3Js\nX2J1ZmZlcl9oZWlnaHQpIHsKICAgICAgY29udGludWU7CiAgICB9CiAgICBjb2xvciArPSB0ZXh0\ndXJlMkQoaW5wdXRfdGV4dHVyZSwgbm9ybWFsaXplX3NjcmVlbl9jb29yZCh2ZWMyKHgsIHkpKSk7\nCiAgICBjb3VudCArPSAxLjA7CiAgICBpZiAoY291bnQgPj0gc2FtcGxlcykgewogICAgICBicmVh\nazsKICAgIH0KICB9CiAgCiAgaWYgKGNvdW50ID09IDAuMCkgewogICAgY29sb3IgPSB0ZXh0dXJl\nMkQoaW5wdXRfdGV4dHVyZSwgbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkp\nKTsKICAgIGNvdW50ID0gMS4wOwogIH0KICBnbF9GcmFnQ29sb3IgPSBjb2xvciAvIGNvdW50Owp9\nCg==\n"};
     please.prop_map(lookup_table, function (name, src) {
         // see m.media.js's please.media.handlers.glsl for reference:
         please.media.assets[name] = please.gl.__build_shader(atob(src), name);

@@ -69,6 +69,25 @@ please.RenderNode = function (prog, options) {
         value : prog,
     });
 
+    // optional render frequency
+    this.frequency = null;
+    if (options && options.frequency) {
+        this.frequency = options.frequency;
+    }
+
+    // optional streaming callback
+    this.__stream_cache = null;
+    this.stream_callback = null;
+    if (options && options.stream_callback) {
+        if (typeof(options.stream_callback) === "function") {
+            this.stream_callback = options.stream_callback;
+        }
+        else {
+            console.warn("RenderNode stream_callback option was not a function!");
+            delete options.stream_callback;
+        }
+    }
+
     // render buffer
     DEFAULT(options, {});
     please.gl.register_framebuffer(this.__id, options);
@@ -137,13 +156,18 @@ please.RenderNode.prototype = {
 // Renders the compositing tree.
 //
 please.render = function(node) {
-    var expire = arguments[1] || window.performance.now();
+    var expire = arguments[1] || please.pipeline.__framestart;
     var stack = arguments[2] || [];
     if (stack.indexOf(node)>=0) {
         throw("M.GRL doesn't currently suport render graph cycles.");
     }
 
-    if (stack.length > 0 && node.__last_framestart >= expire && node.__cached) {
+    var delay = 0;
+    if (node.frequency) {
+        delay = (1/node.frequency)*1000;
+    }
+
+    if (stack.length > 0 && (node.__last_framestart+delay) >= expire && node.__cached) {
         return node.__cached;
     }
     else {
@@ -226,6 +250,50 @@ please.render = function(node) {
     node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     node.render();
+
+    // optionally pull the texture data into an array and trigger a
+    // callback
+    if (node.stream_callback && node.__cached) {
+        var fbo = please.gl.__cache.textures[node.__cached].fbo;
+        var width = fbo.options.width;
+        var height = fbo.options.height;
+        var format = fbo.options.format;
+        var type = fbo.options.type;
+                
+        var ArrayType = null;
+        if (type === gl.UNSIGNED_BYTE) {
+            ArrayType = Uint8Array;
+        }
+        else if (type === gl.FLOAT) {
+            ArrayType = Float32Array;
+        }
+        else {
+            console.warn("Cannot read pixels from buffer of unknown type!");
+        }
+
+        var period = null;
+        if (format === gl.RGBA) {
+            period = 4;
+        }
+        else {
+            console.warn("Cannot read pixels from non-rgba buffers!");
+        }
+
+        if (type && period) {
+            if (!node.__stream_cache) {
+                node.__stream_cache = new ArrayType(width*height*period);
+            }
+            var info = {
+                "width" : width,
+                "height" : height,
+                "format" : format,
+                "type" : type,
+                "period" : period,
+            };
+            gl.readPixels(0, 0, width, height, format, type, node.__stream_cache);
+            node.stream_callback(node.__stream_cache, info);
+        }
+    }
 
     // clean up
     if (stack.length === 0) {

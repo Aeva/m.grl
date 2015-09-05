@@ -744,15 +744,18 @@ please.SceneGraph = function () {
     // of what the graph looks like and only update it when the graph
     // changes.
     this.__flat = [];
+    this.__lights = [];
     this.__track = function (node) {
-        if (this.__flat.indexOf(node) === -1) {
-            this.__flat.push(node);
+        var group = node.__is_light ? this.__lights : this.__flat;
+        if (group.indexOf(node) === -1) {
+            group.push(node);
         }
     };
     this.__ignore = function (node) {
-        var index = this.__flat.indexOf(node);
+        var group = node.__is_light ? this.__lights : this.__flat;
+        var index = group.indexOf(node);
         if (index !== -1) {
-            this.__flat.splice(index, 1);
+            group.splice(index, 1);
             ITER(i, node.children) {
                 this.__ignore(node.children[i]);
             }
