@@ -24,8 +24,6 @@
 var demo = {
     "viewport" : null, // the render pass that will be rendered
     "manifest" : [
-        "deferred.vert",
-        "deferred.frag",
         "shadow_test.jta",
         "shadow_test_bake.jta",
     ],
@@ -103,9 +101,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(camera);
     camera.activate();
 
-    //
-    //graph.lights = [];
-
     // Add a fixture in the middle of the floor
     var level = demo.level = please.access("shadow_test.jta").instance();
     level.shader.is_floor = false;
@@ -125,7 +120,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     light.look_at = [0, 0, 0];
     light.fov = 60;
     graph.add(light);
-    //graph.lights.push(light);
 
     var light = new please.SpotLightNode();
     light.location = [8, 0, 8];
@@ -135,7 +129,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     light.look_at_y = please.oscillating_driver(-5, 5, 2000);
     light.fov = 70;
     graph.add(light);
-    //graph.lights.push(light);
 
     // light.light_pass.stream_callback = function (array, info) {
     //     var accumulate = 0;
@@ -151,65 +144,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
     //     console.info(accumulate / info.width*info.height);
     // }
     
-    // Add a renderer using the default shader.
-    var options = {
-        "buffers" : ["color", "spatial"],
-        "type":gl.FLOAT,
-    };
-    var gbuffers = demo.gbuffers = new please.RenderNode(
-        "deferred_rendering", options);
-    gbuffers.clear_color = [-1, -1, -1, -1];
-    gbuffers.graph = graph;
-    gbuffers.shader.shader_pass = 0;
-    gbuffers.shader.geometry_pass = true;
-
-    var apply_lighting = demo.apply_lighting = new please.RenderNode(
-        "deferred_rendering", {"buffers" : ["color"]});
-    apply_lighting.clear_color = [0.0, 0.0, 0.0, 1.0];
-    apply_lighting.shader.shader_pass = 2;
-    apply_lighting.shader.geometry_pass = false;
-    apply_lighting.shader.spatial_texture = gbuffers.buffers.spatial;
-    apply_lighting.before_render = function () {
-        this.targets = [];
-        for (var i=0; i<graph.__lights.length; i+=1) {
-            var node = graph.__lights[i].depth_pass;
-            please.indirect_render(node)
-            this.targets.push(node.__cached);
-        }
-    };
-    apply_lighting.render = function () {
-        gl.disable(gl.DEPTH_TEST);
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.ONE, gl.ONE);
-        camera.activate();
-        for (var i=0; i<graph.__lights.length; i+=1) {
-            var light = graph.__lights[i];
-            this.__prog.samplers.light_texture = this.targets[i];
-            this.__prog.vars.light_view_matrix = light.camera.view_matrix;
-            this.__prog.vars.light_projection_matrix = light.camera.projection_matrix;
-            please.gl.splat();
-        }
-        gl.disable(gl.BLEND);
-        gl.enable(gl.DEPTH_TEST);
-    };
-    //apply_lighting.frequency = 24;
-
-    var combine = demo.combine = new please.RenderNode(
-        "deferred_rendering", {"buffers" : ["color"]});
-    combine.clear_color = [0.15, 0.15, 0.15, 1.0];
-    combine.shader.shader_pass = 3;
-    combine.shader.geometry_pass = false;
-    combine.shader.diffuse_texture = gbuffers.buffers.color;
-    combine.shader.light_texture = apply_lighting;
+    // Add deferred rendering
+    demo.renderer = new please.DeferredRenderer();
+    demo.renderer.graph = graph;
     
-    // var pip = new please.PictureInPicture();
-    // pip.shader.main_texture = combine;
-    // //pip.shader.pip_texture = gbuffers.buffers.spatial;
-    // //pip.shader.pip_texture = light_pass;
-    // //pip.shader.pip_texture = apply_lighting;
-    // pip.shader.pip_texture = graph.lights[0].light_pass;
-
-    //Transition from the loading screen prefab to our renderer
-    //demo.viewport.raise_curtains(pip);
-    demo.viewport.raise_curtains(combine);
+    demo.viewport.raise_curtains(demo.renderer);
 }));
