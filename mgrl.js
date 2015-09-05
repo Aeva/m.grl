@@ -7008,13 +7008,13 @@ please.RenderNode = function (prog, options) {
     });
     // optional streaming callback
     this.stream_callback = null;
-    if (options && options.stream_to) {
-        if (typeof(options.stream_to) === "function") {
-            this.stream_callback = options.stream_to;
+    if (options && options.stream_callback) {
+        if (typeof(options.stream_callback) === "function") {
+            this.stream_callback = options.stream_callback;
         }
         else {
-            console.warn("RenderNode stream_to option was not a function!");
-            delete options.stream_to;
+            console.warn("RenderNode stream_callback option was not a function!");
+            delete options.stream_callback;
         }
     }
     // render buffer
