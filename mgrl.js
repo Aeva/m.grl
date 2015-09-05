@@ -7424,9 +7424,9 @@ please.ColorCurve = function () {
 please.SpotLightNode = function (options) {
     please.GraphNode.call(this);
     this.__is_light = true;
-    var prog = please.gl.get_program(["deferred.vert", "deferred.frag"]);
+    var prog = please.gl.get_program("mgrl_illumination");
     if (!prog) {
-        prog = please.glsl("deferred_rendering", "deferred.vert", "deferred.frag");
+        prog = please.glsl("mgrl_illumination", "deferred.vert", "deferred.frag");
     }
     this.camera = new please.CameraNode();
     this.camera.width = 1;
@@ -7495,9 +7495,9 @@ please.SpotLightNode.prototype.deactivate = function () {
 // dramatically until it is stabilized.
 //
 please.DeferredRenderer = function () {
-    var prog = please.gl.get_program(["deferred.vert", "deferred.frag"]);
+    var prog = please.gl.get_program("mgrl_illumination");
     if (!prog) {
-        prog = please.glsl("deferred_rendering", "deferred.vert", "deferred.frag");
+        prog = please.glsl("mgrl_illumination", "deferred.vert", "deferred.frag");
     }
     var assembly = new please.RenderNode(prog, {"buffers" : ["color"]});
     assembly.clear_color = [0.15, 0.15, 0.15, 1.0];
