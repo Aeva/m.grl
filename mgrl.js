@@ -7006,6 +7006,17 @@ please.RenderNode = function (prog, options) {
         writable : false,
         value : prog,
     });
+    // optional streaming callback
+    this.stream_callback = null;
+    if (options && options.stream_to) {
+        if (typeof(options.stream_to) === "function") {
+            this.stream_callback = options.stream_to;
+        }
+        else {
+            console.warn("RenderNode stream_to option was not a function!");
+            delete options.stream_to;
+        }
+    }
     // render buffer
     if (options === undefined) { options = {}; };
     please.gl.register_framebuffer(this.__id, options);
@@ -7143,6 +7154,44 @@ please.render = function(node) {
     node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     node.render();
+    // optionally pull the texture data into an array and trigger a
+    // callback
+    if (node.stream_callback && node.__cached) {
+        var fbo = please.gl.__cache.textures[node.__cached].fbo;
+        var width = fbo.options.width;
+        var height = fbo.options.height;
+        var format = fbo.options.format;
+        var type = fbo.options.type;
+        var ArrayType = null;
+        if (type === gl.UNSIGNED_BYTE) {
+            ArrayType = Uint8Array;
+        }
+        else if (type === gl.FLOAT) {
+            ArrayType = Float32Array;
+        }
+        else {
+            console.warn("Cannot read pixels from buffer of unknown type!");
+        }
+        var period = null;
+        if (format === gl.RGBA) {
+            period = 4;
+        }
+        else {
+            console.warn("Cannot read pixels from non-rgba buffers!");
+        }
+        if (type && period) {
+            var pixels = new ArrayType(width*height*period);
+            var info = {
+                "width" : width,
+                "height" : height,
+                "format" : format,
+                "type" : type,
+                "period" : period,
+            };
+            gl.readPixels(0, 0, width, height, format, type, pixels);
+            node.stream_callback(pixels, info);
+        }
+    }
     // clean up
     if (stack.length === 0) {
         gl.clearColor.apply(gl, please.__clear_color);
