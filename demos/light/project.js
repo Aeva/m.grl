@@ -104,7 +104,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     camera.activate();
 
     //
-    graph.lights = [];
+    //graph.lights = [];
 
     // Add a fixture in the middle of the floor
     var level = demo.level = please.access("shadow_test.jta").instance();
@@ -120,14 +120,14 @@ addEventListener("mgrl_media_ready", please.once(function () {
     spinner.add(handle);
 
     // light test
-    var light = new SpotLightNode();
+    var light = new please.SpotLightNode();
     light.location = handle;
     light.look_at = [0, 0, 0];
     light.fov = 60;
     graph.add(light);
-    graph.lights.push(light);
+    //graph.lights.push(light);
 
-    var light = new SpotLightNode();
+    var light = new please.SpotLightNode();
     light.location = [8, 0, 8];
     light.location_y = please.oscillating_driver(-4, 4, 2000);
     light.look_at = [5, 0, 0];
@@ -135,8 +135,22 @@ addEventListener("mgrl_media_ready", please.once(function () {
     light.look_at_y = please.oscillating_driver(-5, 5, 2000);
     light.fov = 70;
     graph.add(light);
-    graph.lights.push(light);
-        
+    //graph.lights.push(light);
+
+    // light.light_pass.stream_callback = function (array, info) {
+    //     var accumulate = 0;
+    //     var data, i=0;
+    //     for (var y=0; y<info.height; i+=1) {
+    //         for (var x=0; x<info.width; x+=1) {
+    //             //var data = array.slice(i, i+info.period);
+    //             var data = array[i];
+    //             accumulate += data;
+    //             i+=info.period;
+    //         }
+    //     }
+    //     console.info(accumulate / info.width*info.height);
+    // }
+    
     // Add a renderer using the default shader.
     var options = {
         "buffers" : ["color", "spatial"],
@@ -157,8 +171,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     apply_lighting.shader.spatial_texture = gbuffers.buffers.spatial;
     apply_lighting.before_render = function () {
         this.targets = [];
-        for (var i=0; i<graph.lights.length; i+=1) {
-            var node = graph.lights[i].light_pass;
+        for (var i=0; i<graph.__lights.length; i+=1) {
+            var node = graph.__lights[i].depth_pass;
             please.indirect_render(node)
             this.targets.push(node.__cached);
         }
@@ -168,16 +182,17 @@ addEventListener("mgrl_media_ready", please.once(function () {
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE);
         camera.activate();
-        for (var i=0; i<graph.lights.length; i+=1) {
-            var light = graph.lights[i];
+        for (var i=0; i<graph.__lights.length; i+=1) {
+            var light = graph.__lights[i];
             this.__prog.samplers.light_texture = this.targets[i];
-            this.__prog.vars.light_view_matrix = light.view_matrix;
-            this.__prog.vars.light_projection_matrix = light.projection_matrix;
+            this.__prog.vars.light_view_matrix = light.camera.view_matrix;
+            this.__prog.vars.light_projection_matrix = light.camera.projection_matrix;
             please.gl.splat();
         }
         gl.disable(gl.BLEND);
         gl.enable(gl.DEPTH_TEST);
     };
+    //apply_lighting.frequency = 24;
 
     var combine = demo.combine = new please.RenderNode(
         "deferred_rendering", {"buffers" : ["color"]});
@@ -196,39 +211,5 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     //Transition from the loading screen prefab to our renderer
     //demo.viewport.raise_curtains(pip);
-    //demo.viewport.raise_curtains(apply_lighting);
     demo.viewport.raise_curtains(combine);
 }));
-
-
-var SpotLightNode = function () {    
-    please.CameraNode.call(this);
-    this.width = 1;
-    this.height = 1;
-
-    var buffer_options = {
-        "buffers" : ["color"],
-        "type":gl.FLOAT,
-        "mag_filter" : gl.LINEAR,
-        "min_filter" : gl.LINEAR,
-    };
-    this.light_pass = new please.RenderNode(
-        "deferred_rendering", buffer_options);
-    Object.defineProperty(this.light_pass, "graph", {
-        "configurable" : true,
-        "get" : function () {
-            return this.graph_root;
-        },
-    });
-    this.light_pass.shader.shader_pass = 1;
-    this.light_pass.shader.geometry_pass = true;
-    this.light_pass.render = function () {
-        this.activate();
-        this.graph_root.draw();
-    }.bind(this);
-    this.light_pass.clear_color = function () {
-        var max_depth = this.far;
-        return [max_depth, max_depth, max_depth, max_depth];
-    }.bind(this);
-};
-SpotLightNode.prototype = Object.create(please.CameraNode.prototype);
