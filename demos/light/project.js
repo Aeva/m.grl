@@ -26,6 +26,7 @@ var demo = {
     "manifest" : [
         "shadow_test.jta",
         "shadow_test_bake.jta",
+        "psycho.jta",
     ],
 };
 
@@ -106,6 +107,12 @@ addEventListener("mgrl_media_ready", please.once(function () {
     level.shader.is_floor = false;
     level.use_manual_cache_invalidation();
     graph.add(level);
+
+    // // add a character
+    // var player = demo.player = please.access("psycho.jta").instance();
+    // graph.add(player);
+    // player.location_y = -5;
+    // player.cast_shadows = false;
 
     // spinner
     var spinner = new please.GraphNode();

@@ -5861,6 +5861,7 @@ please.GraphNode = function () {
     this.__pick_index = null; // used internally for tracking picking
     this.__last_vbo = null; // stores the vbo that was bound last draw
     this.__manual_cache_invalidation = false;
+    this.cast_shadows = true;
     // some event handles
     this.on_mousemove = null;
     this.on_mousedown = null;
@@ -6180,7 +6181,7 @@ please.SceneGraph = function () {
     var z_sort_function = function (lhs, rhs) {
         return rhs.__z_depth - lhs.__z_depth;
     };
-    this.tick = function (exclude_test) {
+    this.tick = function () {
         this.__last_framestart = please.pipeline.__framestart;
         // nodes in the z-sorting path
         this.__alpha = [];
@@ -6191,9 +6192,6 @@ please.SceneGraph = function () {
         for (var i=0; i<this.__flat.length; i+=1) {
             var element = this.__flat[i];
             element.__pick_index = i+1;
-            if (exclude_test && exclude_test(element)) {
-                continue;
-            }
             if (element.__drawable) {
                 if (element.sort_mode === "alpha") {
                     this.__alpha.push(element);
@@ -6229,7 +6227,7 @@ please.SceneGraph = function () {
         if (this.__last_framestart < please.pipeline.__framestart) {
             // note, this.__last_framestart can be null, but
             // null<positive_number will evaluate to true anyway.
-            this.tick(exclude_test);
+            this.tick();
         }
         var prog = please.gl.get_program();
         if (this.camera) {
@@ -6254,8 +6252,10 @@ please.SceneGraph = function () {
                 var children = this.__states[hint];
                 for (var i=0; i<children.length; i+=1) {
                     var child = children[i];
-                    child.__bind(prog);
-                    child.__draw(prog);
+                    if (!(exclude_test && exclude_test(child))) {
+                        child.__bind(prog);
+                        child.__draw(prog);
+                    }
                 }
             }
         }
@@ -6275,11 +6275,10 @@ please.SceneGraph = function () {
             gl.depthMask(false);
             for (var i=0; i<this.__alpha.length; i+=1) {
                 var child = this.__alpha[i];
-                if (exclude_test && exclude_test(child)) {
-                    continue;
+                if (!(exclude_test && exclude_test(child))) {
+                    child.__bind(prog);
+                    child.__draw(prog);
                 }
-                child.__bind(prog);
-                child.__draw(prog);
             }
             gl.depthMask(true);
         }
@@ -7462,7 +7461,7 @@ please.SpotLightNode = function (options) {
     this.depth_pass.shader.geometry_pass = true;
     this.depth_pass.render = function () {
         this.activate();
-        this.graph_root.draw();
+        this.graph_root.draw(function (node) { return !node.cast_shadows; });
         this.deactivate();
     }.bind(this);
     this.depth_pass.clear_color = function () {
