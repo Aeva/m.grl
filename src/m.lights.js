@@ -26,9 +26,9 @@ please.SpotLightNode = function (options) {
     please.GraphNode.call(this);
     this.__is_light = true;
 
-    var prog = please.gl.get_program(["deferred.vert", "deferred.frag"]);
+    var prog = please.gl.get_program("mgrl_illumination");
     if (!prog) {
-        prog = please.glsl("deferred_rendering", "deferred.vert", "deferred.frag");
+        prog = please.glsl("mgrl_illumination", "deferred.vert", "deferred.frag");
     }
 
     this.camera = new please.CameraNode();
@@ -104,11 +104,10 @@ please.SpotLightNode.prototype.deactivate = function () {
 // dramatically until it is stabilized.
 //
 please.DeferredRenderer = function () {
-    var prog = please.gl.get_program(["deferred.vert", "deferred.frag"]);
+    var prog = please.gl.get_program("mgrl_illumination");
     if (!prog) {
-        prog = please.glsl("deferred_rendering", "deferred.vert", "deferred.frag");
+        prog = please.glsl("mgrl_illumination", "deferred.vert", "deferred.frag");
     }
-
     
     var assembly = new please.RenderNode(prog, {"buffers" : ["color"]});
     assembly.clear_color = [0.15, 0.15, 0.15, 1.0];
@@ -124,7 +123,7 @@ please.DeferredRenderer = function () {
         "buffers" : ["color", "spatial"],
         "type":gl.FLOAT,
     };
-    var gbuffers = demo.gbuffers = new please.RenderNode(prog, gbuffer_options);
+    var gbuffers = new please.RenderNode(prog, gbuffer_options);
     gbuffers.clear_color = [-1, -1, -1, -1];
     gbuffers.shader.shader_pass = 0;
     gbuffers.shader.geometry_pass = true;
