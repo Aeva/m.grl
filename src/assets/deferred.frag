@@ -58,7 +58,7 @@ void main(void) {
   if (shader_pass == 0) {
     // g-buffer pass
     vec4 diffuse = texture2D(diffuse_texture, local_tcoords);
-    if (diffuse.a < 1.0) {
+    if (diffuse.a < 0.5) {
       discard;
     }
     gl_FragData[0] = diffuse;

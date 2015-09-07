@@ -69,7 +69,7 @@ please.SpotLightNode = function (options) {
     this.depth_pass.shader.geometry_pass = true;
     this.depth_pass.render = function () {
         this.activate();
-        this.graph_root.draw();
+        this.graph_root.draw(function (node) { return !node.cast_shadows; });
         this.deactivate();
     }.bind(this);
     this.depth_pass.clear_color = function () {
