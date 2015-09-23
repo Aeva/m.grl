@@ -634,7 +634,6 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
                 normals[i] = normal[0];
                 normals[i+1] = normal[1];
                 normals[i+2] = normal[2];
-                processed += 1;
             }
         }
     }
