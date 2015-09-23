@@ -6,7 +6,6 @@ uniform mat4 projection_matrix;
 
 // handy dandy light stuff
 uniform vec3 light_direction;
-uniform mat3 normal_matrix;
 varying vec3 light_weight;
 varying float directional_weight;
 
@@ -31,9 +30,9 @@ void main(void) {
   local_tcoords = tcoords;
 
   // various coordinate transforms
-  world_normal = normal_matrix * normal;
-  world_position = (world_matrix * vec4(position, 1.0)).xyz;
-  vec4 tmp = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);
+  world_normal = normalize(mat3(world_matrix) * normal).xyz;
+  world_position = (world_matrix * vec4(local_position, 1.0)).xyz;
+  vec4 tmp = projection_matrix * view_matrix * world_matrix * vec4(local_position, 1.0);
   view_position = tmp.xyz;
 
   // pdq lighting
