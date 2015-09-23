@@ -29,7 +29,7 @@ class Vertex(object):
     In WebGL, a vertex is not defined by its coordinates, but rather it
     is a grouping of attributes.  Coordinates are attributes.
     """
-    def __init__(self, position=[], uvs=[], weights=[], normals=[]):
+    def __init__(self, position=[], uvs=[], weights=[], normals=[], face=None):
         assert len(position) == 3
         assert len(weights) == 0 or len(weights) == 4
         for uv_group in uvs:
@@ -38,6 +38,8 @@ class Vertex(object):
         self.uvs = tuple([tuple(uv) for uv in uvs]) or None
         self.weights = tuple(weights) or None
         self.normals = tuple(normals) or None
+        self.face = face;
+        assert face
 
         def simplify(num):
             return round(num, 5)
@@ -49,8 +51,8 @@ class Vertex(object):
         return hash((self.position, self.uvs, self.weights))
 
     def __eq__(self, another):
-        lhs = (self.position, self.uvs, self.weights, self.normals)
-        rhs = (another.position, another.uvs, another.weights, another.normals)
+        lhs = (self.position, self.uvs, self.weights, self.normals, self.face)
+        rhs = (another.position, another.uvs, another.weights, another.normals, another.face)
         return lhs == rhs
 
 
@@ -106,6 +108,24 @@ class Model(Exportable):
         # it in a set and record it in a mapping dict.
         for face in self.mesh.polygons:
             face_vertices = []
+
+            # # winding order test
+            # verts = [mathutils.Vector(self.mesh.vertices[i].co)
+            #          for i in face.vertices]
+            # lhs = verts[1] - verts[0]
+            # rhs = verts[2] - verts[0]
+            # normal = lhs.cross(rhs)
+            # normal.normalize()
+
+            # estimate_a = [round(n, 2) for n in normal]
+            # estimate_b = [round(n, 2) for n in face.normal]
+
+            # for i in range(3):
+            #     if estimate_a[i] != estimate_b[i]:
+            #         import pdb; pdb.set_trace()
+            # del normal
+
+                    
             for vertex_index, loop_index in zip(face.vertices, face.loop_indices):
                 vdata = self.mesh.vertices[vertex_index]
 
@@ -131,7 +151,7 @@ class Model(Exportable):
                         weights.append(0.0)
 
                 normal = [] if self.use_smooth else vdata.normal
-                vertex = Vertex(position, uvs, weights, normal)
+                vertex = Vertex(position, uvs, weights, normal, face)
                 self.vertices.append(vertex)
                 face_vertices.append(vertex)
 
@@ -152,7 +172,7 @@ class Model(Exportable):
 
         # use the face mapping to produce a set of indices per face
         for face, vertices in mapping.items():            
-            self.face_vertices[face] = [vert_indices[vert] for vert in mapping[face]]
+            self.face_vertices[face] = [vert_indices[vert] for vert in vertices]
 
         # record a mapping of meta vertex groups to the vertex indices
         for meta_name, verts in group_map.items():

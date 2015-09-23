@@ -91,8 +91,8 @@ addEventListener("mgrl_media_ready", function () {
     please.set_clear_color(0.0, 0.0, 0.0, 0.0);
 
     // enable alpha blending
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    // gl.enable(gl.BLEND);
+    // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     
     // access model data
     var gav_model = please.access("gavroche.jta");
@@ -125,8 +125,9 @@ addEventListener("mgrl_media_ready", function () {
         var gav;
         if (i < 3) {
             gav = gav_model.instance();
-            gav.shader.mode = 3; // mode 2 + translucent
-            gav.sort_mode = "alpha";
+            gav.shader.mode = 2;
+            //gav.shader.mode = 3; // mode 2 + translucent
+            //gav.sort_mode = "alpha";
             gav.rotation_z = Math.random()*360;
         }
         else {
