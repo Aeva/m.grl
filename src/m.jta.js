@@ -555,10 +555,12 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
     var rhs = vec3.create();
     var norm = vec3.create();
     var cache = {};
+    var visited = Object.create(null); // used like a set
 
     var vector_for_index = function (f) {
-        var i = indices[f];
-        return vec3.fromValues(verts[i*3], verts[i*3+1], verts[i*3+2]);
+        var i = indices[f]*3;
+        visited[f] = true;
+        return vec3.fromValues(verts[i], verts[i+1], verts[i+2]);
     };
     
     var store_normal = function (f, normal) {
@@ -566,6 +568,10 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
         normals[i] = normal[0];
         normals[i+1] = normal[1];
         normals[i+2] = normal[2];
+    };
+    
+    var cache_key = function (vertex) {
+        return ""+vertex[0]+":"+vertex[1]+":"+vertex[2];
     };
 
     for (var f=0; f<indices.length; f+=3) {
@@ -592,7 +598,7 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
         // the smooth normal, where applicable.
         var tmp = [a, b, c];
         for (var i=0; i<3; i+=1) {
-            var key = ""+tmp[i][0]+":"+tmp[i][1]+":"+tmp[i][2];
+            var key = cache_key(tmp[i]);
             if (!cache[key]) {
                 // copy the normal into a new cache entry
                 cache[key] = vec3.clone(norm);
@@ -601,10 +607,10 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
                 // add the normal with the old cache entry
                 vec3.add(cache[key], cache[key], norm);
             }
-            store_normal(f+i, tmp[i]);
+            store_normal(f+i, norm);
         }
     }
-    var set_smooth = function(start, total) {
+    var set_smooth = function() {
         /*
           The process of calculating the smooth normals is already
           accomplished by the caching / logging step done durring the
@@ -613,23 +619,22 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
           place.  Note, this is probably not technically correct, but
           it looks fine.
 
-          Start is the first face index, total is the total number of
-          indices in the group.
-         */
-        for (var i=start; i<start+total; i+=3) {
-            /* 
-               For each face 'i' in the range provided, and each value
-               'h' being the beginning offset of the vectors in the
-               position and normal arrays...
-             */
-            var h = i*3;
-            for (var n=0; n<3; n+=1) {
-                var m = n*3;
-                var key = ""+verts[h+m]+":"+verts[h+m+1]+":"+verts[h+m+2];
-                var norm = vec3.normalize(vec3.create(), cache[key]);
-                normals[h+m] = norm[0];
-                normals[h+m+1] = norm[1];
-                normals[h+m+2] = norm[2];
+          The variable 'visited' stores which vertices have normals
+          generated for them, so all we have to do is pay those
+          indexes a visit and applied the cached results to the
+          corresponding slots in the 'normals' array.
+        */
+
+        for (var v in visited) {
+            var i = v*3;
+            var vertex = vec3.fromValues(verts[i], verts[i+1], verts[i+2]);
+            var cached = cache[cache_key(vertex)];
+            if (cached) {
+                var normal = vec3.normalize(vec3.create(), cached);
+                normals[i] = normal[0];
+                normals[i+1] = normal[1];
+                normals[i+2] = normal[2];
+                processed += 1;
             }
         }
     }
@@ -646,7 +651,7 @@ please.gl.__jta_generate_normals = function (verts, indices, model_defs) {
                   normals method for those ranges.
                  */
                 var group = model.groups[group_name];
-                //set_smooth(group.start, group.count);
+                set_smooth(group.start, group.count);
             }   
         }
     }
