@@ -470,6 +470,21 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "activate" : function () {
             var old = null;
             var prog = this;
+
+            var handle = please.gl.__last_fbo;
+            if (handle) {
+                ITER(i, prog.sampler_list) {
+                    var name = prog.sampler_list[i];
+                    if (prog.samplers[name] === handle) {
+                        prog.vars[name] = -1;
+                        console.warn("debinding texture '" + handle + "' while rendering to it");
+                    }
+                    if (old && old.samplers[name] === handle) {
+                        old.vars[name] = -1;
+                    }
+                }
+            }
+            
             if (prog.ready && !prog.error) {
                 if (please.gl.__cache.current !== this) {
                     // change shader program
@@ -1192,8 +1207,8 @@ please.gl.set_framebuffer = function (handle) {
         if (tex && tex.fbo) {
             ITER(i, prog.sampler_list) {
                 var name = prog.sampler_list[i];
-                if (name === handle) {
-                    prog.samplers[name] = null;
+                if (prog.samplers[name] === handle) {
+                    prog.vars[name] = -1;
                     console.warn("debinding texture '" + handle + "' while rendering to it");
                 }
             }
