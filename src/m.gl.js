@@ -1190,6 +1190,13 @@ please.gl.set_framebuffer = function (handle) {
     else {
         var tex = please.gl.__cache.textures[handle];
         if (tex && tex.fbo) {
+            ITER(i, prog.sampler_list) {
+                var name = prog.sampler_list[i];
+                if (name === handle) {
+                    prog.samplers[name] = null;
+                    console.warn("debinding texture '" + handle + "' while rendering to it");
+                }
+            }
             var width = prog.vars.mgrl_buffer_width = tex.fbo.options.width;
             var height = prog.vars.mgrl_buffer_height = tex.fbo.options.height;
             gl.bindFramebuffer(gl.FRAMEBUFFER, tex.fbo);
