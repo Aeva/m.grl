@@ -3347,13 +3347,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 };
             }
             else {
-                // This is the setter binding for sampler arrays.
-                setter_method = function (value) {
-                    if (prog.__cache.vars[binding_name] !== value) {
-                        prog.__cache.vars[binding_name] = value;
-                        return gl[uni](pointer, value);
-                    }
-                };
+                throw(
+                    "M.GRL does not support sampler arrays.  " + "See this issue for more details:\n" + "https://github.com/Aeva/m.grl/issues/155"
+                );
             }
         }
         prog.vars.__defineSetter__(binding_name, setter_method);
