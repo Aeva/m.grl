@@ -38,12 +38,6 @@ addEventListener("load", function() {
         antialias : false,
     });
 
-    // Set OpenGL rendering state defaults directly.  Some of this may
-    // be abstracted by m.grl in the future.
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
-    gl.enable(gl.CULL_FACE);
-
     // Turn off alpha blending.
     gl.disable(gl.BLEND);
     

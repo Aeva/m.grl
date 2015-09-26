@@ -136,14 +136,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     prog.activate();
 
     // setup default state stuff    
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
-    gl.enable(gl.CULL_FACE);
     please.set_clear_color(0.0, 0.0, 0.0, 0.0);
-
-    // blending stuff
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     // store our scene & build the graph:
     var level_data = window.scene = please.access("gavroche_hall.jta");

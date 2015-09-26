@@ -33,12 +33,6 @@ addEventListener("load", function() {
     // anything else.
     please.gl.set_context("gl_canvas");
     
-    // Set OpenGL rendering state defaults directly.  Some of this may
-    // be abstracted by m.grl in the future.
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
-    gl.enable(gl.CULL_FACE);
-
     // Define where m.grl is to find various assets when using the
     // load methed.
     please.set_search_path("glsl", "glsl/");
