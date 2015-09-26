@@ -3164,11 +3164,11 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 for (var i=0; i<prog.sampler_list.length; i+=1) {
                     var name = prog.sampler_list[i];
                     if (prog.samplers[name] === handle) {
-                        prog.samplers[name] = "error";
+                        prog.samplers[name] = "error_image";
                         console.warn("debinding texture '" + handle + "' while rendering to it");
                     }
                     if (old && old.samplers[name] === handle) {
-                        old.samplers[name] = "error";
+                        old.samplers[name] = "error_image";
                     }
                 }
             }
@@ -3823,7 +3823,7 @@ please.gl.set_framebuffer = function (handle) {
             for (var i=0; i<prog.sampler_list.length; i+=1) {
                 var name = prog.sampler_list[i];
                 if (prog.samplers[name] === handle) {
-                    prog.samplers[name] = "error";
+                    prog.samplers[name] = "error_image";
                     console.warn("debinding texture '" + handle + "' while rendering to it");
                 }
             }
@@ -7182,7 +7182,7 @@ please.render = function(node) {
     for (var i=0; i<node.__prog.sampler_list.length; i+=1) {
         var name = node.__prog.sampler_list[i];
         if (node.__prog.samplers[name] === node.__cached) {
-            node.__prog.samplers[name] = "error";
+            node.__prog.samplers[name] = "error_image";
         }
     }
     // call the rendering logic

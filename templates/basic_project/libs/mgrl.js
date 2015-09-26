@@ -3159,6 +3159,19 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "activate" : function () {
             var old = null;
             var prog = this;
+            var handle = please.gl.__last_fbo;
+            if (handle) {
+                for (var i=0; i<prog.sampler_list.length; i+=1) {
+                    var name = prog.sampler_list[i];
+                    if (prog.samplers[name] === handle) {
+                        prog.samplers[name] = "error_image";
+                        console.warn("debinding texture '" + handle + "' while rendering to it");
+                    }
+                    if (old && old.samplers[name] === handle) {
+                        old.samplers[name] = "error_image";
+                    }
+                }
+            }
             if (prog.ready && !prog.error) {
                 if (please.gl.__cache.current !== this) {
                     // change shader program
@@ -3807,6 +3820,13 @@ please.gl.set_framebuffer = function (handle) {
     else {
         var tex = please.gl.__cache.textures[handle];
         if (tex && tex.fbo) {
+            for (var i=0; i<prog.sampler_list.length; i+=1) {
+                var name = prog.sampler_list[i];
+                if (prog.samplers[name] === handle) {
+                    prog.samplers[name] = "error_image";
+                    console.warn("debinding texture '" + handle + "' while rendering to it");
+                }
+            }
             var width = prog.vars.mgrl_buffer_width = tex.fbo.options.width;
             var height = prog.vars.mgrl_buffer_height = tex.fbo.options.height;
             gl.bindFramebuffer(gl.FRAMEBUFFER, tex.fbo);
@@ -7143,6 +7163,8 @@ please.render = function(node) {
     stack.pop();
     // activate the shader program
     node.__prog.activate();
+    // use an indirect texture if the stack length is greater than 1
+    node.__cached = stack.length > 0 ? node.__id : null;
     // upload shader vars
     for (var name in node.shader) {
         if (node.__prog.vars.hasOwnProperty(name)) {
@@ -7157,10 +7179,14 @@ please.render = function(node) {
             }
         }
     }
-    // use an indirect texture if the stack length is greater than 1
-    node.__cached = stack.length > 0 ? node.__id : null;
-    please.gl.set_framebuffer(node.__cached);
+    for (var i=0; i<node.__prog.sampler_list.length; i+=1) {
+        var name = node.__prog.sampler_list[i];
+        if (node.__prog.samplers[name] === node.__cached) {
+            node.__prog.samplers[name] = "error_image";
+        }
+    }
     // call the rendering logic
+    please.gl.set_framebuffer(node.__cached);
     gl.clearColor.apply(gl, node.clear_color);
     node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
