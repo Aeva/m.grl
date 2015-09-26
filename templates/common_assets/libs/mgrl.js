@@ -2821,6 +2821,11 @@ please.gl.set_context = function (canvas_id, options) {
         gl.enable(gl.BLEND);
         gl.blendFuncSeparate(
             gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA, gl.ONE);
+        // enable depth testing
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
+        // enable culling
+        gl.enable(gl.CULL_FACE);
         // fire an event to indicate that a gl context exists now
         var ctx_event = new CustomEvent("mgrl_gl_context_created");
         window.dispatchEvent(ctx_event);
