@@ -476,11 +476,11 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 ITER(i, prog.sampler_list) {
                     var name = prog.sampler_list[i];
                     if (prog.samplers[name] === handle) {
-                        prog.samplers[name] = "error";
+                        prog.samplers[name] = "error_image";
                         console.warn("debinding texture '" + handle + "' while rendering to it");
                     }
                     if (old && old.samplers[name] === handle) {
-                        old.samplers[name] = "error";
+                        old.samplers[name] = "error_image";
                     }
                 }
             }
@@ -1208,7 +1208,7 @@ please.gl.set_framebuffer = function (handle) {
             ITER(i, prog.sampler_list) {
                 var name = prog.sampler_list[i];
                 if (prog.samplers[name] === handle) {
-                    prog.samplers[name] = "error";
+                    prog.samplers[name] = "error_image";
                     console.warn("debinding texture '" + handle + "' while rendering to it");
                 }
             }

@@ -246,7 +246,7 @@ please.render = function(node) {
     ITER(i, node.__prog.sampler_list) {
         var name = node.__prog.sampler_list[i];
         if (node.__prog.samplers[name] === node.__cached) {
-            node.__prog.samplers[name] = "error";
+            node.__prog.samplers[name] = "error_image";
         }
     }
 
