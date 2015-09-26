@@ -3164,11 +3164,11 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 for (var i=0; i<prog.sampler_list.length; i+=1) {
                     var name = prog.sampler_list[i];
                     if (prog.samplers[name] === handle) {
-                        prog.vars[name] = -1;
+                        prog.samplers[name] = "error";
                         console.warn("debinding texture '" + handle + "' while rendering to it");
                     }
                     if (old && old.samplers[name] === handle) {
-                        old.vars[name] = -1;
+                        old.samplers[name] = "error";
                     }
                 }
             }
@@ -3823,7 +3823,7 @@ please.gl.set_framebuffer = function (handle) {
             for (var i=0; i<prog.sampler_list.length; i+=1) {
                 var name = prog.sampler_list[i];
                 if (prog.samplers[name] === handle) {
-                    prog.vars[name] = -1;
+                    prog.samplers[name] = "error";
                     console.warn("debinding texture '" + handle + "' while rendering to it");
                 }
             }
@@ -7163,6 +7163,8 @@ please.render = function(node) {
     stack.pop();
     // activate the shader program
     node.__prog.activate();
+    // use an indirect texture if the stack length is greater than 1
+    node.__cached = stack.length > 0 ? node.__id : null;
     // upload shader vars
     for (var name in node.shader) {
         if (node.__prog.vars.hasOwnProperty(name)) {
@@ -7177,10 +7179,14 @@ please.render = function(node) {
             }
         }
     }
-    // use an indirect texture if the stack length is greater than 1
-    node.__cached = stack.length > 0 ? node.__id : null;
-    please.gl.set_framebuffer(node.__cached);
+    for (var i=0; i<node.__prog.sampler_list.length; i+=1) {
+        var name = node.__prog.sampler_list[i];
+        if (node.__prog.samplers[name] === node.__cached) {
+            node.__prog.samplers[name] = "error";
+        }
+    }
     // call the rendering logic
+    please.gl.set_framebuffer(node.__cached);
     gl.clearColor.apply(gl, node.clear_color);
     node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
