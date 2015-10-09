@@ -130,6 +130,9 @@ please.builder.SpriteBuilder.prototype = {
 
     // builds and returns a VBO
     "build" : function () {
+        if (please.renderer == 'dom') {
+            return {};
+        }
         var v_count = this.__v_array.position.length / 3;
         var attr_map = {
             "position" : new Float32Array(this.__v_array.position),

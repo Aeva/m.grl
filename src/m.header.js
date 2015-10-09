@@ -39,6 +39,7 @@
 #include "m.input.js"
 #include "m.multipass.js"
 #include "m.overlay.js"
+#include "m.dom.js"
 #include "m.gl.js"
 #include "m.glsl_macros.js"
 #include "m.jta.js"

@@ -179,7 +179,7 @@
 //  - **shader.alpha** Animatable scalar - a numerical value between
 //    0.0 and 1.0.  Defaults to 1.0.
 //
-//  - **shader.world_matrix** "Locked" animatable variable which by
+//  - **world_matrix** "Locked" animatable variable which by
 //    default contains a driver method that calculate's the object's
 //    world matrix for this frame by calculating it's world matrix
 //    from the location, rotation, and scale properties, and then
@@ -188,7 +188,7 @@
 //    object's own world matrix.
 //
 //  - **shader.normal_matrix** "Locked" animatable variable which
-//    calculates the normal_matrix from shader.world_matrix.
+//    calculates the normal_matrix from world_matrix.
 //
 //  - **is_sprite** "Locked" animatable scalar value.  Returns
 //    true if this.draw_type is set to "sprite", otherwise returns
@@ -405,51 +405,7 @@ please.GraphNode = function () {
         "view_matrix",
     ];
 
-    // GLSL bindings with default driver methods:
-    this.__regen_glsl_bindings = function (event) {
-        var prog = please.gl.__cache.current;
-        var old = null;
-        if (event) {
-            old = event.old_prog;
-        }
-        // deep copy
-        var old_data = this.__ani_store;
-        this.__ani_store = {};
-        this.shader = {};
-        please.make_animatable(
-            this, "world_matrix", this.__world_matrix_driver, this.shader, true);
-        please.make_animatable(
-            this, "normal_matrix", this.__normal_matrix_driver, this.shader, true);
-        // GLSLS bindings with default behaviors
-        please.make_animatable(
-            this, "alpha", 1.0, this.shader);
-        please.make_animatable(
-            this, "is_sprite", this.__is_sprite_driver, this.shader, true);
-        please.make_animatable(
-            this, "is_transparent", this.__is_transparent_driver, this.shader, true);
-        please.make_animatable_tripple(
-            this, "object_index", "rgb", this.__object_id_driver, this.shader, true);
-        please.make_animatable(
-            this, "billboard_mode", this.__billboard_driver, this.shader, true);
-
-        // prog.samplers is a subset of prog.vars
-        for (var name, i=0; i<prog.uniform_list.length; i+=1) {
-            name = prog.uniform_list[i];
-            if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
-                please.make_animatable(this, name, null, this.shader);
-            }
-        }
-
-        // restore old values that were wiped out
-        ITER_PROPS(name, old_data) {
-            var old_value = old_data[name];
-            if (old_value !== undefined && old_value !== null) {
-                this.__ani_store[name] = old_value;
-            }
-        }
-    }.bind(this);
-    this.__regen_glsl_bindings();
-    window.addEventListener("mgrl_changed_shader", this.__regen_glsl_bindings);
+    please.renderer.init_graph_node(this);
 
     this.is_bone = false;
     this.visible = true;
@@ -594,21 +550,21 @@ please.GraphNode.prototype = {
         mat4.fromRotationTranslation(
             local_matrix, this.quaternion, this.location);
         mat4.scale(local_matrix, local_matrix, this.scale);
-        var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
+        var parent_matrix = parent ? parent.world_matrix : mat4.create();
         mat4.multiply(world_matrix, parent_matrix, local_matrix);
         world_matrix.dirty = true;
         return world_matrix;
     },
     "__normal_matrix_driver" : function () {
         var normal_matrix = mat3.create();
-        mat3.fromMat4(normal_matrix, this.shader.world_matrix);
+        mat3.fromMat4(normal_matrix, this.world_matrix);
         mat3.invert(normal_matrix, normal_matrix);
         mat3.transpose(normal_matrix, normal_matrix);
         normal_matrix.dirty = true;
         return normal_matrix;
     },
     "__world_coordinate_driver" : function () {
-        return vec3.transformMat4(vec3.create(), vec3.create(), this.shader.world_matrix);
+        return vec3.transformMat4(vec3.create(), vec3.create(), this.world_matrix);
     },
     "__is_sprite_driver" : function () {
         return this.draw_type === "sprite";
@@ -653,7 +609,7 @@ please.GraphNode.prototype = {
     },
     "__z_sort_prep" : function (screen_matrix) {
         var matrix = mat4.multiply(
-            mat4.create(), screen_matrix, this.shader.world_matrix);
+            mat4.create(), screen_matrix, this.world_matrix);
         var position = vec3.transformMat4(vec3.create(), this.location, matrix);
         this.__z_depth = position[2];
     },
@@ -763,24 +719,39 @@ please.SceneGraph = function () {
         }
     };
 
-    this.picking = {
-        "enabled" : false,
-        "skip_location_info" : true,
-        "skip_on_move_event" : true,
-        "compositing_root" : null,
-        "__reference_node" : this.__create_picking_node(),
-        // __click_test stores what was selected on the last
-        // mouse_down event.  If mouse up matches, the objects gets a
-        // "click" event after it's mouse up event.  __last_click
-        // stores what object recieved a click last, and is reset
-        // whenever a contradicting mouseup occurs.  It also stores
-        // when that object was clicked on for the double click
-        // threshold.
-        "__click_test" : null,
-        "__last_click" : null,
-        "__clear_timer" : null,
-    };
-    this.picking.compositing_root = this.picking.__reference_node;
+    if (please.renderer.allow_picking) {
+        this.picking = {
+            "enabled" : false,
+            "skip_location_info" : true,
+            "skip_on_move_event" : true,
+            "compositing_root" : null,
+            "__reference_node" : this.__create_picking_node(),
+            // __click_test stores what was selected on the last
+            // mouse_down event.  If mouse up matches, the objects gets a
+            // "click" event after it's mouse up event.  __last_click
+            // stores what object recieved a click last, and is reset
+            // whenever a contradicting mouseup occurs.  It also stores
+            // when that object was clicked on for the double click
+            // threshold.
+            "__click_test" : null,
+            "__last_click" : null,
+            "__clear_timer" : null,
+        };
+        this.picking.compositing_root = this.picking.__reference_node;
+
+        this.__picked_node = function (color_array) {
+            if (r===0 && g===0 && b===0) {
+                return null;
+            }
+            else {
+                var r = color_array[0];
+                var g = color_array[1];
+                var b = color_array[2];
+                var color_index = r + g*256 + b*65536;
+                return this.__flat[color_index-1];
+            }
+        };
+    }
 
     Object.defineProperty(this, "graph_root", {
         "configurable" : false,
@@ -831,25 +802,16 @@ please.SceneGraph = function () {
         };
     };
 
-    this.__picked_node = function (color_array) {
-        if (r===0 && g===0 && b===0) {
-            return null;
-        }
-        else {
-            var r = color_array[0];
-            var g = color_array[1];
-            var b = color_array[2];
-            var color_index = r + g*256 + b*65536;
-            return this.__flat[color_index-1];
-        }
-    };
-
-    this.draw = function (exclude_test) {
+    this.sync = function () {
         if (this.__last_framestart < please.pipeline.__framestart) {
             // note, this.__last_framestart can be null, but
             // null<positive_number will evaluate to true anyway.
             this.tick();
         }
+    };
+
+    this.draw = function (exclude_test) {
+        this.sync();
 
         var prog = please.gl.get_program();
         if (this.camera) {
@@ -988,7 +950,7 @@ please.__req_object_pick = function (x, y, event_info) {
 //
 // This code facilitates color based picking, when relevant. 
 //
-please.pipeline.add(-1, "mgrl/picking_pass", function () {
+please.__picking_pass = function () {
     var req = please.__picking.queue.shift();
     if (!req) {
         req = please.__picking.move_event;
@@ -1038,7 +1000,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
                         vec3.add(local_coord, tmp_coord, vbo.stats.min);
 
                         var world_coord = new Float32Array(3);
-                        vec3.transformMat4(world_coord, local_coord, info.picked.shader.world_matrix);
+                        vec3.transformMat4(world_coord, local_coord, info.picked.world_matrix);
                         info.local_location = local_coord;
                         info.world_location = world_coord;
                     }
@@ -1055,7 +1017,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
 
     // restore original clear color
     gl.clearColor.apply(gl, please.__clear_color);
-}).skip_when(function () { return please.__picking.queue.length === 0 && please.__picking.move_event === null; });
+};
 
 
 //

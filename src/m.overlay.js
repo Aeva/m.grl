@@ -31,14 +31,14 @@ please.overlay = {
 //
 please.__create_canvas_overlay = function () {
     var canvas = please.gl.canvas;
-    if (!canvas.overlay) {
-        var overlay = canvas.overlay = document.createElement("div");
+    if (!please.gl.overlay) {
+        var overlay = please.gl.overlay = document.createElement("div");
         overlay.id="mgrl_overlay";
         overlay.style.zIndex = 1000;
         overlay.style.position = "absolute";
         overlay.style.pointerEvents = "none";
         overlay.style.overflow = "hidden";
-        document.body.appendChild(canvas.overlay);
+        document.body.appendChild(overlay);
         please.__align_canvas_overlay();
     }
 };
@@ -47,7 +47,7 @@ please.__create_canvas_overlay = function () {
 //
 please.__align_canvas_overlay = function () {
     var canvas = please.gl.canvas;
-    var overlay = canvas.overlay;
+    var overlay = please.gl.overlay;
     var rect = canvas.getBoundingClientRect();
     overlay.style.top = rect.top + "px";
     overlay.style.left = rect.left + "px";
@@ -101,7 +101,7 @@ please.__align_canvas_overlay = function () {
 //
 please.overlay.new_element = function (id, classes) {
     var el = document.createElement("div");
-    please.gl.canvas.overlay.appendChild(el);
+    please.renderer.overlay.appendChild(el);
     el.style.position = "absolute";
     if (id) {
         el.id = id;
@@ -136,7 +136,7 @@ please.overlay.new_element = function (id, classes) {
 // nodes if applicable.
 //
 please.overlay.remove_element = function (el) {
-    var overlay = please.gl.canvas.overlay;
+    var overlay = please.renderer.overlay;
     if (el) {
         if (el.constructor == Array || el.constructor == HTMLCollection) {
             DECR(i, el) {
@@ -173,15 +173,15 @@ please.overlay.remove_element_of_id = function (id) {
 // Removes off children to #mgrl_overlay of the given css class name.
 // 
 please.overlay.remove_element_of_class = function (class_name) {
-    var overlay = please.gl.canvas.overlay;
+    var overlay = please.renderer.overlay;
     var found = overlay.getElementsByClassName(class_name);
     please.overlay.remove_element(found);
 };
 
 
 //
-please.pipeline.add(-1, "mgrl/overlay_sync", function () {
-    var parent = document.getElementById("mgrl_overlay");
+please.overlay_sync = function () {
+    var parent = please.renderer.overlay;
     var origin = new Float32Array([0, 0, 0, 1]);
     ITER(i, please.overlay.__bindings) {
         var element = please.overlay.__bindings[i];
@@ -196,7 +196,7 @@ please.pipeline.add(-1, "mgrl/overlay_sync", function () {
                     graph.camera.projection_matrix,
                     graph.camera.view_matrix
                 ),
-                node.shader.world_matrix);
+                node.world_matrix);
             
             var position = vec4.create();
             vec4.transformMat4(position, origin, final_matrix);
@@ -217,4 +217,5 @@ please.pipeline.add(-1, "mgrl/overlay_sync", function () {
             el.style.display = el.hide_when() ? "none" : "block";
         }
     }
-});
+};
+please.pipeline.add(-1, "mgrl/overlay_sync", please.overlay_sync);

@@ -13,7 +13,10 @@ please.media.handlers.glsl = function (url, asset_name, callback) {
 
 // Namespace for m.gl guts
 please.gl = {
+    "name" : "gl",
     "canvas" : null,
+    "overlay" : null,
+    "allow_picking" : true,
     "ctx" : null,
     "ext" : {},
     "__cache" : {
@@ -22,6 +25,116 @@ please.gl = {
         "textures" : {},
     },
     "__macros" : [],
+    "get_width" : function () {
+        return please.gl.canvas.width;
+    },
+    "get_height" : function () {
+        return please.gl.canvas.height;
+    },
+    "image_instance" : function (asset) {
+        DEFAULT(center, false);
+        DEFAULT(scale, 32);
+        DEFAULT(x, 0);
+        DEFAULT(y, 0);
+        DEFAULT(width, asset.width);
+        DEFAULT(height, asset.height);
+        DEFAULT(alpha, true);
+        asset.scale_filter = "NEAREST";
+
+        var builder = new please.builder.SpriteBuilder(center, scale, alpha);
+        var flat = builder.add_flat(asset.width, asset.height, x, y, width, height);
+        var hint = flat.hint;
+
+        var data = please.media.__image_buffer_cache[hint];
+        if (!data) {
+            var data = builder.build();
+            please.media.__image_buffer_cache[hint] = data;
+        }
+
+        var node = new please.GraphNode();
+        node.vbo = data.vbo;
+        node.ibo = data.ibo;
+        node.ext = {};
+        node.vars = {};
+        node.__drawable = true;
+        if (alpha) {
+            node.sort_mode = "alpha";
+        }
+        node.asset = asset;
+        node.hint = hint;
+        node.draw_type = "sprite";
+        node.sort_mode = "alpha";
+        node.shader["diffuse_texture"] = asset.asset_name,
+        node.bind = function() { 
+            this.vbo.bind();
+            this.ibo.bind();
+        };
+        node.draw = function() {
+            this.ibo.draw();
+        };
+        return node;
+    },
+    "init_graph_node" : function (node) {
+        // GLSL bindings with default driver methods:
+        node.__regen_glsl_bindings = function (event) {
+            var prog = please.gl.__cache.current;
+            var old = null;
+            if (event) {
+                old = event.old_prog;
+            }
+            // deep copy
+            var old_data = node.__ani_store;
+            node.__ani_store = {};
+            node.shader = {};
+            please.make_animatable(
+                node, "world_matrix", node.__world_matrix_driver, node.shader, true);
+            Object.defineProperty(node, "world_matrix", {
+                enumerable: true,
+                get: function () {
+                    return this.shader.world_matrix;
+                },
+                set: function (value) {
+                    return value;
+                },
+            });
+            please.make_animatable(
+                node, "normal_matrix", node.__normal_matrix_driver, node.shader, true);
+            // GLSLS bindings with default behaviors
+            please.make_animatable(
+                node, "alpha", 1.0, node.shader);
+            please.make_animatable(
+                node, "is_sprite", node.__is_sprite_driver, node.shader, true);
+            please.make_animatable(
+                node, "is_transparent", node.__is_transparent_driver, node.shader, true);
+            please.make_animatable_tripple(
+                node, "object_index", "rgb", node.__object_id_driver, node.shader, true);
+            please.make_animatable(
+                node, "billboard_mode", node.__billboard_driver, node.shader, true);
+
+            // prog.samplers is a subset of prog.vars
+            for (var name, i=0; i<prog.uniform_list.length; i+=1) {
+                name = prog.uniform_list[i];
+                if (ignore.indexOf(name) === -1 && !node.shader.hasOwnProperty(name)) {
+                    please.make_animatable(node, name, null, node.shader);
+                }
+            }
+
+            // restore old values that were wiped out
+            ITER_PROPS(name, old_data) {
+                var old_value = old_data[name];
+                if (old_value !== undefined && old_value !== null) {
+                    node.__ani_store[name] = old_value;
+                }
+            }
+        }.bind(node);
+        node.__regen_glsl_bindings();
+        window.addEventListener("mgrl_changed_shader", node.__regen_glsl_bindings);
+    },
+    "init_camera" : function (node) {
+        please.make_animatable_tripple(node, "look_at", "xyz", [0, 0, 0]);
+        please.make_animatable_tripple(node, "up_vector", "xyz", [0, 0, 1]);
+        node.__projection_mode = "perspective";
+    },
 };
 
 
@@ -45,8 +158,12 @@ please.gl.set_context = function (canvas_id, options) {
         throw("This library is not presently designed to work with multiple contexts.");
     }
 
+    please.renderer = this;
     this.canvas = document.getElementById(canvas_id);
     please.__create_canvas_overlay();
+    please.pipeline.add(-1, "mgrl/picking_pass", please.__picking_pass).skip_when(
+        function () { return please.__picking.queue.length === 0 && please.__picking.move_event === null; });
+
     try {
         var names = ["webgl", "experimental-webgl"];
         for (var n=0; n<names.length; n+=1) {

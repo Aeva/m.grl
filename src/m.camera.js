@@ -81,9 +81,7 @@
 please.CameraNode = function () {
     please.GraphNode.call(this);
     this.__is_camera = true;
-
-    please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
-    please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
+    please.renderer.init_camera(this);
 
     ANI("focal_distance", this.__focal_distance);
     ANI("depth_of_field", .5);
@@ -107,7 +105,6 @@ please.CameraNode = function () {
 
     this.mark_dirty();
     this.projection_matrix = mat4.create();
-    this.__projection_mode = "perspective";
 
     please.make_animatable(
         this, "view_matrix", this.__view_matrix_driver, this, true);
@@ -198,7 +195,7 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
         mat4.scale(local_matrix, local_matrix, this.scale);
     }
     var parent = this.parent;
-    var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
+    var parent_matrix = parent ? parent.world_matrix : mat4.create();
     mat4.multiply(world_matrix, parent_matrix, local_matrix);
     world_matrix.dirty = true;
     return world_matrix;
@@ -213,10 +210,10 @@ please.CameraNode.prototype.update_camera = function () {
     var width = this.width;
     var height = this.height;
     if (width === null) {
-        width = please.gl.canvas.width;
+        width = please.renderer.get_width();
     }
     if (height === null) {
-        height = please.gl.canvas.height;
+        height = please.renderer.get_height();
     }
 
     // Determine if the common args have changed.
