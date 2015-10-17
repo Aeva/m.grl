@@ -477,7 +477,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     var name = prog.sampler_list[i];
                     if (prog.samplers[name] === handle) {
                         prog.samplers[name] = "error_image";
-                        console.warn("debinding texture '" + handle + "' while rendering to it");
+                        // console.warn("debinding texture '" + handle + "' while rendering to it");
                     }
                     if (old && old.samplers[name] === handle) {
                         old.samplers[name] = "error_image";
