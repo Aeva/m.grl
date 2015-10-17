@@ -343,7 +343,7 @@ please.gl.apply_glsl_macros = function (src) {
 
 
 // Constructor function for GLSL Shaders
-please.gl.__build_shader = function (src, uri) {
+please.gl.__build_shader = function (src, uri, lazy) {
     var glsl = {
         "id" : null,
         "type" : null,
@@ -351,6 +351,12 @@ please.gl.__build_shader = function (src, uri) {
         "uri" : uri,
         "ready" : false,
         "error" : false,
+        "__err_output" : "",
+        "lazy" : !!lazy,
+        "__on_error" : function () {
+            console.error(glsl.__err_output);
+            alert("" + this.uri + " failed to build.  See javascript console for details.");
+        }
     };
 
     // determine shader's type from file name
@@ -380,12 +386,14 @@ please.gl.__build_shader = function (src, uri) {
                     debug.push(line_label + " | " + line);
                 }
             }
-            console.debug(
-                "----- semicompiled shader ----------------\n" + debug.join("\n"));
             glsl.error = gl.getShaderInfoLog(glsl.id);
-            console.error(
-                "Shader compilation error for: " + uri + " \n" + glsl.error);
-            alert("" + glsl.uri + " failed to build.  See javascript console for details.");
+            glsl.__err_output = "----- semicompiled shader ----------------\n" +
+                debug.join("\n") +
+                "Shader compilation error for: " + uri + " \n" +
+                glsl.error;
+            if (!glsl.lazy) {
+                glsl.__on_error();
+            }
         }
         else {
             console.info("Shader compiled: " + uri);
@@ -547,9 +555,16 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         throw("No vertex shader defined for shader program \"" + name + "\".\n" +
               "Did you remember to call please.load on your vertex shader?");
     }
+    else if (prog.vert.lazy && prog.vert.error) {
+        prog.vert.__on_error();
+    }
+    
     if (!prog.frag) {
         throw("No fragment shader defined for shader program \"" + name + "\".\n" +
               "Did you remember to call please.load on your fragment shader?");
+    }
+    else if (prog.frag.lazy && prog.frag.error) {
+        prog.frag.__on_error();
     }
 
     if (errors.length > 0) {
