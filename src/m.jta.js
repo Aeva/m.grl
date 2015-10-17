@@ -345,9 +345,9 @@ please.gl.__jta_extract_keyframes = function (data) {
 please.gl.__jta_metadata_html = function (scene) {
     if (scene.meta) {
         var work_title = scene.uri.slice(scene.uri.lastIndexOf("/")+1);
-        var author = scene.meta["author"].trim();
-        var attrib_url = scene.meta["url"].trim();
-        var src_url = scene.meta["src_url"].trim();
+        var author = String.trim(scene.meta["author"] || "");
+        var attrib_url = String.trim(scene.meta["url"] || "");
+        var src_url = String.trim(scene.meta["src_url"] || "");
         var license_url = scene.meta["license"] ? scene.meta["license"] : "Unknown License";
         var license_name = {
             "http://creativecommons.org/publicdomain/zero/1.0/" : "Public Domain",
