@@ -22,7 +22,9 @@ please.gl.ast.Block = function () {
 };
 
 
-
+// This method takes the glsl source, isolates which sections are
+// commented out, and returns a list of Comment objects and strings.
+// This is the very first step in producing the token stream.
 please.gl.__find_comments = function (src) {
     var open_regex = /(?:\/\/|\/\*)/m;
     var open = open_regex.exec(src);
@@ -57,6 +59,8 @@ please.gl.__find_comments = function (src) {
 };
 
 
+// delimiting symbols used for splitting arbitrary strings into token
+// arrays
 please.gl.__symbols = [
     "(", ")", "{", "}", "[", "]",
     "+=", "-=", "*=", "/=",
@@ -67,6 +71,8 @@ please.gl.__symbols = [
 ];
 
 
+// take a string like "foo = bar + baz;" and split it into an array of
+// tokens like ["foo", "=", "bar", "+", "baz", ";"]
 please.gl.__split_tokens = function (text) {
     var lowest_symbol = null;
     var lowest_offset = Infinity;
@@ -99,7 +105,19 @@ please.gl.__split_tokens = function (text) {
 };
 
 
-please.gl.tokenize_glsl = function (src) {
+// Takes the result from __split_tokens and returns a tree denoted by
+// curly braces.
+please.gl.__stream_to_ast = function (tokens) {
+    return tokens;
+};
+
+
+// [+] please.gl.glsl_to_ast(shader_source)
+//
+// Takes a glsl source file and returns an abstract syntax tree
+// representation of the code to be used for further processing.
+//
+please.gl.glsl_to_ast = function (src) {
     src = src.replace("\r", "\n");
     var tokens = [];
     var tmp = please.gl.__find_comments(src);
@@ -111,5 +129,5 @@ please.gl.tokenize_glsl = function (src) {
             tokens.push(tmp[i]);
         }
     }
-    return tokens;
+    return please.gl.__stream_to_ast(tokens);
 };
