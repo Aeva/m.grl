@@ -4017,8 +4017,35 @@ please.gl.__split_tokens = function (text) {
 };
 // Takes the result from __split_tokens and returns a tree denoted by
 // curly braces.
-please.gl.__stream_to_ast = function (tokens) {
-    return tokens;
+please.gl.__stream_to_ast = function (tokens, start) {
+    if (start === undefined) { start = 0; };
+    var tree = [];
+    for (var i=start; i<tokens.length; null) {
+        var token = tokens[i];
+        if (token === "{") {
+            var sub_tree = please.gl.__stream_to_ast(tokens, i+1);
+            tree.push(sub_tree[0]);
+            i = sub_tree[1];
+        }
+        else if (token === "}") {
+            if (start === 0) {
+                throw("mismatched parenthesis - encountered an extra }");
+            }
+            else {
+                return [tree, i];
+            }
+        }
+        else {
+            tree.push(token);
+        }
+        i+=1;
+    }
+    if (start === 0) {
+        return tree;
+    }
+    else {
+        throw("mismatched parenthesis - missing a }");
+    }
 };
 // [+] please.gl.glsl_to_ast(shader_source)
 //
