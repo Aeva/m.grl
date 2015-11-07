@@ -3927,19 +3927,67 @@ please.gl.pick = function (x, y) {
 }
 // - m.glsl_ast.js ------------------------------------------------------- //
 please.gl.ast = {};
+/* [+] please.gl.ast.Comment(text, multiline)
+ *
+ * AST constructor function representing code comments.
+ *
+ */
 please.gl.ast.Comment = function (text, multiline) {
+    console.assert(this !== window);
     this.multiline = !!multiline;
     this.data = text;
-    this.print = function () {
-        if (this.multiline) {
-            return "/*" + this.data + "*/";
+};
+please.gl.ast.Comment.prototype.print = function () {
+    if (this.multiline) {
+        return "/*" + this.data + "*/";
+    }
+    else {
+        return "//" + this.data + "\n";
+    }
+};
+/* [+] please.gl.ast.Block()
+ * 
+ * AST constructor function representing blocks.  For the sake of
+ * simplicity, a source file's outter most scope is assumed to be an
+ * implicit block.  This is denoted by the 'type' property of the
+ * block being set to "global".
+ * 
+ */
+please.gl.ast.Block = function (stream, type) {
+    console.assert(this !== window);
+    this.data = stream;
+    this.type = type || null;
+};
+please.gl.ast.Block.prototype.print = function () {
+    var flat = "";
+    var out = "";
+    for (var i=0; i<this.data.length; i+=1) {
+        var token = this.data[i];
+        if (token.print) {
+            flat += token.print();
         }
         else {
-            return "//" + this.data + "\n";
+            flat += token;
+            if (token === ";") {
+                flat += "\n";
+            }
         }
     };
-};
-please.gl.ast.Block = function () {
+    if (this.type !== "global") {
+        var indented = "";
+        var lines = flat.split("\n");
+        for (var i=0; i<lines.length; i+=1) {
+            var line = lines[i];
+            if (line.trim() !== "") {
+                indented += "  " + line + "\n";
+            }
+        };
+        out = " {\n" + indented + "}\n";
+    }
+    else {
+        out = flat;
+    }
+    return out;
 };
 // This method takes the glsl source, isolates which sections are
 // commented out, and returns a list of Comment objects and strings.
@@ -4032,7 +4080,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
                 throw("mismatched parenthesis - encountered an extra }");
             }
             else {
-                return [tree, i];
+                return [new please.gl.ast.Block(tree), i];
             }
         }
         else {
@@ -4041,7 +4089,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         i+=1;
     }
     if (start === 0) {
-        return tree;
+        return new please.gl.ast.Block(tree, "global");
     }
     else {
         throw("mismatched parenthesis - missing a }");
