@@ -3945,7 +3945,7 @@ please.gl.ast.Comment.prototype.print = function () {
         return "//" + this.data + "\n";
     }
 };
-/* [+] please.gl.ast.Block()
+/* [+] please.gl.ast.Block(stream, type)
  * 
  * AST constructor function representing blocks.  For the sake of
  * simplicity, a source file's outter most scope is assumed to be an
@@ -3988,6 +3988,89 @@ please.gl.ast.Block.prototype.print = function () {
         out = flat;
     }
     return out;
+};
+/* [+] please.gl.ast.Global(text)
+ * 
+ * A global variable declaration.  This is used for the following
+ * types of glsl global variables:
+ *
+ *  - uniform
+ *  - varying
+ *  - attribute
+ *  - constant
+ *
+ */
+please.gl.ast.Global = function (mode, type, name, value) {
+    console.assert(this !== window);
+    this.mode = mode;
+    this.type = type;
+    this.name = name;
+    if (type === "const") {
+        this.value = value;
+    }
+};
+please.gl.ast.Global.prototype.print = function () {
+    var out = ""
+    out += this.mode + " ";
+    out += this.type + " ";
+    out += this.name;
+    if (this.type === "const") {
+        out += "=" + this.value;
+    }
+    out += ";\n";
+    return out;
+};
+// This method takes a stream of tokens and parses out the glsl
+// globals from them.  Returns two lists, the first containing all of
+// the Global ast items that were extracted, the second is a list of
+// the remaining stream with the Globals removed.
+please.gl.__parse_globals = function (stream) {
+    var defs = [];
+    var modes = ["uniform", "attribute", "varying", "const"];
+    var globals = [];
+    var chaff = [];
+    for (var i=0; i<stream.length; i+=1) {
+        var statement = stream[i];
+        var selected = false;
+        if (statement.constructor == String) {
+            for (var m=0; m<modes.length; m+=1) {
+                var mode = modes[m];
+                if (statement.startsWith(mode)) {
+                    var sans_mode = statement.slice(mode.length+1);
+                    var type = sans_mode.split(" ")[0];
+                    var remainder = sans_mode.slice(type.length+1);
+                    defs.push({
+                        mode: mode,
+                        type: type,
+                        data: remainder,
+                    });
+                    selected = true;
+                    i += 1; // skip the next token because it is a ';'
+                    break;
+                }
+            }
+        }
+        if (!selected) {
+            chaff.push(statement);
+        }
+    }
+    for (var i=0; i<defs.length; i+=1) {
+        var def = defs[i];
+        var mode = def.mode;
+        var type = def.type;
+        var names = def.data.split(",");
+        for (var n=0; n<names.length; n+=1) {
+            var name = names[n].trim();
+            var value = undefined;
+            if (type === "const") {
+                var parts = name.split("=");
+                value = parts[0].trim();
+                name = parts[1].trim();
+            }
+            globals.push(new please.gl.ast.Global(mode, type, name, value));
+        }
+    };
+    return [globals, chaff];
 };
 // This method takes the glsl source, isolates which sections are
 // commented out, and returns a list of Comment objects and strings.
@@ -4089,7 +4172,11 @@ please.gl.__stream_to_ast = function (tokens, start) {
         i+=1;
     }
     if (start === 0) {
-        return new please.gl.ast.Block(tree, "global");
+        var extract = please.gl.__parse_globals(tree);
+        var globals = extract[0];
+        var remainder = extract[1];
+        var stream = globals.concat(remainder);
+        return new please.gl.ast.Block(stream, "global");
     }
     else {
         throw("mismatched parenthesis - missing a }");
