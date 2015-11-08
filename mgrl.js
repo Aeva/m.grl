@@ -3925,8 +3925,9 @@ please.gl.pick = function (x, y) {
     gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
     return px;
 }
-// - m.glsl_ast.js ------------------------------------------------------- //
+// - glslglsl/ast.js ----------------------------------------------------- //
 please.gl.ast = {};
+// - glslglsl/ast.comment.js --------------------------------------------- //
 /* [+] please.gl.ast.Comment(text, multiline)
  *
  * AST constructor function representing code comments.
@@ -3945,6 +3946,39 @@ please.gl.ast.Comment.prototype.print = function () {
         return "//" + this.data + "\n";
     }
 };
+// - glslglsl/ast.global.js ---------------------------------------------- //
+/* [+] please.gl.ast.Global(text)
+ * 
+ * A global variable declaration.  This is used for the following
+ * types of glsl global variables:
+ *
+ *  - uniform
+ *  - varying
+ *  - attribute
+ *  - constant
+ *
+ */
+please.gl.ast.Global = function (mode, type, name, value) {
+    console.assert(this !== window);
+    this.mode = mode;
+    this.type = type;
+    this.name = name;
+    if (type === "const") {
+        this.value = value;
+    }
+};
+please.gl.ast.Global.prototype.print = function () {
+    var out = ""
+    out += this.mode + " ";
+    out += this.type + " ";
+    out += this.name;
+    if (this.type === "const") {
+        out += "=" + this.value;
+    }
+    out += ";\n";
+    return out;
+};
+// - glslglsl/ast.block.js ----------------------------------------------- //
 /* [+] please.gl.ast.Block(stream, type)
  * 
  * AST constructor function representing blocks.  For the sake of
@@ -4022,37 +4056,7 @@ please.gl.ast.Block.prototype.make_function = function (prefix) {
         },
     });
 };
-/* [+] please.gl.ast.Global(text)
- * 
- * A global variable declaration.  This is used for the following
- * types of glsl global variables:
- *
- *  - uniform
- *  - varying
- *  - attribute
- *  - constant
- *
- */
-please.gl.ast.Global = function (mode, type, name, value) {
-    console.assert(this !== window);
-    this.mode = mode;
-    this.type = type;
-    this.name = name;
-    if (type === "const") {
-        this.value = value;
-    }
-};
-please.gl.ast.Global.prototype.print = function () {
-    var out = ""
-    out += this.mode + " ";
-    out += this.type + " ";
-    out += this.name;
-    if (this.type === "const") {
-        out += "=" + this.value;
-    }
-    out += ";\n";
-    return out;
-};
+// - glslglsl/ast.js ----------------------------------------------------- //
 // Removes the "precision" statements from the ast.
 please.gl.__remove_precision = function (ast) {
     var remainder = [];
