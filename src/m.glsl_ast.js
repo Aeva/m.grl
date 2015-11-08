@@ -38,6 +38,7 @@ please.gl.ast.Block = function (stream, type) {
     console.assert(this !== window);
     this.data = stream;
     this.type = type || null;
+    this.prefix = null;
 };
 please.gl.ast.Block.prototype.print = function () {
     var flat = "";
@@ -65,13 +66,49 @@ please.gl.ast.Block.prototype.print = function () {
                 indented += "  " + line + "\n";
             }
         };
-        out = " {\n" + indented + "}\n";
+        out = (this.prefix || "") + " {\n" + indented + "}\n";
     }
     else {
         out = flat;
     }
 
     return out;
+};
+please.gl.ast.Block.prototype.make_function = function (prefix) {
+    this.type = "function";
+
+    this.name = prefix[0].split(" ")[1];
+    this.input = []; // arguments eg [['float', 'foo'], ['float', 'bar']]
+    this.output = prefix[0].split(" ")[0]; // return type eg 'float'
+
+    var arg_parts = prefix.slice(2, -1).join("").split(",");
+    if (arg_parts.length > 1 && !(arg_parts.length == 1 && arg_parts[0] == "void")) {
+        ITER(i, arg_parts) {
+            this.input.push(arg_parts[i].split(" "));
+        };
+    }
+
+    Object.defineProperty(this, "prefix", {
+        get: function () {
+            var prefix = this.output + " " + this.name + "(";
+            var parts = [];
+            ITER(i, this.input) {
+                parts.push(this.input[i][0] + " " + this.input[i][1]);
+            }
+            prefix += parts.join(", ") + ")";
+            return prefix;
+        },
+    });
+
+    Object.defineProperty(this, "signature", {
+        get: function () {
+            var sig = this.output;
+            ITER(i, this.input) {
+                sig += ":" + this.input[i][0];
+            }
+            return sig;
+        },
+    });
 };
 
 
@@ -123,6 +160,72 @@ please.gl.__remove_precision = function (ast) {
             remainder.push(statement);
         }
     }
+    return remainder;
+};
+
+
+
+// Identify which blocks are functions, and collapse the preceding
+// statement into the method.
+please.gl.__identify_functions = function (ast) {
+    var cache = [];
+    var remainder = [];
+    var recording_for = null;
+
+    var non_blocks = [
+        "enum",
+        "for",
+        "if",
+        "else",
+    ];
+
+    var collapse = function (block, cache) {
+        recording_for = null;
+
+        var is_block = true;
+        ITER(i, non_blocks) {
+            if (cache[0].startsWith(non_blocks[i])) {
+                is_block = false;
+                break;
+            }
+        }
+        if (is_block) {
+            block.make_function(cache);
+        }
+    };
+    DECR(i, ast) {
+        var statement = ast[i];
+        if (statement.constructor == please.gl.ast.Comment) {
+            remainder.unshift(statement);
+            continue;
+        }
+        else if (statement.constructor == please.gl.ast.Block) {
+            if (recording_for !== null) {
+                collapse(recording_for, cache);
+            }
+            remainder.unshift(statement);
+            recording_for = statement;
+            cache = [];
+            continue;
+        }
+        else if (recording_for !== null) {
+            if (statement.constructor == String) {
+                if (statement == ";") {
+                    collapse(recording_for, cache);
+                }
+                else {
+                    cache.unshift(statement);
+                    if (i === 0) {
+                        collapse(recording_for, cache);
+                    }
+                }
+            }
+            else {
+                collapse(recording_for, cache);
+                remainder.unshift(statement);
+            }
+        }
+    };
     return remainder;
 };
 
@@ -304,7 +407,9 @@ please.gl.__stream_to_ast = function (tokens, start) {
     if (start === 0) {
         var extract = please.gl.__parse_globals(tree);
         var globals = extract[0];
-        var remainder = please.gl.__remove_precision(extract[1]);
+        var remainder = extract[1];
+        remainder = please.gl.__remove_precision(remainder);
+        remainder = please.gl.__identify_functions(remainder);
         var stream = globals.concat(remainder);
         return new please.gl.ast.Block(stream, "global");
     }
