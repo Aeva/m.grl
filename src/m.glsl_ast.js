@@ -110,6 +110,24 @@ please.gl.ast.Global.prototype.print = function () {
 
 
 
+// Removes the "precision" statements from the ast.
+please.gl.__remove_precision = function (ast) {
+    var remainder = [];
+    ITER(i, ast) {
+        var statement = ast[i];
+        if (statement.constructor == String && statement.startsWith("precision")) {
+            i += 1;
+            continue;
+        }
+        else {
+            remainder.push(statement);
+        }
+    }
+    return remainder;
+};
+
+
+
 // This method takes a stream of tokens and parses out the glsl
 // globals from them.  Returns two lists, the first containing all of
 // the Global ast items that were extracted, the second is a list of
@@ -256,7 +274,8 @@ please.gl.__split_tokens = function (text) {
 
 
 // Takes the result from __split_tokens and returns a tree denoted by
-// curly braces.
+// curly braces.  This also removes the 'precision' statements from
+// code, to be specified elsewhere.
 please.gl.__stream_to_ast = function (tokens, start) {
     DEFAULT(start, 0);
     var tree = [];
@@ -285,7 +304,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
     if (start === 0) {
         var extract = please.gl.__parse_globals(tree);
         var globals = extract[0];
-        var remainder = extract[1];
+        var remainder = please.gl.__remove_precision(extract[1]);
         var stream = globals.concat(remainder);
         return new please.gl.ast.Block(stream, "global");
     }
