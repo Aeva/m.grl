@@ -9,10 +9,10 @@
  * block being set to "global".
  * 
  */
-please.gl.ast.Block = function (stream, type) {
+please.gl.ast.Block = function (stream) {
     console.assert(this !== window);
-    this.data = stream;
-    this.type = type || null;
+    this.data = stream || [];
+    this.type = null;
     this.prefix = null;
 };
 
@@ -55,11 +55,11 @@ please.gl.ast.Block.prototype.print = function () {
 };
 
 
-// Make the current block a function.  The "prefix" argument is a list
-// of ast symbols that precede the function and are probably a
-// function definition.  Currently, this would be something like
-// ['void main', '(', 'float derp', ',', 'vec4 color', ')'], though it
-// is likely to change in the future, so take this with a grain of salt.
+// Make this block a function.  The "prefix" argument is a list of ast
+// symbols that precede the function and are probably a function
+// definition.  Currently, this would be something like ['void main',
+// '(', 'float derp', ',', 'vec4 color', ')'], though it is likely to
+// change in the future, so take this with a grain of salt.
 please.gl.ast.Block.prototype.make_function = function (prefix) {
     this.type = "function";
 
@@ -99,8 +99,20 @@ please.gl.ast.Block.prototype.make_function = function (prefix) {
 };
 
 
-//
-please.gl.ast.Block.prototype.make_outter_scope = function () {
+// Make this block represent the global scope.
+please.gl.ast.Block.prototype.make_global_scope = function () {
+    this.type = "global";
+    this.globals = [];
+    this.methods = [];
+    ITER(i, this.data) {
+        var item = this.data[i];
+        if (item.constructor == please.gl.ast.Global) {
+            this.globals.push(item);
+        }
+        if (item.constructor == please.gl.ast.Block && item.type == "function") {
+            this.methods.push(item);
+        }
+    }
 };
 
 

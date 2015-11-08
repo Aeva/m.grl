@@ -110,7 +110,9 @@ please.gl.__stream_to_ast = function (tokens, start) {
         remainder = please.gl.__remove_precision(remainder);
         remainder = please.gl.__identify_functions(remainder);
         var stream = globals.concat(remainder);
-        return new please.gl.ast.Block(stream, "global");
+        var ast = new please.gl.ast.Block(stream);
+        ast.make_global_scope();
+        return ast;
     }
     else {
         throw("mismatched parenthesis - missing a }");

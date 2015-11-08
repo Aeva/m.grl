@@ -4085,10 +4085,10 @@ please.gl.__parse_globals = function (stream) {
  * block being set to "global".
  * 
  */
-please.gl.ast.Block = function (stream, type) {
+please.gl.ast.Block = function (stream) {
     console.assert(this !== window);
-    this.data = stream;
-    this.type = type || null;
+    this.data = stream || [];
+    this.type = null;
     this.prefix = null;
 };
 // Prints the ast for this block.  If this block is a function, then
@@ -4124,11 +4124,11 @@ please.gl.ast.Block.prototype.print = function () {
     }
     return out;
 };
-// Make the current block a function.  The "prefix" argument is a list
-// of ast symbols that precede the function and are probably a
-// function definition.  Currently, this would be something like
-// ['void main', '(', 'float derp', ',', 'vec4 color', ')'], though it
-// is likely to change in the future, so take this with a grain of salt.
+// Make this block a function.  The "prefix" argument is a list of ast
+// symbols that precede the function and are probably a function
+// definition.  Currently, this would be something like ['void main',
+// '(', 'float derp', ',', 'vec4 color', ')'], though it is likely to
+// change in the future, so take this with a grain of salt.
 please.gl.ast.Block.prototype.make_function = function (prefix) {
     this.type = "function";
     var first = prefix[0].split(" ");
@@ -4162,8 +4162,20 @@ please.gl.ast.Block.prototype.make_function = function (prefix) {
         },
     });
 };
-//
-please.gl.ast.Block.prototype.make_outter_scope = function () {
+// Make this block represent the global scope.
+please.gl.ast.Block.prototype.make_global_scope = function () {
+    this.type = "global";
+    this.globals = {};
+    this.methods = {};
+    for (var i=0; i<this.data.length; i+=1) {
+        var item = this.data[i];
+        if (item.constructor == please.gl.ast.Global) {
+            this.globals[item.name] = item;
+        }
+        if (item.constructor == please.gl.ast.Block && item.type == "function") {
+            this.methods[item.name] = item;
+        }
+    }
 };
 // Identify which blocks are functions, and collapse the preceding
 // statement into the method.
@@ -4303,7 +4315,9 @@ please.gl.__stream_to_ast = function (tokens, start) {
         remainder = please.gl.__remove_precision(remainder);
         remainder = please.gl.__identify_functions(remainder);
         var stream = globals.concat(remainder);
-        return new please.gl.ast.Block(stream, "global");
+        var ast = new please.gl.ast.Block(stream);
+        ast.make_global_scope();
+        return ast;
     }
     else {
         throw("mismatched parenthesis - missing a }");
