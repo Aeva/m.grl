@@ -1,149 +1,11 @@
-// - m.glsl_ast.js ------------------------------------------------------- //
-
+// - glslglsl/ast.js ----------------------------------------------------- //
 
 please.gl.ast = {};
+#include "gl_ast/ast.comment.js"
+#include "gl_ast/ast.global.js"
+#include "gl_ast/ast.block.js"
 
-
-
-/* [+] please.gl.ast.Comment(text, multiline)
- *
- * AST constructor function representing code comments.
- *
- */
-please.gl.ast.Comment = function (text, multiline) {
-    console.assert(this !== window);
-    this.multiline = !!multiline;
-    this.data = text;
-};
-please.gl.ast.Comment.prototype.print = function () {
-    if (this.multiline) {
-        return "/*" + this.data + "*/";
-    }
-    else {
-        return "//" + this.data + "\n";
-    }
-};
-
-
-
-/* [+] please.gl.ast.Block(stream, type)
- * 
- * AST constructor function representing blocks.  For the sake of
- * simplicity, a source file's outter most scope is assumed to be an
- * implicit block.  This is denoted by the 'type' property of the
- * block being set to "global".
- * 
- */
-please.gl.ast.Block = function (stream, type) {
-    console.assert(this !== window);
-    this.data = stream;
-    this.type = type || null;
-    this.prefix = null;
-};
-please.gl.ast.Block.prototype.print = function () {
-    var flat = "";
-    var out = "";
-
-    ITER(i, this.data) {
-        var token = this.data[i];
-        if (token.print) {
-            flat += token.print();
-        }
-        else {
-            flat += token;
-            if (token === ";") {
-                flat += "\n";
-            }
-        }
-    };
-
-    if (this.type !== "global") {
-        var indented = "";
-        var lines = flat.split("\n");
-        ITER(i, lines) {
-            var line = lines[i];
-            if (line.trim() !== "") {
-                indented += "  " + line + "\n";
-            }
-        };
-        out = (this.prefix || "") + " {\n" + indented + "}\n";
-    }
-    else {
-        out = flat;
-    }
-
-    return out;
-};
-please.gl.ast.Block.prototype.make_function = function (prefix) {
-    this.type = "function";
-
-    this.name = prefix[0].split(" ")[1];
-    this.input = []; // arguments eg [['float', 'foo'], ['float', 'bar']]
-    this.output = prefix[0].split(" ")[0]; // return type eg 'float'
-
-    var arg_parts = prefix.slice(2, -1).join("").split(",");
-    if (arg_parts.length > 1 && !(arg_parts.length == 1 && arg_parts[0] == "void")) {
-        ITER(i, arg_parts) {
-            this.input.push(arg_parts[i].split(" "));
-        };
-    }
-
-    Object.defineProperty(this, "prefix", {
-        get: function () {
-            var prefix = this.output + " " + this.name + "(";
-            var parts = [];
-            ITER(i, this.input) {
-                parts.push(this.input[i][0] + " " + this.input[i][1]);
-            }
-            prefix += parts.join(", ") + ")";
-            return prefix;
-        },
-    });
-
-    Object.defineProperty(this, "signature", {
-        get: function () {
-            var sig = this.output;
-            ITER(i, this.input) {
-                sig += ":" + this.input[i][0];
-            }
-            return sig;
-        },
-    });
-};
-
-
-
-/* [+] please.gl.ast.Global(text)
- * 
- * A global variable declaration.  This is used for the following
- * types of glsl global variables:
- *
- *  - uniform
- *  - varying
- *  - attribute
- *  - constant
- *
- */
-please.gl.ast.Global = function (mode, type, name, value) {
-    console.assert(this !== window);
-    this.mode = mode;
-    this.type = type;
-    this.name = name;
-    if (type === "const") {
-        this.value = value;
-    }
-};
-please.gl.ast.Global.prototype.print = function () {
-    var out = ""
-    out += this.mode + " ";
-    out += this.type + " ";
-    out += this.name;
-    if (this.type === "const") {
-        out += "=" + this.value;
-    }
-    out += ";\n";
-    return out;
-};
+// - glslglsl/ast.js ----------------------------------------------------- //
 
 
 
