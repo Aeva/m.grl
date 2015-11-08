@@ -3926,7 +3926,18 @@ please.gl.pick = function (x, y) {
     return px;
 }
 // - glslglsl/ast.js ----------------------------------------------------- //
+// namespace for ast constructors
 please.gl.ast = {};
+// delimiting symbols used for splitting arbitrary strings into token
+// arrays
+please.gl.__symbols = [
+    "(", ")", "{", "}", "[", "]",
+    "+=", "-=", "*=", "/=",
+    "+", "-", "*", "/",
+    "==", "&&", "<=", ">=", "<<", ">>", "||",
+    "<", ">", "=", "&",
+    ",", ";",
+];
 // - glslglsl/ast.comment.js --------------------------------------------- //
 /* [+] please.gl.ast.Comment(text, multiline)
  *
@@ -3945,6 +3956,41 @@ please.gl.ast.Comment.prototype.print = function () {
     else {
         return "//" + this.data + "\n";
     }
+};
+// This method takes the glsl source, isolates which sections are
+// commented out, and returns a list of Comment objects and strings.
+// This is the very first step in producing the token stream.
+please.gl.__find_comments = function (src) {
+    var open_regex = /(?:\/\/|\/\*)/m;
+    var open = open_regex.exec(src);
+    if (open === null) {
+        return [src];
+    }
+    open = open[0];
+    var close = open === "/*" ? "*/" : "\n";
+    var tokens = [];
+    var start = src.indexOf(open);
+    var subset = src.slice(start);
+    var stop = subset.indexOf(close);
+    var comment = null;
+    var after = null;
+    if (start > 0) {
+        tokens.push(src.slice(0, start));
+    }
+    if (stop == -1) {
+        comment = src.slice(start+open.length);
+    }
+    else {
+        comment = subset.slice(open.length, stop);
+        after = subset.slice(stop+close.length);
+    }
+    if (comment) {
+        tokens.push(new please.gl.ast.Comment(comment, close === "*/"));
+    }
+    if (after && after.length > 0) {
+        tokens = tokens.concat(please.gl.__find_comments(after));
+    }
+    return tokens;
 };
 // - glslglsl/ast.global.js ---------------------------------------------- //
 /* [+] please.gl.ast.Global(text)
@@ -3978,6 +4024,58 @@ please.gl.ast.Global.prototype.print = function () {
     out += ";\n";
     return out;
 };
+// This method takes a stream of tokens and parses out the glsl
+// globals from them.  Returns two lists, the first containing all of
+// the Global ast items that were extracted, the second is a list of
+// the remaining stream with the Globals removed.
+please.gl.__parse_globals = function (stream) {
+    var defs = [];
+    var modes = ["uniform", "attribute", "varying", "const"];
+    var globals = [];
+    var chaff = [];
+    for (var i=0; i<stream.length; i+=1) {
+        var statement = stream[i];
+        var selected = false;
+        if (statement.constructor == String) {
+            for (var m=0; m<modes.length; m+=1) {
+                var mode = modes[m];
+                if (statement.startsWith(mode)) {
+                    var sans_mode = statement.slice(mode.length+1);
+                    var type = sans_mode.split(" ")[0];
+                    var remainder = sans_mode.slice(type.length+1);
+                    defs.push({
+                        mode: mode,
+                        type: type,
+                        data: remainder,
+                    });
+                    selected = true;
+                    i += 1; // skip the next token because it is a ';'
+                    break;
+                }
+            }
+        }
+        if (!selected) {
+            chaff.push(statement);
+        }
+    }
+    for (var i=0; i<defs.length; i+=1) {
+        var def = defs[i];
+        var mode = def.mode;
+        var type = def.type;
+        var names = def.data.split(",");
+        for (var n=0; n<names.length; n+=1) {
+            var name = names[n].trim();
+            var value = undefined;
+            if (type === "const") {
+                var parts = name.split("=");
+                value = parts[0].trim();
+                name = parts[1].trim();
+            }
+            globals.push(new please.gl.ast.Global(mode, type, name, value));
+        }
+    };
+    return [globals, chaff];
+};
 // - glslglsl/ast.block.js ----------------------------------------------- //
 /* [+] please.gl.ast.Block(stream, type)
  * 
@@ -3993,6 +4091,8 @@ please.gl.ast.Block = function (stream, type) {
     this.type = type || null;
     this.prefix = null;
 };
+// Prints the ast for this block.  If this block is a function, then
+// it will include the entire function definition.
 please.gl.ast.Block.prototype.print = function () {
     var flat = "";
     var out = "";
@@ -4024,11 +4124,17 @@ please.gl.ast.Block.prototype.print = function () {
     }
     return out;
 };
+// Make the current block a function.  The "prefix" argument is a list
+// of ast symbols that precede the function and are probably a
+// function definition.  Currently, this would be something like
+// ['void main', '(', 'float derp', ',', 'vec4 color', ')'], though it
+// is likely to change in the future, so take this with a grain of salt.
 please.gl.ast.Block.prototype.make_function = function (prefix) {
     this.type = "function";
-    this.name = prefix[0].split(" ")[1];
+    var first = prefix[0].split(" ");
+    this.name = first[1]; // the name of the function
     this.input = []; // arguments eg [['float', 'foo'], ['float', 'bar']]
-    this.output = prefix[0].split(" ")[0]; // return type eg 'float'
+    this.output = first[0]; // return type eg 'float'
     var arg_parts = prefix.slice(2, -1).join("").split(",");
     if (arg_parts.length > 1 && !(arg_parts.length == 1 && arg_parts[0] == "void")) {
         for (var i=0; i<arg_parts.length; i+=1) {
@@ -4056,21 +4162,8 @@ please.gl.ast.Block.prototype.make_function = function (prefix) {
         },
     });
 };
-// - glslglsl/ast.js ----------------------------------------------------- //
-// Removes the "precision" statements from the ast.
-please.gl.__remove_precision = function (ast) {
-    var remainder = [];
-    for (var i=0; i<ast.length; i+=1) {
-        var statement = ast[i];
-        if (statement.constructor == String && statement.startsWith("precision")) {
-            i += 1;
-            continue;
-        }
-        else {
-            remainder.push(statement);
-        }
-    }
-    return remainder;
+//
+please.gl.ast.Block.prototype.make_outter_scope = function () {
 };
 // Identify which blocks are functions, and collapse the preceding
 // statement into the method.
@@ -4132,103 +4225,22 @@ please.gl.__identify_functions = function (ast) {
     };
     return remainder;
 };
-// This method takes a stream of tokens and parses out the glsl
-// globals from them.  Returns two lists, the first containing all of
-// the Global ast items that were extracted, the second is a list of
-// the remaining stream with the Globals removed.
-please.gl.__parse_globals = function (stream) {
-    var defs = [];
-    var modes = ["uniform", "attribute", "varying", "const"];
-    var globals = [];
-    var chaff = [];
-    for (var i=0; i<stream.length; i+=1) {
-        var statement = stream[i];
-        var selected = false;
-        if (statement.constructor == String) {
-            for (var m=0; m<modes.length; m+=1) {
-                var mode = modes[m];
-                if (statement.startsWith(mode)) {
-                    var sans_mode = statement.slice(mode.length+1);
-                    var type = sans_mode.split(" ")[0];
-                    var remainder = sans_mode.slice(type.length+1);
-                    defs.push({
-                        mode: mode,
-                        type: type,
-                        data: remainder,
-                    });
-                    selected = true;
-                    i += 1; // skip the next token because it is a ';'
-                    break;
-                }
-            }
+// - glslglsl/ast.js ----------------------------------------------------- //
+// Removes the "precision" statements from the ast.
+please.gl.__remove_precision = function (ast) {
+    var remainder = [];
+    for (var i=0; i<ast.length; i+=1) {
+        var statement = ast[i];
+        if (statement.constructor == String && statement.startsWith("precision")) {
+            i += 1;
+            continue;
         }
-        if (!selected) {
-            chaff.push(statement);
+        else {
+            remainder.push(statement);
         }
     }
-    for (var i=0; i<defs.length; i+=1) {
-        var def = defs[i];
-        var mode = def.mode;
-        var type = def.type;
-        var names = def.data.split(",");
-        for (var n=0; n<names.length; n+=1) {
-            var name = names[n].trim();
-            var value = undefined;
-            if (type === "const") {
-                var parts = name.split("=");
-                value = parts[0].trim();
-                name = parts[1].trim();
-            }
-            globals.push(new please.gl.ast.Global(mode, type, name, value));
-        }
-    };
-    return [globals, chaff];
+    return remainder;
 };
-// This method takes the glsl source, isolates which sections are
-// commented out, and returns a list of Comment objects and strings.
-// This is the very first step in producing the token stream.
-please.gl.__find_comments = function (src) {
-    var open_regex = /(?:\/\/|\/\*)/m;
-    var open = open_regex.exec(src);
-    if (open === null) {
-        return [src];
-    }
-    open = open[0];
-    var close = open === "/*" ? "*/" : "\n";
-    var tokens = [];
-    var start = src.indexOf(open);
-    var subset = src.slice(start);
-    var stop = subset.indexOf(close);
-    var comment = null;
-    var after = null;
-    if (start > 0) {
-        tokens.push(src.slice(0, start));
-    }
-    if (stop == -1) {
-        comment = src.slice(start+open.length);
-    }
-    else {
-        comment = subset.slice(open.length, stop);
-        after = subset.slice(stop+close.length);
-    }
-    if (comment) {
-        tokens.push(new please.gl.ast.Comment(comment, close === "*/"));
-    }
-    if (after && after.length > 0) {
-        tokens = tokens.concat(please.gl.__find_comments(after));
-    }
-    return tokens;
-};
-// delimiting symbols used for splitting arbitrary strings into token
-// arrays
-please.gl.__symbols = [
-    "(", ")", "{", "}", "[", "]",
-    "+=", "-=", "*=", "/=",
-    "+", "-", "*", "/",
-    "==", "&&", "<=", ">=", "<<", ">>", "||",
-    "<", ">", "=", "&",
-    ",", ";",
-];
 // take a string like "foo = bar + baz;" and split it into an array of
 // tokens like ["foo", "=", "bar", "+", "baz", ";"]
 please.gl.__split_tokens = function (text) {

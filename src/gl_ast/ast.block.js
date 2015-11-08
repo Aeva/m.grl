@@ -15,6 +15,10 @@ please.gl.ast.Block = function (stream, type) {
     this.type = type || null;
     this.prefix = null;
 };
+
+
+// Prints the ast for this block.  If this block is a function, then
+// it will include the entire function definition.
 please.gl.ast.Block.prototype.print = function () {
     var flat = "";
     var out = "";
@@ -49,12 +53,20 @@ please.gl.ast.Block.prototype.print = function () {
 
     return out;
 };
+
+
+// Make the current block a function.  The "prefix" argument is a list
+// of ast symbols that precede the function and are probably a
+// function definition.  Currently, this would be something like
+// ['void main', '(', 'float derp', ',', 'vec4 color', ')'], though it
+// is likely to change in the future, so take this with a grain of salt.
 please.gl.ast.Block.prototype.make_function = function (prefix) {
     this.type = "function";
 
-    this.name = prefix[0].split(" ")[1];
+    var first = prefix[0].split(" ");
+    this.name = first[1]; // the name of the function
     this.input = []; // arguments eg [['float', 'foo'], ['float', 'bar']]
-    this.output = prefix[0].split(" ")[0]; // return type eg 'float'
+    this.output = first[0]; // return type eg 'float'
 
     var arg_parts = prefix.slice(2, -1).join("").split(",");
     if (arg_parts.length > 1 && !(arg_parts.length == 1 && arg_parts[0] == "void")) {
@@ -84,4 +96,74 @@ please.gl.ast.Block.prototype.make_function = function (prefix) {
             return sig;
         },
     });
+};
+
+
+//
+please.gl.ast.Block.prototype.make_outter_scope = function () {
+};
+
+
+// Identify which blocks are functions, and collapse the preceding
+// statement into the method.
+please.gl.__identify_functions = function (ast) {
+    var cache = [];
+    var remainder = [];
+    var recording_for = null;
+
+    var non_blocks = [
+        "enum",
+        "for",
+        "if",
+        "else",
+    ];
+
+    var collapse = function (block, cache) {
+        recording_for = null;
+
+        var is_block = true;
+        ITER(i, non_blocks) {
+            if (cache[0].startsWith(non_blocks[i])) {
+                is_block = false;
+                break;
+            }
+        }
+        if (is_block) {
+            block.make_function(cache);
+        }
+    };
+    DECR(i, ast) {
+        var statement = ast[i];
+        if (statement.constructor == please.gl.ast.Comment) {
+            remainder.unshift(statement);
+            continue;
+        }
+        else if (statement.constructor == please.gl.ast.Block) {
+            if (recording_for !== null) {
+                collapse(recording_for, cache);
+            }
+            remainder.unshift(statement);
+            recording_for = statement;
+            cache = [];
+            continue;
+        }
+        else if (recording_for !== null) {
+            if (statement.constructor == String) {
+                if (statement == ";") {
+                    collapse(recording_for, cache);
+                }
+                else {
+                    cache.unshift(statement);
+                    if (i === 0) {
+                        collapse(recording_for, cache);
+                    }
+                }
+            }
+            else {
+                collapse(recording_for, cache);
+                remainder.unshift(statement);
+            }
+        }
+    };
+    return remainder;
 };

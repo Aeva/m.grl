@@ -33,3 +33,60 @@ please.gl.ast.Global.prototype.print = function () {
     return out;
 };
 
+
+// This method takes a stream of tokens and parses out the glsl
+// globals from them.  Returns two lists, the first containing all of
+// the Global ast items that were extracted, the second is a list of
+// the remaining stream with the Globals removed.
+please.gl.__parse_globals = function (stream) {
+    var defs = [];
+    var modes = ["uniform", "attribute", "varying", "const"];
+    var globals = [];
+    var chaff = [];
+
+    ITER(i, stream) {
+        var statement = stream[i];
+        var selected = false;
+        if (statement.constructor == String) {
+            ITER(m, modes) {
+                var mode = modes[m];
+                if (statement.startsWith(mode)) {
+                    var sans_mode = statement.slice(mode.length+1);
+                    var type = sans_mode.split(" ")[0];
+                    var remainder = sans_mode.slice(type.length+1);
+                    
+                    defs.push({
+                        mode: mode,
+                        type: type,
+                        data: remainder,
+                    });
+                    selected = true;
+                    i += 1; // skip the next token because it is a ';'
+                    break;
+                }
+            }
+        }
+        if (!selected) {
+            chaff.push(statement);
+        }
+    }
+
+    ITER(i, defs) {
+        var def = defs[i];
+        var mode = def.mode;
+        var type = def.type;
+        var names = def.data.split(",");
+        ITER(n, names) {
+            var name = names[n].trim();
+            var value = undefined;
+            if (type === "const") {
+                var parts = name.split("=");
+                value = parts[0].trim();
+                name = parts[1].trim();
+            }
+            globals.push(new please.gl.ast.Global(mode, type, name, value));
+        }
+    };
+     
+    return [globals, chaff];
+};
