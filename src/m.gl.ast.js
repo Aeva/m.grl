@@ -95,6 +95,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
                 throw("mismatched brace - encountered an extra '}'");
             }
             else {
+                tree = please.gl.__identify_parentheticals(tree);
                 return [new please.gl.ast.Block(tree), i];
             }
         }
@@ -109,6 +110,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         var globals = extract[0];
         var remainder = extract[1];
         remainder = please.gl.__remove_precision(remainder);
+        remainder = please.gl.__identify_parentheticals(remainder);
         remainder = please.gl.__identify_functions(remainder);
         var stream = globals.concat(remainder);
         var ast = new please.gl.ast.Block(stream);

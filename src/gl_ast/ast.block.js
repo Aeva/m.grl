@@ -58,17 +58,26 @@ please.gl.ast.Block.prototype.print = function () {
 // Make this block a function.  The "prefix" argument is a list of ast
 // symbols that precede the function and are probably a function
 // definition.  Currently, this would be something like ['void main',
-// '(', 'float derp', ',', 'vec4 color', ')'], though it is likely to
-// change in the future, so take this with a grain of salt.
-please.gl.ast.Block.prototype.make_function = function (prefix) {
+// Parenthetical], though it is likely to change in the future, so
+// take this with a grain of salt.
+please.gl.ast.Block.prototype.make_function = function (invocation) {
     this.type = "function";
 
-    var first = prefix[0].split(" ");
-    this.name = first[1]; // the name of the function
-    this.input = []; // arguments eg [['float', 'foo'], ['float', 'bar']]
-    this.output = first[0]; // return type eg 'float'
+    var prefix = invocation[0].split(" ");
+    var params = invocation[1];
 
-    var arg_parts = prefix.slice(2, -1).join("").split(",");
+    if (params.constructor !== please.gl.ast.Parenthetical) {
+        throw("Malformed function invocation: " + invocation);
+    }
+    else if (!params.is_flat) {
+        throw("Nested parenthesis in function declaration: " + invocation);
+    }
+    
+    this.name = prefix[1]; // the name of the function
+    this.input = []; // arguments eg [['float', 'foo'], ['float', 'bar']]
+    this.output = prefix[0]; // return type eg 'float'
+
+    var arg_parts = params.data.join("").split(",");
     if (arg_parts.length > 1 && !(arg_parts.length == 1 && arg_parts[0] == "void")) {
         ITER(i, arg_parts) {
             this.input.push(arg_parts[i].split(" "));
@@ -160,7 +169,7 @@ please.gl.__identify_functions = function (ast) {
             continue;
         }
         else if (recording_for !== null) {
-            if (statement.constructor == String) {
+            if (statement.constructor == String || statement.constructor == please.gl.ast.Parenthetical) {
                 if (statement == ";") {
                     collapse(recording_for, cache);
                 }

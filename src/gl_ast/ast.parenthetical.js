@@ -58,12 +58,12 @@ please.gl.__identify_parentheticals = function (ast, start) {
             new_ast.push(selection[0]);
             i = selection[1];
         }
-        else if (token == ")") {
+        else if (item == ")") {
             if (start === 0) {
                 throw("mismatched parenthesis - encountered an extra ')'");
             }
             else {
-                return [please.gl.ast.Parenthetical(new_ast), i];
+                return [new please.gl.ast.Parenthetical(new_ast), i];
             }
         }
         else {
