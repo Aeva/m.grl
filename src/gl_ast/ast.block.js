@@ -1,4 +1,4 @@
-// - glslglsl/ast.block.js ----------------------------------------------- //
+// - gl_alst/ast.block.js ------------------------------------------------ //
 
 
 /* [+] please.gl.ast.Block(stream, type)

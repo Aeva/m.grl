@@ -3938,7 +3938,7 @@ please.gl.__symbols = [
     "<", ">", "=", "&",
     ",", ";",
 ];
-// - glslglsl/ast.comment.js --------------------------------------------- //
+// - gl_ast/ast.comment.js -------------------------------------------- //
 /* [+] please.gl.ast.Comment(text, multiline)
  *
  * AST constructor function representing code comments.
@@ -3992,7 +3992,7 @@ please.gl.__find_comments = function (src) {
     }
     return tokens;
 };
-// - glslglsl/ast.global.js ---------------------------------------------- //
+// - gl_ast/ast.global.js --------------------------------------------- //
 /* [+] please.gl.ast.Global(text)
  * 
  * A global variable declaration.  This is used for the following
@@ -4076,7 +4076,7 @@ please.gl.__parse_globals = function (stream) {
     };
     return [globals, chaff];
 };
-// - glslglsl/ast.block.js ----------------------------------------------- //
+// - gl_alst/ast.block.js ------------------------------------------------ //
 /* [+] please.gl.ast.Block(stream, type)
  * 
  * AST constructor function representing blocks.  For the sake of
@@ -4165,15 +4165,15 @@ please.gl.ast.Block.prototype.make_function = function (prefix) {
 // Make this block represent the global scope.
 please.gl.ast.Block.prototype.make_global_scope = function () {
     this.type = "global";
-    this.globals = {};
-    this.methods = {};
+    this.globals = [];
+    this.methods = [];
     for (var i=0; i<this.data.length; i+=1) {
         var item = this.data[i];
         if (item.constructor == please.gl.ast.Global) {
-            this.globals[item.name] = item;
+            this.globals.push(item);
         }
         if (item.constructor == please.gl.ast.Block && item.type == "function") {
-            this.methods[item.name] = item;
+            this.methods.push(item);
         }
     }
 };
@@ -4237,6 +4237,77 @@ please.gl.__identify_functions = function (ast) {
     };
     return remainder;
 };
+// - gl_ast/ast.parenthetical.js ----------------------------------------- //
+/* [+] please.gl.ast.Parenthetical(stream)
+ * 
+ * AST constructor function representing (parenthetical) sections.
+ * 
+ */
+please.gl.ast.Parenthetical = function (stream) {
+    console.assert(this !== window);
+    this.data = stream || [];
+};
+// This will print out the parenthetical area.
+please.gl.ast.Parenthetical.prototype.print = function () {
+    var out = [];
+    for (var i=0; i<this.data.length; i+=1) {
+        var part = this.data[i];
+        if (part.print) {
+            out.push(part.print());
+        }
+        else if (part == ",") {
+            out[out.length-1] += ",";
+        }
+        else {
+            out.push(part);
+        }
+    };
+    return "(" + out.join(" ") + ")";
+};
+// Returns true when the parenthetical block contains no
+// parentheticals.
+please.gl.ast.Parenthetical.prototype.is_flat = function () {
+    var is_flat = true;
+    for (var i=0; i<this.data.length; i+=1) {
+        if (this.data[i].constructor == please.gl.ast.Parenthetical) {
+            is_flat = false;
+            break;
+        }
+    }
+    return is_flat;
+};
+// Identify areas that are parenthetical, including proper nesting.
+// Returns a revised ast.
+please.gl.__identify_parentheticals = function (ast, start) {
+    if (start === undefined) { start = 0; };
+    var new_ast = [];
+    for (var i=start; i<ast.length; null) {
+        var item = ast[i];
+        if (item == "(") {
+            var selection = please.gl.__identify_parentheticals(ast, i+1);
+            new_ast.push(selection[0]);
+            i = selection[1];
+        }
+        else if (token == ")") {
+            if (start === 0) {
+                throw("mismatched parenthesis - encountered an extra ')'");
+            }
+            else {
+                return [please.gl.ast.Parenthetical(new_ast), i];
+            }
+        }
+        else {
+            new_ast.push(item);
+        }
+        i+=1;
+    }
+    if (start === 0) {
+        return new_ast;
+    }
+    else {
+        throw("mismatched parenthesis - missing a ')'");
+    }
+};
 // - glslglsl/ast.js ----------------------------------------------------- //
 // Removes the "precision" statements from the ast.
 please.gl.__remove_precision = function (ast) {
@@ -4297,7 +4368,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         }
         else if (token === "}") {
             if (start === 0) {
-                throw("mismatched parenthesis - encountered an extra }");
+                throw("mismatched brace - encountered an extra '}'");
             }
             else {
                 return [new please.gl.ast.Block(tree), i];
@@ -4320,7 +4391,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         return ast;
     }
     else {
-        throw("mismatched parenthesis - missing a }");
+        throw("mismatched brace - missing a '}'");
     }
 };
 // [+] please.gl.glsl_to_ast(shader_source)

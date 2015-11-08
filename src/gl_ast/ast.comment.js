@@ -1,4 +1,4 @@
-// - glslglsl/ast.comment.js --------------------------------------------- //
+// - gl_ast/ast.comment.js -------------------------------------------- //
 
 
 /* [+] please.gl.ast.Comment(text, multiline)

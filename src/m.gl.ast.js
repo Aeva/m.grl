@@ -17,6 +17,7 @@ please.gl.__symbols = [
 #include "gl_ast/ast.comment.js"
 #include "gl_ast/ast.global.js"
 #include "gl_ast/ast.block.js"
+#include "gl_ast/ast.parenthetical.js"
 
 // - glslglsl/ast.js ----------------------------------------------------- //
 
@@ -91,7 +92,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         }
         else if (token === "}") {
             if (start === 0) {
-                throw("mismatched parenthesis - encountered an extra }");
+                throw("mismatched brace - encountered an extra '}'");
             }
             else {
                 return [new please.gl.ast.Block(tree), i];
@@ -115,7 +116,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         return ast;
     }
     else {
-        throw("mismatched parenthesis - missing a }");
+        throw("mismatched brace - missing a '}'");
     }
 };
 
