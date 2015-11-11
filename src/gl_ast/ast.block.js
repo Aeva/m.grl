@@ -17,7 +17,7 @@ please.gl.ast.Block = function (stream) {
 };
 
 
-// Prints the ast for this block.  If this block is a function, then
+// Prints the glsl for this block.  If this block is a function, then
 // it will include the entire function definition.
 please.gl.ast.Block.prototype.print = function () {
     var flat = "";

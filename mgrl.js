@@ -4091,7 +4091,7 @@ please.gl.ast.Block = function (stream) {
     this.type = null;
     this.prefix = null;
 };
-// Prints the ast for this block.  If this block is a function, then
+// Prints the glsl for this block.  If this block is a function, then
 // it will include the entire function definition.
 please.gl.ast.Block.prototype.print = function () {
     var flat = "";
@@ -4315,6 +4315,62 @@ please.gl.__identify_parentheticals = function (ast, start) {
         throw("mismatched parenthesis - missing a ')'");
     }
 };
+// - gl_alst/ast.invocation.js ------------------------------------------- //
+/* [+] please.gl.ast.Invocation(name, args)
+ * 
+ * AST constructor function representing function calls.
+ * 
+ */
+please.gl.ast.Invocation = function (name, args) {
+    this.name = name || null;
+    this.args = args || null;
+};
+// Prints the glsl for this object.
+please.gl.ast.Invocation.prototype.print = function () {
+    return this.name + this.args.print()
+};
+// Identify function calls and collapse the relevant ast together.
+please.gl.__identify_invocations = function (ast) {
+    var ignore = [
+        "for",
+        "if",
+        "else",
+        "while",
+        "do",
+    ];
+    var remainder = [];
+    for (var i=0; i<ast.length; i+=1) {
+        var item = ast[i];
+        var uncaught = true;
+        if (item.constructor == please.gl.ast.Parenthetical) {
+            var peek = null;
+            for (var k=i-1; k>=0; k+=1) {
+                if (ast[k].constructor != please.gl.ast.Comment) {
+                    peek = ast[k];
+                    break;
+                }
+            }
+            if (peek && peek.constructor == String) {
+                uncaught = false;
+                for (var s=0; s<ignore.length; s+=1) {
+                    var check = ignore[s];
+                    if (peek == check) {
+                        uncaught = true;
+                        break;
+                    }
+                }
+                if (!uncaught) {
+                    remainder = remainder.slice(0, k);
+                    remainder.push(new please.gl.ast.Invocation(peek, item));
+                }
+            }
+        }
+        if (uncaught) {
+            remainder.push(item);
+        }
+    }
+    return remainder;
+};
 // - glslglsl/ast.js ----------------------------------------------------- //
 // Removes the "precision" statements from the ast.
 please.gl.__remove_precision = function (ast) {
@@ -4379,6 +4435,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
             }
             else {
                 tree = please.gl.__identify_parentheticals(tree);
+                tree = please.gl.__identify_invocations(tree);
                 return [new please.gl.ast.Block(tree), i];
             }
         }
