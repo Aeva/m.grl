@@ -175,9 +175,6 @@ please.gl.__identify_functions = function (ast) {
                 }
                 else {
                     cache.unshift(statement);
-                    if (i === 0) {
-                        collapse(recording_for, cache);
-                    }
                 }
             }
             else {
@@ -185,6 +182,9 @@ please.gl.__identify_functions = function (ast) {
                 remainder.unshift(statement);
             }
         }
-    };
+    }
+    if (recording_for && cache.length > 0) {
+        collapse(recording_for, cache);
+    }
     return remainder;
 };
