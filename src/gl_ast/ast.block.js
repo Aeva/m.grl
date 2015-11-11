@@ -122,6 +122,7 @@ please.gl.ast.Block.prototype.make_global_scope = function () {
             this.methods.push(item);
         }
     }
+    please.gl.__bind_invocations(this.data, this.methods);
 };
 
 
