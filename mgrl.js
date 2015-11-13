@@ -4468,16 +4468,20 @@ please.gl.__split_tokens = function (text) {
     var tokens = [];
     if (lowest_symbol) {
         if (lowest_offset > 0) {
-            var cut = new String(text.slice(0, lowest_offset).trim());
+            var raw = text.slice(0, lowest_offset);
+            var pre = (/\s*/).exec(raw)[0];
+            var cut = new String(raw.trim());
             please.gl.ast.mixin(cut);
-            cut.offset = text.offset;
+            cut.offset = text.offset + pre.length;
             tokens.push(cut);
         }
         tokens.push(lowest_symbol);
-        var after = new String(text.slice(lowest_offset + lowest_symbol.length).trim());
+        var raw = text.slice(lowest_offset + lowest_symbol.length);
+        var pre = (/\s*/).exec(raw)[0];
+        var after = new String(raw.trim());
         please.gl.ast.mixin(after);
         if (after.length > 0) {
-            after.offset = lowest_symbol.offset + lowest_symbol.length;
+            after.offset = lowest_symbol.offset + lowest_symbol.length + pre.length;
             tokens = tokens.concat(please.gl.__split_tokens(after));
         }
     }
