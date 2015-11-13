@@ -4159,6 +4159,10 @@ please.gl.ast.Block.prototype.children = function () {
 // take this with a grain of salt.
 please.gl.ast.Block.prototype.make_function = function (invocation) {
     this.type = "function";
+    this.offset = invocation[0].offset;
+    this.line = invocation[0].line;
+    this.char = invocation[0].char;
+    this.uri = invocation[0].uri;
     var prefix = invocation[0].split(" ");
     var params = invocation[1];
     if (params.constructor !== please.gl.ast.Parenthetical) {
@@ -4500,6 +4504,10 @@ please.gl.__stream_to_ast = function (tokens, start) {
         var token = tokens[i];
         if (token == "{") {
             var sub_tree = please.gl.__stream_to_ast(tokens, i+1);
+            sub_tree[0].offset = token.offset;
+            sub_tree[0].line = token.line;
+            sub_tree[0].char = token.char;
+            sub_tree[0].uri = token.uri;
             tree.push(sub_tree[0]);
             i = sub_tree[1];
         }

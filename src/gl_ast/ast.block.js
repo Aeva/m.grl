@@ -69,6 +69,10 @@ please.gl.ast.Block.prototype.children = function () {
 // take this with a grain of salt.
 please.gl.ast.Block.prototype.make_function = function (invocation) {
     this.type = "function";
+    this.offset = invocation[0].offset;
+    this.line = invocation[0].line;
+    this.char = invocation[0].char;
+    this.uri = invocation[0].uri;
 
     var prefix = invocation[0].split(" ");
     var params = invocation[1];

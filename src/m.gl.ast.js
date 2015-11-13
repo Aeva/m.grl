@@ -100,6 +100,10 @@ please.gl.__stream_to_ast = function (tokens, start) {
         var token = tokens[i];
         if (token == "{") {
             var sub_tree = please.gl.__stream_to_ast(tokens, i+1);
+            sub_tree[0].offset = token.offset;
+            sub_tree[0].line = token.line;
+            sub_tree[0].char = token.char;
+            sub_tree[0].uri = token.uri;
             tree.push(sub_tree[0]);
             i = sub_tree[1];
         }
