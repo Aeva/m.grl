@@ -41,6 +41,7 @@ please.gl.__find_comments = function (src) {
     var after = null;
     if (start > 0) {
         var first = new String(src.slice(0, start));
+        please.gl.ast.mixin(first);
         first.offset = src.offset;
         tokens.push(first);
     }
@@ -51,6 +52,7 @@ please.gl.__find_comments = function (src) {
     else {
         comment = subset.slice(open.length, stop);
         after = new String(subset.slice(stop+close.length));
+        please.gl.ast.mixin(after);
         after.offset = src.offset + stop+close.length;
     }
     if (comment) {

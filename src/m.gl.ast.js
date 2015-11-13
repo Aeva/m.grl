@@ -53,19 +53,26 @@ please.gl.__split_tokens = function (text) {
         var symbol = please.gl.__symbols[i];
         var offset = text.indexOf(symbol);
         if (offset !== -1 && offset < lowest_offset) {
-            lowest_symbol = symbol;
+            lowest_symbol = new String(symbol);
             lowest_offset = offset;
+            please.gl.ast.mixin(lowest_symbol);
+            lowest_symbol.offset = text.offset + lowest_offset;
         }
     }
 
     var tokens = [];
     if (lowest_symbol) {
         if (lowest_offset > 0) {
-            tokens.push(text.slice(0, lowest_offset).trim());
+            var cut = new String(text.slice(0, lowest_offset).trim());
+            please.gl.ast.mixin(cut);
+            cut.offset = text.offset;
+            tokens.push(cut);
         }
         tokens.push(lowest_symbol);
-        var after = text.slice(lowest_offset + lowest_symbol.length).trim();
+        var after = new String(text.slice(lowest_offset + lowest_symbol.length).trim());
+        please.gl.ast.mixin(after);
         if (after.length > 0) {
+            after.offset = lowest_symbol.offset + lowest_symbol.length;
             tokens = tokens.concat(please.gl.__split_tokens(after));
         }
     }
@@ -129,13 +136,13 @@ please.gl.__stream_to_ast = function (tokens, start) {
 
 // Maps the "offset" token param to line:char values in the original
 // source file.
-please.gl.__apply_source_map = function (ast, src) {
+please.gl.__apply_source_map = function (stream, src) {
     var lines = src.split("\n");
     var offsets = [];
     var total = 0;
     ITER(i, lines) {
         offsets.push(total);
-        total += lines[i].length;
+        total += (lines[i].length+1); // +1 to compensate for missing \n
     }
     var apply_src_map = function (token) {
         if (token.offset && token.offset != null) {
@@ -150,16 +157,7 @@ please.gl.__apply_source_map = function (ast, src) {
         }
         return token;
     };
-    var propogate = function (ast) {
-        apply_src_map(ast);
-        if (ast.children) {
-            var kids = ast.children();
-            ITER(i, kids) {
-                propogate(kids[i]);
-            }
-        }
-    };
-    propogate(ast);
+    stream.map(apply_src_map);
 };
 
 
@@ -184,7 +182,6 @@ please.gl.glsl_to_ast = function (src) {
             tokens.push(tmp[i]);
         }
     }
-    var ast = please.gl.__stream_to_ast(tokens);
-    please.gl.__apply_source_map(ast, src);
-    return ast;
+    please.gl.__apply_source_map(tokens, src);
+    return please.gl.__stream_to_ast(tokens);
 };
