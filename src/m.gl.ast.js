@@ -14,6 +14,7 @@ please.gl.__symbols = [
     ",", ";",
 ];
 
+#include "gl_ast/ast.common.js"
 #include "gl_ast/ast.comment.js"
 #include "gl_ast/ast.global.js"
 #include "gl_ast/ast.block.js"
@@ -86,12 +87,12 @@ please.gl.__stream_to_ast = function (tokens, start) {
 
     for (var i=start; i<tokens.length; null) {
         var token = tokens[i];
-        if (token === "{") {
+        if (token == "{") {
             var sub_tree = please.gl.__stream_to_ast(tokens, i+1);
             tree.push(sub_tree[0]);
             i = sub_tree[1];
         }
-        else if (token === "}") {
+        else if (token == "}") {
             if (start === 0) {
                 throw("mismatched brace - encountered an extra '}'");
             }
@@ -126,13 +127,44 @@ please.gl.__stream_to_ast = function (tokens, start) {
 
 
 
+// Maps the "offset" token param to line:char values in the original
+// source file.
+please.gl.__apply_source_map = function (ast, src) {
+    var lines = src.split("\n");
+    var offsets = [];
+    var total = 0;
+    ITER(i, lines) {
+        offsets.push(total);
+        total += lines[i].length;
+    }
+    var find_closest = function (token) {
+        if (token.offset && token.offset != null) {
+            ITER(i, offsets) {
+                if (offsets[i] > token.offset) {
+                    break;
+                }
+            }
+            var target = i-1;
+            token.line = target;
+            token.char = token.offset - offsets[target];
+        }
+        return token;
+    };
+    token.map(find_closest);
+};
+
+
+
 // [+] please.gl.glsl_to_ast(shader_source)
 //
 // Takes a glsl source file and returns an abstract syntax tree
 // representation of the code to be used for further processing.
 //
 please.gl.glsl_to_ast = function (src) {
+    src = src.replace("\r\n", "\n");
     src = src.replace("\r", "\n");
+    src = new String(src);
+    src.offset = 0;
     var tokens = [];
     var tmp = please.gl.__find_comments(src);
     ITER(i, tmp) {
@@ -143,5 +175,7 @@ please.gl.glsl_to_ast = function (src) {
             tokens.push(tmp[i]);
         }
     }
-    return please.gl.__stream_to_ast(tokens);
+    var ast = please.gl.__stream_to_ast(tokens, src);
+    please.gl.__source_map(ast);
+    return ast;
 };

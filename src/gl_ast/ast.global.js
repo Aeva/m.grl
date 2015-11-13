@@ -14,6 +14,7 @@
  */
 please.gl.ast.Global = function (mode, type, name, value) {
     console.assert(this !== window);
+    please.gl.ast.mixin(this);
     this.mode = mode;
     this.type = type;
     this.name = name;

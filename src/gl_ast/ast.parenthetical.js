@@ -8,6 +8,7 @@
  */
 please.gl.ast.Parenthetical = function (stream) {
     console.assert(this !== window);
+    please.gl.ast.mixin(this);
     this.data = stream || [];
 };
 

@@ -8,6 +8,7 @@
  */
 please.gl.ast.Comment = function (text, multiline) {
     console.assert(this !== window);
+    please.gl.ast.mixin(this);
     this.multiline = !!multiline;
     this.data = text;
 };
@@ -39,17 +40,23 @@ please.gl.__find_comments = function (src) {
     var comment = null;
     var after = null;
     if (start > 0) {
-        tokens.push(src.slice(0, start));
+        var first = new String(src.slice(0, start));
+        first.offset = src.offset;
+        tokens.push(first);
     }
     if (stop == -1) {
         comment = src.slice(start+open.length);
+        comment.offset = src.offset + start;
     }
     else {
         comment = subset.slice(open.length, stop);
-        after = subset.slice(stop+close.length);
+        after = new String(subset.slice(stop+close.length));
+        after.offset = src.offset + stop+close.length;
     }
     if (comment) {
-        tokens.push(new please.gl.ast.Comment(comment, close === "*/"));
+        comment = new please.gl.ast.Comment(comment, close === "*/")
+        comment.offset = src.offset + start;
+        tokens.push(comment);
     }
     if (after && after.length > 0) {
         tokens = tokens.concat(please.gl.__find_comments(after));

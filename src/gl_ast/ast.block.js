@@ -11,6 +11,7 @@
  */
 please.gl.ast.Block = function (stream) {
     console.assert(this !== window);
+    please.gl.ast.mixin(this);
     this.data = stream || [];
     this.type = null;
     this.prefix = null;
@@ -30,7 +31,7 @@ please.gl.ast.Block.prototype.print = function () {
         }
         else {
             flat += token;
-            if (token === ";") {
+            if (token == ";") {
                 flat += "\n";
             }
         }

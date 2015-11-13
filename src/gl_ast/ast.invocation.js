@@ -7,6 +7,7 @@
  * 
  */
 please.gl.ast.Invocation = function (name, args) {
+    please.gl.ast.mixin(this);
     this.name = name || null;
     this.args = args || null;
 };
