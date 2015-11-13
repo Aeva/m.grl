@@ -137,7 +137,7 @@ please.gl.__apply_source_map = function (ast, src) {
         offsets.push(total);
         total += lines[i].length;
     }
-    var find_closest = function (token) {
+    var apply_src_map = function (token) {
         if (token.offset && token.offset != null) {
             ITER(i, offsets) {
                 if (offsets[i] > token.offset) {
@@ -150,7 +150,16 @@ please.gl.__apply_source_map = function (ast, src) {
         }
         return token;
     };
-    token.map(find_closest);
+    var propogate = function (ast) {
+        apply_src_map(ast);
+        if (ast.children) {
+            var kids = ast.children();
+            ITER(i, kids) {
+                propogate(kids[i]);
+            }
+        }
+    };
+    propogate(ast);
 };
 
 
@@ -175,7 +184,7 @@ please.gl.glsl_to_ast = function (src) {
             tokens.push(tmp[i]);
         }
     }
-    var ast = please.gl.__stream_to_ast(tokens, src);
-    please.gl.__source_map(ast);
+    var ast = please.gl.__stream_to_ast(tokens);
+    please.gl.__apply_source_map(ast, src);
     return ast;
 };

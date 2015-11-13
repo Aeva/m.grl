@@ -56,6 +56,12 @@ please.gl.ast.Block.prototype.print = function () {
 };
 
 
+// Returns all of the child ast objects for this block.
+please.gl.ast.Block.prototype.children = function () {
+    return this.data;
+};
+
+
 // Make this block a function.  The "prefix" argument is a list of ast
 // symbols that precede the function and are probably a function
 // definition.  Currently, this would be something like ['void main',

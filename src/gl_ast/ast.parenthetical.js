@@ -32,6 +32,12 @@ please.gl.ast.Parenthetical.prototype.print = function () {
 };
 
 
+// Returns all of the child ast objects for this block.
+please.gl.ast.Parenthetical.prototype.children = function () {
+    return this.data;
+};
+
+
 // Returns true when the parenthetical block contains no
 // parentheticals.
 please.gl.ast.Parenthetical.prototype.is_flat = function () {
