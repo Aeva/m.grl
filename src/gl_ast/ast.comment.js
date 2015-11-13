@@ -53,7 +53,7 @@ please.gl.__find_comments = function (src) {
         comment = subset.slice(open.length, stop);
         after = new String(subset.slice(stop+close.length));
         please.gl.ast.mixin(after);
-        after.offset = src.offset + stop+close.length;
+        after.offset = src.offset + start + stop + close.length;
     }
     if (comment) {
         comment = new please.gl.ast.Comment(comment, close === "*/")
