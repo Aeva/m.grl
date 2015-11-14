@@ -6,14 +6,15 @@
  * AST constructor function representing code comments.
  *
  */
-please.gl.ast.Comment = function (text, multiline) {
+please.gl.ast.Comment = function (text, type) {
     console.assert(this !== window);
     please.gl.ast.mixin(this);
-    this.multiline = !!multiline;
+    this.multiline = type != "single";
+    this.quotation = type == "quote";
     this.data = text;
 };
 please.gl.ast.Comment.prototype.print = function () {
-    if (this.multiline) {
+    if (this.quotation || this.multiline) {
         return "/*" + this.data + "*/";
     }
     else {
@@ -26,13 +27,26 @@ please.gl.ast.Comment.prototype.print = function () {
 // commented out, and returns a list of Comment objects and strings.
 // This is the very first step in producing the token stream.
 please.gl.__find_comments = function (src) {
-    var open_regex = /(?:\/\/|\/\*)/m;
+    var open_regex = /(?:\/\/|\/\*|"|')/m;
     var open = open_regex.exec(src);
     if (open === null) {
         return [src];
     }
     open = open[0];
-    var close = open === "/*" ? "*/" : "\n";
+    var close;
+    var type;
+    if (open == "/*") {
+        close = "*/";
+        type = "multi";
+    }
+    else if (open == "//") {
+        close = "\n";
+        type = "single";
+    }
+    else {
+        close = open;
+        type = "quote";
+    }
     var tokens = [];
     var start = src.indexOf(open);
     var subset = src.slice(start);
@@ -54,7 +68,7 @@ please.gl.__find_comments = function (src) {
         after.meta.offset = src.meta.offset + start + stop + close.length;
     }
     if (comment) {
-        comment = new please.gl.ast.Comment(comment, close === "*/")
+        comment = new please.gl.ast.Comment(comment, type)
         comment.meta.offset = src.meta.offset + start;
         tokens.push(comment);
     }
