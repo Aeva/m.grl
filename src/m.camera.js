@@ -195,7 +195,7 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
         mat4.scale(local_matrix, local_matrix, this.scale);
     }
     var parent = this.parent;
-    var parent_matrix = parent ? parent.world_matrix : mat4.create();
+    var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
     mat4.multiply(world_matrix, parent_matrix, local_matrix);
     world_matrix.dirty = true;
     return world_matrix;

@@ -196,7 +196,7 @@ please.overlay_sync = function () {
                     graph.camera.projection_matrix,
                     graph.camera.view_matrix
                 ),
-                node.world_matrix);
+                node.shader.world_matrix);
             
             var position = vec4.create();
             vec4.transformMat4(position, origin, final_matrix);

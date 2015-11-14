@@ -18,8 +18,9 @@ please.dom = {
         return node;
     },
     "init_graph_node" : function (node) {
-        please.make_animatable(
-            node, "world_matrix", node.__world_matrix_driver, node, true);
+        node.shader = {};
+	please.make_animatable(
+            node, "world_matrix", node.__world_matrix_driver, node.shader, true);
     },
     "init_camera" : function (node) {
         node.look_at = [0, 0, 0];

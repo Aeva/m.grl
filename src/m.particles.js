@@ -142,7 +142,7 @@ please.ParticleEmitter.prototype.__rain = function () {
     var span = DYNAMIC(tracker.span);
     particle["start"][0] = now;
     particle["expire"][0] = now + span;
-    mat4.copy(particle["world_matrix"], this.world_matrix);
+    mat4.copy(particle["world_matrix"], this.shader.world_matrix);
     
     // call the particle initialization method
     var args = [particle];

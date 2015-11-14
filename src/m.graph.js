@@ -179,7 +179,7 @@
 //  - **shader.alpha** Animatable scalar - a numerical value between
 //    0.0 and 1.0.  Defaults to 1.0.
 //
-//  - **world_matrix** "Locked" animatable variable which by
+//  - **shader.world_matrix** "Locked" animatable variable which by
 //    default contains a driver method that calculate's the object's
 //    world matrix for this frame by calculating it's world matrix
 //    from the location, rotation, and scale properties, and then
@@ -188,7 +188,7 @@
 //    object's own world matrix.
 //
 //  - **shader.normal_matrix** "Locked" animatable variable which
-//    calculates the normal_matrix from world_matrix.
+//    calculates the normal_matrix from shader.world_matrix.
 //
 //  - **is_sprite** "Locked" animatable scalar value.  Returns
 //    true if this.draw_type is set to "sprite", otherwise returns
@@ -550,21 +550,21 @@ please.GraphNode.prototype = {
         mat4.fromRotationTranslation(
             local_matrix, this.quaternion, this.location);
         mat4.scale(local_matrix, local_matrix, this.scale);
-        var parent_matrix = parent ? parent.world_matrix : mat4.create();
+        var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
         mat4.multiply(world_matrix, parent_matrix, local_matrix);
         world_matrix.dirty = true;
         return world_matrix;
     },
     "__normal_matrix_driver" : function () {
         var normal_matrix = mat3.create();
-        mat3.fromMat4(normal_matrix, this.world_matrix);
+        mat3.fromMat4(normal_matrix, this.shader.world_matrix);
         mat3.invert(normal_matrix, normal_matrix);
         mat3.transpose(normal_matrix, normal_matrix);
         normal_matrix.dirty = true;
         return normal_matrix;
     },
     "__world_coordinate_driver" : function () {
-        return vec3.transformMat4(vec3.create(), vec3.create(), this.world_matrix);
+        return vec3.transformMat4(vec3.create(), vec3.create(), this.shader.world_matrix);
     },
     "__is_sprite_driver" : function () {
         return this.draw_type === "sprite";
@@ -609,7 +609,7 @@ please.GraphNode.prototype = {
     },
     "__z_sort_prep" : function (screen_matrix) {
         var matrix = mat4.multiply(
-            mat4.create(), screen_matrix, this.world_matrix);
+            mat4.create(), screen_matrix, this.shader.world_matrix);
         var position = vec3.transformMat4(vec3.create(), this.location, matrix);
         this.__z_depth = position[2];
     },
@@ -1000,7 +1000,7 @@ please.__picking_pass = function () {
                         vec3.add(local_coord, tmp_coord, vbo.stats.min);
 
                         var world_coord = new Float32Array(3);
-                        vec3.transformMat4(world_coord, local_coord, info.picked.world_matrix);
+                        vec3.transformMat4(world_coord, local_coord, info.picked.shader.world_matrix);
                         info.local_location = local_coord;
                         info.world_location = world_coord;
                     }
