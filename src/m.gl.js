@@ -1326,7 +1326,7 @@ please.gl.ShaderSource = function (src, uri) {
         this.mode == "vert" || this.mode == "frag" || this.mode == "glsl");
     // parse the AST to catch errors in the source page, as well as to
     // determine if any additional files need to be included.
-    var ast = please.gl.glsl_to_ast(src, uri);
+    this.__ast = please.gl.glsl_to_ast(src, uri);
     this.__blob = null;
     Object.freeze(this.src);
     Object.freeze(this.uri);
@@ -1334,6 +1334,7 @@ please.gl.ShaderSource = function (src, uri) {
 };
 please.gl.ShaderSource.prototype.__direct_build = function () {
     if (!this.__blob) {
+        var source = "precision mediump float;\n\n" + this.__ast.print();
         this.__blob = please.gl.__build_shader(this.src, this.uri);
     }
     return this.__blob;
