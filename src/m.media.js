@@ -340,8 +340,8 @@ please.media.guess_type = function (file_name) {
         "jta" : [".jta"],
         "gani" : [".gani"],
         "audio" : [".wav", ".mp3", ".ogg"],
-        "glsl" : [".vert", ".frag"],
-        "text" : [".txt", ".glsl"],
+        "glsl" : [".vert", ".frag", ".glsl"],
+        "text" : [".txt"],
     };
 
     ITER_PROPS (type, type_map) {

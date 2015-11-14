@@ -1,4 +1,4 @@
-// - glslglsl/ast.js ----------------------------------------------------- //
+// - m.gl.ast.js --------------------------------------------------------- //
 
 // namespace for ast constructors
 please.gl.ast = {};
@@ -25,6 +25,33 @@ please.gl.__symbols = [
 
 
 
+// Remove leading and trailing whitespace from a list of ast objects.
+please.gl.__trim = function (stream) {
+    var start = 0;
+    var stop = 0;
+    ITER(i, stream) {
+        var check = stream[i];
+        if (check.constructor == String && check.trim() == '') {
+            start += 1;
+        }
+        else {
+            break;
+        }
+    }
+    DECR(i, stream) {
+        var check = stream[i];
+        if (check.constructor == String && check.trim() == '') {
+            stop += 1;
+        }
+        else {
+            break;
+        }
+    }
+    return stream.slice(start, stream.length-stop);
+};
+
+
+
 // Removes the "precision" statements from the ast.
 please.gl.__remove_precision = function (ast) {
     var remainder = [];
@@ -38,7 +65,7 @@ please.gl.__remove_precision = function (ast) {
             remainder.push(statement);
         }
     }
-    return remainder;
+    return please.gl.__trim(remainder);
 };
 
 

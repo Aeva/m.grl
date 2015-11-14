@@ -1,16 +1,6 @@
 // - m.gl.js ------------------------------------------------------------- //
 
 
-// "glsl" media type handler
-please.media.search_paths.glsl = "",
-please.media.handlers.glsl = function (url, asset_name, callback) {
-    var media_callback = function (req) {
-        please.media.assets[asset_name] = please.gl.__build_shader(req.response, url);
-    };
-    please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
-};
-
-
 // Namespace for m.gl guts
 please.gl = {
     "canvas" : null,
@@ -506,7 +496,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     for (var i=1; i< arguments.length; i+=1) {
         var shader = arguments[i];
         if (typeof(shader) === "string") {
-            shader = please.access(shader);
+            shader = please.access(shader).__direct_build();
         }
         if (shader) {
             if (shader.type == gl.VERTEX_SHADER) {
@@ -1320,3 +1310,48 @@ please.gl.pick = function (x, y) {
     gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
     return px;
 }
+
+
+/* [+] please.gl.ShaderSource(src, uri)
+ * 
+ * Constructor function for objects representing GLSL source files.
+ * 
+ */
+please.gl.ShaderSource = function (src, uri) {
+    this.src = src;
+    this.uri = uri;
+    this.mode = uri.split(".").slice(-1);
+    console.assert(
+        this.mode == "vert" || this.mode == "frag" || this.mode == "glsl");
+    // parse the AST to catch errors in the source page, as well as to
+    // determine if any additional files need to be included.
+    var ast = please.gl.glsl_to_ast(src, uri);
+    this.__blob == null;
+    Object.freeze(this.src);
+    Object.freeze(this.uri);
+    Object.freeze(this.mode);
+};
+please.gl.ShaderSource.prototype.__direct_build = function () {
+    if (this.__blob === null) {
+        this.__blob = please.gl.__build_shader(this.src, this.uri);
+    }
+    return this.__blob;
+};
+please.gl.ShaderSource.prototype.ast_copy = function () {
+    // The result of this is not cached, as the tree is mutable and
+    // many uses for this will need to modify it.  Also, some AST
+    // objects make use of getters to do automatic data binding, so a
+    // JSON deep copy is not possible here.  Unfortunately that means
+    // that calling this is an expensive operation.
+    return please.gl.glsl_to_ast(this.src, this.uri);
+};
+
+
+// "glsl" media type handler
+please.media.search_paths.glsl = "",
+please.media.handlers.glsl = function (url, asset_name, callback) {
+    var media_callback = function (req) {
+        please.media.assets[asset_name] = new please.gl.ShaderSource(src, uri);
+    };
+    please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
+};
