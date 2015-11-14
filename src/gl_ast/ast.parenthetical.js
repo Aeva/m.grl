@@ -62,6 +62,7 @@ please.gl.__identify_parentheticals = function (ast, start) {
         var item = ast[i];
         if (item == "(") {
             var selection = please.gl.__identify_parentheticals(ast, i+1);
+            selection[0].meta = item.meta;
             new_ast.push(selection[0]);
             i = selection[1];
         }

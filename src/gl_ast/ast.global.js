@@ -60,6 +60,7 @@ please.gl.__parse_globals = function (stream) {
                         mode: mode,
                         type: type,
                         data: remainder,
+                        meta: statement.meta,
                     });
                     selected = true;
                     i += 1; // skip the next token because it is a ';'
@@ -85,7 +86,9 @@ please.gl.__parse_globals = function (stream) {
                 value = parts[0].trim();
                 name = parts[1].trim();
             }
-            globals.push(new please.gl.ast.Global(mode, type, name, value));
+            var global = new please.gl.ast.Global(mode, type, name, value);
+            global.meta = def.meta;
+            globals.push(global);
         }
     };
      

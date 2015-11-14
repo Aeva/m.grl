@@ -40,24 +40,22 @@ please.gl.__find_comments = function (src) {
     var comment = null;
     var after = null;
     if (start > 0) {
-        var first = new String(src.slice(0, start));
-        please.gl.ast.mixin(first);
-        first.offset = src.offset;
+        var first = please.gl.ast.str(src.slice(0, start));
+        first.meta.offset = src.meta.offset;
         tokens.push(first);
     }
     if (stop == -1) {
         comment = src.slice(start+open.length);
-        comment.offset = src.offset + start;
+        comment.meta.offset = src.meta.offset + start;
     }
     else {
         comment = subset.slice(open.length, stop);
-        after = new String(subset.slice(stop+close.length));
-        please.gl.ast.mixin(after);
-        after.offset = src.offset + start + stop + close.length;
+        after = please.gl.ast.str(subset.slice(stop+close.length));
+        after.meta.offset = src.meta.offset + start + stop + close.length;
     }
     if (comment) {
         comment = new please.gl.ast.Comment(comment, close === "*/")
-        comment.offset = src.offset + start;
+        comment.meta.offset = src.meta.offset + start;
         tokens.push(comment);
     }
     if (after && after.length > 0) {

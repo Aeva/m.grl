@@ -50,8 +50,10 @@ please.gl.__identify_invocations = function (ast) {
                     }
                 }
                 if (!uncaught) {
+                    var invoker = new please.gl.ast.Invocation(peek, item);
+                    invoker.meta = peek.meta;
                     remainder = remainder.slice(0, k);
-                    remainder.push(new please.gl.ast.Invocation(peek, item));
+                    remainder.push(invoker);
                 }
             }
         }
@@ -63,7 +65,10 @@ please.gl.__identify_invocations = function (ast) {
 };
 
 
-//
+// For each unbound method invocation, find a matching method in the
+// given namespace, and make the invocation's name property a getter
+// that returns the method's name property.  This allows for methods
+// to be dynamically renamed.
 please.gl.__bind_invocations = function (stream, methods_set, scope) {
     if (!scope) {
         scope = {};
