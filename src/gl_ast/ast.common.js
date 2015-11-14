@@ -8,8 +8,30 @@
  * 
  */
 please.gl.ast.mixin = function (obj) {
-    obj.offset = null;
-    obj.line = null;
-    obj.char = null;
-    obj.uri = "unknown";
+    if (!obj.meta) {
+        obj.meta = {
+            'offset': null,
+            'line': null,
+            'char' : null,
+            'uri' : "unknown",
+        };
+    }
+};
+
+
+/* [+] please.gl.ast.str(text, offset)
+ * 
+ * Shorthand for initiating a String object with ast an ast metadata
+ * object.  Use in place of 'new String(text)'.  The second parameter
+ * is optional, and if provided, sets the metadata 'offset' value as
+ * well.
+ * 
+ */
+please.gl.ast.str = function (text, offset) {
+    var str = new String(text);
+    please.gl.ast.mixin(str);
+    if (offset !== undefined) {
+        str.meta.offset = offset;
+    }
+    return str;
 };

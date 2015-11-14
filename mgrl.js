@@ -3946,10 +3946,30 @@ please.gl.__symbols = [
  * 
  */
 please.gl.ast.mixin = function (obj) {
-    obj.offset = null;
-    obj.line = null;
-    obj.char = null;
-    obj.uri = "unknown";
+    if (!obj.meta) {
+        obj.meta = {
+            'offset': null,
+            'line': null,
+            'char' : null,
+            'uri' : "unknown",
+        };
+    }
+};
+/* [+] please.gl.ast.str(text, offset)
+ * 
+ * Shorthand for initiating a String object with ast an ast metadata
+ * object.  Use in place of 'new String(text)'.  The second parameter
+ * is optional, and if provided, sets the metadata 'offset' value as
+ * well.
+ * 
+ */
+please.gl.ast.str = function (text, offset) {
+    var str = new String(text);
+    please.gl.ast.mixin(str);
+    if (offset !== undefined) {
+        str.meta.offset = offset;
+    }
+    return str;
 };
 // - gl_ast/ast.comment.js -------------------------------------------- //
 /* [+] please.gl.ast.Comment(text, multiline)
@@ -4159,10 +4179,7 @@ please.gl.ast.Block.prototype.children = function () {
 // take this with a grain of salt.
 please.gl.ast.Block.prototype.make_function = function (invocation) {
     this.type = "function";
-    this.offset = invocation[0].offset;
-    this.line = invocation[0].line;
-    this.char = invocation[0].char;
-    this.uri = invocation[0].uri;
+    this.meta = invocation[0].meta;
     var prefix = invocation[0].split(" ");
     var params = invocation[1];
     if (params.constructor !== please.gl.ast.Parenthetical) {
@@ -4463,10 +4480,9 @@ please.gl.__split_tokens = function (text) {
         var symbol = please.gl.__symbols[i];
         var offset = text.indexOf(symbol);
         if (offset !== -1 && offset < lowest_offset) {
-            lowest_symbol = new String(symbol);
             lowest_offset = offset;
-            please.gl.ast.mixin(lowest_symbol);
-            lowest_symbol.offset = text.offset + lowest_offset;
+            lowest_symbol = please.gl.ast.str(symbol);
+            lowest_symbol.meta.offset = text.meta.offset + lowest_offset;
         }
     }
     var tokens = [];
@@ -4474,18 +4490,15 @@ please.gl.__split_tokens = function (text) {
         if (lowest_offset > 0) {
             var raw = text.slice(0, lowest_offset);
             var pre = (/\s*/).exec(raw)[0];
-            var cut = new String(raw.trim());
-            please.gl.ast.mixin(cut);
-            cut.offset = text.offset + pre.length;
+            var cut = please.gl.ast.str(raw.trim(), text.meta.offset + pre.length);
             tokens.push(cut);
         }
         tokens.push(lowest_symbol);
         var raw = text.slice(lowest_offset + lowest_symbol.length);
         var pre = (/\s*/).exec(raw)[0];
-        var after = new String(raw.trim());
-        please.gl.ast.mixin(after);
+        var after = please.gl.ast.str(raw.trim());
         if (after.length > 0) {
-            after.offset = lowest_symbol.offset + lowest_symbol.length + pre.length;
+            after.meta.offset = lowest_symbol.meta.offset + lowest_symbol.length + pre.length;
             tokens = tokens.concat(please.gl.__split_tokens(after));
         }
     }
@@ -4504,10 +4517,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         var token = tokens[i];
         if (token == "{") {
             var sub_tree = please.gl.__stream_to_ast(tokens, i+1);
-            sub_tree[0].offset = token.offset;
-            sub_tree[0].line = token.line;
-            sub_tree[0].char = token.char;
-            sub_tree[0].uri = token.uri;
+            sub_tree[0].meta = token.meta;
             tree.push(sub_tree[0]);
             i = sub_tree[1];
         }
@@ -4553,15 +4563,15 @@ please.gl.__apply_source_map = function (stream, src) {
         total += (lines[i].length+1); // +1 to compensate for missing \n
     }
     var apply_src_map = function (token) {
-        if (token.offset && token.offset != null) {
+        if (token.meta.offset && token.meta.offset != null) {
             for (var i=0; i<offsets.length; i+=1) {
-                if (offsets[i] > token.offset) {
+                if (offsets[i] > token.meta.offset) {
                     break;
                 }
             }
             var target = i-1;
-            token.line = target;
-            token.char = token.offset - offsets[target];
+            token.meta.line = target;
+            token.meta.char = token.meta.offset - offsets[target];
         }
         return token;
     };
@@ -4575,8 +4585,8 @@ please.gl.__apply_source_map = function (stream, src) {
 please.gl.glsl_to_ast = function (src) {
     src = src.replace("\r\n", "\n");
     src = src.replace("\r", "\n");
-    src = new String(src);
-    src.offset = 0;
+    src = please.gl.ast.str(src);
+    src.meta.offset = 0;
     var tokens = [];
     var tmp = please.gl.__find_comments(src);
     for (var i=0; i<tmp.length; i+=1) {
