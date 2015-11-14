@@ -496,18 +496,19 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     for (var i=1; i< arguments.length; i+=1) {
         var shader = arguments[i];
         if (typeof(shader) === "string") {
-            shader = please.access(shader).__direct_build();
+            shader = please.access(shader);
         }
         if (shader) {
-            if (shader.type == gl.VERTEX_SHADER) {
-                prog.vert = shader;
+            var blob = shader.__direct_build();
+            if (blob.type == gl.VERTEX_SHADER) {
+                prog.vert = blob;
             }
-            if (shader.type == gl.FRAGMENT_SHADER) {
-                prog.frag = shader;
+            if (blob.type == gl.FRAGMENT_SHADER) {
+                prog.frag = blob;
             }
-            if (shader.error) {
-                errors.push(shader.error);
-                build_fail += "\n\n" + shader.error;
+            if (blob.error) {
+                errors.push(blob.error);
+                build_fail += "\n\n" + blob.error;
             }
         }
     }
@@ -1326,13 +1327,13 @@ please.gl.ShaderSource = function (src, uri) {
     // parse the AST to catch errors in the source page, as well as to
     // determine if any additional files need to be included.
     var ast = please.gl.glsl_to_ast(src, uri);
-    this.__blob == null;
+    this.__blob = null;
     Object.freeze(this.src);
     Object.freeze(this.uri);
     Object.freeze(this.mode);
 };
 please.gl.ShaderSource.prototype.__direct_build = function () {
-    if (this.__blob === null) {
+    if (!this.__blob) {
         this.__blob = please.gl.__build_shader(this.src, this.uri);
     }
     return this.__blob;
@@ -1351,7 +1352,7 @@ please.gl.ShaderSource.prototype.ast_copy = function () {
 please.media.search_paths.glsl = "",
 please.media.handlers.glsl = function (url, asset_name, callback) {
     var media_callback = function (req) {
-        please.media.assets[asset_name] = new please.gl.ShaderSource(src, uri);
+        please.media.assets[asset_name] = new please.gl.ShaderSource(req.responseText, url);
     };
     please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
 };

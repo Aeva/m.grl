@@ -1,5 +1,5 @@
-//  Do not call #include on curve_template.glsl in your source files.
-//  Use the #curve macro instead!!!
+//  Do not call include on curve_template.glsl in your source files.
+//  Use the curve macro instead!!!
 
 GL_TYPE sample_curve(GL_TYPE samples[ARRAY_LEN], float alpha) {
   float pick = (ARRAY_LEN.0 - 1.0) * alpha;

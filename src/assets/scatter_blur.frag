@@ -11,7 +11,7 @@ const float max_samples = 32.0;
 const float two_pi = 6.28318530718;
 
 
-#include "normalize_screen_coord.glsl"
+include("normalize_screen_coord.glsl");
 
 
 vec2 screen_clamp(vec2 coord) {

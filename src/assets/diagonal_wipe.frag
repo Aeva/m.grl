@@ -12,7 +12,7 @@ uniform bool flip_axis;
 uniform bool flip_direction;
 
 
-#include "normalize_screen_coord.glsl"
+include("normalize_screen_coord.glsl");
 
 
 void main(void) {

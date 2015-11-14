@@ -88,7 +88,6 @@ please.gl.__bind_invocations = function (stream, methods_set, scope) {
         if (item.constructor == please.gl.ast.Invocation) {
             if (scope[item.name]) {
                 // add a binding
-                console.info("FOUND: " + item.name);
                 add_binding(item, scope[item.name]);
             }
             please.gl.__bind_invocations(item.args, null, scope);
