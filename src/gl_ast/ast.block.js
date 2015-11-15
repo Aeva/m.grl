@@ -85,7 +85,7 @@ please.gl.ast.Block.prototype.make_function = function (invocation) {
     this.input = []; // arguments eg [['float', 'foo'], ['float', 'bar']]
     this.output = prefix[0]; // return type eg 'float'
 
-    var arg_parts = params.data.join("").split(",");
+    var arg_parts = please.gl.__trim(params.data.join("").split(","));
     if (!(arg_parts.length == 1 && arg_parts[0] == "void")) {
         ITER(i, arg_parts) {
             this.input.push(arg_parts[i].split(" "));
