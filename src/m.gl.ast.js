@@ -1,7 +1,9 @@
 // - m.gl.ast.js --------------------------------------------------------- //
 
-// namespace for ast constructors
+// namespaces for ast constructors and macros
 please.gl.ast = {};
+please.gl.macros = {};
+
 
 // delimiting symbols used for splitting arbitrary strings into token
 // arrays
@@ -20,6 +22,7 @@ please.gl.__symbols = [
 #include "gl_ast/ast.block.js"
 #include "gl_ast/ast.parenthetical.js"
 #include "gl_ast/ast.invocation.js"
+#include "gl_ast/ast.macros.js"
 
 // - glslglsl/ast.js ----------------------------------------------------- //
 
@@ -211,5 +214,7 @@ please.gl.glsl_to_ast = function (src) {
         }
     }
     please.gl.__apply_source_map(tokens, src);
-    return please.gl.__stream_to_ast(tokens);
+    var ast = please.gl.__stream_to_ast(tokens);
+    please.gl.macros.include(ast);
+    return ast;
 };

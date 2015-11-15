@@ -10,6 +10,7 @@ please.gl.ast.Invocation = function (name, args) {
     please.gl.ast.mixin(this);
     this.name = name || null;
     this.args = args || null;
+    this.bound = false;
 };
 
 
@@ -79,6 +80,7 @@ please.gl.__bind_invocations = function (stream, methods_set, scope) {
     }
 
     var add_binding = function (invocation, method) {
+        item.bound = true;
         Object.defineProperty(item, "name", {get: function () {
             return method.name;
         }});

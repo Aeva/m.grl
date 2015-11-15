@@ -15,6 +15,7 @@ please.gl.ast.Block = function (stream) {
     this.data = stream || [];
     this.type = null;
     this.prefix = null;
+    this.inclusions = [];
 };
 
 

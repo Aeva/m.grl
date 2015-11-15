@@ -1331,6 +1331,13 @@ please.gl.ShaderSource = function (src, uri) {
     Object.freeze(this.src);
     Object.freeze(this.uri);
     Object.freeze(this.mode);
+
+    // trigger please.load for any source files that might have been
+    // included
+    var load_opts = {"force_type" : "glsl"};
+    ITER(i, this.__ast.inclusions) {
+        please.load(this.__ast.inclusions[i], load_opts);
+    }
 };
 please.gl.ShaderSource.prototype.__direct_build = function () {
     if (!this.__blob) {
