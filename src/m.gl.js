@@ -1335,7 +1335,7 @@ please.gl.ShaderSource = function (src, uri) {
 please.gl.ShaderSource.prototype.__direct_build = function () {
     if (!this.__blob) {
         var source = "precision mediump float;\n\n" + this.__ast.print();
-        this.__blob = please.gl.__build_shader(this.src, this.uri);
+        this.__blob = please.gl.__build_shader(source, this.uri);
     }
     return this.__blob;
 };
