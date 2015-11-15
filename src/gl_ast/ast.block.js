@@ -27,6 +27,13 @@ please.gl.ast.Block.prototype.print = function () {
 
     ITER(i, this.data) {
         var token = this.data[i];
+        if (this.type === "global") {
+            if (token.constructor != please.gl.ast.Global &&
+                token.constructor != please.gl.ast.Comment &&
+                token.constructor != please.gl.ast.Block) {
+                continue;
+            }
+        }
         if (token.print) {
             flat += token.print();
         }
