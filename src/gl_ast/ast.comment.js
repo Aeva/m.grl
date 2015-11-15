@@ -27,7 +27,7 @@ please.gl.ast.Comment.prototype.print = function () {
 // commented out, and returns a list of Comment objects and strings.
 // This is the very first step in producing the token stream.
 please.gl.__find_comments = function (src) {
-    var open_regex = /(?:\/\/|\/\*|"|')/m;
+    var open_regex = /(?:\/\/|\/\*|\"|\')/m;//"
     var open = open_regex.exec(src);
     if (open === null) {
         return [src];
@@ -50,7 +50,9 @@ please.gl.__find_comments = function (src) {
     var tokens = [];
     var start = src.indexOf(open);
     var subset = src.slice(start);
-    var stop = subset.indexOf(close);
+    // stop skips the first character of subset, so as not to match in
+    // the wrong place for quotations.
+    var stop = subset.slice(1).indexOf(close)+1;
     var comment = null;
     var after = null;
     if (start > 0) {
