@@ -21,9 +21,33 @@ please.gl.ast.Block = function (stream) {
 
 // Prints the glsl for this block.  If this block is a function, then
 // it will include the entire function definition.
-please.gl.ast.Block.prototype.print = function () {
+please.gl.ast.Block.prototype.print = function (options) {
+    var opt = {
+        "is_include" : false,
+    };
+    if (options) {
+        ITER_PROPS(key, opt) {
+            if (options.hasOwnProperty(key)) {
+                opt[key] = options[key];
+            }
+        }
+    }
+
     var flat = "";
     var out = "";
+    
+    if (this.type === "global") {
+        if (opt.is_include == false) {
+            var imports = this.all_includes();
+            ITER(i, imports) {
+                var other = please.access(imports[i]);
+                out += other.__ast.print({'is_include': other.uri});
+            }
+        }
+        else {
+            out += this.include_banner(opt.is_include, true);
+        }
+    }
 
     ITER(i, this.data) {
         var token = this.data[i];
@@ -54,19 +78,60 @@ please.gl.ast.Block.prototype.print = function () {
                 indented += "  " + line + "\n";
             }
         };
-        out = (this.prefix || "") + " {\n" + indented + "}\n";
+        out += (this.prefix || "") + " {\n" + indented + "}\n";
     }
     else {
-        out = flat;
+        out += flat;
+        if (opt.is_include) {
+            out += this.include_banner(opt.is_include, false);
+        }
     }
 
     return out;
 };
 
 
+//
+please.gl.ast.Block.prototype.include_banner = function (uri, begin) {
+    var main_line = begin ? " START" : " END";
+    main_line += " OF INCLUDED FILE: " + uri + " ";
+    var start_a = " ---==##";
+    var start_b = "       ";
+    var end_a = "##==---";
+    var end_b = "";
+    var bar = "#";
+    for (var i=0; i<main_line.length; i+=1) {
+        bar += "=";
+    }
+    bar += "#"
+    var out = "";
+    out += "\n";
+    out += "//" + start_b + bar + end_b + "\n";
+    out += "//" + start_a + main_line + end_a + "\n";
+    out += "//" + start_b + bar + end_b + "\n\n";
+    return out
+};
+
+
 // Returns all of the child ast objects for this block.
 please.gl.ast.Block.prototype.children = function () {
     return this.data;
+};
+
+
+// Put together a list of files to be included.
+please.gl.ast.Block.prototype.all_includes = function (skip) {
+    var others = [];
+    ITER(i, this.inclusions) {
+        var uri = this.inclusions[i];
+        var another = please.access(uri, null);
+        if (another === null) {
+            console.error("Unable to include shader: " + uri);
+            continue;
+        }
+        others.push(uri);
+    }
+    return others;
 };
 
 
