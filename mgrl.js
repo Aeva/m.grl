@@ -4015,8 +4015,9 @@ please.gl.ast.str = function (text, offset) {
 please.gl.ast.Comment = function (text, type) {
     console.assert(this !== window);
     please.gl.ast.mixin(this);
-    this.multiline = type != "single";
+    this.multiline = type != "single" && type != "directive";
     this.quotation = type == "quote";
+    this.directive = type == "directive";
     this.data = text;
 };
 please.gl.ast.Comment.prototype.print = function () {
@@ -4024,14 +4025,19 @@ please.gl.ast.Comment.prototype.print = function () {
         return "/*" + this.data + "*/";
     }
     else {
-        return "//" + this.data + "\n";
+        if (this.directive) {
+            return "#" + this.data + "\n";
+        }
+        else {
+            return "//" + this.data + "\n";
+        }
     }
 };
 // This method takes the glsl source, isolates which sections are
 // commented out, and returns a list of Comment objects and strings.
 // This is the very first step in producing the token stream.
 please.gl.__find_comments = function (src) {
-    var open_regex = /(?:\/\/|\/\*|\"|\')/m;//"
+    var open_regex = /(?:\/\/|\/\*|\"|\'|#)/m;//"
     var open = open_regex.exec(src);
     if (open === null) {
         return [src];
@@ -4046,6 +4052,10 @@ please.gl.__find_comments = function (src) {
     else if (open == "//") {
         close = "\n";
         type = "single";
+    }
+    else if (open == "#") {
+        close = "\n";
+        type = "directive";
     }
     else {
         close = open;
