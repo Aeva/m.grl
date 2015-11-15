@@ -153,6 +153,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         remainder = please.gl.__remove_precision(remainder);
         remainder = please.gl.__identify_parentheticals(remainder);
         remainder = please.gl.__identify_functions(remainder);
+        remainder = please.gl.__identify_invocations(remainder);
         var stream = globals.concat(remainder);
         var ast = new please.gl.ast.Block(stream);
         ast.make_global_scope();
