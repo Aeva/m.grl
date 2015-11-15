@@ -21,20 +21,22 @@ please.gl.ast.Invocation.prototype.print = function () {
 
 // Identify function calls and collapse the relevant ast together.
 please.gl.__identify_invocations = function (ast) {
-    var ignore = [
+    var ignore = please.gl.__symbols.concat([
         "for",
         "if",
         "else",
         "while",
         "do",
-    ];
+    ]);
     var remainder = [];
     ITER(i, ast) {
         var item = ast[i];
         var uncaught = true;
         if (item.constructor == please.gl.ast.Parenthetical) {
             var peek = null;
-            for (var k=i-1; k>=0; k+=1) {
+            var steps = 0;
+            for (var k=i-1; k>=0; k-=1) {
+                steps += 1;
                 if (ast[k].constructor != please.gl.ast.Comment) {
                     peek = ast[k];
                     break;
@@ -43,8 +45,7 @@ please.gl.__identify_invocations = function (ast) {
             if (peek && peek.constructor == String) {
                 uncaught = false;
                 ITER(s, ignore) {
-                    var check = ignore[s];
-                    if (peek == check) {
+                    if (peek == ignore[s]) {
                         uncaught = true;
                         break;
                     }
@@ -52,7 +53,7 @@ please.gl.__identify_invocations = function (ast) {
                 if (!uncaught) {
                     var invoker = new please.gl.ast.Invocation(peek, item);
                     invoker.meta = peek.meta;
-                    remainder = remainder.slice(0, k);
+                    remainder = remainder.slice(0, remainder.length-steps);
                     remainder.push(invoker);
                 }
             }
