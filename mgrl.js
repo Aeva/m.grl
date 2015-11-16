@@ -4118,7 +4118,7 @@ please.gl.ast.Global = function (mode, type, name, value) {
     this.mode = mode;
     this.type = type;
     this.name = name;
-    if (type === "const") {
+    if (mode === "const") {
         this.value = value;
     }
 };
@@ -4127,8 +4127,8 @@ please.gl.ast.Global.prototype.print = function () {
     out += this.mode + " ";
     out += this.type + " ";
     out += this.name;
-    if (this.type === "const") {
-        out += "=" + this.value;
+    if (this.mode === "const") {
+        out += " = " + this.value;
     }
     out += ";\n";
     return out;
@@ -4152,6 +4152,29 @@ please.gl.__parse_globals = function (stream) {
                     var sans_mode = statement.slice(mode.length+1);
                     var type = sans_mode.split(" ")[0];
                     var remainder = sans_mode.slice(type.length+1);
+                    if (mode == "const") {
+                        var look_ahead = [];
+                        for (var a=i+1; a<stream.length; a+=1) {
+                            var peek = stream[a];
+                            if (peek.constructor == String) {
+                                if (peek == ";") {
+                                    break;
+                                }
+                                else {
+                                    look_ahead.push(peek);
+                                }
+                            }
+                            else if (peek.print) {
+                                look_ahead.push(peek);
+                            }
+                        }
+                        console.assert(look_ahead.length >= 2);
+                        console.assert(look_ahead[0] == "=");
+                        remainder = [remainder].concat(look_ahead);
+                        remainder = please.gl.__identify_parentheticals(remainder);
+                        // make sure the look_ahead stuff is removed
+                        i += look_ahead.length;
+                    }
                     defs.push({
                         mode: mode,
                         type: type,
@@ -4172,16 +4195,47 @@ please.gl.__parse_globals = function (stream) {
         var def = defs[i];
         var mode = def.mode;
         var type = def.type;
-        var names = def.data.split(",");
-        for (var n=0; n<names.length; n+=1) {
-            var name = names[n].trim();
-            var value = undefined;
-            if (type === "const") {
-                var parts = name.split("=");
-                value = parts[0].trim();
-                name = parts[1].trim();
+        var names = [];
+        if (mode == "const") {
+            var cache = [];
+            for (var n=0; n<def.data.length; n+=1) {
+                if (def.data[n] == ",") {
+                    names.push(cache);
+                    cache = [];
+                }
+                else {
+                    cache.push(def.data[n]);
+                }
             }
-            var global = new please.gl.ast.Global(mode, type, name, value);
+            if (cache.length > 0) {
+                names.push(cache);
+            }
+        }
+        else {
+            var names = def.data.split(",");
+        }
+        for (var n=0; n<names.length; n+=1) {
+            var name;
+            var value;
+            var global = null;
+            var parts = names[n];
+            if (mode === "const") {
+                name = parts[0].trim();
+                // skip the second part, too, because it is an '='.
+                var tmp = parts.slice(2);
+                for (var k=0; k<tmp.length; k+=1) {
+                    if (tmp[k].print) {
+                        tmp[k] = tmp[k].print();
+                    }
+                }
+                value = tmp.join(" ");
+                global = new please.gl.ast.Global(mode, type, name, value);
+            }
+            else {
+                name = parts.trim();
+                value = undefined;
+            }
+            global = new please.gl.ast.Global(mode, type, name, value);
             global.meta = def.meta;
             globals.push(global);
         }
