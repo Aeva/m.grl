@@ -4279,7 +4279,7 @@ please.gl.ast.Block.prototype.print = function () {
 //
 please.gl.ast.Block.prototype.__print_program = function (skip_includes) {
     var out = "";
-    if (!skip_includes) {
+    if (!skip_includes && this.inclusions.length > 0) {
         // First, combine all of the globals and hoist them to the top
         // of the generated file.
         var globals = {};
@@ -4315,7 +4315,8 @@ please.gl.ast.Block.prototype.__print_program = function (skip_includes) {
     for (var i=0; i<this.data.length; i+=1) {
         var token = this.data[i];
         if (token.constructor == please.gl.ast.Global) {
-            out += "// " + token.print();
+            var dummy_out = this.inclusions.length>0 ? "// " : "";
+            out += dummy_out + token.print();
         }
         else if (token.constructor != please.gl.ast.Block &&
                  token.constructor != please.gl.ast.Comment &&
