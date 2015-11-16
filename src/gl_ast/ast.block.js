@@ -21,43 +21,16 @@ please.gl.ast.Block = function (stream) {
 
 // Prints the glsl for this block.  If this block is a function, then
 // it will include the entire function definition.
-please.gl.ast.Block.prototype.print = function (options) {
-    var opt = {
-        "is_include" : false,
-    };
-    if (options) {
-        ITER_PROPS(key, opt) {
-            if (options.hasOwnProperty(key)) {
-                opt[key] = options[key];
-            }
-        }
+please.gl.ast.Block.prototype.print = function () {
+    if (this.type === "global") {
+        return this.__print_program();
     }
 
     var flat = "";
     var out = "";
     
-    if (this.type === "global") {
-        if (opt.is_include == false) {
-            var imports = this.all_includes();
-            ITER(i, imports) {
-                var other = please.access(imports[i]);
-                out += other.__ast.print({'is_include': other.uri});
-            }
-        }
-        else {
-            out += this.include_banner(opt.is_include, true);
-        }
-    }
-
     ITER(i, this.data) {
         var token = this.data[i];
-        if (this.type === "global") {
-            if (token.constructor != please.gl.ast.Global &&
-                token.constructor != please.gl.ast.Comment &&
-                token.constructor != please.gl.ast.Block) {
-                continue;
-            }
-        }
         if (token.print) {
             flat += token.print();
         }
@@ -69,23 +42,80 @@ please.gl.ast.Block.prototype.print = function (options) {
         }
     };
 
-    if (this.type !== "global") {
-        var indented = "";
-        var lines = flat.split("\n");
-        ITER(i, lines) {
-            var line = lines[i];
-            if (line.trim() !== "") {
-                indented += "  " + line + "\n";
+    var indented = "";
+    var lines = flat.split("\n");
+    ITER(i, lines) {
+        var line = lines[i];
+        if (line.trim() !== "") {
+            indented += "  " + line + "\n";
+        }
+    };
+    out += (this.prefix || "") + " {\n" + indented + "}\n";
+
+    return out;
+};
+
+
+//
+please.gl.ast.Block.prototype.__print_program = function (skip_includes) {
+    var out = "";
+
+    if (!skip_includes) {
+        // First, combine all of the globals and hoist them to the top
+        // of the generated file.
+        var globals = {};
+        var ext_ast = {};
+        var imports = this.all_includes();
+        var append_global = function(global) {
+            if (globals[global.name] === undefined) {
+                globals[global.name] = global;
+            }
+            else {
+                // FIXME compare and ignore or throw
+                console.warn("redundant global: " + global.name);
             }
         };
-        out += (this.prefix || "") + " {\n" + indented + "}\n";
-    }
-    else {
-        out += flat;
-        if (opt.is_include) {
-            out += this.include_banner(opt.is_include, false);
+        ITER(i, imports) {
+            var other = please.access(imports[i]);
+            var imported = ext_ast[imports[i]] = other.__ast;
+            imported.globals.map(append_global);
+        }
+        this.globals.map(append_global);
+
+        // Append the collection of globals to the output buffer.
+        ITER_PROPS(name, globals) {
+            out += globals[name].print();
+        }
+
+        // Now, append the contents of each included file sans globals.
+        ITER_PROPS(name, ext_ast) {
+            out += this.include_banner(name, true);
+            out += ext_ast[name].__print_program(true);
+            out += this.include_banner(name, false);
         }
     }
+
+    // Now, append the contents of this ast tree sans globals.
+    ITER(i, this.data) {
+        var token = this.data[i];
+        if (token.constructor == please.gl.ast.Global) {
+            out += "// " + token.print();
+        }
+        else if (token.constructor != please.gl.ast.Block &&
+                 token.constructor != please.gl.ast.Comment &&
+                 token.print) {
+            continue;
+        }
+        else if (token.print) {
+            out += token.print();
+        }
+        else {
+            out += token;
+            if (token == ";") {
+                out += "\n";
+            }
+        }
+    };
 
     return out;
 };
