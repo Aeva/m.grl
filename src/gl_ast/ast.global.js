@@ -46,54 +46,47 @@ please.gl.__parse_globals = function (stream) {
     var chaff = [];
 
     ITER(i, stream) {
-        var statement = stream[i];
+        var token = stream[i];
         var selected = false;
-        if (statement.constructor == String) {
+        if (token.constructor == String) {
+            var mode = null;
             ITER(m, modes) {
-                var mode = modes[m];
-                if (statement.startsWith(mode)) {
-                    var sans_mode = statement.slice(mode.length+1);
-                    var type = sans_mode.split(" ")[0];
-                    var remainder = sans_mode.slice(type.length+1);
-
-                    if (mode == "const") {
-                        var look_ahead = [];
-                        for (var a=i+1; a<stream.length; a+=1) {
-                            var peek = stream[a];
-                            if (peek.constructor == String) {
-                                if (peek == ";") {
-                                    break;
-                                }
-                                else {
-                                    look_ahead.push(peek);
-                                }
-                            }
-                            else if (peek.print) {
-                                look_ahead.push(peek);
-                            }
-                        }
-                        console.assert(look_ahead.length >= 2);
-                        console.assert(look_ahead[0] == "=");
-                        remainder = [remainder].concat(look_ahead);
-                        remainder = please.gl.__identify_parentheticals(remainder);
-                        // make sure the look_ahead stuff is removed
-                        i += look_ahead.length;
-                    }
-                    
-                    defs.push({
-                        mode: mode,
-                        type: type,
-                        data: remainder,
-                        meta: statement.meta,
-                    });
-                    selected = true;
-                    i += 1; // skip the next token because it is a ';'
+                var test = modes[m];
+                if (token.startsWith(test)) {
+                    mode = test;
                     break;
                 }
             }
+            if (mode) {
+                var sans_mode = token.slice(mode.length).trim().split(" ");
+                var data_type = sans_mode[0];
+                var statement = sans_mode.slice(1);
+                for (var p=i+1; p<stream.length; p+=1) {
+                    var test = stream[p];
+                    if (test == ";") {
+                        break;
+                    }
+                    else {
+                        if (test.print) {
+                            test = test.print();
+                        }
+                        statement.push(test);
+                    }
+                }
+                statement = please.gl.__identify_parentheticals(statement);
+                i = p; // seek to the end of the statement
+                
+                defs.push({
+                    mode: mode,
+                    type: data_type,
+                    data: statement,
+                    meta: token.meta,
+                });
+                selected = true;
+            }
         }
         if (!selected) {
-            chaff.push(statement);
+            chaff.push(token);
         }
     }
 
@@ -102,43 +95,37 @@ please.gl.__parse_globals = function (stream) {
         var mode = def.mode;
         var type = def.type;
         var names = [];
-        if (mode == "const") {
-            var cache = [];
-            ITER(n, def.data) {
-                if (def.data[n] == ",") {
-                    names.push(cache);
-                    cache = [];
-                }
-                else {
-                    cache.push(def.data[n]);
-                }
-            }
-            if (cache.length > 0) {
+        var test, cache = [];
+        ITER(p, def.data) {
+            test = def.data[p];
+            if (test == ",") {
                 names.push(cache);
+                cache = [];
+            }
+            else {
+                if (test.print) {
+                    test = test.print();
+                }
+                cache.push(test);
             }
         }
-        else {
-            var names = def.data.split(",");
+        if (cache.length > 0) {
+            names.push(cache);
         }
+        
         ITER(n, names) {
-            var name;
-            var value;
-            var global = null;
             var parts = names[n];
+            var global = null;
+            var name, value;
+
             if (mode === "const") {
                 name = parts[0].trim();
                 // skip the second part, too, because it is an '='.
                 var tmp = parts.slice(2);
-                ITER(k, tmp) {
-                    if (tmp[k].print) {
-                        tmp[k] = tmp[k].print();
-                    }
-                }
-                value = tmp.join(" ");
-                global = new please.gl.ast.Global(mode, type, name, value);
+                value = tmp.join("");
             }
             else {
-                name = parts.trim();
+                name = parts[0];
                 value = undefined;
             }
             global = new please.gl.ast.Global(mode, type, name, value);
