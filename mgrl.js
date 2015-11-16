@@ -4448,6 +4448,7 @@ please.gl.__identify_functions = function (ast) {
     ];
     var collapse = function (block, cache) {
         recording_for = null;
+        cache = please.gl.__trim(cache);
         var is_block = true;
         for (var i=0; i<non_blocks.length; i+=1) {
             if (cache[0].startsWith(non_blocks[i])) {

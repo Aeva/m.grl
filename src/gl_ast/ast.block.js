@@ -253,7 +253,8 @@ please.gl.__identify_functions = function (ast) {
 
     var collapse = function (block, cache) {
         recording_for = null;
-
+        cache = please.gl.__trim(cache);
+        
         var is_block = true;
         ITER(i, non_blocks) {
             if (cache[0].startsWith(non_blocks[i])) {
