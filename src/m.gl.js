@@ -1343,10 +1343,10 @@ please.gl.ShaderSource.prototype.__direct_build = function () {
     if (!this.__blob) {
         var source = "" +
             "#ifdef GL_FRAGMENT_PRECISION_HIGH\n" +
-            "precision highp float;\n"+
-            "#else\n"+
-            "precision mediump float;\n"+
-            "#endif\n\n\n"+
+            "precision highp float;\n" +
+            "#else\n" +
+            "precision mediump float;\n" +
+            "#endif\n\n\n" +
             this.__ast.print();
         this.__blob = please.gl.__build_shader(source, this.uri);
     }
