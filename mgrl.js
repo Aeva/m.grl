@@ -4112,12 +4112,13 @@ please.gl.__find_comments = function (src) {
  *  - constant
  *
  */
-please.gl.ast.Global = function (mode, type, name, value) {
+please.gl.ast.Global = function (mode, type, name, value, qualifier) {
     console.assert(this !== window);
     please.gl.ast.mixin(this);
     this.mode = mode;
     this.type = type;
     this.name = name;
+    this.qualifier = qualifier;
     if (mode === "const") {
         this.value = value;
     }
@@ -4125,6 +4126,9 @@ please.gl.ast.Global = function (mode, type, name, value) {
 please.gl.ast.Global.prototype.print = function () {
     var out = ""
     out += this.mode + " ";
+    if (this.qualifier !== null) {
+        out += this.qualifier + " ";
+    }
     out += this.type + " ";
     out += this.name;
     if (this.mode === "const") {
@@ -4140,6 +4144,7 @@ please.gl.ast.Global.prototype.print = function () {
 please.gl.__parse_globals = function (stream) {
     var defs = [];
     var modes = ["uniform", "attribute", "varying", "const"];
+    var qualifiers = ["highp", "mediump", "lowp"];
     var globals = [];
     var chaff = [];
     for (var i=0; i<stream.length; i+=1) {
@@ -4156,6 +4161,14 @@ please.gl.__parse_globals = function (stream) {
             }
             if (mode) {
                 var sans_mode = token.slice(mode.length).trim().split(" ");
+                var qualifier = null;
+                for (var q=0; q<qualifiers.length; q+=1) {
+                    if (sans_mode[0] == qualifiers[q]) {
+                        qualifier = qualifiers[q];
+                        sans_mode.shift();
+                        break;
+                    }
+                }
                 var data_type = sans_mode[0];
                 var statement = sans_mode.slice(1);
                 for (var p=i+1; p<stream.length; p+=1) {
@@ -4177,6 +4190,7 @@ please.gl.__parse_globals = function (stream) {
                     type: data_type,
                     data: statement,
                     meta: token.meta,
+                    qualifier: qualifier,
                 });
                 selected = true;
             }
@@ -4190,6 +4204,7 @@ please.gl.__parse_globals = function (stream) {
         var mode = def.mode;
         var type = def.type;
         var names = [];
+        var qualifier = def.qualifier;
         var test, cache = [];
         for (var p=0; p<def.data.length; p+=1) {
             test = def.data[p];
@@ -4219,9 +4234,9 @@ please.gl.__parse_globals = function (stream) {
             }
             else {
                 name = parts[0];
-                value = undefined;
+                value = null;
             }
-            global = new please.gl.ast.Global(mode, type, name, value);
+            global = new please.gl.ast.Global(mode, type, name, value, qualifier);
             global.meta = def.meta;
             globals.push(global);
         }
