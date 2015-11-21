@@ -87,6 +87,14 @@ please.gl.ast.Block.prototype.__print_program = function (skip_includes) {
             out += globals[name].print();
         }
 
+        // Pass globals to the curve macro and append the result.
+        var curve_functions = please.gl.macros.curve(globals);
+        if (curve_functions.length > 0) {
+            out += this.banner("CURVE MACRO", true);
+            out += curve_functions;
+            out += this.banner("CURVE MACRO", false);
+        }
+
         // Now, append the contents of each included file sans globals.
         ITER_PROPS(name, ext_ast) {
             out += this.include_banner(name, true);
@@ -124,8 +132,12 @@ please.gl.ast.Block.prototype.__print_program = function (skip_includes) {
 
 //
 please.gl.ast.Block.prototype.include_banner = function (uri, begin) {
+    var header = "INCLUDED FILE: " + uri;
+    return this.banner(header, begin);
+}
+please.gl.ast.Block.prototype.banner = function (header, begin) {
     var main_line = begin ? " START" : " END";
-    main_line += " OF INCLUDED FILE: " + uri + " ";
+    main_line += " OF " + header + " ";
     var start_a = " ---==##";
     var start_b = "       ";
     var end_a = "##==---";

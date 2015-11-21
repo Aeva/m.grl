@@ -4348,6 +4348,13 @@ please.gl.ast.Block.prototype.__print_program = function (skip_includes) {
         for (var name in globals) if (globals.hasOwnProperty(name)) {
             out += globals[name].print();
         }
+        // Pass globals to the curve macro and append the result.
+        var curve_functions = please.gl.macros.curve(globals);
+        if (curve_functions.length > 0) {
+            out += this.banner("CURVE MACRO", true);
+            out += curve_functions;
+            out += this.banner("CURVE MACRO", false);
+        }
         // Now, append the contents of each included file sans globals.
         for (var name in ext_ast) if (ext_ast.hasOwnProperty(name)) {
             out += this.include_banner(name, true);
@@ -4381,8 +4388,12 @@ please.gl.ast.Block.prototype.__print_program = function (skip_includes) {
 };
 //
 please.gl.ast.Block.prototype.include_banner = function (uri, begin) {
+    var header = "INCLUDED FILE: " + uri;
+    return this.banner(header, begin);
+}
+please.gl.ast.Block.prototype.banner = function (header, begin) {
     var main_line = begin ? " START" : " END";
-    main_line += " OF INCLUDED FILE: " + uri + " ";
+    main_line += " OF " + header + " ";
     var start_a = " ---==##";
     var start_b = "       ";
     var end_a = "##==---";
@@ -4745,9 +4756,10 @@ please.gl.__bind_invocations = function (stream, methods_set, scope) {
 };
 // - gl_ast/ast.macros.js --------------------------------------------- //
 /*
- *  This file is where non-standard extensions to GLSL should be
- *  defined.
+ *  This file is where non-standard extensions to GLSL syntax and
+ *  related helper functions should ideally be defined.
  */
+// Find include statements in the provided near-complete syntax tree.
 please.gl.macros.include = function (ast) {
     for (var i=0; i<ast.data.length; i+=1) {
         var item = ast.data[i];
@@ -4769,7 +4781,27 @@ please.gl.macros.include = function (ast) {
         }
     };
 };
-please.gl.macros.curve = function (ast) {
+// Recieves a dictionary of global variables, returns support code.
+please.gl.macros.curve = function (globals) {
+    var out = "";
+    var types = [];
+    var template = please.access("curve_template.glsl").src;
+    for (var name in globals) if (globals.hasOwnProperty(name)) {
+        var global = globals[name];
+        if (global.macro == "curve") {
+            var signature = global.type + ":" + global.size;
+            if (types.indexOf(signature) == -1) {
+                types.push(signature);
+            }
+        }
+    };
+    for (var i=0; i<types.length; i+=1) {
+        var parts = types[i].split(":");
+        var type = parts[0];
+        var size = parts[1];
+        out += template.replace(/GL_TYPE/gi, type).replace(/ARRAY_LEN/gi, size);
+    }
+    return out;
 };
 // - glslglsl/ast.js ----------------------------------------------------- //
 // Remove leading and trailing whitespace from a list of ast objects.
