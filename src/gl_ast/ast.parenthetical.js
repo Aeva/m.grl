@@ -6,15 +6,36 @@
  * AST constructor function representing (parenthetical) sections.
  * 
  */
-please.gl.ast.Parenthetical = function (stream) {
+ please.gl.ast.Parenthetical = function (stream, closer) {
     console.assert(this !== window);
     please.gl.ast.mixin(this);
     this.data = stream || [];
+    if (closer == ")") {
+        this.type = "parenthesis";
+    }
+    else if (closer == "]") {
+        this.type = "square";
+    }
+    else {
+        this.type = null;
+    }
 };
 
 
 // This will print out the parenthetical area.
 please.gl.ast.Parenthetical.prototype.print = function () {
+    var open, close;
+    if (this.type == "parenthesis") {
+        open = "(";
+        close = ")";
+    }
+    else if (this.type == "square") {
+        open = "[";
+        close = "]";
+    }
+    else {
+        throw ("Unknown Panthetical subtype: " + this.type);
+    }
     var out = [];
     ITER(i, this.data) {
         var part = this.data[i];
@@ -28,7 +49,7 @@ please.gl.ast.Parenthetical.prototype.print = function () {
             out.push(part);
         }
     };
-    return "(" + out.join(" ") + ")";
+    return open + out.join(" ") + close;
 };
 
 
@@ -54,24 +75,35 @@ please.gl.ast.Parenthetical.prototype.is_flat = function () {
 
 // Identify areas that are parenthetical, including proper nesting.
 // Returns a revised ast.
-please.gl.__identify_parentheticals = function (ast, start) {
+please.gl.__identify_parentheticals = function (ast, start, close_target) {
     DEFAULT(start, 0);
     var new_ast = [];
 
+    var openers = ['(', '['];
+    var closers = [')', ']'];
+
     for (var i=start; i<ast.length; null) {
         var item = ast[i];
-        if (item == "(") {
-            var selection = please.gl.__identify_parentheticals(ast, i+1);
+        var open = null;
+        var close = null;
+        ITER(n, openers) {
+            if (item == openers[n]) {
+                open = openers[n];
+                close = closers[n];
+            }
+        }
+        if (open) {
+            var selection = please.gl.__identify_parentheticals(ast, i+1, close);
             selection[0].meta = item.meta;
             new_ast.push(selection[0]);
             i = selection[1];
         }
-        else if (item == ")") {
+        else if (item == close_target) {
             if (start === 0) {
-                throw("mismatched parenthesis - encountered an extra ')'");
+                throw("mismatched parenthesis - encountered an extra '" + close_target + "'");
             }
             else {
-                return [new please.gl.ast.Parenthetical(new_ast), i];
+                return [new please.gl.ast.Parenthetical(new_ast, close_target), i];
             }
         }
         else {
@@ -84,6 +116,6 @@ please.gl.__identify_parentheticals = function (ast, start) {
         return new_ast;
     }
     else {
-        throw("mismatched parenthesis - missing a ')'");
+        throw("mismatched parenthesis - missing a '" + close + "'");
     }
 };

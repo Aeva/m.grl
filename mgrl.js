@@ -3947,10 +3947,10 @@ please.gl.ShaderSource.prototype.__direct_build = function () {
     if (!this.__blob) {
         var source = "" +
             "#ifdef GL_FRAGMENT_PRECISION_HIGH\n" +
-            "precision highp float;\n"+
-            "#else\n"+
-            "precision mediump float;\n"+
-            "#endif\n\n\n"+
+            "precision highp float;\n" +
+            "#else\n" +
+            "precision mediump float;\n" +
+            "#endif\n\n\n" +
             this.__ast.print();
         this.__blob = please.gl.__build_shader(source, this.uri);
     }
@@ -4118,25 +4118,30 @@ please.gl.__find_comments = function (src) {
  *  - constant
  *
  */
-please.gl.ast.Global = function (mode, type, name, value, qualifier) {
+please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro) {
     console.assert(this !== window);
     please.gl.ast.mixin(this);
     this.mode = mode;
     this.type = type;
     this.name = name;
+    this.size = size;
+    this.macro = macro;
     this.qualifier = qualifier;
     if (mode === "const") {
         this.value = value;
     }
 };
 please.gl.ast.Global.prototype.print = function () {
-    var out = ""
+    var out = "";
     out += this.mode + " ";
     if (this.qualifier !== null) {
         out += this.qualifier + " ";
     }
     out += this.type + " ";
     out += this.name;
+    if (this.size) {
+        out += "[" + this.size + "]";
+    }
     if (this.mode === "const") {
         out += " = " + this.value;
     }
@@ -4148,14 +4153,16 @@ please.gl.ast.Global.prototype.print = function () {
 // the Global ast items that were extracted, the second is a list of
 // the remaining stream with the Globals removed.
 please.gl.__parse_globals = function (stream) {
-    var defs = [];
     var modes = ["uniform", "attribute", "varying", "const"];
-    var qualifiers = ["highp", "mediump", "lowp"];
     var globals = [];
     var chaff = [];
+    // Iterate through the stream of tokens and look for one that
+    // denotes a global eg 'uniform'.  If found, invoke
+    // please.gl.__create_global with the stream from the 'mode' token
+    // up to the first semicolon and add the result to the 'globals'
+    // list and increment i.
     for (var i=0; i<stream.length; i+=1) {
         var token = stream[i];
-        var selected = false;
         if (token.constructor == String) {
             var mode = null;
             for (var m=0; m<modes.length; m+=1) {
@@ -4166,88 +4173,104 @@ please.gl.__parse_globals = function (stream) {
                 }
             }
             if (mode) {
-                var sans_mode = token.slice(mode.length).trim().split(" ");
-                var qualifier = null;
-                for (var q=0; q<qualifiers.length; q+=1) {
-                    if (sans_mode[0] == qualifiers[q]) {
-                        qualifier = qualifiers[q];
-                        sans_mode.shift();
+                for (var end=i+1; end<stream.length; end+=1) {
+                    if (stream[end] == ";") {
                         break;
                     }
                 }
-                var data_type = sans_mode[0];
-                var statement = sans_mode.slice(1);
-                for (var p=i+1; p<stream.length; p+=1) {
-                    var test = stream[p];
-                    if (test == ";") {
-                        break;
-                    }
-                    else {
-                        if (test.print) {
-                            test = test.print();
-                        }
-                        statement.push(test);
-                    }
+                var created = please.gl.__create_global(stream.slice(i, end));
+                for (var g=0; g<created.length; g+=1) {
+                    globals.push(created[g]);
                 }
-                statement = please.gl.__identify_parentheticals(statement);
-                i = p; // seek to the end of the statement
-                defs.push({
-                    mode: mode,
-                    type: data_type,
-                    data: statement,
-                    meta: token.meta,
-                    qualifier: qualifier,
-                });
-                selected = true;
+                i = end;
+                continue;
             }
         }
-        if (!selected) {
-            chaff.push(token);
+        chaff.push(token);
+    }
+    return [globals, chaff];
+};
+// Takes a stream of tokens and produces a Global AST object from it.
+// Input tokens are delimited by symbols, but not by spaces.
+// For example:
+// - ['uniform lowp float test']
+// - ['uniform float foo', '[', '16', ']']
+// - ['const vec2 foo', '=', 'vec2', '(', '1.0', ',', '2.0', ')']
+// - ['uniform float foo', ',', 'bar'];
+please.gl.__create_global = function (tokens) {
+    var find = function (keywords, words) {
+        var keyword = null;
+        for (var w=0; w<words.length; w+=1) {
+            for (var k=0; k<keywords.length; k+=1) {
+                if (words[w] == keywords[k]) {
+                    keyword = keywords[k];
+                    break;
+                }
+            }
+        }
+        return keyword;
+    }
+    var split = function (delim, tokens) {
+        var parts = [];
+        var acc = [];
+        for (var i=0; i<tokens.length; i+=1) {
+            var token = tokens[i];
+            if (token == delim) {
+                parts.push(acc);
+                acc = [];
+                continue
+            }
+            else {
+                acc.push(token);
+            }
+        }
+        if (acc.length > 0) {
+            parts.push(acc);
+        }
+        return parts;
+    };
+    var macros = ["curve"];
+    var precisions = ["highp", "mediump", "lowp"];
+    var tokens = please.gl.__identify_parentheticals(tokens);
+    var words = tokens[0].split(' ');
+    var mode = words[0];
+    var meta = tokens[0].meta;
+    var macro = find(macros, words);
+    var precision = find(precisions, words);
+    var qualifiers = (!!macro) + (!!precision); // produces an integer
+    for (var i=0; i<qualifiers; i+=1) {
+        var test = words[i+1];
+        if (macros.concat(precision).indexOf(test) == -1) {
+            throw ("Malformed global");
         }
     }
-    for (var i=0; i<defs.length; i+=1) {
-        var def = defs[i];
-        var mode = def.mode;
-        var type = def.type;
-        var names = [];
-        var qualifier = def.qualifier;
-        var test, cache = [];
-        for (var p=0; p<def.data.length; p+=1) {
-            test = def.data[p];
-            if (test == ",") {
-                names.push(cache);
-                cache = [];
-            }
-            else {
-                if (test.print) {
-                    test = test.print();
-                }
-                cache.push(test);
-            }
+    var remainder = words.slice(qualifiers+1).concat(tokens.slice(1));
+    var type = remainder.shift();
+    var names = split(',', remainder);
+    var created = [];
+    for (var i=0; i<names.length; i+=1) {
+        var def = names[i];
+        var name = def[0];
+        var size = null;
+        var value = null;
+        var parts = split('=', def);
+        var lhs = parts[0];
+        var rhs = parts.slice(1).join('=');
+        if (rhs.length > 0) {
+            value = rhs;
         }
-        if (cache.length > 0) {
-            names.push(cache);
+        if (lhs[1] !== undefined) {
+            console.assert(lhs[1].constructor == please.gl.ast.Parenthetical);
+            console.assert(lhs[1].type == "square");
+            console.assert(lhs[1].data.length == 1);
+            size = parseInt(lhs[1].data[0]);
         }
-        for (var n=0; n<names.length; n+=1) {
-            var parts = names[n];
-            var global = null;
-            var name, value;
-            if (mode === "const") {
-                name = parts[0].trim();
-                // skip the second part, too, because it is an '='.
-                var tmp = parts.slice(2);
-                value = tmp.join("");
-            }
-            else {
-                name = parts[0];
-                value = null;
-            }
-            global = new please.gl.ast.Global(mode, type, name, value, qualifier);
-            global.meta = def.meta;
-            globals.push(global);
-        }
-    };
-    return [globals, chaff];
+        var global = new please.gl.ast.Global(
+            mode, type, name, value, size, precision, macro);
+        global.meta = def.meta;
+        created.push(global);
+    }
+    return created;
 };
 // - gl_alst/ast.block.js ------------------------------------------------ //
 /* [+] please.gl.ast.Block(stream, type)
@@ -4526,13 +4549,34 @@ please.gl.__identify_functions = function (ast) {
  * AST constructor function representing (parenthetical) sections.
  * 
  */
-please.gl.ast.Parenthetical = function (stream) {
+ please.gl.ast.Parenthetical = function (stream, closer) {
     console.assert(this !== window);
     please.gl.ast.mixin(this);
     this.data = stream || [];
+    if (closer == ")") {
+        this.type = "parenthesis";
+    }
+    else if (closer == "]") {
+        this.type = "square";
+    }
+    else {
+        this.type = null;
+    }
 };
 // This will print out the parenthetical area.
 please.gl.ast.Parenthetical.prototype.print = function () {
+    var open, close;
+    if (this.type == "parenthesis") {
+        open = "(";
+        close = ")";
+    }
+    else if (this.type == "square") {
+        open = "[";
+        close = "]";
+    }
+    else {
+        throw ("Unknown Panthetical subtype: " + this.type);
+    }
     var out = [];
     for (var i=0; i<this.data.length; i+=1) {
         var part = this.data[i];
@@ -4546,7 +4590,7 @@ please.gl.ast.Parenthetical.prototype.print = function () {
             out.push(part);
         }
     };
-    return "(" + out.join(" ") + ")";
+    return open + out.join(" ") + close;
 };
 // Returns all of the child ast objects for this block.
 please.gl.ast.Parenthetical.prototype.children = function () {
@@ -4566,23 +4610,33 @@ please.gl.ast.Parenthetical.prototype.is_flat = function () {
 };
 // Identify areas that are parenthetical, including proper nesting.
 // Returns a revised ast.
-please.gl.__identify_parentheticals = function (ast, start) {
+please.gl.__identify_parentheticals = function (ast, start, close_target) {
     if (start === undefined) { start = 0; };
     var new_ast = [];
+    var openers = ['(', '['];
+    var closers = [')', ']'];
     for (var i=start; i<ast.length; null) {
         var item = ast[i];
-        if (item == "(") {
-            var selection = please.gl.__identify_parentheticals(ast, i+1);
+        var open = null;
+        var close = null;
+        for (var n=0; n<openers.length; n+=1) {
+            if (item == openers[n]) {
+                open = openers[n];
+                close = closers[n];
+            }
+        }
+        if (open) {
+            var selection = please.gl.__identify_parentheticals(ast, i+1, close);
             selection[0].meta = item.meta;
             new_ast.push(selection[0]);
             i = selection[1];
         }
-        else if (item == ")") {
+        else if (item == close_target) {
             if (start === 0) {
-                throw("mismatched parenthesis - encountered an extra ')'");
+                throw("mismatched parenthesis - encountered an extra '" + close_target + "'");
             }
             else {
-                return [new please.gl.ast.Parenthetical(new_ast), i];
+                return [new please.gl.ast.Parenthetical(new_ast, close_target), i];
             }
         }
         else {
@@ -4594,7 +4648,7 @@ please.gl.__identify_parentheticals = function (ast, start) {
         return new_ast;
     }
     else {
-        throw("mismatched parenthesis - missing a ')'");
+        throw("mismatched parenthesis - missing a '" + close + "'");
     }
 };
 // - gl_alst/ast.invocation.js ------------------------------------------- //
@@ -4714,6 +4768,8 @@ please.gl.macros.include = function (ast) {
             ast.inclusions.push(uri);
         }
     };
+};
+please.gl.macros.curve = function (ast) {
 };
 // - glslglsl/ast.js ----------------------------------------------------- //
 // Remove leading and trailing whitespace from a list of ast objects.
