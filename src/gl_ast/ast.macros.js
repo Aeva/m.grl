@@ -28,3 +28,7 @@ please.gl.macros.include = function (ast) {
         }
     };
 };
+
+
+please.gl.macros.curve = function (ast) {
+};
