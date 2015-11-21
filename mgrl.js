@@ -2749,7 +2749,6 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
-    "__macros" : [],
 };
 // [+] please.gl.set_context(canvas_id, options)
 //
@@ -3018,22 +3017,12 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
         return please.gl.__cache.textures[uri];
     }
 };
-//
-// mechanism for applying all registered glsl macros, in order, to a
-// given body of code.
-//
-please.gl.apply_glsl_macros = function (src) {
-    for (var i=0; i<please.gl.__macros.length; i+=1) {
-        src = please.gl.__macros[i](src);
-    }
-    return src;
-};
 // Constructor function for GLSL Shaders
 please.gl.__build_shader = function (src, uri) {
     var glsl = {
         "id" : null,
         "type" : null,
-        "src" : please.gl.apply_glsl_macros(src),
+        "src" : src,
         "uri" : uri,
         "ready" : false,
         "error" : false,
@@ -4975,73 +4964,6 @@ please.gl.glsl_to_ast = function (src) {
     please.gl.macros.include(ast);
     return ast;
 };
-// - m.gl_macros.js ------------------------------------------------------ //
-//
-// mechanism for adding your own glsl macros
-//
-please.gl.define_macro = function (macro) {
-    please.gl.__macros.push(macro);
-    return macro;
-};
-//
-// the include macro
-//
-please.gl.define_macro (function(src) {
-    // this regex is written out weird to avoid a conflict with the
-    // macro of the same name in the GNU c preprocessor, used by mgrl
-    var macro_def = new RegExp('^#'+'include "([^"]*)"', 'mig');
-    var found = {};
-    var match; while ((match = macro_def.exec(src)) !== null) {
-        var file_path = match[1];
-        var replace_line = match[0];
-        found[file_path] = replace_line;
-    }
-    for (var file_path in found) if (found.hasOwnProperty(file_path)) {
-        var included = please.access(file_path, true);
-        if (included) {
-            src = src.replace(found[file_path], included);
-        }
-    }
-    return src;
-});
-//
-// the curve macro
-//
-please.gl.define_macro (function(src) {
-    var template = please.access("curve_template.glsl", true);
-    var apply_template = function (gl_type, array_len) {
-        var tmp = template.replace(new RegExp("GL_TYPE", "g"), gl_type);
-        tmp = tmp.replace(new RegExp("ARRAY_LEN", "g"), array_len);
-        return tmp;
-    };
-    var macro_def = /uniform curve (float|vec2|vec3|vec4) ([A-Za-z_]+)\[(\d+)\];/mig;
-    var rewrite = [];
-    var found_types = {};
-    var match; while ((match = macro_def.exec(src)) !== null) {
-        var line = match[0];
-        var type = match[1];
-        var name = match[2];
-        var size = match[3];
-        var hint = type + size;
-        if (!found_types[hint]) {
-            found_types[hint] = apply_template(type, size);
-        }
-        rewrite.push([line, "uniform "+type+" "+name+"["+size+"];"])
-    }
-    if (rewrite.length) {
-        var curve_methods = ""
-        for (var key in found_types) if (found_types.hasOwnProperty(key)) {
-            curve_methods += found_types[key];
-        }
-        rewrite[0][1] += "\n" + curve_methods + "\n\n";
-        for (var i=0; i<rewrite.length; i+=1) {
-            var original = rewrite[i][0];
-            var compiled = rewrite[i][1];
-            src = src.replace(original, compiled);
-        }
-    }
-    return src;
-});
 // - m.jta.js ------------------------------------------------------------- //
 /* [+] 
  *

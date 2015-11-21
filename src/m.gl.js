@@ -11,7 +11,6 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
-    "__macros" : [],
 };
 
 
@@ -313,24 +312,12 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
 };
 
 
-//
-// mechanism for applying all registered glsl macros, in order, to a
-// given body of code.
-//
-please.gl.apply_glsl_macros = function (src) {
-    ITER(i, please.gl.__macros) {
-        src = please.gl.__macros[i](src);
-    }
-    return src;
-};
-
-
 // Constructor function for GLSL Shaders
 please.gl.__build_shader = function (src, uri) {
     var glsl = {
         "id" : null,
         "type" : null,
-        "src" : please.gl.apply_glsl_macros(src),
+        "src" : src,
         "uri" : uri,
         "ready" : false,
         "error" : false,

@@ -41,7 +41,6 @@
 #include "m.overlay.js"
 #include "m.gl.js"
 #include "m.gl.ast.js"
-#include "m.glsl_macros.js"
 #include "m.jta.js"
 #include "m.gani.js"
 #include "m.graph.js"
