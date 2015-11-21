@@ -4008,6 +4008,25 @@ please.gl.ast.str = function (text, offset) {
     }
     return str;
 };
+//
+please.gl.ast.flatten = function (stream) {
+    if (stream.print) {
+        return stream.print();
+    }
+    else if (stream.constructor == String) {
+        return stream;
+    }
+    else if (stream.constructor == Array) {
+        var out = "";
+        for (var i=0; i<stream.length; i+=1) {
+            out += please.gl.ast.flatten(stream[i]);
+        }
+        return out;
+    }
+    else {
+        throw ("unable to flatten stream");
+    }
+};
 // - gl_ast/ast.comment.js -------------------------------------------- //
 /* [+] please.gl.ast.Comment(text, multiline)
  *
@@ -4244,9 +4263,9 @@ please.gl.__create_global = function (tokens) {
         var value = null;
         var parts = split('=', def);
         var lhs = parts[0];
-        var rhs = parts.slice(1).join('=');
-        if (rhs.length > 0) {
-            value = rhs;
+        var rhs = parts.slice(1)[0];
+        if (rhs && rhs.length > 0) {
+            value = please.gl.ast.flatten(rhs);
         }
         if (lhs[1] !== undefined) {
             console.assert(lhs[1].constructor == please.gl.ast.Parenthetical);

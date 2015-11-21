@@ -159,9 +159,9 @@ please.gl.__create_global = function (tokens) {
         
         var parts = split('=', def);
         var lhs = parts[0];
-        var rhs = parts.slice(1).join('=');
-        if (rhs.length > 0) {
-            value = rhs;
+        var rhs = parts.slice(1)[0];
+        if (rhs && rhs.length > 0) {
+            value = please.gl.ast.flatten(rhs);
         }
         if (lhs[1] !== undefined) {
             console.assert(lhs[1].constructor == please.gl.ast.Parenthetical);

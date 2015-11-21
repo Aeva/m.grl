@@ -35,3 +35,24 @@ please.gl.ast.str = function (text, offset) {
     }
     return str;
 };
+
+
+//
+please.gl.ast.flatten = function (stream) {
+    if (stream.print) {
+        return stream.print();
+    }
+    else if (stream.constructor == String) {
+        return stream;
+    }
+    else if (stream.constructor == Array) {
+        var out = "";
+        ITER(i, stream) {
+            out += please.gl.ast.flatten(stream[i]);
+        }
+        return out;
+    }
+    else {
+        throw ("unable to flatten stream");
+    }
+};
