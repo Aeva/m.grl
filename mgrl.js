@@ -4422,10 +4422,10 @@ please.gl.ast.Block.prototype.banner = function (header, begin) {
     out += "//" + start_b + bar + end_b + "\n\n";
     return out
 };
-// Returns all of the child ast objects for this block.
-please.gl.ast.Block.prototype.children = function () {
-    return this.data;
-};
+// // Returns all of the child ast objects for this block.
+// please.gl.ast.Block.prototype.children = function () {
+//     return this.data;
+// };
 // Put together a list of files to be included.
 please.gl.ast.Block.prototype.all_includes = function (skip) {
     var others = [];

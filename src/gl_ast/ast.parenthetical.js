@@ -6,7 +6,7 @@
  * AST constructor function representing (parenthetical) sections.
  * 
  */
- please.gl.ast.Parenthetical = function (stream, closer) {
+please.gl.ast.Parenthetical = function (stream, closer) {
     console.assert(this !== window);
     please.gl.ast.mixin(this);
     this.data = stream || [];
