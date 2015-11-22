@@ -6,6 +6,10 @@ body {
     padding: 1em;
 }
 
+canvas {
+    display: none;
+}
+
 .header, #test_results, #output {
     margin: 0px;
     margin-left: auto;
@@ -48,8 +52,11 @@ body {
     color: #babbd6;
     margin-bottom: 2px;
 }
-.error, .trace {
+.error, .trace, .hint {
     padding-left: 1em;
+}
+.section:not(:first-child) {
+    margin-top: .75em;
 }
 .trace .line {
     color: white;

@@ -25,8 +25,9 @@
 
 "use strict";
 
-window.tests = {};
+window.test = {};
 window._results = {};
+window._hints = [];
 
 var assert = function (condition) {
     if (!condition) {
@@ -34,6 +35,13 @@ var assert = function (condition) {
         error.stack = error.stack.split("\n").slice(1).join("\n");
         throw(error);
     }
+};
+
+var hint = function (message, clear) {
+    if (clear) {
+        window._hints = [];
+    }
+    window._hints.push(message);
 };
 
 console.assert = assert;
@@ -54,6 +62,18 @@ console.assert = assert;
 
     var format_error = function (error, name, test) {
         var out = "";
+
+        out += "<div class='section'>error:</div>";
+        out += "<div class='error'>" + (error.message || error) + "</div>";
+        if (window._hints.length > 0) {
+            out += "<div class='section'>output:</div>";
+            window._hints.map(function (message) {
+                out += "<div class='hint'>" + message + "</div>";
+            });
+        }
+        out += "<div class='section'>traceback:</div>";
+
+
         if (error.constructor == Error) {
             var stack = error.stack.split("\n");
             for (var i=stack.length-1; i>=0; i-=1) {
@@ -62,20 +82,14 @@ console.assert = assert;
                     break;
                 }
             }
-
-            out += "<div>error:</div>";
-            out += "<div class='error'>" + error.message + "</div>";
-            out += "<div>traceback:</div>";
+            var host = document.location.toString().slice(0, -1*(document.location.pathname.length-1));
             var revised = stack.map(function (line) {
                 var parts = line.split("@");
                 var method = parts[0];
-                var file = parts.slice(1).join("@").slice(document.location.toString().length);
+                var file = parts.slice(1).join("@").slice(host.length);
                 var file_parts = file.split(":");
                 var position = file_parts.slice(-2);
                 file = file_parts.slice(0, -2).join(":");
-                console.info(method);
-                console.info(file);
-                console.info(position);
 
                 out += "<div class='trace'>";
                 out += "line <span class='line'>" + position[0] + "</span>";
@@ -86,9 +100,6 @@ console.assert = assert;
             });
         }
         else {
-            out += "<div>error:</div>";
-            out += "<div class='error'>" + error + "</div>";
-            out += "<div>traceback:</div>";
             out += "<div class='trace'>";
             out += "line <span class='line'>???</span>";
             out += " in <span class='file'>???</span>";
@@ -113,6 +124,7 @@ console.assert = assert;
 
     var run_test = function (name, test) {
         var passed = true;
+        window._hints = [];
         try {
             test();
         } catch(error) {
@@ -123,10 +135,19 @@ console.assert = assert;
         add_mark(passed);
     };
 
+    var gl_setup = function () {
+        try {
+            please.gl.set_context("gl_canvas");
+        } catch (error) {
+            verbose(error, "test runner gl setup", null);
+        }
+    };
+
     addEventListener("load", function() {
         _results.failed = 0;
         change_status("Running tests...");
-        please.prop_map(window.tests, run_test);
+        gl_setup();
+        please.prop_map(window.test, run_test);
         if (_results.failed == 0) {
             change_status("Done.  All tests passed!");
         }
