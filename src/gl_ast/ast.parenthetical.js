@@ -34,7 +34,7 @@ please.gl.ast.Parenthetical.prototype.print = function () {
         close = "]";
     }
     else {
-        throw ("Unknown Panthetical subtype: " + this.type);
+        throw new Error("Unknown Panthetical subtype: " + this.type);
     }
     var out = [];
     ITER(i, this.data) {
@@ -100,7 +100,7 @@ please.gl.__identify_parentheticals = function (ast, start, close_target) {
         }
         else if (item == close_target) {
             if (start === 0) {
-                throw("mismatched parenthesis - encountered an extra '" + close_target + "'");
+                throw new Error("mismatched parenthesis - encountered an extra '" + close_target + "'");
             }
             else {
                 return [new please.gl.ast.Parenthetical(new_ast, close_target), i];
@@ -116,6 +116,6 @@ please.gl.__identify_parentheticals = function (ast, start, close_target) {
         return new_ast;
     }
     else {
-        throw("mismatched parenthesis - missing a '" + close + "'");
+        throw new Error("mismatched parenthesis - missing a '" + close + "'");
     }
 };

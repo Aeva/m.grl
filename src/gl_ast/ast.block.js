@@ -191,10 +191,10 @@ please.gl.ast.Block.prototype.make_function = function (invocation) {
     var params = invocation[1];
 
     if (params.constructor !== please.gl.ast.Parenthetical) {
-        throw("Malformed function invocation: " + invocation);
+        throw new Error("Malformed function invocation: " + invocation);
     }
     else if (!params.is_flat) {
-        throw("Nested parenthesis in function declaration: " + invocation);
+        throw new Error("Nested parenthesis in function declaration: " + invocation);
     }
     
     this.name = prefix[1]; // the name of the function

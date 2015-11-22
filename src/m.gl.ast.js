@@ -132,7 +132,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         }
         else if (token == "}") {
             if (start === 0) {
-                throw("Extra '}' on line " + (token.line+1));
+                throw new Error("Extra '}' on line " + (token.line+1));
             }
             else {
                 tree = please.gl.__identify_parentheticals(tree);
@@ -160,7 +160,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         return ast;
     }
     else {
-        throw("Missing a '}'");
+        throw new Error("Missing a '}'");
     }
 };
 
