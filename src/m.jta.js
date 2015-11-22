@@ -218,7 +218,7 @@ please.gl.__jta_model = function (src, uri) {
                 return node;
             }
             else {
-                throw("no such object in " + uri + ": " + model_name);
+                throw new Error("no such object in " + uri + ": " + model_name);
             }
         }
     };
@@ -506,7 +506,7 @@ please.gl.__jta_extract_models = function (model_defs, buffer_objects) {
                 model.uniforms[state_name] = please.gl.__jta_array(state);
             }
             else {
-                throw ("Not implemented: non-array uniforms from jta export");
+                throw new Error("Not implemented: non-array uniforms from jta export");
             }
         });
         return model;

@@ -88,7 +88,7 @@ please.pipeline.add = function (priority, name, callback) {
     if (this.__callbacks[name] !== undefined) {
         var err = "Cannot register a callback of the same name twice.";
         err += "  Please remove the old one first if this is intentional.";
-        throw(err);
+        throw new Error(err);
     }
     this.__callbacks[name] = {
         "name" : name,
