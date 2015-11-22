@@ -73,5 +73,4 @@ test["please.gl.__identify_functions"] = function () {
     assert(remainder[1].constructor == please.gl.ast.Block);
     assert(remainder[1].type == "function");
     assert(remainder[1].signature == "vec3:float:int");
-    hint(remainder);
 };
