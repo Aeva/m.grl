@@ -358,7 +358,7 @@ please.mix = function (lhs, rhs, a) {
             }
         }
     }
-    throw ("Mix operands are incompatible.");
+    throw new Error("Mix operands are incompatible.");
 };
 // [+] please.distance(lhs, rhs)
 //
@@ -808,7 +808,7 @@ please.typed_array = function (raw, hint) {
         // should load it as a Uint16Array, attempt to determine the
         // sign for each value and then dump the correct values into a
         // Int32Array.
-        throw("Not implemented - unpacking base64 encoded Int16Arrays");
+        throw new Error("Not implemented - unpacking base64 encoded Int16Arrays");
     }
     else if (hint == "Int32Array") {
         return new Int32Array(please.decode_buffer(raw));
@@ -1151,7 +1151,7 @@ please.pages.create = function (name, options) {
     };
     // apply preset options
     if (options.preset) {
-        throw ("unimplemented feature");
+        throw new Error("unimplemented feature");
     }
     // create the ui page base
     var classes = ["mgrl_ui_page"];
@@ -2371,7 +2371,7 @@ please.pipeline.add = function (priority, name, callback) {
     if (this.__callbacks[name] !== undefined) {
         var err = "Cannot register a callback of the same name twice.";
         err += "  Please remove the old one first if this is intentional.";
-        throw(err);
+        throw new Error(err);
     }
     this.__callbacks[name] = {
         "name" : name,
@@ -5185,7 +5185,7 @@ please.gl.__jta_model = function (src, uri) {
                 return node;
             }
             else {
-                throw("no such object in " + uri + ": " + model_name);
+                throw new Error("no such object in " + uri + ": " + model_name);
             }
         }
     };
@@ -5447,7 +5447,7 @@ please.gl.__jta_extract_models = function (model_defs, buffer_objects) {
                 model.uniforms[state_name] = please.gl.__jta_array(state);
             }
             else {
-                throw ("Not implemented: non-array uniforms from jta export");
+                throw new Error("Not implemented: non-array uniforms from jta export");
             }
         });
         return model;
@@ -6755,7 +6755,7 @@ please.GraphNode = function () {
     // A getter that is set to the rotation property when the mode
     // changes to quaternion mode.
     var as_euler = function () {
-        throw("I don't know how to translate from quaternions to euler " +
+        throw new Error("I don't know how to translate from quaternions to euler " +
               "rotations :( I am sorry :( :( :(");
     }.bind(this);
     // A getter that is set to the quaternion property wthen the mode
@@ -7021,7 +7021,7 @@ please.GraphNode.prototype = {
             return 2;
         }
         else {
-            throw("Unknown billboard type: " + this.billboard);
+            throw new Error("Unknown billboard type: " + this.billboard);
         }
     },
     "__find_selection" : function () {
@@ -7236,7 +7236,7 @@ please.SceneGraph = function () {
             }
         }
         else {
-            throw ("The scene graph has no camera in it!");
+            throw new Error("The scene graph has no camera in it!");
         }
         if (this.__states) {
             for (var hint in this.__states) if (this.__states.hasOwnProperty(hint)) {
@@ -8077,7 +8077,7 @@ please.render = function(node) {
     var expire = arguments[1] || please.pipeline.__framestart;
     var stack = arguments[2] || [];
     if (stack.indexOf(node)>=0) {
-        throw("M.GRL doesn't currently suport render graph cycles.");
+        throw new Error("M.GRL doesn't currently suport render graph cycles.");
     }
     var delay = 0;
     if (node.frequency) {
@@ -8101,7 +8101,7 @@ please.render = function(node) {
                 }
                 else {
                     // FIXME: splat render the texture and call it a day
-                    throw("missing functionality");
+                    throw new Error("missing functionality");
                 }
             }
             else if (typeof(proxy) === "object") {
@@ -8777,7 +8777,7 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
         tracker.animated = !!tracker.stamp.play;
     }
     else {
-        throw("Invalid asset.  Did you pass a GraphNode by mistake?");
+        throw new Error("Invalid asset.  Did you pass a GraphNode by mistake?");
     }
     this.__ani_cache = tracker.stamp.__ani_cache;
     this.__ani_store = tracker.stamp.__ani_store;
