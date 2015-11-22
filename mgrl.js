@@ -1543,7 +1543,7 @@ please.load = function (asset_name, callback, options) {
             type = "text";
         }
         else {
-            throw("Unknown media type '"+type+"'");
+            throw new Error("Unknown media type '"+type+"'");
         }
     }
     var url = opt.absolute_url ? asset_name : please.media.relative_path(type, asset_name);
@@ -1619,7 +1619,7 @@ please.media.relative_path = function (type, file_name) {
         type = please.media.guess_type(file_name);
     }
     if (please.media.handlers[type] === undefined) {
-        throw("Unknown media type '"+type+"'");
+        throw new Error("Unknown media type '"+type+"'");
     }
     var prefix = please.media.search_paths[type] || "";
     if (!prefix.endsWith("/")) {
@@ -2771,7 +2771,7 @@ please.gl = {
 //
 please.gl.set_context = function (canvas_id, options) {
     if (this.canvas !== null) {
-        throw("This library is not presently designed to work with multiple contexts.");
+        throw new Error("This library is not presently designed to work with multiple contexts.");
     }
     this.canvas = document.getElementById(canvas_id);
     please.__create_canvas_overlay();
@@ -3071,7 +3071,7 @@ please.gl.__build_shader = function (src, uri) {
     }
     else {
         glsl.error = "unknown type for: " + uri;
-        throw("Cannot create shader - unknown type for: " + uri);
+        throw new Error("Cannot create shader - unknown type for: " + uri);
     }
     return glsl;
 };
@@ -3107,7 +3107,7 @@ please.gl.__flatten_path = function(path, data) {
 //
 please.glsl = function (name /*, shader_a, shader_b,... */) {
     if (window.gl === undefined) {
-        throw("No webgl context found.  Did you call please.gl.set_context?");
+        throw new Error("No webgl context found.  Did you call please.gl.set_context?");
     }
     var build_fail = "Shader could not be activated..?";
     var prog = {
@@ -3149,7 +3149,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 }
             }
             else {
-                throw(build_fail);
+                throw new Error(build_fail);
             }
             if (old) {
                 // trigger things to be rebound if neccesary
@@ -3195,16 +3195,16 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         }
     }
     if (!prog.vert) {
-        throw("No vertex shader defined for shader program \"" + name + "\".\n" +
+        throw new Error("No vertex shader defined for shader program \"" + name + "\".\n" +
               "Did you remember to call please.load on your vertex shader?");
     }
     if (!prog.frag) {
-        throw("No fragment shader defined for shader program \"" + name + "\".\n" +
+        throw new Error("No fragment shader defined for shader program \"" + name + "\".\n" +
               "Did you remember to call please.load on your fragment shader?");
     }
     if (errors.length > 0) {
         prog.error = errors;
-        throw(build_fail);
+        throw new Error(build_fail);
     }
     // check for redundant build
     var another = please.gl.get_program(prog.name);
@@ -3690,7 +3690,7 @@ please.gl.blank_texture = function (opt) {
 //
 please.gl.register_framebuffer = function (handle, _options) {
     if (please.gl.__cache.textures[handle]) {
-        throw("Cannot register framebuffer to occupied handel: " + handle);
+        throw new Error("Cannot register framebuffer to occupied handel: " + handle);
     }
     // Set the framebuffer options.
     var opt = {
@@ -3744,7 +3744,7 @@ please.gl.register_framebuffer = function (handle, _options) {
             var attach = extension[attach_point+"_WEBGL"] || extension[attach_point];
             buffer_config.push(attach);
             if (attach === undefined) {
-                throw ("Insufficient color buffer attachments.  Requested " + opt.buffers.length +", got " + i + " buffers.");
+                throw new Error("Insufficient color buffer attachments.  Requested " + opt.buffers.length +", got " + i + " buffers.");
             }
             gl.framebufferTexture2D(
                 gl.FRAMEBUFFER, attach, gl.TEXTURE_2D, tex[i], 0);
@@ -3798,7 +3798,7 @@ please.gl.set_framebuffer = function (handle) {
             gl.viewport(0, 0, width, height);
         }
         else {
-            throw ("No framebuffer registered for " + handle);
+            throw new Error("No framebuffer registered for " + handle);
         }
     }
 };
@@ -4028,7 +4028,7 @@ please.gl.ast.flatten = function (stream) {
         return out;
     }
     else {
-        throw ("unable to flatten stream");
+        throw new Error("unable to flatten stream");
     }
 };
 // - gl_ast/ast.comment.js -------------------------------------------- //
@@ -4253,7 +4253,7 @@ please.gl.__create_global = function (tokens) {
     for (var i=0; i<qualifiers; i+=1) {
         var test = words[i+1];
         if (macros.concat(precision).indexOf(test) == -1) {
-            throw ("Malformed global");
+            throw new Error("Malformed global");
         }
     }
     var remainder = words.slice(qualifiers+1).concat(tokens.slice(1));
@@ -4784,9 +4784,9 @@ please.gl.macros.include = function (ast) {
                 console.assert(args[0].quotation);
             } catch (error) {
                 console.warn(error);
-                throw ("Malformed include statement on line " +
-                       item.meta.line + " at char " + item.meta.char +
-                       " in file " + item.meta.uri);
+                throw new Error("Malformed include statement on line " +
+                                item.meta.line + " at char " + item.meta.char +
+                                " in file " + item.meta.uri);
             }
             var uri = args[0].data;
             ast.inclusions.push(uri);

@@ -53,6 +53,6 @@ please.gl.ast.flatten = function (stream) {
         return out;
     }
     else {
-        throw ("unable to flatten stream");
+        throw new Error("unable to flatten stream");
     }
 };

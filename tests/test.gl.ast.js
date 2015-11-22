@@ -12,5 +12,4 @@ test.bundled_assets = function () {
         hint("building: " + name, true);
         var asset = new please.gl.ShaderSource(atob(src), name);
     });
-    assert(found > 0);
 };

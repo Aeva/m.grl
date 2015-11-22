@@ -144,7 +144,7 @@ please.gl.__create_global = function (tokens) {
     for (var i=0; i<qualifiers; i+=1) {
         var test = words[i+1];
         if (macros.concat(precision).indexOf(test) == -1) {
-            throw ("Malformed global");
+            throw new Error("Malformed global");
         }
     }
     var remainder = words.slice(qualifiers+1).concat(tokens.slice(1));

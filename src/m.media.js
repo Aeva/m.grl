@@ -126,7 +126,7 @@ please.load = function (asset_name, callback, options) {
             type = "text";
         }
         else {
-            throw("Unknown media type '"+type+"'");
+            throw new Error("Unknown media type '"+type+"'");
         }
     }
     var url = opt.absolute_url ? asset_name : please.media.relative_path(type, asset_name);
@@ -206,7 +206,7 @@ please.media.relative_path = function (type, file_name) {
         type = please.media.guess_type(file_name);
     }
     if (please.media.handlers[type] === undefined) {
-        throw("Unknown media type '"+type+"'");
+        throw new Error("Unknown media type '"+type+"'");
     }
     var prefix = please.media.search_paths[type] || "";
     if (!prefix.endsWith("/")) {

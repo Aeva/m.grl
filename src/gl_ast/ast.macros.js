@@ -20,9 +20,9 @@ please.gl.macros.include = function (ast) {
                 console.assert(args[0].quotation);
             } catch (error) {
                 console.warn(error);
-                throw ("Malformed include statement on line " +
-                       item.meta.line + " at char " + item.meta.char +
-                       " in file " + item.meta.uri);
+                throw new Error("Malformed include statement on line " +
+                                item.meta.line + " at char " + item.meta.char +
+                                " in file " + item.meta.uri);
             }
             var uri = args[0].data;
             ast.inclusions.push(uri);
