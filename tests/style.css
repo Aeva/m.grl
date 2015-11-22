@@ -1,0 +1,62 @@
+
+body {
+    background-color: #2e3436;
+    font-family: mono;
+    color: #d3d7cf;
+    padding: 1em;
+}
+
+.header, #test_results, #output {
+    margin: 0px;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 85em;
+}
+#test_results, #output {
+    border: 1px solid #888a85;
+    padding: 1em;
+    margin-bottom: 2em;
+}
+
+.pass {
+}
+
+.fail {
+    color: #cc0000;
+}
+
+#verbose {
+    display: none;
+}
+
+.entry {
+    border: 1px solid #555753;
+    margin-bottom: 1em;
+    padding: .5em;
+    padding-right: 0px;
+}
+
+.entry:last-child {
+    margin-bottom: 0px;
+}
+
+.error {
+    color: #cc0000;
+    margin-bottom: 1px;
+}
+.trace {
+    color: #babbd6;
+    margin-bottom: 2px;
+}
+.error, .trace {
+    padding-left: 1em;
+}
+.trace .line {
+    color: white;
+}
+.trace .file {
+    color: white;
+}
+.trace .method {
+    color: white;
+}
