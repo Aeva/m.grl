@@ -4279,7 +4279,7 @@ please.gl.__create_global = function (tokens) {
         }
         var global = new please.gl.ast.Global(
             mode, type, name, value, size, precision, macro);
-        global.meta = def.meta;
+        global.meta = tokens[0].meta;
         created.push(global);
     }
     return created;
@@ -4948,7 +4948,7 @@ please.gl.__apply_source_map = function (stream, src) {
         total += (lines[i].length+1); // +1 to compensate for missing \n
     }
     var apply_src_map = function (token) {
-        if (token.meta.offset && token.meta.offset != null) {
+        if (token.meta.offset !== undefined && token.meta.offset !== null) {
             for (var i=0; i<offsets.length; i+=1) {
                 if (offsets[i] > token.meta.offset) {
                     break;

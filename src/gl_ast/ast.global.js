@@ -171,7 +171,7 @@ please.gl.__create_global = function (tokens) {
         }
         var global = new please.gl.ast.Global(
             mode, type, name, value, size, precision, macro);
-        global.meta = def.meta;
+        global.meta = tokens[0].meta;
         created.push(global);
     }
     return created;

@@ -177,7 +177,7 @@ please.gl.__apply_source_map = function (stream, src) {
         total += (lines[i].length+1); // +1 to compensate for missing \n
     }
     var apply_src_map = function (token) {
-        if (token.meta.offset && token.meta.offset != null) {
+        if (token.meta.offset !== undefined && token.meta.offset !== null) {
             ITER(i, offsets) {
                 if (offsets[i] > token.meta.offset) {
                     break;
