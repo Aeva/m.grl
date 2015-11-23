@@ -57,10 +57,10 @@ please.gl.ast.Block.prototype.print = function () {
 
 
 //
-please.gl.ast.Block.prototype.__print_program = function (skip_includes) {
+please.gl.ast.Block.prototype.__print_program = function (is_include) {
     var out = "";
 
-    if (!skip_includes && this.inclusions.length > 0) {
+    if (!is_include && this.inclusions.length > 0) {
         // First, combine all of the globals and hoist them to the top
         // of the generated file.
         var globals = {};
@@ -107,7 +107,7 @@ please.gl.ast.Block.prototype.__print_program = function (skip_includes) {
     ITER(i, this.data) {
         var token = this.data[i];
         if (token.constructor == please.gl.ast.Global) {
-            var dummy_out = this.inclusions.length>0 ? "// " : "";
+            var dummy_out = (this.inclusions.length>0 || is_include) ? "// " : "";
             out += dummy_out + token.print();
         }
         else if (token.constructor != please.gl.ast.Block &&
