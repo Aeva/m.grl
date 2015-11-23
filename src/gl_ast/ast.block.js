@@ -71,8 +71,8 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
                 globals[global.name] = global;
             }
             else {
-                // FIXME compare and ignore or throw
-                console.warn("redundant global: " + global.name);
+                please.gl.__check_for_contradicting_globals(
+                    globals[global.name], global);
             }
         };
         ITER(i, imports) {

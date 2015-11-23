@@ -148,7 +148,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
 
     if (start === 0) {
         var extract = please.gl.__parse_globals(tree);
-        var globals = please.gl__clean_globals(extract[0]);
+        var globals = please.gl.__clean_globals(extract[0]);
         var remainder = extract[1];
         remainder = please.gl.__remove_precision(remainder);
         remainder = please.gl.__identify_parentheticals(remainder);

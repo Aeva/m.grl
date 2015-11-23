@@ -152,7 +152,7 @@ test["simple integration"] = function () {
 };
 
 
-test["combine redundant declarations"] = function () {
+test["combine redundant globals"] = function () {
     var src = '';
     src += 'uniform float alpha;\n';
     src += 'uniform float alpha;\n';
@@ -164,7 +164,7 @@ test["combine redundant declarations"] = function () {
 };
 
 
-test["error on contradictory declarations"] = function () {
+test["error on contradictory globals within source"] = function () {
     var src = '';
     src += 'uniform float alpha;\n';
     src += 'const float alpha;\n';
@@ -172,6 +172,23 @@ test["error on contradictory declarations"] = function () {
     var raised = false;
     try {
         var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        console.info(err);
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["error on contradictory globals after includes"] = function () {
+    var src = '';
+    src += 'include("normalize_screen_coord.glsl");\n';
+    src += 'uniform int mgrl_buffer_width;\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+        tree.print();
     } catch (err) {
         console.info(err);
         raised = true;

@@ -14,5 +14,5 @@ test["please.gl.ast.str"] = function () {
     assert(foo.meta.offset === 100);
     assert(foo.meta.line === null);
     assert(foo.meta.char === null);
-    assert(foo.meta.uri === "unknown");
+    assert(foo.meta.uri === "<unknown file>");
 };

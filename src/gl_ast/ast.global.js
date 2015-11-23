@@ -44,9 +44,20 @@ please.gl.ast.Global.prototype.print = function () {
 };
 
 
+// Throw an error when two globals contradict one another.
+please.gl.__check_for_contradicting_globals = function (lhs, rhs) {
+    if (lhs.print() != rhs.print()) {
+        var msg = "Contradicting definitions for global '" + name + "':\n";
+        msg += "definition 1: " + please.gl.ast.format_metadata(lhs) + "\n";
+        msg += "definition 2: " + please.gl.ast.format_metadata(rhs) + "\n";
+        throw new Error(msg);
+    }
+};
+
+
 // Call on a list of Globals to remove redundant declarations and
 // throw errors for contradictions.
-please.gl__clean_globals = function (globals) {
+please.gl.__clean_globals = function (globals) {
     var revised = [];
     var by_name = {};
     globals.map(function (global) {
@@ -57,14 +68,7 @@ please.gl__clean_globals = function (globals) {
         by_name[global.name].push(global);
     });
     please.prop_map(by_name, function (name, set) {
-        set.reduce(function(lhs, rhs) {
-            if (lhs.print() != rhs.print()) {
-                var msg = "Contradicting definitions for global '" + name + "':\n";
-                msg += "definition 1: " + please.gl.ast.format_metadata(lhs) + "\n";
-                msg += "definition 2: " + please.gl.ast.format_metadata(rhs) + "\n";
-                throw new Error(msg);
-            }
-        });
+        set.reduce(please.gl.__check_for_contradicting_globals);
     });
     return revised;
 };

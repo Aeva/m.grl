@@ -4170,9 +4170,18 @@ please.gl.ast.Global.prototype.print = function () {
     out += ";\n";
     return out;
 };
+// Throw an error when two globals contradict one another.
+please.gl.__check_for_contradicting_globals = function (lhs, rhs) {
+    if (lhs.print() != rhs.print()) {
+        var msg = "Contradicting definitions for global '" + name + "':\n";
+        msg += "definition 1: " + please.gl.ast.format_metadata(lhs) + "\n";
+        msg += "definition 2: " + please.gl.ast.format_metadata(rhs) + "\n";
+        throw new Error(msg);
+    }
+};
 // Call on a list of Globals to remove redundant declarations and
 // throw errors for contradictions.
-please.gl__clean_globals = function (globals) {
+please.gl.__clean_globals = function (globals) {
     var revised = [];
     var by_name = {};
     globals.map(function (global) {
@@ -4183,14 +4192,7 @@ please.gl__clean_globals = function (globals) {
         by_name[global.name].push(global);
     });
     please.prop_map(by_name, function (name, set) {
-        set.reduce(function(lhs, rhs) {
-            if (lhs.print() != rhs.print()) {
-                var msg = "Contradicting definitions for global '" + name + "':\n";
-                msg += "definition 1: " + please.gl.ast.format_metadata(lhs) + "\n";
-                msg += "definition 2: " + please.gl.ast.format_metadata(rhs) + "\n";
-                throw new Error(msg);
-            }
-        });
+        set.reduce(please.gl.__check_for_contradicting_globals);
     });
     return revised;
 };
@@ -4380,8 +4382,8 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
                 globals[global.name] = global;
             }
             else {
-                // FIXME compare and ignore or throw
-                console.warn("redundant global: " + global.name);
+                please.gl.__check_for_contradicting_globals(
+                    globals[global.name], global);
             }
         };
         for (var i=0; i<imports.length; i+=1) {
@@ -4952,7 +4954,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
     }
     if (start === 0) {
         var extract = please.gl.__parse_globals(tree);
-        var globals = please.gl__clean_globals(extract[0]);
+        var globals = please.gl.__clean_globals(extract[0]);
         var remainder = extract[1];
         remainder = please.gl.__remove_precision(remainder);
         remainder = please.gl.__identify_parentheticals(remainder);
