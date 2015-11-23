@@ -107,6 +107,21 @@ test["allow overloaded methods"] = function () {
 };
 
 
+test["overloaded methods must have same return type"] = function () {
+    var src = '';
+    src += 'vec2 overloaded(vec2 foo) { return foo; }\n';
+    src += 'vec4 overloaded(vec4 foo) { return foo; }\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
 test["error on redundant methods after includes"] = function () {
     var src = '';
     src += 'include("normalize_screen_coord.glsl");\n';
