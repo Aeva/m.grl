@@ -150,3 +150,31 @@ test["simple integration"] = function () {
     assert(tree.globals[5].name == "floob");
     assert(tree.globals[6].name == "pivot");
 };
+
+
+test["combine redundant declarations"] = function () {
+    var src = '';
+    src += 'uniform float alpha;\n';
+    src += 'uniform float alpha;\n';
+    var tree = please.gl.glsl_to_ast(src);
+    assert(tree.globals.length == 1);
+    assert(tree.globals[0].name == "alpha");
+    assert(tree.globals[0].type == "float");
+    assert(tree.globals[0].mode == "uniform");
+};
+
+
+test["error on contradictory declarations"] = function () {
+    var src = '';
+    src += 'uniform float alpha;\n';
+    src += 'const float alpha;\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        console.info(err);
+        raised = true;
+    };
+    assert(raised);
+};

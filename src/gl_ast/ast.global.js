@@ -44,6 +44,32 @@ please.gl.ast.Global.prototype.print = function () {
 };
 
 
+// Call on a list of Globals to remove redundant declarations and
+// throw errors for contradictions.
+please.gl__clean_globals = function (globals) {
+    var revised = [];
+    var by_name = {};
+    globals.map(function (global) {
+        if (!by_name[global.name]) {
+            by_name[global.name] = [];
+            revised.push(global);
+        }
+        by_name[global.name].push(global);
+    });
+    please.prop_map(by_name, function (name, set) {
+        set.reduce(function(lhs, rhs) {
+            if (lhs.print() != rhs.print()) {
+                var msg = "Contradicting definitions for global '" + name + "':\n";
+                msg += "definition 1: " + please.gl.ast.format_metadata(lhs) + "\n";
+                msg += "definition 2: " + please.gl.ast.format_metadata(rhs) + "\n";
+                throw new Error(msg);
+            }
+        });
+    });
+    return revised;
+};
+
+
 // This method takes a stream of tokens and parses out the glsl
 // globals from them.  Returns two lists, the first containing all of
 // the Global ast items that were extracted, the second is a list of

@@ -3992,9 +3992,19 @@ please.gl.ast.mixin = function (obj) {
             'offset': null,
             'line': null,
             'char' : null,
-            'uri' : "unknown",
+            'uri' : "<unknown file>",
         };
     }
+};
+/* [+] please.gl.ast.format_metadata(ast_item)
+ * 
+ * Print out a nice human-readable version of the token metadata.
+ * Useful when reporting where something was defined originally.
+ * 
+ */
+please.gl.ast.format_metadata = function (item) {
+    var meta = item.meta;
+    return meta.uri + ":" + meta.line + ":" + meta.char;
 };
 /* [+] please.gl.ast.str(text, offset)
  * 
@@ -4159,6 +4169,30 @@ please.gl.ast.Global.prototype.print = function () {
     }
     out += ";\n";
     return out;
+};
+// Call on a list of Globals to remove redundant declarations and
+// throw errors for contradictions.
+please.gl__clean_globals = function (globals) {
+    var revised = [];
+    var by_name = {};
+    globals.map(function (global) {
+        if (!by_name[global.name]) {
+            by_name[global.name] = [];
+            revised.push(global);
+        }
+        by_name[global.name].push(global);
+    });
+    please.prop_map(by_name, function (name, set) {
+        set.reduce(function(lhs, rhs) {
+            if (lhs.print() != rhs.print()) {
+                var msg = "Contradicting definitions for global '" + name + "':\n";
+                msg += "definition 1: " + please.gl.ast.format_metadata(lhs) + "\n";
+                msg += "definition 2: " + please.gl.ast.format_metadata(rhs) + "\n";
+                throw new Error(msg);
+            }
+        });
+    });
+    return revised;
 };
 // This method takes a stream of tokens and parses out the glsl
 // globals from them.  Returns two lists, the first containing all of
@@ -4918,7 +4952,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
     }
     if (start === 0) {
         var extract = please.gl.__parse_globals(tree);
-        var globals = extract[0];
+        var globals = please.gl__clean_globals(extract[0]);
         var remainder = extract[1];
         remainder = please.gl.__remove_precision(remainder);
         remainder = please.gl.__identify_parentheticals(remainder);

@@ -13,9 +13,21 @@ please.gl.ast.mixin = function (obj) {
             'offset': null,
             'line': null,
             'char' : null,
-            'uri' : "unknown",
+            'uri' : "<unknown file>",
         };
     }
+};
+
+
+/* [+] please.gl.ast.format_metadata(ast_item)
+ * 
+ * Print out a nice human-readable version of the token metadata.
+ * Useful when reporting where something was defined originally.
+ * 
+ */
+please.gl.ast.format_metadata = function (item) {
+    var meta = item.meta;
+    return meta.uri + ":" + meta.line + ":" + meta.char;
 };
 
 
