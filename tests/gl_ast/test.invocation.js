@@ -39,3 +39,20 @@ test["please.gl.__bind_invocations"] = function () {
     method.name = "test_method";
     assert(invoke.name == method.name);
 };
+
+
+test["don't bind in uncertain cases"] = function () {
+    var src = '';
+    src += 'float test(float foo) {}\n';
+    src += 'vec2 test(vec2 foo) {}\n';
+    src += 'void main () {\n';
+    src += '  float foo = 1.0 + test(2.0+17.7);\n';
+    src += '}\n';
+    var tree = please.gl.glsl_to_ast(src);
+    var main = tree.methods[2];
+    assert(main.name == "main");
+    var invocation = main.data.find(function (token) {
+        return token.constructor == please.gl.ast.Invocation;
+    });
+    assert(invocation.bound == false);
+};

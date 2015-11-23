@@ -173,7 +173,6 @@ test["error on contradictory globals within source"] = function () {
     try {
         var tree = please.gl.glsl_to_ast(src);
     } catch (err) {
-        console.info(err);
         raised = true;
     };
     assert(raised);
@@ -190,7 +189,6 @@ test["error on contradictory globals after includes"] = function () {
         var tree = please.gl.glsl_to_ast(src);
         tree.print();
     } catch (err) {
-        console.info(err);
         raised = true;
     };
     assert(raised);

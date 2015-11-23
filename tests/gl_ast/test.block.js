@@ -74,3 +74,50 @@ test["please.gl.__identify_functions"] = function () {
     assert(remainder[1].type == "function");
     assert(remainder[1].signature == "vec3:float:int");
 };
+
+
+test["error on redundant methods in file"] = function () {
+    var src = '';
+    src += 'void test() {}\n';
+    src += 'void test() {}\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        console.info(err);
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["allow overloaded methods"] = function () {
+    var src = '';
+    src += 'include("normalize_screen_coord.glsl");\n';
+    src += 'vec3 normalize_screen_coord(vec3 coord) {}\n';
+    src += 'vec4 normalize_screen_coord(vec4 coord) {}\n';
+    var tree = please.gl.glsl_to_ast(src);
+    tree.print();
+
+    // run the printed output through the compiler again so we can
+    // introspect it.
+    var printed = please.gl.glsl_to_ast(tree.print());
+    assert(printed.methods.length == 3);
+};
+
+
+test["error on redundant methods after includes"] = function () {
+    var src = '';
+    src += 'include("normalize_screen_coord.glsl");\n';
+    src += 'vec2 normalize_screen_coord(vec2 coord) {}\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+        tree.print();
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
