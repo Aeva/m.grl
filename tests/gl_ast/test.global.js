@@ -128,3 +128,25 @@ test["please.gl.__create_global"] = function () {
     assert(created[2].qualifier == null);
     assert(created[2].print() == "uniform float blue[16];\n");
 };
+
+
+test["simple integration"] = function () {
+    var src = '';
+    src += 'uniform float alpha;\n';
+    src += 'uniform float some_array[96];\n';
+    src += 'uniform sampler2D some_texture;\n';
+    src += 'varying vec3 position, normal;\n';
+    src += 'attribute vec4 floob;\n';
+    src += 'const int pivot = 10;\n';
+    var tree = please.gl.glsl_to_ast(src);
+
+    assert(tree.globals.length == 7);
+    assert(tree.globals[0].name == "alpha");
+    assert(tree.globals[1].name == "some_array");
+    assert(tree.globals[1].size == 96);
+    assert(tree.globals[2].name == "some_texture");
+    assert(tree.globals[3].name == "position");
+    assert(tree.globals[4].name == "normal");
+    assert(tree.globals[5].name == "floob");
+    assert(tree.globals[6].name == "pivot");
+};
