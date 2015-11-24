@@ -31,6 +31,27 @@ please.gl.ast.format_metadata = function (item) {
 };
 
 
+/* [+] please.gl.ast.error(token, message)
+ * 
+ * Raise a compile time error that can possibly be traced back to a
+ * specific location in an inputted source code.  This should be
+ * useful for pointing out syntax errors as well as to aid in
+ * debugging the compiler.
+ * 
+ */
+please.gl.ast.error = function (token, message) {
+    var msg = 'GLSL compilation error.\n';
+    if (token.meta) {
+        var position = please.gl.ast.format_metadata(token);
+        msg += position + ' threw the following:\n';
+    }
+    msg += '\n' + message;
+    var error = new Error(msg);
+    error.stack = error.stack.split("\n").slice(1).join("\n");
+    throw(error);
+};
+
+
 /* [+] please.gl.ast.str(text, offset)
  * 
  * Shorthand for initiating a String object with ast an ast metadata

@@ -32,7 +32,7 @@ please.gl.ast.Comment.prototype.print = function () {
 // This method takes the glsl source, isolates which sections are
 // commented out, and returns a list of Comment objects and strings.
 // This is the very first step in producing the token stream.
-please.gl.__find_comments = function (src) {
+please.gl.__find_comments = function (src, uri) {
     var open_regex = /(?:\/\/|\/\*|\"|\'|#)/m;//"
     var open = open_regex.exec(src);
     if (open === null) {
@@ -86,6 +86,9 @@ please.gl.__find_comments = function (src) {
     }
     if (after && after.length > 0) {
         tokens = tokens.concat(please.gl.__find_comments(after));
+    }
+    ITER(t, tokens) {
+        tokens[t].meta.uri = uri;
     }
     return tokens;
 };

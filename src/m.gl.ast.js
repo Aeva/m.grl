@@ -157,6 +157,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         var stream = globals.concat(remainder);
         var ast = new please.gl.ast.Block(stream);
         ast.make_global_scope();
+        please.gl.__validate_functions(ast.methods);
         return ast;
     }
     else {
@@ -194,18 +195,21 @@ please.gl.__apply_source_map = function (stream, src) {
 
 
 
-// [+] please.gl.glsl_to_ast(shader_source)
+// [+] please.gl.glsl_to_ast(shader_source, uri)
 //
 // Takes a glsl source file and returns an abstract syntax tree
 // representation of the code to be used for further processing.
+// The 'uri' argument is optional, and is mainly used for error
+// reporting.
 //
-please.gl.glsl_to_ast = function (src) {
+please.gl.glsl_to_ast = function (src, uri) {
     src = src.replace("\r\n", "\n");
     src = src.replace("\r", "\n");
     src = please.gl.ast.str(src);
     src.meta.offset = 0;
+    uri = uri || "<unknown file>";
     var tokens = [];
-    var tmp = please.gl.__find_comments(src);
+    var tmp = please.gl.__find_comments(src, uri);
     ITER(i, tmp) {
         if (tmp[i].constructor === String) {
             tokens = tokens.concat(please.gl.__split_tokens(tmp[i]));

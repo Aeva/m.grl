@@ -66,6 +66,17 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         var globals = {};
         var ext_ast = {};
         var imports = this.all_includes();
+        
+        var methods = [];
+        ITER(i, imports) {
+            var other = please.access(imports[i]).__ast;
+            ITER(m, other.methods) {
+                methods.push(other.methods[m]);
+            }
+        }
+        methods = methods.concat(this.methods);
+        please.gl.__validate_functions(methods);
+        
         var append_global = function(global) {
             if (globals[global.name] === undefined) {
                 globals[global.name] = global;
@@ -241,6 +252,28 @@ please.gl.ast.Block.prototype.make_global_scope = function () {
         }
     }
     please.gl.__bind_invocations(this.data, this.methods);
+};
+
+
+// Verify that the given set of functions contain no redundant
+// definitions or invalid overloads.
+please.gl.__validate_functions = function (methods) {
+    var groups = {};
+    methods.map(function (block) {
+        if (!groups[block.name]) {
+            groups[block.name] = [block.signature];
+            return;
+        }
+        var group = groups[block.name];
+        if (group.indexOf(block.signature) != -1) {
+            var msg = "Cannot register two functions of the same name and type " +
+                "signature.";
+            please.gl.ast.error(block, msg);
+        }
+        else {
+            group.push(block.signature);
+        }
+    });
 };
 
 

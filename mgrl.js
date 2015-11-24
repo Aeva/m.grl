@@ -4006,6 +4006,25 @@ please.gl.ast.format_metadata = function (item) {
     var meta = item.meta;
     return meta.uri + ":" + meta.line + ":" + meta.char;
 };
+/* [+] please.gl.ast.error(token, message)
+ * 
+ * Raise a compile time error that can possibly be traced back to a
+ * specific location in an inputted source code.  This should be
+ * useful for pointing out syntax errors as well as to aid in
+ * debugging the compiler.
+ * 
+ */
+please.gl.ast.error = function (token, message) {
+    var msg = 'GLSL compilation error.\n';
+    if (token.meta) {
+        var position = please.gl.ast.format_metadata(token);
+        msg += position + ' threw the following:\n';
+    }
+    msg += '\n' + message;
+    var error = new Error(msg);
+    error.stack = error.stack.split("\n").slice(1).join("\n");
+    throw(error);
+};
 /* [+] please.gl.ast.str(text, offset)
  * 
  * Shorthand for initiating a String object with ast an ast metadata
@@ -4071,7 +4090,7 @@ please.gl.ast.Comment.prototype.print = function () {
 // This method takes the glsl source, isolates which sections are
 // commented out, and returns a list of Comment objects and strings.
 // This is the very first step in producing the token stream.
-please.gl.__find_comments = function (src) {
+please.gl.__find_comments = function (src, uri) {
     var open_regex = /(?:\/\/|\/\*|\"|\'|#)/m;//"
     var open = open_regex.exec(src);
     if (open === null) {
@@ -4125,6 +4144,9 @@ please.gl.__find_comments = function (src) {
     }
     if (after && after.length > 0) {
         tokens = tokens.concat(please.gl.__find_comments(after));
+    }
+    for (var t=0; t<tokens.length; t+=1) {
+        tokens[t].meta.uri = uri;
     }
     return tokens;
 };
@@ -4377,6 +4399,15 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         var globals = {};
         var ext_ast = {};
         var imports = this.all_includes();
+        var methods = [];
+        for (var i=0; i<imports.length; i+=1) {
+            var other = please.access(imports[i]).__ast;
+            for (var m=0; m<other.methods.length; m+=1) {
+                methods.push(other.methods[m]);
+            }
+        }
+        methods = methods.concat(this.methods);
+        please.gl.__validate_functions(methods);
         var append_global = function(global) {
             if (globals[global.name] === undefined) {
                 globals[global.name] = global;
@@ -4533,6 +4564,26 @@ please.gl.ast.Block.prototype.make_global_scope = function () {
         }
     }
     please.gl.__bind_invocations(this.data, this.methods);
+};
+// Verify that the given set of functions contain no redundant
+// definitions or invalid overloads.
+please.gl.__validate_functions = function (methods) {
+    var groups = {};
+    methods.map(function (block) {
+        if (!groups[block.name]) {
+            groups[block.name] = [block.signature];
+            return;
+        }
+        var group = groups[block.name];
+        if (group.indexOf(block.signature) != -1) {
+            var msg = "Cannot register two functions of the same name and type " +
+                "signature.";
+            please.gl.ast.error(block, msg);
+        }
+        else {
+            group.push(block.signature);
+        }
+    });
 };
 // Identify which blocks are functions, and collapse the preceding
 // statement into the method.
@@ -4963,6 +5014,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         var stream = globals.concat(remainder);
         var ast = new please.gl.ast.Block(stream);
         ast.make_global_scope();
+        please.gl.__validate_functions(ast.methods);
         return ast;
     }
     else {
@@ -4994,18 +5046,21 @@ please.gl.__apply_source_map = function (stream, src) {
     };
     stream.map(apply_src_map);
 };
-// [+] please.gl.glsl_to_ast(shader_source)
+// [+] please.gl.glsl_to_ast(shader_source, uri)
 //
 // Takes a glsl source file and returns an abstract syntax tree
 // representation of the code to be used for further processing.
+// The 'uri' argument is optional, and is mainly used for error
+// reporting.
 //
-please.gl.glsl_to_ast = function (src) {
+please.gl.glsl_to_ast = function (src, uri) {
     src = src.replace("\r\n", "\n");
     src = src.replace("\r", "\n");
     src = please.gl.ast.str(src);
     src.meta.offset = 0;
+    uri = uri || "<unknown file>";
     var tokens = [];
-    var tmp = please.gl.__find_comments(src);
+    var tmp = please.gl.__find_comments(src, uri);
     for (var i=0; i<tmp.length; i+=1) {
         if (tmp[i].constructor === String) {
             tokens = tokens.concat(please.gl.__split_tokens(tmp[i]));
