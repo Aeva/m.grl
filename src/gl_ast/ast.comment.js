@@ -87,8 +87,16 @@ please.gl.__find_comments = function (src, uri) {
     if (after && after.length > 0) {
         tokens = tokens.concat(please.gl.__find_comments(after));
     }
+
+    // Finally, strip out whitespace / zero length tokens, and add the
+    // uri to the remaining token's meta data object:
+    var output = [];
     ITER(t, tokens) {
-        tokens[t].meta.uri = uri;
+        var token = tokens[t];
+        token.meta.uri = uri;
+        if (!(token.constructor == String && token.trim().length == 0)) {
+            output.push(token);
+        }
     }
-    return tokens;
+    return output;
 };

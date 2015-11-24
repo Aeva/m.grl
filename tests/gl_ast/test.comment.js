@@ -39,3 +39,23 @@ test["please.gl.__find_comments"] = function () {
     assert(subset[3].directive == true);
     assert(subset[3].data == "preproc directive");
 };
+
+
+test["token stream should not have whitespace-only tokens"] = function () {
+    var src = "///* hello\n"
+    src += "/* this is a\n"
+    src += "// test */\n";
+    src += '"quotation comment"\n';
+    src += "#preproc directive\n";
+    src = please.gl.ast.str(src);
+    src.meta.offset = 0;
+
+    var tokens = please.gl.__find_comments(src);
+    var zeros = 0;
+    tokens.map(function (token) {
+        if (token.constructor == String && token.trim().length == 0) {
+            zeros += 1;
+        }
+    });
+    assert(zeros == 0);
+};
