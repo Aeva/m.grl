@@ -4825,8 +4825,19 @@ please.gl.__identify_invocations = function (ast) {
 please.gl.__bind_invocations = function (stream, methods_set, scope) {
     if (!scope) {
         scope = {};
+        // Build a by_name lookup for binding against.  We remove
+        // overloaded functions for now as there is no way currently
+        // to tell which one is the correct one to bind to.
+        var overloaded = {};
         for (var i=0; i<methods_set.length; i+=1) {
-            scope[methods_set[i].name] = methods_set[i];
+            var name = methods_set[i].name;
+            if (!scope[name] && !overloaded[name]) {
+                scope[name] = methods_set[i];
+            }
+            else if (scope[name]) {
+                overloaded[name] = true;
+                delete(scope[name]);
+            }
         }
     }
     var add_binding = function (invocation, method) {
