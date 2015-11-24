@@ -49,7 +49,7 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
         tracker.animated = !!tracker.stamp.play;
     }
     else {
-        throw("Invalid asset.  Did you pass a GraphNode by mistake?");
+        throw new Error("Invalid asset.  Did you pass a GraphNode by mistake?");
     }
 
     this.__ani_cache = tracker.stamp.__ani_cache;

@@ -23,7 +23,8 @@ uniform sampler2D light_texture;
 // mode switching
 uniform int shader_pass;
 
-#include "normalize_screen_coord.glsl"
+
+include("normalize_screen_coord.glsl");
 
 
 float illumination(vec3 _position, float _depth) {

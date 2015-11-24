@@ -11,10 +11,12 @@ API Reference
     m.defs.rst
     m.effects.rst
     m.gani.rst
+    m.gl.ast.rst
     m.gl.rst
     m.graph.rst
     m.input.rst
     m.jta.rst
+    m.lights.rst
     m.media.rst
     m.multipass.rst
     m.overlay.rst

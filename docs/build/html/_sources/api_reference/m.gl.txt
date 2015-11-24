@@ -88,11 +88,19 @@ please.gl.ibo
 Create a IBO.
 
 
+please.gl.blank_texture
+-----------------------
+*please.gl.blank\_texture* **(options)**
+
+Create a new render texture. This is mostly intended to be used by
+please.gl.register\_framebuffer
+
+
 please.gl.register_framebuffer
 ------------------------------
 *please.gl.register\_framebuffer* **(handle, options)**
 
-Create a new render texture
+Create a new framebuffer with a render texture attached.
 
 
 please.gl.set_framebuffer

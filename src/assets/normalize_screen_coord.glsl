@@ -1,3 +1,7 @@
+
+uniform float mgrl_buffer_width;
+uniform float mgrl_buffer_height;
+
 //
 //  This function takes a value like gl_FragCoord.xy, wherein the
 //  coordinate is expressed in screen coordinates, and returns an
