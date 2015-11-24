@@ -29,7 +29,7 @@
 .
 
 
- A Short list of M.GRL's features:
+A Short list of M.GRL's features:
 
  - 2D and 3D rendering via WebGL
  - animation via assigning functions to shader variables
