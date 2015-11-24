@@ -1,16 +1,6 @@
 // - m.gl.js ------------------------------------------------------------- //
 
 
-// "glsl" media type handler
-please.media.search_paths.glsl = "",
-please.media.handlers.glsl = function (url, asset_name, callback) {
-    var media_callback = function (req) {
-        please.media.assets[asset_name] = please.gl.__build_shader(req.response, url);
-    };
-    please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
-};
-
-
 // Namespace for m.gl guts
 please.gl = {
     "canvas" : null,
@@ -21,7 +11,6 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
-    "__macros" : [],
 };
 
 
@@ -42,7 +31,7 @@ please.gl = {
 //
 please.gl.set_context = function (canvas_id, options) {
     if (this.canvas !== null) {
-        throw("This library is not presently designed to work with multiple contexts.");
+        throw new Error("This library is not presently designed to work with multiple contexts.");
     }
 
     this.canvas = document.getElementById(canvas_id);
@@ -90,6 +79,13 @@ please.gl.set_context = function (canvas_id, options) {
         gl.enable(gl.BLEND);
         gl.blendFuncSeparate(
             gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA, gl.ONE);
+
+        // enable depth testing
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
+
+        // enable culling
+        gl.enable(gl.CULL_FACE);
 
         // fire an event to indicate that a gl context exists now
         var ctx_event = new CustomEvent("mgrl_gl_context_created");
@@ -323,27 +319,21 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
 };
 
 
-//
-// mechanism for applying all registered glsl macros, in order, to a
-// given body of code.
-//
-please.gl.apply_glsl_macros = function (src) {
-    ITER(i, please.gl.__macros) {
-        src = please.gl.__macros[i](src);
-    }
-    return src;
-};
-
-
 // Constructor function for GLSL Shaders
-please.gl.__build_shader = function (src, uri) {
+please.gl.__build_shader = function (src, uri, lazy) {
     var glsl = {
         "id" : null,
         "type" : null,
-        "src" : please.gl.apply_glsl_macros(src),
+        "src" : src,
         "uri" : uri,
         "ready" : false,
         "error" : false,
+        "__err_output" : "",
+        "lazy" : !!lazy,
+        "__on_error" : function () {
+            console.error(glsl.__err_output);
+            alert("" + this.uri + " failed to build.  See javascript console for details.");
+        }
     };
 
     // determine shader's type from file name
@@ -373,12 +363,14 @@ please.gl.__build_shader = function (src, uri) {
                     debug.push(line_label + " | " + line);
                 }
             }
-            console.debug(
-                "----- semicompiled shader ----------------\n" + debug.join("\n"));
             glsl.error = gl.getShaderInfoLog(glsl.id);
-            console.error(
-                "Shader compilation error for: " + uri + " \n" + glsl.error);
-            alert("" + glsl.uri + " failed to build.  See javascript console for details.");
+            glsl.__err_output = "----- semicompiled shader ----------------\n" +
+                debug.join("\n") +
+                "Shader compilation error for: " + uri + " \n" +
+                glsl.error;
+            if (!glsl.lazy) {
+                glsl.__on_error();
+            }
         }
         else {
             console.info("Shader compiled: " + uri);
@@ -387,7 +379,7 @@ please.gl.__build_shader = function (src, uri) {
     }
     else {
         glsl.error = "unknown type for: " + uri;
-        throw("Cannot create shader - unknown type for: " + uri);
+        throw new Error("Cannot create shader - unknown type for: " + uri);
     }
 
     return glsl;
@@ -429,7 +421,7 @@ please.gl.__flatten_path = function(path, data) {
 //
 please.glsl = function (name /*, shader_a, shader_b,... */) {
     if (window.gl === undefined) {
-        throw("No webgl context found.  Did you call please.gl.set_context?");
+        throw new Error("No webgl context found.  Did you call please.gl.set_context?");
     }
 
     var build_fail = "Shader could not be activated..?";
@@ -463,6 +455,21 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "activate" : function () {
             var old = null;
             var prog = this;
+
+            var handle = please.gl.__last_fbo;
+            if (handle) {
+                ITER(i, prog.sampler_list) {
+                    var name = prog.sampler_list[i];
+                    if (prog.samplers[name] === handle) {
+                        prog.samplers[name] = "error_image";
+                        // console.warn("debinding texture '" + handle + "' while rendering to it");
+                    }
+                    if (old && old.samplers[name] === handle) {
+                        old.samplers[name] = "error_image";
+                    }
+                }
+            }
+            
             if (prog.ready && !prog.error) {
                 if (please.gl.__cache.current !== this) {
                     // change shader program
@@ -473,7 +480,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 }
             }
             else {
-                throw(build_fail);
+                throw new Error(build_fail);
             }
             if (old) {
                 // trigger things to be rebound if neccesary
@@ -509,30 +516,38 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             shader = please.access(shader);
         }
         if (shader) {
-            if (shader.type == gl.VERTEX_SHADER) {
-                prog.vert = shader;
+            var blob = shader.__direct_build();
+            if (blob.type == gl.VERTEX_SHADER) {
+                prog.vert = blob;
             }
-            if (shader.type == gl.FRAGMENT_SHADER) {
-                prog.frag = shader;
+            if (blob.type == gl.FRAGMENT_SHADER) {
+                prog.frag = blob;
             }
-            if (shader.error) {
-                errors.push(shader.error);
-                build_fail += "\n\n" + shader.error;
+            if (blob.error) {
+                errors.push(blob.error);
+                build_fail += "\n\n" + blob.error;
             }
         }
     }
     if (!prog.vert) {
-        throw("No vertex shader defined for shader program \"" + name + "\".\n" +
+        throw new Error("No vertex shader defined for shader program \"" + name + "\".\n" +
               "Did you remember to call please.load on your vertex shader?");
     }
+    else if (prog.vert.lazy && prog.vert.error) {
+        prog.vert.__on_error();
+    }
+    
     if (!prog.frag) {
-        throw("No fragment shader defined for shader program \"" + name + "\".\n" +
+        throw new Error("No fragment shader defined for shader program \"" + name + "\".\n" +
               "Did you remember to call please.load on your fragment shader?");
+    }
+    else if (prog.frag.lazy && prog.frag.error) {
+        prog.frag.__on_error();
     }
 
     if (errors.length > 0) {
         prog.error = errors;
-        throw(build_fail);
+        throw new Error(build_fail);
     }
 
     // check for redundant build
@@ -673,13 +688,11 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 };
             }
             else {
-                // This is the setter binding for sampler arrays.
-                setter_method = function (value) {
-                    if (prog.__cache.vars[binding_name] !== value) {
-                        prog.__cache.vars[binding_name] = value;
-                        return gl[uni](pointer, value);
-                    }
-                };
+                throw(
+                    "M.GRL does not support sampler arrays.  " + \
+                    "See this issue for more details:\n" + \
+                    "https://github.com/Aeva/m.grl/issues/155"
+                );
             }
         }
         prog.vars.__defineSetter__(binding_name, setter_method);
@@ -1072,7 +1085,7 @@ please.gl.blank_texture = function (opt) {
 //
 please.gl.register_framebuffer = function (handle, _options) {
     if (please.gl.__cache.textures[handle]) {
-        throw("Cannot register framebuffer to occupied handel: " + handle);
+        throw new Error("Cannot register framebuffer to occupied handel: " + handle);
     }
 
     // Set the framebuffer options.
@@ -1131,7 +1144,7 @@ please.gl.register_framebuffer = function (handle, _options) {
             var attach = extension[attach_point+"_WEBGL"] || extension[attach_point];
             buffer_config.push(attach);
             if (attach === undefined) {
-                throw ("Insufficient color buffer attachments.  Requested " + opt.buffers.length +", got " + i + " buffers.");
+                throw new Error("Insufficient color buffer attachments.  Requested " + opt.buffers.length +", got " + i + " buffers.");
             }
             gl.framebufferTexture2D(
                 gl.FRAMEBUFFER, attach, gl.TEXTURE_2D, tex[i], 0);
@@ -1185,13 +1198,20 @@ please.gl.set_framebuffer = function (handle) {
     else {
         var tex = please.gl.__cache.textures[handle];
         if (tex && tex.fbo) {
+            ITER(i, prog.sampler_list) {
+                var name = prog.sampler_list[i];
+                if (prog.samplers[name] === handle) {
+                    prog.samplers[name] = "error_image";
+                    console.warn("debinding texture '" + handle + "' while rendering to it");
+                }
+            }
             var width = prog.vars.mgrl_buffer_width = tex.fbo.options.width;
             var height = prog.vars.mgrl_buffer_height = tex.fbo.options.height;
             gl.bindFramebuffer(gl.FRAMEBUFFER, tex.fbo);
             gl.viewport(0, 0, width, height);
         }
         else {
-            throw ("No framebuffer registered for " + handle);
+            throw new Error("No framebuffer registered for " + handle);
         }
     }
 };
@@ -1320,3 +1340,62 @@ please.gl.pick = function (x, y) {
     gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
     return px;
 }
+
+
+/* [+] please.gl.ShaderSource(src, uri)
+ * 
+ * Constructor function for objects representing GLSL source files.
+ * 
+ */
+please.gl.ShaderSource = function (src, uri) {
+    this.src = src;
+    this.uri = uri;
+    this.mode = uri.split(".").slice(-1);
+    console.assert(
+        this.mode == "vert" || this.mode == "frag" || this.mode == "glsl");
+    // parse the AST to catch errors in the source page, as well as to
+    // determine if any additional files need to be included.
+    this.__ast = please.gl.glsl_to_ast(src, uri);
+    this.__blob = null;
+    Object.freeze(this.src);
+    Object.freeze(this.uri);
+    Object.freeze(this.mode);
+
+    // trigger please.load for any source files that might have been
+    // included
+    var load_opts = {"force_type" : "glsl"};
+    ITER(i, this.__ast.inclusions) {
+        please.load(this.__ast.inclusions[i], load_opts);
+    }
+};
+please.gl.ShaderSource.prototype.__direct_build = function () {
+    if (!this.__blob) {
+        var source = "" +
+            "#ifdef GL_FRAGMENT_PRECISION_HIGH\n" +
+            "precision highp float;\n" +
+            "#else\n" +
+            "precision mediump float;\n" +
+            "#endif\n\n\n" +
+            this.__ast.print();
+        this.__blob = please.gl.__build_shader(source, this.uri);
+    }
+    return this.__blob;
+};
+please.gl.ShaderSource.prototype.ast_copy = function () {
+    // The result of this is not cached, as the tree is mutable and
+    // many uses for this will need to modify it.  Also, some AST
+    // objects make use of getters to do automatic data binding, so a
+    // JSON deep copy is not possible here.  Unfortunately that means
+    // that calling this is an expensive operation.
+    return please.gl.glsl_to_ast(this.src, this.uri);
+};
+
+
+// "glsl" media type handler
+please.media.search_paths.glsl = "",
+please.media.handlers.glsl = function (url, asset_name, callback) {
+    var media_callback = function (req) {
+        please.media.assets[asset_name] = new please.gl.ShaderSource(req.responseText, url);
+    };
+    please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
+};

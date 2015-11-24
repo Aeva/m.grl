@@ -55,6 +55,14 @@ please.render
 Renders the compositing tree.
 
 
+please.indirect_render
+----------------------
+*please.indirect\_render* **(node)**
+
+Renders the compositing tree, always into indirect buffers. Nothing is
+drawn on screen by this function.
+
+
 please.TransitionEffect
 -----------------------
 *please.TransitionEffect* **(shader\_program)**

@@ -204,7 +204,7 @@ please.mix = function (lhs, rhs, a) {
             }
         }
     }
-    throw ("Mix operands are incompatible.");
+    throw new Error("Mix operands are incompatible.");
 };
 
 
@@ -702,7 +702,7 @@ please.typed_array = function (raw, hint) {
         // should load it as a Uint16Array, attempt to determine the
         // sign for each value and then dump the correct values into a
         // Int32Array.
-        throw("Not implemented - unpacking base64 encoded Int16Arrays");
+        throw new Error("Not implemented - unpacking base64 encoded Int16Arrays");
     }
     else if (hint == "Int32Array") {
         return new Int32Array(please.decode_buffer(raw));

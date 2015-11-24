@@ -85,8 +85,6 @@ addEventListener("mgrl_media_ready", function () {
     prog.activate();
 
     // setup opengl state    
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.CULL_FACE);
     please.set_clear_color(0.0, 0.0, 0.0, 0.0);
 

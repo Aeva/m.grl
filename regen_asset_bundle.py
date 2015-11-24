@@ -31,12 +31,12 @@ def save(data, target):
 
 
 def glsl_assets():
-    bundle = find_assets(["vert", "frag"])
+    bundle = find_assets(["vert", "frag", "glsl"])
     save(bundle, "glsl")
 
 
 def text_assets():
-    bundle = find_assets(["txt", "glsl"])
+    bundle = find_assets(["txt"])
     save(bundle, "text")
     
 

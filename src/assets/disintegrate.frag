@@ -10,7 +10,7 @@ uniform sampler2D texture_b;
 uniform float px_size;
 
 
-#include "normalize_screen_coord.glsl"
+include("normalize_screen_coord.glsl");
 
 
 // https://stackoverflow.com/questions/12964279/whats-the-origin-of-this-glsl-rand-one-liner

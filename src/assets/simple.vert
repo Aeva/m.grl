@@ -46,6 +46,6 @@ void main(void) {
   vec4 final_position = projection_matrix * model_view * vec4(local_position, 1.0);
   world_position = (world_matrix * vec4(local_position, 1.0)).xyz;
   screen_position = final_position.xyz;
-  linear_depth = length((model_view * vec4(local_position, 1.0)));
+  linear_depth = length(model_view * vec4(local_position, 1.0));
   gl_Position = final_position;
 }

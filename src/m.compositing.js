@@ -159,7 +159,7 @@ please.render = function(node) {
     var expire = arguments[1] || please.pipeline.__framestart;
     var stack = arguments[2] || [];
     if (stack.indexOf(node)>=0) {
-        throw("M.GRL doesn't currently suport render graph cycles.");
+        throw new Error("M.GRL doesn't currently suport render graph cycles.");
     }
 
     var delay = 0;
@@ -186,7 +186,7 @@ please.render = function(node) {
                 }
                 else {
                     // FIXME: splat render the texture and call it a day
-                    throw("missing functionality");
+                    throw new Error("missing functionality");
                 }
             }
             else if (typeof(proxy) === "object") {
@@ -226,6 +226,9 @@ please.render = function(node) {
     // activate the shader program
     node.__prog.activate();
 
+    // use an indirect texture if the stack length is greater than 1
+    node.__cached = stack.length > 0 ? node.__id : null;
+
     // upload shader vars
     for (var name in node.shader) {
         if (node.__prog.vars.hasOwnProperty(name)) {
@@ -240,12 +243,15 @@ please.render = function(node) {
             }
         }
     }
-
-    // use an indirect texture if the stack length is greater than 1
-    node.__cached = stack.length > 0 ? node.__id : null;
-    please.gl.set_framebuffer(node.__cached);
+    ITER(i, node.__prog.sampler_list) {
+        var name = node.__prog.sampler_list[i];
+        if (node.__prog.samplers[name] === node.__cached) {
+            node.__prog.samplers[name] = "error_image";
+        }
+    }
 
     // call the rendering logic
+    please.gl.set_framebuffer(node.__cached);
     gl.clearColor.apply(gl, node.clear_color);
     node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);

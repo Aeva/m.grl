@@ -29,7 +29,7 @@
     <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
     <link rel="up" title="API Reference" href="index.html" />
     <link rel="next" title="m.graph.js" href="m.graph.html" />
-    <link rel="prev" title="m.gani.js" href="m.gani.html" /> 
+    <link rel="prev" title="m.gl.ast.js" href="m.gl.ast.html" /> 
   </head>
   <body>
     <div class="related">
@@ -42,7 +42,7 @@
           <a href="m.graph.html" title="m.graph.js"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="m.gani.html" title="m.gani.js"
+          <a href="m.gl.ast.html" title="m.gl.ast.js"
              accesskey="P">previous</a> |</li>
         <li><a href="../index.html">Contents</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
@@ -119,10 +119,16 @@ function.</p>
 <p><em>please.gl.ibo</em> <strong>(data, options)</strong></p>
 <p>Create a IBO.</p>
 </div>
+<div class="section" id="please-gl-blank-texture">
+<h2>please.gl.blank_texture<a class="headerlink" href="#please-gl-blank-texture" title="Permalink to this headline">¶</a></h2>
+<p><em>please.gl.blank_texture</em> <strong>(options)</strong></p>
+<p>Create a new render texture. This is mostly intended to be used by
+please.gl.register_framebuffer</p>
+</div>
 <div class="section" id="please-gl-register-framebuffer">
 <h2>please.gl.register_framebuffer<a class="headerlink" href="#please-gl-register-framebuffer" title="Permalink to this headline">¶</a></h2>
 <p><em>please.gl.register_framebuffer</em> <strong>(handle, options)</strong></p>
-<p>Create a new render texture</p>
+<p>Create a new framebuffer with a render texture attached.</p>
 </div>
 <div class="section" id="please-gl-set-framebuffer">
 <h2>please.gl.set_framebuffer<a class="headerlink" href="#please-gl-set-framebuffer" title="Permalink to this headline">¶</a></h2>
@@ -174,6 +180,7 @@ the canvas. X and Y are within the range 0.0 to 1.0.</p>
 <li><a class="reference internal" href="#please-glsl">please.glsl</a></li>
 <li><a class="reference internal" href="#please-gl-vbo">please.gl.vbo</a></li>
 <li><a class="reference internal" href="#please-gl-ibo">please.gl.ibo</a></li>
+<li><a class="reference internal" href="#please-gl-blank-texture">please.gl.blank_texture</a></li>
 <li><a class="reference internal" href="#please-gl-register-framebuffer">please.gl.register_framebuffer</a></li>
 <li><a class="reference internal" href="#please-gl-set-framebuffer">please.gl.set_framebuffer</a></li>
 <li><a class="reference internal" href="#please-gl-reset-viewport">please.gl.reset_viewport</a></li>
@@ -185,8 +192,8 @@ the canvas. X and Y are within the range 0.0 to 1.0.</p>
 </ul>
 
   <h4>Previous topic</h4>
-  <p class="topless"><a href="m.gani.html"
-                        title="previous chapter">m.gani.js</a></p>
+  <p class="topless"><a href="m.gl.ast.html"
+                        title="previous chapter">m.gl.ast.js</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="m.graph.html"
                         title="next chapter">m.graph.js</a></p>
@@ -222,7 +229,7 @@ the canvas. X and Y are within the range 0.0 to 1.0.</p>
           <a href="m.graph.html" title="m.graph.js"
              >next</a> |</li>
         <li class="right" >
-          <a href="m.gani.html" title="m.gani.js"
+          <a href="m.gl.ast.html" title="m.gl.ast.js"
              >previous</a> |</li>
         <li><a href="../index.html">Contents</a> &raquo;</li>
           <li><a href="index.html" >API Reference</a> &raquo;</li> 

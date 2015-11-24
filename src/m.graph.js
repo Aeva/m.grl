@@ -359,7 +359,7 @@ please.GraphNode = function () {
     // A getter that is set to the rotation property when the mode
     // changes to quaternion mode.
     var as_euler = function () {
-        throw("I don't know how to translate from quaternions to euler " +
+        throw new Error("I don't know how to translate from quaternions to euler " +
               "rotations :( I am sorry :( :( :(");
     }.bind(this);
 
@@ -635,7 +635,7 @@ please.GraphNode.prototype = {
             return 2;
         }
         else {
-            throw("Unknown billboard type: " + this.billboard);
+            throw new Error("Unknown billboard type: " + this.billboard);
         }
     },
     "__find_selection" : function () {
@@ -867,7 +867,7 @@ please.SceneGraph = function () {
             }
         }
         else {
-            throw ("The scene graph has no camera in it!");
+            throw new Error("The scene graph has no camera in it!");
         }
         if (this.__states) {
             ITER_PROPS(hint, this.__states) {

@@ -16,6 +16,10 @@
  public domain by way of CC0.  More information about CC0 is available
  here: https://creativecommons.org/publicdomain/zero/1.0/
 
+ The test runner is made available under the GPLv3 or newer.  See
+ https://www.gnu.org/licenses/gpl-3.0.txt for more information.  The
+ individual tests however are public domain by way of CC0.
+
  Art assets included in the demos have their respective license
  information posted on the demo index or in the individual demo
  folders.  (Hint: most of them are CC-BY-SA)
@@ -354,7 +358,7 @@ please.mix = function (lhs, rhs, a) {
             }
         }
     }
-    throw ("Mix operands are incompatible.");
+    throw new Error("Mix operands are incompatible.");
 };
 // [+] please.distance(lhs, rhs)
 //
@@ -804,7 +808,7 @@ please.typed_array = function (raw, hint) {
         // should load it as a Uint16Array, attempt to determine the
         // sign for each value and then dump the correct values into a
         // Int32Array.
-        throw("Not implemented - unpacking base64 encoded Int16Arrays");
+        throw new Error("Not implemented - unpacking base64 encoded Int16Arrays");
     }
     else if (hint == "Int32Array") {
         return new Int32Array(please.decode_buffer(raw));
@@ -1147,7 +1151,7 @@ please.pages.create = function (name, options) {
     };
     // apply preset options
     if (options.preset) {
-        throw ("unimplemented feature");
+        throw new Error("unimplemented feature");
     }
     // create the ui page base
     var classes = ["mgrl_ui_page"];
@@ -1539,7 +1543,7 @@ please.load = function (asset_name, callback, options) {
             type = "text";
         }
         else {
-            throw("Unknown media type '"+type+"'");
+            throw new Error("Unknown media type '"+type+"'");
         }
     }
     var url = opt.absolute_url ? asset_name : please.media.relative_path(type, asset_name);
@@ -1615,7 +1619,7 @@ please.media.relative_path = function (type, file_name) {
         type = please.media.guess_type(file_name);
     }
     if (please.media.handlers[type] === undefined) {
-        throw("Unknown media type '"+type+"'");
+        throw new Error("Unknown media type '"+type+"'");
     }
     var prefix = please.media.search_paths[type] || "";
     if (!prefix.endsWith("/")) {
@@ -1737,8 +1741,8 @@ please.media.guess_type = function (file_name) {
         "jta" : [".jta"],
         "gani" : [".gani"],
         "audio" : [".wav", ".mp3", ".ogg"],
-        "glsl" : [".vert", ".frag"],
-        "text" : [".txt", ".glsl"],
+        "glsl" : [".vert", ".frag", ".glsl"],
+        "text" : [".txt"],
     };
     for (var type in type_map) if (type_map.hasOwnProperty(type)) {
         var extensions = type_map[type];
@@ -2367,7 +2371,7 @@ please.pipeline.add = function (priority, name, callback) {
     if (this.__callbacks[name] !== undefined) {
         var err = "Cannot register a callback of the same name twice.";
         err += "  Please remove the old one first if this is intentional.";
-        throw(err);
+        throw new Error(err);
     }
     this.__callbacks[name] = {
         "name" : name,
@@ -2739,14 +2743,6 @@ please.pipeline.add(-1, "mgrl/overlay_sync", function () {
     }
 });
 // - m.gl.js ------------------------------------------------------------- //
-// "glsl" media type handler
-please.media.search_paths.glsl = "",
-please.media.handlers.glsl = function (url, asset_name, callback) {
-    var media_callback = function (req) {
-        please.media.assets[asset_name] = please.gl.__build_shader(req.response, url);
-    };
-    please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
-};
 // Namespace for m.gl guts
 please.gl = {
     "canvas" : null,
@@ -2757,7 +2753,6 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
-    "__macros" : [],
 };
 // [+] please.gl.set_context(canvas_id, options)
 //
@@ -2776,7 +2771,7 @@ please.gl = {
 //
 please.gl.set_context = function (canvas_id, options) {
     if (this.canvas !== null) {
-        throw("This library is not presently designed to work with multiple contexts.");
+        throw new Error("This library is not presently designed to work with multiple contexts.");
     }
     this.canvas = document.getElementById(canvas_id);
     please.__create_canvas_overlay();
@@ -2821,6 +2816,11 @@ please.gl.set_context = function (canvas_id, options) {
         gl.enable(gl.BLEND);
         gl.blendFuncSeparate(
             gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA, gl.ONE);
+        // enable depth testing
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
+        // enable culling
+        gl.enable(gl.CULL_FACE);
         // fire an event to indicate that a gl context exists now
         var ctx_event = new CustomEvent("mgrl_gl_context_created");
         window.dispatchEvent(ctx_event);
@@ -3026,25 +3026,21 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
         return please.gl.__cache.textures[uri];
     }
 };
-//
-// mechanism for applying all registered glsl macros, in order, to a
-// given body of code.
-//
-please.gl.apply_glsl_macros = function (src) {
-    for (var i=0; i<please.gl.__macros.length; i+=1) {
-        src = please.gl.__macros[i](src);
-    }
-    return src;
-};
 // Constructor function for GLSL Shaders
-please.gl.__build_shader = function (src, uri) {
+please.gl.__build_shader = function (src, uri, lazy) {
     var glsl = {
         "id" : null,
         "type" : null,
-        "src" : please.gl.apply_glsl_macros(src),
+        "src" : src,
         "uri" : uri,
         "ready" : false,
         "error" : false,
+        "__err_output" : "",
+        "lazy" : !!lazy,
+        "__on_error" : function () {
+            console.error(glsl.__err_output);
+            alert("" + this.uri + " failed to build.  See javascript console for details.");
+        }
     };
     // determine shader's type from file name
     if (uri.endsWith(".vert")) {
@@ -3072,12 +3068,14 @@ please.gl.__build_shader = function (src, uri) {
                     debug.push(line_label + " | " + line);
                 }
             }
-            console.debug(
-                "----- semicompiled shader ----------------\n" + debug.join("\n"));
             glsl.error = gl.getShaderInfoLog(glsl.id);
-            console.error(
-                "Shader compilation error for: " + uri + " \n" + glsl.error);
-            alert("" + glsl.uri + " failed to build.  See javascript console for details.");
+            glsl.__err_output = "----- semicompiled shader ----------------\n" +
+                debug.join("\n") +
+                "Shader compilation error for: " + uri + " \n" +
+                glsl.error;
+            if (!glsl.lazy) {
+                glsl.__on_error();
+            }
         }
         else {
             console.info("Shader compiled: " + uri);
@@ -3086,7 +3084,7 @@ please.gl.__build_shader = function (src, uri) {
     }
     else {
         glsl.error = "unknown type for: " + uri;
-        throw("Cannot create shader - unknown type for: " + uri);
+        throw new Error("Cannot create shader - unknown type for: " + uri);
     }
     return glsl;
 };
@@ -3122,7 +3120,7 @@ please.gl.__flatten_path = function(path, data) {
 //
 please.glsl = function (name /*, shader_a, shader_b,... */) {
     if (window.gl === undefined) {
-        throw("No webgl context found.  Did you call please.gl.set_context?");
+        throw new Error("No webgl context found.  Did you call please.gl.set_context?");
     }
     var build_fail = "Shader could not be activated..?";
     var prog = {
@@ -3154,6 +3152,19 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "activate" : function () {
             var old = null;
             var prog = this;
+            var handle = please.gl.__last_fbo;
+            if (handle) {
+                for (var i=0; i<prog.sampler_list.length; i+=1) {
+                    var name = prog.sampler_list[i];
+                    if (prog.samplers[name] === handle) {
+                        prog.samplers[name] = "error_image";
+                        // console.warn("debinding texture '" + handle + "' while rendering to it");
+                    }
+                    if (old && old.samplers[name] === handle) {
+                        old.samplers[name] = "error_image";
+                    }
+                }
+            }
             if (prog.ready && !prog.error) {
                 if (please.gl.__cache.current !== this) {
                     // change shader program
@@ -3164,7 +3175,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 }
             }
             else {
-                throw(build_fail);
+                throw new Error(build_fail);
             }
             if (old) {
                 // trigger things to be rebound if neccesary
@@ -3196,29 +3207,36 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             shader = please.access(shader);
         }
         if (shader) {
-            if (shader.type == gl.VERTEX_SHADER) {
-                prog.vert = shader;
+            var blob = shader.__direct_build();
+            if (blob.type == gl.VERTEX_SHADER) {
+                prog.vert = blob;
             }
-            if (shader.type == gl.FRAGMENT_SHADER) {
-                prog.frag = shader;
+            if (blob.type == gl.FRAGMENT_SHADER) {
+                prog.frag = blob;
             }
-            if (shader.error) {
-                errors.push(shader.error);
-                build_fail += "\n\n" + shader.error;
+            if (blob.error) {
+                errors.push(blob.error);
+                build_fail += "\n\n" + blob.error;
             }
         }
     }
     if (!prog.vert) {
-        throw("No vertex shader defined for shader program \"" + name + "\".\n" +
+        throw new Error("No vertex shader defined for shader program \"" + name + "\".\n" +
               "Did you remember to call please.load on your vertex shader?");
     }
+    else if (prog.vert.lazy && prog.vert.error) {
+        prog.vert.__on_error();
+    }
     if (!prog.frag) {
-        throw("No fragment shader defined for shader program \"" + name + "\".\n" +
+        throw new Error("No fragment shader defined for shader program \"" + name + "\".\n" +
               "Did you remember to call please.load on your fragment shader?");
+    }
+    else if (prog.frag.lazy && prog.frag.error) {
+        prog.frag.__on_error();
     }
     if (errors.length > 0) {
         prog.error = errors;
-        throw(build_fail);
+        throw new Error(build_fail);
     }
     // check for redundant build
     var another = please.gl.get_program(prog.name);
@@ -3347,13 +3365,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 };
             }
             else {
-                // This is the setter binding for sampler arrays.
-                setter_method = function (value) {
-                    if (prog.__cache.vars[binding_name] !== value) {
-                        prog.__cache.vars[binding_name] = value;
-                        return gl[uni](pointer, value);
-                    }
-                };
+                throw(
+                    "M.GRL does not support sampler arrays.  " + "See this issue for more details:\n" + "https://github.com/Aeva/m.grl/issues/155"
+                );
             }
         }
         prog.vars.__defineSetter__(binding_name, setter_method);
@@ -3704,7 +3718,7 @@ please.gl.blank_texture = function (opt) {
 //
 please.gl.register_framebuffer = function (handle, _options) {
     if (please.gl.__cache.textures[handle]) {
-        throw("Cannot register framebuffer to occupied handel: " + handle);
+        throw new Error("Cannot register framebuffer to occupied handel: " + handle);
     }
     // Set the framebuffer options.
     var opt = {
@@ -3758,7 +3772,7 @@ please.gl.register_framebuffer = function (handle, _options) {
             var attach = extension[attach_point+"_WEBGL"] || extension[attach_point];
             buffer_config.push(attach);
             if (attach === undefined) {
-                throw ("Insufficient color buffer attachments.  Requested " + opt.buffers.length +", got " + i + " buffers.");
+                throw new Error("Insufficient color buffer attachments.  Requested " + opt.buffers.length +", got " + i + " buffers.");
             }
             gl.framebufferTexture2D(
                 gl.FRAMEBUFFER, attach, gl.TEXTURE_2D, tex[i], 0);
@@ -3806,13 +3820,20 @@ please.gl.set_framebuffer = function (handle) {
     else {
         var tex = please.gl.__cache.textures[handle];
         if (tex && tex.fbo) {
+            for (var i=0; i<prog.sampler_list.length; i+=1) {
+                var name = prog.sampler_list[i];
+                if (prog.samplers[name] === handle) {
+                    prog.samplers[name] = "error_image";
+                    console.warn("debinding texture '" + handle + "' while rendering to it");
+                }
+            }
             var width = prog.vars.mgrl_buffer_width = tex.fbo.options.width;
             var height = prog.vars.mgrl_buffer_height = tex.fbo.options.height;
             gl.bindFramebuffer(gl.FRAMEBUFFER, tex.fbo);
             gl.viewport(0, 0, width, height);
         }
         else {
-            throw ("No framebuffer registered for " + handle);
+            throw new Error("No framebuffer registered for " + handle);
         }
     }
 };
@@ -3925,73 +3946,1187 @@ please.gl.pick = function (x, y) {
     gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
     return px;
 }
-// - m.gl_macros.js ------------------------------------------------------ //
-//
-// mechanism for adding your own glsl macros
-//
-please.gl.define_macro = function (macro) {
-    please.gl.__macros.push(macro);
-    return macro;
+/* [+] please.gl.ShaderSource(src, uri)
+ * 
+ * Constructor function for objects representing GLSL source files.
+ * 
+ */
+please.gl.ShaderSource = function (src, uri) {
+    this.src = src;
+    this.uri = uri;
+    this.mode = uri.split(".").slice(-1);
+    console.assert(
+        this.mode == "vert" || this.mode == "frag" || this.mode == "glsl");
+    // parse the AST to catch errors in the source page, as well as to
+    // determine if any additional files need to be included.
+    this.__ast = please.gl.glsl_to_ast(src, uri);
+    this.__blob = null;
+    Object.freeze(this.src);
+    Object.freeze(this.uri);
+    Object.freeze(this.mode);
+    // trigger please.load for any source files that might have been
+    // included
+    var load_opts = {"force_type" : "glsl"};
+    for (var i=0; i<this.__ast.inclusions.length; i+=1) {
+        please.load(this.__ast.inclusions[i], load_opts);
+    }
+};
+please.gl.ShaderSource.prototype.__direct_build = function () {
+    if (!this.__blob) {
+        var source = "" +
+            "#ifdef GL_FRAGMENT_PRECISION_HIGH\n" +
+            "precision highp float;\n" +
+            "#else\n" +
+            "precision mediump float;\n" +
+            "#endif\n\n\n" +
+            this.__ast.print();
+        this.__blob = please.gl.__build_shader(source, this.uri);
+    }
+    return this.__blob;
+};
+please.gl.ShaderSource.prototype.ast_copy = function () {
+    // The result of this is not cached, as the tree is mutable and
+    // many uses for this will need to modify it.  Also, some AST
+    // objects make use of getters to do automatic data binding, so a
+    // JSON deep copy is not possible here.  Unfortunately that means
+    // that calling this is an expensive operation.
+    return please.gl.glsl_to_ast(this.src, this.uri);
+};
+// "glsl" media type handler
+please.media.search_paths.glsl = "",
+please.media.handlers.glsl = function (url, asset_name, callback) {
+    var media_callback = function (req) {
+        please.media.assets[asset_name] = new please.gl.ShaderSource(req.responseText, url);
+    };
+    please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
+};
+// - m.gl.ast.js --------------------------------------------------------- //
+// namespaces for ast constructors and macros
+please.gl.ast = {};
+please.gl.macros = {};
+// delimiting symbols used for splitting arbitrary strings into token
+// arrays
+please.gl.__symbols = [
+    "(", ")", "{", "}", "[", "]",
+    "+=", "-=", "*=", "/=",
+    "+", "-", "*", "/",
+    "==", "&&", "<=", ">=", "<<", ">>", "||",
+    "<", ">", "=", "&",
+    ",", ";",
+];
+// - gl_alst/ast.common.js ----------------------------------------------- //
+/* [+] please.gl.ast.mixin(obj)
+ * 
+ * Adds symbols used for tracebacks to the GLSL->GLSL compiler's ast
+ * objects.
+ * 
+ */
+please.gl.ast.mixin = function (obj) {
+    if (!obj.meta) {
+        obj.meta = {
+            'offset': null,
+            'line': null,
+            'char' : null,
+            'uri' : "<unknown file>",
+        };
+    }
+};
+/* [+] please.gl.ast.format_metadata(ast_item)
+ * 
+ * Print out a nice human-readable version of the token metadata.
+ * Useful when reporting where something was defined originally.
+ * 
+ */
+please.gl.ast.format_metadata = function (item) {
+    var meta = item.meta;
+    return meta.uri + ":" + meta.line + ":" + meta.char;
+};
+/* [+] please.gl.ast.error(token, message)
+ * 
+ * Raise a compile time error that can possibly be traced back to a
+ * specific location in an inputted source code.  This should be
+ * useful for pointing out syntax errors as well as to aid in
+ * debugging the compiler.
+ * 
+ */
+please.gl.ast.error = function (token, message) {
+    var msg = 'GLSL compilation error.\n';
+    if (token.meta) {
+        var position = please.gl.ast.format_metadata(token);
+        msg += position + ' threw the following:\n';
+    }
+    msg += '\n' + message;
+    var error = new Error(msg);
+    error.stack = error.stack.split("\n").slice(1).join("\n");
+    throw(error);
+};
+/* [+] please.gl.ast.str(text, offset)
+ * 
+ * Shorthand for initiating a String object with ast an ast metadata
+ * object.  Use in place of 'new String(text)'.  The second parameter
+ * is optional, and if provided, sets the metadata 'offset' value as
+ * well.
+ * 
+ */
+please.gl.ast.str = function (text, offset) {
+    var str = new String(text);
+    please.gl.ast.mixin(str);
+    if (offset !== undefined) {
+        str.meta.offset = offset;
+    }
+    return str;
 };
 //
-// the include macro
-//
-please.gl.define_macro (function(src) {
-    // this regex is written out weird to avoid a conflict with the
-    // macro of the same name in the GNU c preprocessor, used by mgrl
-    var macro_def = new RegExp('^#'+'include "([^"]*)"', 'mig');
-    var found = {};
-    var match; while ((match = macro_def.exec(src)) !== null) {
-        var file_path = match[1];
-        var replace_line = match[0];
-        found[file_path] = replace_line;
+please.gl.ast.flatten = function (stream) {
+    if (stream.print) {
+        return stream.print();
     }
-    for (var file_path in found) if (found.hasOwnProperty(file_path)) {
-        var included = please.access(file_path, true);
-        if (included) {
-            src = src.replace(found[file_path], included);
+    else if (stream.constructor == String) {
+        return stream;
+    }
+    else if (stream.constructor == Array) {
+        var out = "";
+        for (var i=0; i<stream.length; i+=1) {
+            out += please.gl.ast.flatten(stream[i]);
+        }
+        return out;
+    }
+    else {
+        throw new Error("unable to flatten stream");
+    }
+};
+// - gl_ast/ast.comment.js -------------------------------------------- //
+/* [+] please.gl.ast.Comment(text, multiline)
+ *
+ * AST constructor function representing code comments.
+ *
+ */
+please.gl.ast.Comment = function (text, type) {
+    console.assert(this !== window);
+    please.gl.ast.mixin(this);
+    this.multiline = type != "single" && type != "directive";
+    this.quotation = type == "quote";
+    this.directive = type == "directive";
+    this.data = text;
+};
+please.gl.ast.Comment.prototype.print = function () {
+    if (this.quotation || this.multiline) {
+        return "/*" + this.data + "*/";
+    }
+    else {
+        if (this.directive) {
+            return "#" + this.data + "\n";
+        }
+        else {
+            return "//" + this.data + "\n";
         }
     }
-    return src;
-});
-//
-// the curve macro
-//
-please.gl.define_macro (function(src) {
-    var template = please.access("curve_template.glsl", true);
-    var apply_template = function (gl_type, array_len) {
-        var tmp = template.replace(new RegExp("GL_TYPE", "g"), gl_type);
-        tmp = tmp.replace(new RegExp("ARRAY_LEN", "g"), array_len);
-        return tmp;
+};
+// This method takes the glsl source, isolates which sections are
+// commented out, and returns a list of Comment objects and strings.
+// This is the very first step in producing the token stream.
+please.gl.__find_comments = function (src, uri) {
+    var open_regex = /(?:\/\/|\/\*|\"|\'|#)/m;//"
+    var open = open_regex.exec(src);
+    if (open === null) {
+        return [src];
+    }
+    open = open[0];
+    var close;
+    var type;
+    if (open == "/*") {
+        close = "*/";
+        type = "multi";
+    }
+    else if (open == "//") {
+        close = "\n";
+        type = "single";
+    }
+    else if (open == "#") {
+        close = "\n";
+        type = "directive";
+    }
+    else {
+        close = open;
+        type = "quote";
+    }
+    var tokens = [];
+    var start = src.indexOf(open);
+    var subset = src.slice(start);
+    // stop skips the first character of subset, so as not to match in
+    // the wrong place for quotations.
+    var stop = subset.slice(1).indexOf(close)+1;
+    var comment = null;
+    var after = null;
+    if (start > 0) {
+        var first = please.gl.ast.str(src.slice(0, start));
+        first.meta.offset = src.meta.offset;
+        tokens.push(first);
+    }
+    if (stop == -1) {
+        comment = src.slice(start+open.length);
+        comment.meta.offset = src.meta.offset + start;
+    }
+    else {
+        comment = subset.slice(open.length, stop);
+        after = please.gl.ast.str(subset.slice(stop+close.length));
+        after.meta.offset = src.meta.offset + start + stop + close.length;
+    }
+    if (comment) {
+        comment = new please.gl.ast.Comment(comment, type)
+        comment.meta.offset = src.meta.offset + start;
+        tokens.push(comment);
+    }
+    if (after && after.length > 0) {
+        tokens = tokens.concat(please.gl.__find_comments(after));
+    }
+    // Finally, strip out whitespace / zero length tokens, and add the
+    // uri to the remaining token's meta data object:
+    var output = [];
+    for (var t=0; t<tokens.length; t+=1) {
+        var token = tokens[t];
+        token.meta.uri = uri;
+        if (!(token.constructor == String && token.trim().length == 0)) {
+            output.push(token);
+        }
+    }
+    return output;
+};
+// - gl_ast/ast.global.js --------------------------------------------- //
+/* [+] please.gl.ast.Global(text)
+ * 
+ * A global variable declaration.  This is used for the following
+ * types of glsl global variables:
+ *
+ *  - uniform
+ *  - varying
+ *  - attribute
+ *  - constant
+ *
+ */
+please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro) {
+    console.assert(this !== window);
+    please.gl.ast.mixin(this);
+    this.mode = mode;
+    this.type = type;
+    this.name = name;
+    this.size = size;
+    this.macro = macro;
+    this.qualifier = qualifier;
+    if (mode === "const") {
+        this.value = value;
+    }
+};
+please.gl.ast.Global.prototype.print = function () {
+    var out = "";
+    out += this.mode + " ";
+    if (this.qualifier !== null) {
+        out += this.qualifier + " ";
+    }
+    out += this.type + " ";
+    out += this.name;
+    if (this.size) {
+        out += "[" + this.size + "]";
+    }
+    if (this.mode === "const") {
+        out += " = " + this.value;
+    }
+    out += ";\n";
+    return out;
+};
+// Throw an error when two globals contradict one another.
+please.gl.__check_for_contradicting_globals = function (lhs, rhs) {
+    if (lhs.print() != rhs.print()) {
+        var msg = "Contradicting definitions for global '" + name + "':\n";
+        msg += "definition 1: " + please.gl.ast.format_metadata(lhs) + "\n";
+        msg += "definition 2: " + please.gl.ast.format_metadata(rhs) + "\n";
+        throw new Error(msg);
+    }
+};
+// Call on a list of Globals to remove redundant declarations and
+// throw errors for contradictions.
+please.gl.__clean_globals = function (globals) {
+    var revised = [];
+    var by_name = {};
+    globals.map(function (global) {
+        if (!by_name[global.name]) {
+            by_name[global.name] = [];
+            revised.push(global);
+        }
+        by_name[global.name].push(global);
+    });
+    please.prop_map(by_name, function (name, set) {
+        set.reduce(please.gl.__check_for_contradicting_globals);
+    });
+    return revised;
+};
+// This method takes a stream of tokens and parses out the glsl
+// globals from them.  Returns two lists, the first containing all of
+// the Global ast items that were extracted, the second is a list of
+// the remaining stream with the Globals removed.
+please.gl.__parse_globals = function (stream) {
+    var modes = ["uniform", "attribute", "varying", "const"];
+    var globals = [];
+    var chaff = [];
+    // Iterate through the stream of tokens and look for one that
+    // denotes a global eg 'uniform'.  If found, invoke
+    // please.gl.__create_global with the stream from the 'mode' token
+    // up to the first semicolon and add the result to the 'globals'
+    // list and increment i.
+    for (var i=0; i<stream.length; i+=1) {
+        var token = stream[i];
+        if (token.constructor == String) {
+            var mode = null;
+            for (var m=0; m<modes.length; m+=1) {
+                var test = modes[m];
+                if (token.startsWith(test)) {
+                    mode = test;
+                    break;
+                }
+            }
+            if (mode) {
+                for (var end=i+1; end<stream.length; end+=1) {
+                    if (stream[end] == ";") {
+                        break;
+                    }
+                }
+                var created = please.gl.__create_global(stream.slice(i, end));
+                for (var g=0; g<created.length; g+=1) {
+                    globals.push(created[g]);
+                }
+                i = end;
+                continue;
+            }
+        }
+        chaff.push(token);
+    }
+    return [globals, chaff];
+};
+// Takes a stream of tokens and produces a Global AST object from it.
+// Input tokens are delimited by symbols, but not by spaces.
+// For example:
+// - ['uniform lowp float test']
+// - ['uniform float foo', '[', '16', ']']
+// - ['const vec2 foo', '=', 'vec2', '(', '1.0', ',', '2.0', ')']
+// - ['uniform float foo', ',', 'bar'];
+please.gl.__create_global = function (tokens) {
+    var find = function (keywords, words) {
+        var keyword = null;
+        for (var w=0; w<words.length; w+=1) {
+            for (var k=0; k<keywords.length; k+=1) {
+                if (words[w] == keywords[k]) {
+                    keyword = keywords[k];
+                    break;
+                }
+            }
+        }
+        return keyword;
+    }
+    var split = function (delim, tokens) {
+        var parts = [];
+        var acc = [];
+        for (var i=0; i<tokens.length; i+=1) {
+            var token = tokens[i];
+            if (token == delim) {
+                parts.push(acc);
+                acc = [];
+                continue
+            }
+            else {
+                acc.push(token);
+            }
+        }
+        if (acc.length > 0) {
+            parts.push(acc);
+        }
+        return parts;
     };
-    var macro_def = /uniform curve (float|vec2|vec3|vec4) ([A-Za-z_]+)\[(\d+)\];/mig;
-    var rewrite = [];
-    var found_types = {};
-    var match; while ((match = macro_def.exec(src)) !== null) {
-        var line = match[0];
-        var type = match[1];
-        var name = match[2];
-        var size = match[3];
-        var hint = type + size;
-        if (!found_types[hint]) {
-            found_types[hint] = apply_template(type, size);
-        }
-        rewrite.push([line, "uniform "+type+" "+name+"["+size+"];"])
-    }
-    if (rewrite.length) {
-        var curve_methods = ""
-        for (var key in found_types) if (found_types.hasOwnProperty(key)) {
-            curve_methods += found_types[key];
-        }
-        rewrite[0][1] += "\n" + curve_methods + "\n\n";
-        for (var i=0; i<rewrite.length; i+=1) {
-            var original = rewrite[i][0];
-            var compiled = rewrite[i][1];
-            src = src.replace(original, compiled);
+    var macros = ["curve"];
+    var precisions = ["highp", "mediump", "lowp"];
+    var tokens = please.gl.__identify_parentheticals(tokens);
+    var words = tokens[0].split(' ');
+    var mode = words[0];
+    var meta = tokens[0].meta;
+    var macro = find(macros, words);
+    var precision = find(precisions, words);
+    var qualifiers = (!!macro) + (!!precision); // produces an integer
+    for (var i=0; i<qualifiers; i+=1) {
+        var test = words[i+1];
+        if (macros.concat(precision).indexOf(test) == -1) {
+            throw new Error("Malformed global");
         }
     }
-    return src;
-});
+    var remainder = words.slice(qualifiers+1).concat(tokens.slice(1));
+    var type = remainder.shift();
+    var names = split(',', remainder);
+    var created = [];
+    for (var i=0; i<names.length; i+=1) {
+        var def = names[i];
+        var name = def[0];
+        var size = null;
+        var value = null;
+        var parts = split('=', def);
+        var lhs = parts[0];
+        var rhs = parts.slice(1)[0];
+        if (rhs && rhs.length > 0) {
+            value = please.gl.ast.flatten(rhs);
+        }
+        if (lhs[1] !== undefined) {
+            console.assert(lhs[1].constructor == please.gl.ast.Parenthetical);
+            console.assert(lhs[1].type == "square");
+            console.assert(lhs[1].data.length == 1);
+            size = parseInt(lhs[1].data[0]);
+        }
+        var global = new please.gl.ast.Global(
+            mode, type, name, value, size, precision, macro);
+        global.meta = tokens[0].meta;
+        created.push(global);
+    }
+    return created;
+};
+// - gl_alst/ast.block.js ------------------------------------------------ //
+/* [+] please.gl.ast.Block(stream, type)
+ * 
+ * AST constructor function representing blocks.  For the sake of
+ * simplicity, a source file's outter most scope is assumed to be an
+ * implicit block.  This is denoted by the 'type' property of the
+ * block being set to "global".
+ * 
+ */
+please.gl.ast.Block = function (stream) {
+    console.assert(this !== window);
+    please.gl.ast.mixin(this);
+    this.data = stream || [];
+    this.type = null;
+    this.prefix = null;
+    this.inclusions = [];
+};
+// Prints the glsl for this block.  If this block is a function, then
+// it will include the entire function definition.
+please.gl.ast.Block.prototype.print = function () {
+    if (this.type === "global") {
+        return this.__print_program();
+    }
+    var flat = "";
+    var out = "";
+    for (var i=0; i<this.data.length; i+=1) {
+        var token = this.data[i];
+        if (token.print) {
+            flat += token.print();
+        }
+        else {
+            flat += token;
+            if (token == ";") {
+                flat += "\n";
+            }
+        }
+    };
+    var indented = "";
+    var lines = flat.split("\n");
+    for (var i=0; i<lines.length; i+=1) {
+        var line = lines[i];
+        if (line.trim() !== "") {
+            indented += "  " + line + "\n";
+        }
+    };
+    out += (this.prefix || "") + " {\n" + indented + "}\n";
+    return out;
+};
+//
+please.gl.ast.Block.prototype.__print_program = function (is_include) {
+    var out = "";
+    if (!is_include && this.inclusions.length > 0) {
+        // First, combine all of the globals and hoist them to the top
+        // of the generated file.
+        var globals = {};
+        var ext_ast = {};
+        var imports = this.all_includes();
+        var methods = [];
+        for (var i=0; i<imports.length; i+=1) {
+            var other = please.access(imports[i]).__ast;
+            for (var m=0; m<other.methods.length; m+=1) {
+                methods.push(other.methods[m]);
+            }
+        }
+        methods = methods.concat(this.methods);
+        please.gl.__validate_functions(methods);
+        var append_global = function(global) {
+            if (globals[global.name] === undefined) {
+                globals[global.name] = global;
+            }
+            else {
+                please.gl.__check_for_contradicting_globals(
+                    globals[global.name], global);
+            }
+        };
+        for (var i=0; i<imports.length; i+=1) {
+            var other = please.access(imports[i]);
+            var imported = ext_ast[imports[i]] = other.__ast;
+            imported.globals.map(append_global);
+        }
+        this.globals.map(append_global);
+        // Append the collection of globals to the output buffer.
+        for (var name in globals) if (globals.hasOwnProperty(name)) {
+            out += globals[name].print();
+        }
+        // Pass globals to the curve macro and append the result.
+        var curve_functions = please.gl.macros.curve(globals);
+        if (curve_functions.length > 0) {
+            out += this.banner("CURVE MACRO", true);
+            out += curve_functions;
+            out += this.banner("CURVE MACRO", false);
+        }
+        // Now, append the contents of each included file sans globals.
+        for (var name in ext_ast) if (ext_ast.hasOwnProperty(name)) {
+            out += this.include_banner(name, true);
+            out += ext_ast[name].__print_program(true);
+            out += this.include_banner(name, false);
+        }
+    }
+    // Now, append the contents of this ast tree sans globals.
+    for (var i=0; i<this.data.length; i+=1) {
+        var token = this.data[i];
+        if (token.constructor == please.gl.ast.Global) {
+            var dummy_out = (this.inclusions.length>0 || is_include) ? "// " : "";
+            out += dummy_out + token.print();
+        }
+        else if (token.constructor != please.gl.ast.Block &&
+                 token.constructor != please.gl.ast.Comment &&
+                 token.print) {
+            continue;
+        }
+        else if (token.print) {
+            out += token.print();
+        }
+        else {
+            out += token;
+            if (token == ";") {
+                out += "\n";
+            }
+        }
+    };
+    return out;
+};
+//
+please.gl.ast.Block.prototype.include_banner = function (uri, begin) {
+    var header = "INCLUDED FILE: " + uri;
+    return this.banner(header, begin);
+}
+please.gl.ast.Block.prototype.banner = function (header, begin) {
+    var main_line = begin ? " START" : " END";
+    main_line += " OF " + header + " ";
+    var start_a = " ---==##";
+    var start_b = "       ";
+    var end_a = "##==---";
+    var end_b = "";
+    var bar = "#";
+    for (var i=0; i<main_line.length; i+=1) {
+        bar += "=";
+    }
+    bar += "#"
+    var out = "";
+    out += "\n";
+    out += "//" + start_b + bar + end_b + "\n";
+    out += "//" + start_a + main_line + end_a + "\n";
+    out += "//" + start_b + bar + end_b + "\n\n";
+    return out
+};
+// Put together a list of files to be included.
+please.gl.ast.Block.prototype.all_includes = function (skip) {
+    var others = [];
+    for (var i=0; i<this.inclusions.length; i+=1) {
+        var uri = this.inclusions[i];
+        var another = please.access(uri, null);
+        if (another === null) {
+            console.error("Unable to include shader: " + uri);
+            continue;
+        }
+        others.push(uri);
+    }
+    return others;
+};
+// Make this block a function.  The "prefix" argument is a list of ast
+// symbols that precede the function and are probably a function
+// definition.  Currently, this would be something like ['void main',
+// Parenthetical], though it is likely to change in the future, so
+// take this with a grain of salt.
+please.gl.ast.Block.prototype.make_function = function (invocation) {
+    this.type = "function";
+    this.meta = invocation[0].meta;
+    var prefix = invocation[0].split(" ");
+    var params = invocation[1];
+    if (params.constructor !== please.gl.ast.Parenthetical) {
+        throw new Error("Malformed function invocation: " + invocation);
+    }
+    else if (!params.is_flat) {
+        throw new Error("Nested parenthesis in function declaration: " + invocation);
+    }
+    this.name = prefix[1]; // the name of the function
+    this.input = []; // arguments eg [['float', 'foo'], ['float', 'bar']]
+    this.output = prefix[0]; // return type eg 'float'
+    var arg_parts = please.gl.__trim(params.data.join("").split(","));
+    if (!(arg_parts.length == 1 && arg_parts[0] == "void")) {
+        for (var i=0; i<arg_parts.length; i+=1) {
+            this.input.push(arg_parts[i].split(" "));
+        };
+    }
+    Object.defineProperty(this, "prefix", {
+        get: function () {
+            var prefix = this.output + " " + this.name + "(";
+            var parts = [];
+            for (var i=0; i<this.input.length; i+=1) {
+                parts.push(this.input[i][0] + " " + this.input[i][1]);
+            }
+            prefix += parts.join(", ") + ")";
+            return prefix;
+        },
+    });
+    Object.defineProperty(this, "signature", {
+        get: function () {
+            var sig = this.output;
+            for (var i=0; i<this.input.length; i+=1) {
+                sig += ":" + this.input[i][0];
+            }
+            return sig;
+        },
+    });
+};
+// Make this block represent the global scope.
+please.gl.ast.Block.prototype.make_global_scope = function () {
+    this.type = "global";
+    this.globals = [];
+    this.methods = [];
+    for (var i=0; i<this.data.length; i+=1) {
+        var item = this.data[i];
+        if (item.constructor == please.gl.ast.Global) {
+            this.globals.push(item);
+        }
+        if (item.constructor == please.gl.ast.Block && item.type == "function") {
+            this.methods.push(item);
+        }
+    }
+    please.gl.__bind_invocations(this.data, this.methods);
+};
+// Verify that the given set of functions contain no redundant
+// definitions or invalid overloads.
+please.gl.__validate_functions = function (methods) {
+    var groups = {};
+    methods.map(function (block) {
+        if (!groups[block.name]) {
+            groups[block.name] = [block.signature];
+            return;
+        }
+        var group = groups[block.name];
+        if (group.indexOf(block.signature) != -1) {
+            var msg = "Cannot register two functions of the same name and type " +
+                "signature.";
+            please.gl.ast.error(block, msg);
+        }
+        else {
+            group.push(block.signature);
+        }
+    });
+};
+// Identify which blocks are functions, and collapse the preceding
+// statement into the method.
+please.gl.__identify_functions = function (ast) {
+    var cache = [];
+    var remainder = [];
+    var recording_for = null;
+    var non_blocks = [
+        "enum",
+        "for",
+        "if",
+        "else",
+    ];
+    var collapse = function (block, cache) {
+        recording_for = null;
+        cache = please.gl.__trim(cache);
+        var is_block = true;
+        for (var i=0; i<non_blocks.length; i+=1) {
+            if (cache[0].startsWith(non_blocks[i])) {
+                is_block = false;
+                break;
+            }
+        }
+        if (is_block) {
+            block.make_function(cache);
+        }
+    };
+    for (var i=ast.length-1; i>=0; i-=1) {
+        var statement = ast[i];
+        if (statement.constructor == please.gl.ast.Comment) {
+            remainder.unshift(statement);
+            continue;
+        }
+        else if (statement.constructor == please.gl.ast.Block) {
+            if (recording_for !== null) {
+                collapse(recording_for, cache);
+            }
+            remainder.unshift(statement);
+            recording_for = statement;
+            cache = [];
+            continue;
+        }
+        else if (recording_for !== null) {
+            if (statement.constructor == String || statement.constructor == please.gl.ast.Parenthetical) {
+                if (statement == ";") {
+                    collapse(recording_for, cache);
+                }
+                else {
+                    cache.unshift(statement);
+                }
+            }
+            else {
+                collapse(recording_for, cache);
+                remainder.unshift(statement);
+            }
+        }
+        else {
+            remainder.unshift(statement);
+        }
+    }
+    if (recording_for && cache.length > 0) {
+        collapse(recording_for, cache);
+    }
+    return remainder;
+};
+// - gl_ast/ast.parenthetical.js ----------------------------------------- //
+/* [+] please.gl.ast.Parenthetical(stream)
+ * 
+ * AST constructor function representing (parenthetical) sections.
+ * 
+ */
+please.gl.ast.Parenthetical = function (stream, closer) {
+    console.assert(this !== window);
+    please.gl.ast.mixin(this);
+    this.data = stream || [];
+    if (closer == ")") {
+        this.type = "parenthesis";
+    }
+    else if (closer == "]") {
+        this.type = "square";
+    }
+    else {
+        this.type = null;
+    }
+};
+// This will print out the parenthetical area.
+please.gl.ast.Parenthetical.prototype.print = function () {
+    var open, close;
+    if (this.type == "parenthesis") {
+        open = "(";
+        close = ")";
+    }
+    else if (this.type == "square") {
+        open = "[";
+        close = "]";
+    }
+    else {
+        throw new Error("Unknown Panthetical subtype: " + this.type);
+    }
+    var out = [];
+    for (var i=0; i<this.data.length; i+=1) {
+        var part = this.data[i];
+        if (part.print) {
+            out.push(part.print());
+        }
+        else if (part == ",") {
+            out[out.length-1] += ",";
+        }
+        else {
+            out.push(part);
+        }
+    };
+    return open + out.join(" ") + close;
+};
+// Returns all of the child ast objects for this block.
+please.gl.ast.Parenthetical.prototype.children = function () {
+    return this.data;
+};
+// Returns true when the parenthetical block contains no
+// parentheticals.
+please.gl.ast.Parenthetical.prototype.is_flat = function () {
+    var is_flat = true;
+    for (var i=0; i<this.data.length; i+=1) {
+        if (this.data[i].constructor == please.gl.ast.Parenthetical) {
+            is_flat = false;
+            break;
+        }
+    }
+    return is_flat;
+};
+// Identify areas that are parenthetical, including proper nesting.
+// Returns a revised ast.
+please.gl.__identify_parentheticals = function (ast, start, close_target) {
+    if (start === undefined) { start = 0; };
+    var new_ast = [];
+    var openers = ['(', '['];
+    var closers = [')', ']'];
+    for (var i=start; i<ast.length; null) {
+        var item = ast[i];
+        var open = null;
+        var close = null;
+        for (var n=0; n<openers.length; n+=1) {
+            if (item == openers[n]) {
+                open = openers[n];
+                close = closers[n];
+            }
+        }
+        if (open) {
+            var selection = please.gl.__identify_parentheticals(ast, i+1, close);
+            selection[0].meta = item.meta;
+            new_ast.push(selection[0]);
+            i = selection[1];
+        }
+        else if (item == close_target) {
+            if (start === 0) {
+                throw new Error("mismatched parenthesis - encountered an extra '" + close_target + "'");
+            }
+            else {
+                return [new please.gl.ast.Parenthetical(new_ast, close_target), i];
+            }
+        }
+        else {
+            new_ast.push(item);
+        }
+        i+=1;
+    }
+    if (start === 0) {
+        return new_ast;
+    }
+    else {
+        throw new Error("mismatched parenthesis - missing a '" + close + "'");
+    }
+};
+// - gl_alst/ast.invocation.js ------------------------------------------- //
+/* [+] please.gl.ast.Invocation(name, args)
+ * 
+ * AST constructor function representing function calls.
+ * 
+ */
+please.gl.ast.Invocation = function (name, args) {
+    please.gl.ast.mixin(this);
+    this.name = name || null;
+    this.args = args || null;
+    this.bound = false;
+};
+// Prints the glsl for this object.
+please.gl.ast.Invocation.prototype.print = function () {
+    return this.name + this.args.print()
+};
+// Identify function calls and collapse the relevant ast together.
+please.gl.__identify_invocations = function (ast) {
+    var ignore = please.gl.__symbols.concat([
+        "for",
+        "if",
+        "else",
+        "while",
+        "do",
+    ]);
+    var remainder = [];
+    for (var i=0; i<ast.length; i+=1) {
+        var item = ast[i];
+        var uncaught = true;
+        if (item.constructor == please.gl.ast.Parenthetical) {
+            var peek = null;
+            var steps = 0;
+            for (var k=i-1; k>=0; k-=1) {
+                steps += 1;
+                if (ast[k].constructor != please.gl.ast.Comment) {
+                    peek = ast[k];
+                    break;
+                }
+            }
+            if (peek && peek.constructor == String) {
+                uncaught = false;
+                for (var s=0; s<ignore.length; s+=1) {
+                    if (peek == ignore[s]) {
+                        uncaught = true;
+                        break;
+                    }
+                }
+                if (!uncaught) {
+                    var invoker = new please.gl.ast.Invocation(peek, item);
+                    invoker.meta = peek.meta;
+                    remainder = remainder.slice(0, remainder.length-steps);
+                    remainder.push(invoker);
+                }
+            }
+        }
+        if (uncaught) {
+            remainder.push(item);
+        }
+    }
+    return remainder;
+};
+// For each unbound method invocation, find a matching method in the
+// given namespace, and make the invocation's name property a getter
+// that returns the method's name property.  This allows for methods
+// to be dynamically renamed.
+please.gl.__bind_invocations = function (stream, methods_set, scope) {
+    if (!scope) {
+        scope = {};
+        // Build a by_name lookup for binding against.  We remove
+        // overloaded functions for now as there is no way currently
+        // to tell which one is the correct one to bind to.
+        var overloaded = {};
+        for (var i=0; i<methods_set.length; i+=1) {
+            var name = methods_set[i].name;
+            if (!scope[name] && !overloaded[name]) {
+                scope[name] = methods_set[i];
+            }
+            else if (scope[name]) {
+                overloaded[name] = true;
+                delete(scope[name]);
+            }
+        }
+    }
+    var add_binding = function (invocation, method) {
+        item.bound = true;
+        Object.defineProperty(item, "name", {get: function () {
+            return method.name;
+        }});
+    };
+    for (var i=0; i<stream.length; i+=1) {
+        var item = stream[i];
+        if (item.constructor == please.gl.ast.Invocation) {
+            if (scope[item.name]) {
+                // add a binding
+                add_binding(item, scope[item.name]);
+            }
+            please.gl.__bind_invocations(item.args, null, scope);
+        }
+        else if (item.constructor == please.gl.ast.Block || item.constructor == please.gl.ast.Parenthesis) {
+            please.gl.__bind_invocations(item.data, null, scope);
+        }
+    }
+};
+// - gl_ast/ast.macros.js --------------------------------------------- //
+/*
+ *  This file is where non-standard extensions to GLSL syntax and
+ *  related helper functions should ideally be defined.
+ */
+// Find include statements in the provided near-complete syntax tree.
+please.gl.macros.include = function (ast) {
+    for (var i=0; i<ast.data.length; i+=1) {
+        var item = ast.data[i];
+        if (item.constructor == please.gl.ast.Invocation && item.name == "include") {
+            var args = item.args.data;
+            try {
+                console.assert(item.bound == false);
+                console.assert(args.length == 1);
+                console.assert(args[0].constructor == please.gl.ast.Comment);
+                console.assert(args[0].quotation);
+            } catch (error) {
+                console.warn(error);
+                throw new Error("Malformed include statement on line " +
+                                item.meta.line + " at char " + item.meta.char +
+                                " in file " + item.meta.uri);
+            }
+            var uri = args[0].data;
+            ast.inclusions.push(uri);
+        }
+    };
+};
+// Recieves a dictionary of global variables, returns support code.
+please.gl.macros.curve = function (globals) {
+    var out = "";
+    var types = [];
+    var template = please.access("curve_template.glsl").src;
+    for (var name in globals) if (globals.hasOwnProperty(name)) {
+        var global = globals[name];
+        if (global.macro == "curve") {
+            var signature = global.type + ":" + global.size;
+            if (types.indexOf(signature) == -1) {
+                types.push(signature);
+            }
+        }
+    };
+    for (var i=0; i<types.length; i+=1) {
+        var parts = types[i].split(":");
+        var type = parts[0];
+        var size = parts[1];
+        out += template.replace(/GL_TYPE/gi, type).replace(/ARRAY_LEN/gi, size);
+    }
+    return out;
+};
+// - glslglsl/ast.js ----------------------------------------------------- //
+// Remove leading and trailing whitespace from a list of ast objects.
+please.gl.__trim = function (stream) {
+    var start = 0;
+    var stop = 0;
+    for (var i=0; i<stream.length; i+=1) {
+        var check = stream[i];
+        if (check.constructor == String && check.trim() == '') {
+            start += 1;
+        }
+        else {
+            break;
+        }
+    }
+    for (var i=stream.length-1; i>=0; i-=1) {
+        var check = stream[i];
+        if (check.constructor == String && check.trim() == '') {
+            stop += 1;
+        }
+        else {
+            break;
+        }
+    }
+    return stream.slice(start, stream.length-stop);
+};
+// Removes the "precision" statements from the ast.
+please.gl.__remove_precision = function (ast) {
+    var remainder = [];
+    for (var i=0; i<ast.length; i+=1) {
+        var statement = ast[i];
+        if (statement.constructor == String && statement.startsWith("precision")) {
+            i += 1;
+            continue;
+        }
+        else {
+            remainder.push(statement);
+        }
+    }
+    return please.gl.__trim(remainder);
+};
+// take a string like "foo = bar + baz;" and split it into an array of
+// tokens like ["foo", "=", "bar", "+", "baz", ";"]
+please.gl.__split_tokens = function (text) {
+    var lowest_symbol = null;
+    var lowest_offset = Infinity;
+    for (var i=0; i<please.gl.__symbols.length; i+=1) {
+        var symbol = please.gl.__symbols[i];
+        var offset = text.indexOf(symbol);
+        if (offset !== -1 && offset < lowest_offset) {
+            lowest_offset = offset;
+            lowest_symbol = please.gl.ast.str(symbol);
+            lowest_symbol.meta.offset = text.meta.offset + lowest_offset;
+        }
+    }
+    var tokens = [];
+    if (lowest_symbol) {
+        if (lowest_offset > 0) {
+            var raw = text.slice(0, lowest_offset);
+            var pre = (/\s*/).exec(raw)[0];
+            var cut = please.gl.ast.str(raw.trim(), text.meta.offset + pre.length);
+            tokens.push(cut);
+        }
+        tokens.push(lowest_symbol);
+        var raw = text.slice(lowest_offset + lowest_symbol.length);
+        var pre = (/\s*/).exec(raw)[0];
+        var after = please.gl.ast.str(raw.trim());
+        if (after.length > 0) {
+            after.meta.offset = lowest_symbol.meta.offset + lowest_symbol.length + pre.length;
+            tokens = tokens.concat(please.gl.__split_tokens(after));
+        }
+    }
+    else {
+        tokens = [text];
+    }
+    return tokens;
+};
+// Takes the result from __split_tokens and returns a tree denoted by
+// curly braces.  This also removes the 'precision' statements from
+// code, to be specified elsewhere.
+please.gl.__stream_to_ast = function (tokens, start) {
+    if (start === undefined) { start = 0; };
+    var tree = [];
+    for (var i=start; i<tokens.length; null) {
+        var token = tokens[i];
+        if (token == "{") {
+            var sub_tree = please.gl.__stream_to_ast(tokens, i+1);
+            sub_tree[0].meta = token.meta;
+            tree.push(sub_tree[0]);
+            i = sub_tree[1];
+        }
+        else if (token == "}") {
+            if (start === 0) {
+                throw new Error("Extra '}' on line " + (token.line+1));
+            }
+            else {
+                tree = please.gl.__identify_parentheticals(tree);
+                tree = please.gl.__identify_invocations(tree);
+                return [new please.gl.ast.Block(tree), i];
+            }
+        }
+        else {
+            tree.push(token);
+        }
+        i+=1;
+    }
+    if (start === 0) {
+        var extract = please.gl.__parse_globals(tree);
+        var globals = please.gl.__clean_globals(extract[0]);
+        var remainder = extract[1];
+        remainder = please.gl.__remove_precision(remainder);
+        remainder = please.gl.__identify_parentheticals(remainder);
+        remainder = please.gl.__identify_functions(remainder);
+        remainder = please.gl.__identify_invocations(remainder);
+        var stream = globals.concat(remainder);
+        var ast = new please.gl.ast.Block(stream);
+        ast.make_global_scope();
+        please.gl.__validate_functions(ast.methods);
+        return ast;
+    }
+    else {
+        throw new Error("Missing a '}'");
+    }
+};
+// Maps the "offset" token param to line:char values in the original
+// source file.
+please.gl.__apply_source_map = function (stream, src) {
+    var lines = src.split("\n");
+    var offsets = [];
+    var total = 0;
+    for (var i=0; i<lines.length; i+=1) {
+        offsets.push(total);
+        total += (lines[i].length+1); // +1 to compensate for missing \n
+    }
+    var apply_src_map = function (token) {
+        if (token.meta.offset !== undefined && token.meta.offset !== null) {
+            for (var i=0; i<offsets.length; i+=1) {
+                if (offsets[i] > token.meta.offset) {
+                    break;
+                }
+            }
+            var target = i-1;
+            token.meta.line = target;
+            token.meta.char = token.meta.offset - offsets[target];
+        }
+        return token;
+    };
+    stream.map(apply_src_map);
+};
+// [+] please.gl.glsl_to_ast(shader_source, uri)
+//
+// Takes a glsl source file and returns an abstract syntax tree
+// representation of the code to be used for further processing.
+// The 'uri' argument is optional, and is mainly used for error
+// reporting.
+//
+please.gl.glsl_to_ast = function (src, uri) {
+    src = src.replace("\r\n", "\n");
+    src = src.replace("\r", "\n");
+    src = please.gl.ast.str(src);
+    src.meta.offset = 0;
+    uri = uri || "<unknown file>";
+    var tokens = [];
+    var tmp = please.gl.__find_comments(src, uri);
+    for (var i=0; i<tmp.length; i+=1) {
+        if (tmp[i].constructor === String) {
+            tokens = tokens.concat(please.gl.__split_tokens(tmp[i]));
+        }
+        else {
+            tokens.push(tmp[i]);
+        }
+    }
+    please.gl.__apply_source_map(tokens, src);
+    var ast = please.gl.__stream_to_ast(tokens);
+    please.gl.macros.include(ast);
+    return ast;
+};
 // - m.jta.js ------------------------------------------------------------- //
 /* [+] 
  *
@@ -4194,7 +5329,7 @@ please.gl.__jta_model = function (src, uri) {
                 return node;
             }
             else {
-                throw("no such object in " + uri + ": " + model_name);
+                throw new Error("no such object in " + uri + ": " + model_name);
             }
         }
     };
@@ -4308,9 +5443,9 @@ please.gl.__jta_extract_keyframes = function (data) {
 please.gl.__jta_metadata_html = function (scene) {
     if (scene.meta) {
         var work_title = scene.uri.slice(scene.uri.lastIndexOf("/")+1);
-        var author = scene.meta["author"].trim();
-        var attrib_url = scene.meta["url"].trim();
-        var src_url = scene.meta["src_url"].trim();
+        var author = String.trim(scene.meta["author"] || "");
+        var attrib_url = String.trim(scene.meta["url"] || "");
+        var src_url = String.trim(scene.meta["src_url"] || "");
         var license_url = scene.meta["license"] ? scene.meta["license"] : "Unknown License";
         var license_name = {
             "http://creativecommons.org/publicdomain/zero/1.0/" : "Public Domain",
@@ -4456,7 +5591,7 @@ please.gl.__jta_extract_models = function (model_defs, buffer_objects) {
                 model.uniforms[state_name] = please.gl.__jta_array(state);
             }
             else {
-                throw ("Not implemented: non-array uniforms from jta export");
+                throw new Error("Not implemented: non-array uniforms from jta export");
             }
         });
         return model;
@@ -5762,7 +6897,7 @@ please.GraphNode = function () {
     // A getter that is set to the rotation property when the mode
     // changes to quaternion mode.
     var as_euler = function () {
-        throw("I don't know how to translate from quaternions to euler " +
+        throw new Error("I don't know how to translate from quaternions to euler " +
               "rotations :( I am sorry :( :( :(");
     }.bind(this);
     // A getter that is set to the quaternion property wthen the mode
@@ -6028,7 +7163,7 @@ please.GraphNode.prototype = {
             return 2;
         }
         else {
-            throw("Unknown billboard type: " + this.billboard);
+            throw new Error("Unknown billboard type: " + this.billboard);
         }
     },
     "__find_selection" : function () {
@@ -6243,7 +7378,7 @@ please.SceneGraph = function () {
             }
         }
         else {
-            throw ("The scene graph has no camera in it!");
+            throw new Error("The scene graph has no camera in it!");
         }
         if (this.__states) {
             for (var hint in this.__states) if (this.__states.hasOwnProperty(hint)) {
@@ -7084,7 +8219,7 @@ please.render = function(node) {
     var expire = arguments[1] || please.pipeline.__framestart;
     var stack = arguments[2] || [];
     if (stack.indexOf(node)>=0) {
-        throw("M.GRL doesn't currently suport render graph cycles.");
+        throw new Error("M.GRL doesn't currently suport render graph cycles.");
     }
     var delay = 0;
     if (node.frequency) {
@@ -7108,7 +8243,7 @@ please.render = function(node) {
                 }
                 else {
                     // FIXME: splat render the texture and call it a day
-                    throw("missing functionality");
+                    throw new Error("missing functionality");
                 }
             }
             else if (typeof(proxy) === "object") {
@@ -7142,6 +8277,8 @@ please.render = function(node) {
     stack.pop();
     // activate the shader program
     node.__prog.activate();
+    // use an indirect texture if the stack length is greater than 1
+    node.__cached = stack.length > 0 ? node.__id : null;
     // upload shader vars
     for (var name in node.shader) {
         if (node.__prog.vars.hasOwnProperty(name)) {
@@ -7156,10 +8293,14 @@ please.render = function(node) {
             }
         }
     }
-    // use an indirect texture if the stack length is greater than 1
-    node.__cached = stack.length > 0 ? node.__id : null;
-    please.gl.set_framebuffer(node.__cached);
+    for (var i=0; i<node.__prog.sampler_list.length; i+=1) {
+        var name = node.__prog.sampler_list[i];
+        if (node.__prog.samplers[name] === node.__cached) {
+            node.__prog.samplers[name] = "error_image";
+        }
+    }
     // call the rendering logic
+    please.gl.set_framebuffer(node.__cached);
     gl.clearColor.apply(gl, node.clear_color);
     node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -7785,7 +8926,7 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
         tracker.animated = !!tracker.stamp.play;
     }
     else {
-        throw("Invalid asset.  Did you pass a GraphNode by mistake?");
+        throw new Error("Invalid asset.  Did you pass a GraphNode by mistake?");
     }
     this.__ani_cache = tracker.stamp.__ani_cache;
     this.__ani_store = tracker.stamp.__ani_store;
@@ -7952,20 +9093,22 @@ please.ParticleEmitter.prototype.__on_die = function(index) {
 };
 // - bundled textual assets ------------------------------------------------- //
 addEventListener("mgrl_gl_context_created", function () {
-    var lookup_table = {"curve_template.glsl": "Ly8gIERvIG5vdCBjYWxsICNpbmNsdWRlIG9uIGN1cnZlX3RlbXBsYXRlLmdsc2wgaW4geW91ciBz\nb3VyY2UgZmlsZXMuCi8vICBVc2UgdGhlICNjdXJ2ZSBtYWNybyBpbnN0ZWFkISEhCgpHTF9UWVBF\nIHNhbXBsZV9jdXJ2ZShHTF9UWVBFIHNhbXBsZXNbQVJSQVlfTEVOXSwgZmxvYXQgYWxwaGEpIHsK\nICBmbG9hdCBwaWNrID0gKEFSUkFZX0xFTi4wIC0gMS4wKSAqIGFscGhhOwogIGludCBsb3cgPSBp\nbnQoZmxvb3IocGljaykpOwogIGludCBoaWdoID0gaW50KGNlaWwocGljaykpOwogIGZsb2F0IGJl\ndGEgPSBmcmFjdChwaWNrKTsKCiAgR0xfVFlQRSBsb3dfc2FtcGxlOwogIEdMX1RZUEUgaGlnaF9z\nYW1wbGU7CgogIC8vIHdvcmthcm91bmQgYmVjYXVzZSBnbHNsIGRvZXMgbm90IGFsbG93IGZvciBy\nYW5kb20gYWNjZXNzIG9uIGFycmF5cyA+Ok8KICBmb3IgKGludCBpPTA7IGk8QVJSQVlfTEVOOyBp\nKz0xKSB7CiAgICBpZiAoaSA9PSBsb3cpIHsKICAgICAgbG93X3NhbXBsZSA9IHNhbXBsZXNbaV07\nCiAgICB9CiAgICBpZiAoaSA9PSBoaWdoKSB7CiAgICAgIGhpZ2hfc2FtcGxlID0gc2FtcGxlc1tp\nXTsKICAgIH0KICB9CiAgCiAgcmV0dXJuIG1peChsb3dfc2FtcGxlLCBoaWdoX3NhbXBsZSwgYmV0\nYSk7Cn0K\n", "normalize_screen_coord.glsl": "Ly8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0ZyYWdDb29yZC54eSwg\nd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNjcmVlbiBjb29yZGlu\nYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0ZSB0aGF0IGlzIG5v\ncm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0byAxLjAuCi8vCnZl\nYzIgbm9ybWFsaXplX3NjcmVlbl9jb29yZCh2ZWMyIGNvb3JkKSB7CiAgcmV0dXJuIHZlYzIoY29v\ncmQueC9tZ3JsX2J1ZmZlcl93aWR0aCwgY29vcmQueS9tZ3JsX2J1ZmZlcl9oZWlnaHQpOwp9Cgo=\n"};
+    var lookup_table = {};
     please.prop_map(lookup_table, function (name, src) {
         // see m.media.js's please.media.handlers.glsl for reference:
         please.media.assets[name] = atob(src);
     });
 });
 // - bundled glsl shader assets --------------------------------------------- //
-addEventListener("mgrl_gl_context_created", function () {
-    var lookup_table = {"picture_in_picture.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl93aWR0\naDsKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl9oZWlnaHQ7Cgp1bmlmb3JtIHZlYzIgcGlwX3Np\nemU7CnVuaWZvcm0gdmVjMiBwaXBfY29vcmQ7CnVuaWZvcm0gZmxvYXQgcGlwX2FscGhhOwp1bmlm\nb3JtIHNhbXBsZXIyRCBtYWluX3RleHR1cmU7CnVuaWZvcm0gc2FtcGxlcjJEIHBpcF90ZXh0dXJl\nOwoKCiNpbmNsdWRlICJub3JtYWxpemVfc2NyZWVuX2Nvb3JkLmdsc2wiCgoKdm9pZCBtYWluKHZv\naWQpIHsKICB2ZWMyIHNjcmVlbl9jb29yZCA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJh\nZ0Nvb3JkLnh5KTsKICB2ZWM0IGNvbG9yID0gdGV4dHVyZTJEKG1haW5fdGV4dHVyZSwgc2NyZWVu\nX2Nvb3JkKTsKCiAgLy8gc2NhbGUgdGhlIHNjcmVlbl9jb29yZCB0byByZXByZXNlbnQgYSBwZXJj\nZW50CiAgc2NyZWVuX2Nvb3JkICo9IDEwMC4wOwogIHZlYzIgcGlwX3Rlc3QgPSBzY3JlZW5fY29v\ncmQgLSBwaXBfY29vcmQ7CiAgaWYgKHBpcF90ZXN0LnggPj0gMC4wICYmIHBpcF90ZXN0LnkgPj0g\nMC4wICYmIHBpcF90ZXN0LnggPD0gcGlwX3NpemUueCAmJiBwaXBfdGVzdC55IDw9IHBpcF9zaXpl\nLnkpIHsKICAgIHZlYzQgcGlwX2NvbG9yID0gdGV4dHVyZTJEKHBpcF90ZXh0dXJlLCBwaXBfdGVz\ndCAvIHBpcF9zaXplKTsKICAgIGNvbG9yID0gbWl4KGNvbG9yLCBwaXBfY29sb3IsIHBpcF9jb2xv\nci5hIC8gcGlwX2FscGhhKTsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3I7Cn0K\n", "splat.vert": "CnVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7CnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5p\nZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4OwphdHRyaWJ1dGUgdmVjMyBwb3NpdGlvbjsKCgp2\nb2lkIG1haW4odm9pZCkgewogIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2aWV3\nX21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7Cn0K\n", "simple.vert": "Ci8vIG1hdHJpY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2pl\nY3Rpb25fbWF0cml4OwoKLy8gdmVydGV4IGRhdGEKYXR0cmlidXRlIHZlYzMgcG9zaXRpb247CmF0\ndHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZlYzIgdGNvb3JkczsKCi8vIG1pc2MgYWRq\ndXN0bWVudHMKdW5pZm9ybSBmbG9hdCBtZ3JsX29ydGhvZ3JhcGhpY19zY2FsZTsKCi8vIGJpbGxi\nb2FyZCBzcHJpdGVzIGVuYWJsZXIKdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKCi8vIGlu\ndGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBpbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5n\nIHZlYzMgbG9jYWxfcG9zaXRpb247CnZhcnlpbmcgdmVjMyBsb2NhbF9ub3JtYWw7CnZhcnlpbmcg\ndmVjMiBsb2NhbF90Y29vcmRzOwp2YXJ5aW5nIHZlYzMgd29ybGRfcG9zaXRpb247CnZhcnlpbmcg\ndmVjMyBzY3JlZW5fcG9zaXRpb247CnZhcnlpbmcgZmxvYXQgbGluZWFyX2RlcHRoOwoKCnZvaWQg\nbWFpbih2b2lkKSB7CiAgLy8gcGFzcyBhbG9uZyB0byB0aGUgZnJhZ21lbnQgc2hhZGVyCiAgbG9j\nYWxfcG9zaXRpb24gPSBwb3NpdGlvbiAqIG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwogIGxvY2Fs\nX25vcm1hbCA9IG5vcm1hbDsKICBsb2NhbF90Y29vcmRzID0gdGNvb3JkczsKCiAgLy8gY2FsY3Vs\nYXRlIG1vZGVsdmlldyBtYXRyaXgKICBtYXQ0IG1vZGVsX3ZpZXcgPSB2aWV3X21hdHJpeCAqIHdv\ncmxkX21hdHJpeDsKICBpZiAoYmlsbGJvYXJkX21vZGUgPiAwLjApIHsKICAgIC8vIGNsZWFyIG91\ndCByb3RhdGlvbiBpbmZvcm1hdGlvbgogICAgbW9kZWxfdmlld1swXS54eXogPSB3b3JsZF9tYXRy\naXhbMF0ueHl6OwogICAgbW9kZWxfdmlld1syXS54eXogPSB3b3JsZF9tYXRyaXhbMl0ueHl6Owog\nICAgaWYgKGJpbGxib2FyZF9tb2RlID09IDIuMCkgewogICAgICBtb2RlbF92aWV3WzFdLnh5eiA9\nIHdvcmxkX21hdHJpeFsxXS54eXo7CiAgICB9CiAgfQoKICAvLyB2YXJpb3VzIGNvb3JkaW5hdGUg\ndHJhbnNmb3JtcwogIHZlYzQgZmluYWxfcG9zaXRpb24gPSBwcm9qZWN0aW9uX21hdHJpeCAqIG1v\nZGVsX3ZpZXcgKiB2ZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApOwogIHdvcmxkX3Bvc2l0aW9uID0g\nKHdvcmxkX21hdHJpeCAqIHZlYzQobG9jYWxfcG9zaXRpb24sIDEuMCkpLnh5ejsKICBzY3JlZW5f\ncG9zaXRpb24gPSBmaW5hbF9wb3NpdGlvbi54eXo7CiAgbGluZWFyX2RlcHRoID0gbGVuZ3RoKCht\nb2RlbF92aWV3ICogdmVjNChsb2NhbF9wb3NpdGlvbiwgMS4wKSkpOwogIGdsX1Bvc2l0aW9uID0g\nZmluYWxfcG9zaXRpb247Cn0K\n", "color_curve.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gY3VydmUgZmxvYXQgdmFsdWVfY3VydmVbMTZdOwp1bmlmb3Jt\nIGN1cnZlIGZsb2F0IHJlZF9jdXJ2ZVsxNl07CnVuaWZvcm0gY3VydmUgZmxvYXQgZ3JlZW5fY3Vy\ndmVbMTZdOwp1bmlmb3JtIGN1cnZlIGZsb2F0IGJsdWVfY3VydmVbMTZdOwoKI2luY2x1ZGUgIm5v\ncm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIKCgpmbG9hdCB2YWx1ZSh2ZWMzIGNvbG9yKSB7CiAg\ncmV0dXJuIG1heChjb2xvci5yLCBtYXgoY29sb3IuZywgY29sb3IuYikpOwp9CgoKdm9pZCBtYWlu\nKHZvaWQpIHsKICB2ZWMyIHRjb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdD\nb29yZC54eSk7CiAgdmVjMyBjb2xvciA9IHRleHR1cmUyRChpbnB1dF90ZXh0dXJlLCB0Y29vcmRz\nKS5yZ2I7CgogIGZsb2F0IHYxID0gdmFsdWUoY29sb3IpOwogIGZsb2F0IHYyID0gc2FtcGxlX2N1\ncnZlKHZhbHVlX2N1cnZlLCB2MSk7CiAgZmxvYXQgc2NhbGUgPSAxLjAgLyB2MTsKICBjb2xvciA9\nIGNvbG9yICogc2NhbGUgKiB2MjsKICAKICBjb2xvci5yID0gc2FtcGxlX2N1cnZlKHJlZF9jdXJ2\nZSwgY29sb3Iucik7CiAgY29sb3IuZyA9IHNhbXBsZV9jdXJ2ZShncmVlbl9jdXJ2ZSwgY29sb3Iu\nZyk7CiAgY29sb3IuYiA9IHNhbXBsZV9jdXJ2ZShibHVlX2N1cnZlLCBjb2xvci5iKTsKICBnbF9G\ncmFnQ29sb3IgPSB2ZWM0KGNvbG9yLCAxLjApOwp9Cg==\n", "diffuse.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0\ndXJlOwoKdW5pZm9ybSBmbG9hdCBhbHBoYTsKdW5pZm9ybSBib29sIGlzX3Nwcml0ZTsKdW5pZm9y\nbSBib29sIGlzX3RyYW5zcGFyZW50OwoKdmFyeWluZyB2ZWMzIGxvY2FsX3Bvc2l0aW9uOwp2YXJ5\naW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2YXJ5aW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWlu\nZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgc2NyZWVuX3Bvc2l0aW9uOwoKCnZv\naWQgbWFpbih2b2lkKSB7CiAgdmVjNCBkaWZmdXNlID0gdGV4dHVyZTJEKGRpZmZ1c2VfdGV4dHVy\nZSwgbG9jYWxfdGNvb3Jkcyk7CiAgaWYgKGlzX3Nwcml0ZSkgewogICAgZmxvYXQgY3V0b2ZmID0g\naXNfdHJhbnNwYXJlbnQgPyAwLjEgOiAxLjA7CiAgICBpZiAoZGlmZnVzZS5hIDwgY3V0b2ZmKSB7\nCiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgfQogIGRpZmZ1c2UuYSAqPSBhbHBoYTsKICBnbF9GcmFn\nQ29sb3IgPSBkaWZmdXNlOwp9Cg==\n", "stereo.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnVuaWZvcm0gdmVjNCBtZ3Js\nX2NsZWFyX2NvbG9yOwp1bmlmb3JtIGZsb2F0IG1ncmxfZnJhbWVfc3RhcnQ7CnVuaWZvcm0gZmxv\nYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfaGVpZ2h0OwoK\ndW5pZm9ybSBzYW1wbGVyMkQgbGVmdF9leWVfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgcmln\naHRfZXllX3RleHR1cmU7Cgp1bmlmb3JtIGJvb2wgc3RlcmVvX3NwbGl0Owp1bmlmb3JtIHZlYzMg\nbGVmdF9jb2xvcjsKdW5pZm9ybSB2ZWMzIHJpZ2h0X2NvbG9yOwoKdmVjNCBzYW1wbGVfb3JfY2xl\nYXIoc2FtcGxlcjJEIHNhbXBsZXIsIHZlYzIgY29vcmQpIHsKICB2ZWM0IGNvbG9yID0gdGV4dHVy\nZTJEKHNhbXBsZXIsIGNvb3JkKTsKICBpZiAoY29sb3IuYSA9PSAwLjApIHsKICAgIGNvbG9yID0g\nbWdybF9jbGVhcl9jb2xvcjsKICB9CiAgcmV0dXJuIGNvbG9yOwp9Cgp2b2lkIG1haW4odm9pZCkg\newogIHZlYzIgY29vcmQgPSBnbF9GcmFnQ29vcmQueHkgLyB2ZWMyKG1ncmxfYnVmZmVyX3dpZHRo\nLCBtZ3JsX2J1ZmZlcl9oZWlnaHQpOwogIHZlYzQgY29sb3I7CgogIGlmIChzdGVyZW9fc3BsaXQp\nIHsKICAgIC8vIEZJWE1FOiBhcHBseSBkaXN0b3J0aW9uIGVmZmVjdCBuZWVkZWQgZm9yIFZSIGds\nYXNzZXMKICAgIGlmIChjb29yZC54IDwgMC41KSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKGxl\nZnRfZXllX3RleHR1cmUsIHZlYzIoY29vcmQueCoyLjAsIGNvb3JkLnkpKTsKICAgIH0KICAgIGVs\nc2UgewogICAgICBjb2xvciA9IHRleHR1cmUyRChyaWdodF9leWVfdGV4dHVyZSwgdmVjMigoY29v\ncmQueCAtIDAuNSkqMi4wLCBjb29yZC55KSk7CiAgICB9CiAgfQoKICBlbHNlIHsKICAgIHZlYzMg\nbGVmdCA9IHNhbXBsZV9vcl9jbGVhcihsZWZ0X2V5ZV90ZXh0dXJlLCBjb29yZCkucmdiICogbGVm\ndF9jb2xvcjsKICAgIHZlYzMgcmlnaHQgPSBzYW1wbGVfb3JfY2xlYXIocmlnaHRfZXllX3RleHR1\ncmUsIGNvb3JkKS5yZ2IgKiByaWdodF9jb2xvcjsKICAgIGNvbG9yID0gdmVjNCgobGVmdCtyaWdo\ndCksIDEuMCk7CiAgfQogIAogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "diagonal_wipe.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBibHVyX3JhZGl1czsKdW5pZm9ybSBib29sIGZsaXBfYXhpczsK\ndW5pZm9ybSBib29sIGZsaXBfZGlyZWN0aW9uOwoKCiNpbmNsdWRlICJub3JtYWxpemVfc2NyZWVu\nX2Nvb3JkLmdsc2wiCgoKdm9pZCBtYWluKHZvaWQpIHsKICB2ZWMyIHRjb29yZHMgPSBub3JtYWxp\nemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAgZmxvYXQgc2xvcGUgPSBtZ3JsX2J1\nZmZlcl9oZWlnaHQgLyBtZ3JsX2J1ZmZlcl93aWR0aDsKICBpZiAoZmxpcF9heGlzKSB7CiAgICBz\nbG9wZSAqPSAtMS4wOwogIH0KICBmbG9hdCBoYWxmX2hlaWdodCA9IG1ncmxfYnVmZmVyX2hlaWdo\ndCAqIDAuNTsKICBmbG9hdCBoaWdoX3BvaW50ID0gbWdybF9idWZmZXJfaGVpZ2h0ICsgaGFsZl9o\nZWlnaHQgKyBibHVyX3JhZGl1cyArIDEuMDsKICBmbG9hdCBsb3dfcG9pbnQgPSAoaGFsZl9oZWln\naHQgKiAtMS4wKSAtIGJsdXJfcmFkaXVzIC0gMS4wOwogIGZsb2F0IG1pZHBvaW50ID0gbWl4KGhp\nZ2hfcG9pbnQsIGxvd19wb2ludCwgZmxpcF9kaXJlY3Rpb24gPyAxLjAgLSBwcm9ncmVzcyA6IHBy\nb2dyZXNzKTsKICBmbG9hdCB0ZXN0ID0gKChnbF9GcmFnQ29vcmQueCAtIG1ncmxfYnVmZmVyX3dp\nZHRoLzIuMCkgKiBzbG9wZSkgKyBtaWRwb2ludDsKCiAgdmVjNCBjb2xvcjsKICBmbG9hdCBkaXN0\nID0gZ2xfRnJhZ0Nvb3JkLnkgLSB0ZXN0OwogIGlmIChkaXN0IDw9IGJsdXJfcmFkaXVzICYmIGRp\nc3QgPj0gKGJsdXJfcmFkaXVzKi0xLjApKSB7CiAgICB2ZWM0IGNvbG9yX2EgPSB0ZXh0dXJlMkQo\ndGV4dHVyZV9hLCB0Y29vcmRzKTsKICAgIHZlYzQgY29sb3JfYiA9IHRleHR1cmUyRCh0ZXh0dXJl\nX2IsIHRjb29yZHMpOwogICAgZmxvYXQgYmxlbmQgPSAoZGlzdCArIGJsdXJfcmFkaXVzKSAvIChi\nbHVyX3JhZGl1cyoyLjApOwogICAgY29sb3IgPSBtaXgoY29sb3JfYSwgY29sb3JfYiwgZmxpcF9k\naXJlY3Rpb24gPyAxLjAgLSBibGVuZCA6IGJsZW5kKTsKICB9CiAgZWxzZSB7CiAgICBpZiAoKGds\nX0ZyYWdDb29yZC55IDwgdGVzdCAmJiAhZmxpcF9kaXJlY3Rpb24pIHx8IChnbF9GcmFnQ29vcmQu\neSA+IHRlc3QgJiYgZmxpcF9kaXJlY3Rpb24pKSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYSwgdGNvb3Jkcyk7CiAgICB9CiAgICBlbHNlIHsKICAgICAgY29sb3IgPSB0ZXh0dXJl\nMkQodGV4dHVyZV9iLCB0Y29vcmRzKTsKICAgIH0KICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3I7\nCn0K\n", "deferred.vert": "Ci8vIG1hdHJpY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2pl\nY3Rpb25fbWF0cml4OwoKLy8gdmVydGV4IGRhdGEKYXR0cmlidXRlIHZlYzMgcG9zaXRpb247CmF0\ndHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZlYzIgdGNvb3JkczsKCi8vIG1pc2MgYWRq\ndXN0bWVudHMKdW5pZm9ybSBmbG9hdCBtZ3JsX29ydGhvZ3JhcGhpY19zY2FsZTsKCi8vIGJpbGxi\nb2FyZCBzcHJpdGVzIGVuYWJsZXIKdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKCi8vIGlu\ndGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBpbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5n\nIHZlYzMgbG9jYWxfcG9zaXRpb247CnZhcnlpbmcgdmVjMyBsb2NhbF9ub3JtYWw7CnZhcnlpbmcg\ndmVjMiBsb2NhbF90Y29vcmRzOwp2YXJ5aW5nIHZlYzMgd29ybGRfcG9zaXRpb247CnZhcnlpbmcg\ndmVjMyBzY3JlZW5fcG9zaXRpb247CnZhcnlpbmcgZmxvYXQgbGluZWFyX2RlcHRoOwoKLy8gdW5p\nZm9ybQp1bmlmb3JtIGJvb2wgZ2VvbWV0cnlfcGFzczsKCgp2b2lkIG1haW4odm9pZCkgewogIGlm\nIChnZW9tZXRyeV9wYXNzKSB7CiAgICAvLyBwYXNzIGFsb25nIHRvIHRoZSBmcmFnbWVudCBzaGFk\nZXIKICAgIGxvY2FsX3Bvc2l0aW9uID0gcG9zaXRpb24gKiBtZ3JsX29ydGhvZ3JhcGhpY19zY2Fs\nZTsKICAgIGxvY2FsX25vcm1hbCA9IG5vcm1hbDsKICAgIGxvY2FsX3Rjb29yZHMgPSB0Y29vcmRz\nOwoKICAgIC8vIGNhbGN1bGF0ZSBtb2RlbHZpZXcgbWF0cml4CiAgICBtYXQ0IG1vZGVsX3ZpZXcg\nPSB2aWV3X21hdHJpeCAqIHdvcmxkX21hdHJpeDsKICAgIGlmIChiaWxsYm9hcmRfbW9kZSA+IDAu\nMCkgewogICAgICAvLyBjbGVhciBvdXQgcm90YXRpb24gaW5mb3JtYXRpb24KICAgICAgbW9kZWxf\ndmlld1swXS54eXogPSB3b3JsZF9tYXRyaXhbMF0ueHl6OwogICAgICBtb2RlbF92aWV3WzJdLnh5\neiA9IHdvcmxkX21hdHJpeFsyXS54eXo7CiAgICAgIGlmIChiaWxsYm9hcmRfbW9kZSA9PSAyLjAp\nIHsKICAgICAgICBtb2RlbF92aWV3WzFdLnh5eiA9IHdvcmxkX21hdHJpeFsxXS54eXo7CiAgICAg\nIH0KICAgIH0KCiAgICAvLyB2YXJpb3VzIGNvb3JkaW5hdGUgdHJhbnNmb3JtcwogICAgdmVjNCBm\naW5hbF9wb3NpdGlvbiA9IHByb2plY3Rpb25fbWF0cml4ICogbW9kZWxfdmlldyAqIHZlYzQobG9j\nYWxfcG9zaXRpb24sIDEuMCk7CiAgICB3b3JsZF9wb3NpdGlvbiA9ICh3b3JsZF9tYXRyaXggKiB2\nZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApKS54eXo7CiAgICBzY3JlZW5fcG9zaXRpb24gPSBmaW5h\nbF9wb3NpdGlvbi54eXo7CiAgICBsaW5lYXJfZGVwdGggPSBsZW5ndGgoKG1vZGVsX3ZpZXcgKiB2\nZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApKSk7CiAgICBnbF9Qb3NpdGlvbiA9IGZpbmFsX3Bvc2l0\naW9uOwogIH0KICBlbHNlIHsKICAgIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2\naWV3X21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7CiAgfQp9Cg==\n", "disintegrate.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBweF9zaXplOwoKCiNpbmNsdWRlICJub3JtYWxpemVfc2NyZWVu\nX2Nvb3JkLmdsc2wiCgoKLy8gaHR0cHM6Ly9zdGFja292ZXJmbG93LmNvbS9xdWVzdGlvbnMvMTI5\nNjQyNzkvd2hhdHMtdGhlLW9yaWdpbi1vZi10aGlzLWdsc2wtcmFuZC1vbmUtbGluZXIKZmxvYXQg\ncmFuZG9tX3NlZWQodmVjMiBjbykgewogIHJldHVybiBmcmFjdChzaW4oZG90KGNvLnh5ICx2ZWMy\nKDEyLjk4OTgsNzguMjMzKSkpICogNDM3NTguNTQ1Myk7Cn0KCgp2b2lkIG1haW4odm9pZCkgewog\nIHZlYzIgZ3JpZCA9IGdsX0ZyYWdDb29yZC54eSAvIHB4X3NpemU7CiAgdmVjMiBvZmZzZXQgPSBm\ncmFjdChncmlkKSowLjU7CiAgZmxvYXQgcmFuZG9tID0gKHJhbmRvbV9zZWVkKGZsb29yKGdyaWQg\nKyBvZmZzZXQpKSowLjkpICsgMC4xOwogIHJhbmRvbSAqPSAoMS4wIC0gcHJvZ3Jlc3MpOwogIHZl\nYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nvb3JkLnh5KTsKICB2\nZWM0IGNvbG9yOwogIGlmIChyYW5kb20gPCAwLjEpIHsKICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYiwgdGNvb3Jkcyk7CiAgfQogIGVsc2UgewogICAgY29sb3IgPSB0ZXh0dXJlMkQodGV4\ndHVyZV9hLCB0Y29vcmRzKTsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3I7Cn0K\n", "deferred.frag": "I2V4dGVuc2lvbiBHTF9FWFRfZHJhd19idWZmZXJzIDogcmVxdWlyZQpwcmVjaXNpb24gbWVkaXVt\ncCBmbG9hdDsKCi8vIG1ncmwgYnVpbHRpbnMKdW5pZm9ybSB2ZWM0IG1ncmxfY2xlYXJfY29sb3I7\nCnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZm\nZXJfaGVpZ2h0OwoKLy8gZm9yIGxpZ2h0aW5nCnVuaWZvcm0gbWF0NCBsaWdodF9wcm9qZWN0aW9u\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IGxpZ2h0X3ZpZXdfbWF0cml4OwoKLy8gdmFyeWluZwp2YXJ5\naW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2YXJ5\naW5nIGZsb2F0IGxpbmVhcl9kZXB0aDsKCi8vIHNhbXBsZXJzCnVuaWZvcm0gc2FtcGxlcjJEIGRp\nZmZ1c2VfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgc3BhdGlhbF90ZXh0dXJlOwp1bmlmb3Jt\nIHNhbXBsZXIyRCBsaWdodF90ZXh0dXJlOwoKLy8gbW9kZSBzd2l0Y2hpbmcKdW5pZm9ybSBpbnQg\nc2hhZGVyX3Bhc3M7CgojaW5jbHVkZSAibm9ybWFsaXplX3NjcmVlbl9jb29yZC5nbHNsIgoKCmZs\nb2F0IGlsbHVtaW5hdGlvbih2ZWMzIF9wb3NpdGlvbiwgZmxvYXQgX2RlcHRoKSB7CiAgLy8gdHJh\nbnNmb3JtIHRoZSB3b3JsZCBjb29yZGluYXRlIGludG8gdGhlIGxpZ2h0J3MgdmlldyBzcGFjZSAg\nCiAgdmVjMyBwb3NpdGlvbiA9IChsaWdodF92aWV3X21hdHJpeCAqIHZlYzQoX3Bvc2l0aW9uLCAx\nLjApKS54eXo7CgogIC8vIGFwcGx5IHRoZSBsaWdodCdzIHByb2plY3Rpb24gbWF0cml4CiAgdmVj\nNCBsaWdodF9wcm9qZWN0ZWQgPSBsaWdodF9wcm9qZWN0aW9uX21hdHJpeCAqIHZlYzQocG9zaXRp\nb24sIDEuMCk7CiAgCiAgLy8gZGV0ZXJtaW5lIHRoZSB2ZWN0b3IgZnJvbSB0aGUgbGlnaHQgc291\ncmNlIHRvIHRoZSBmcmFnbWVudAogIHZlYzIgbGlnaHRfbm9ybWFsID0gbGlnaHRfcHJvamVjdGVk\nLnh5L2xpZ2h0X3Byb2plY3RlZC53OwogIHZlYzIgbGlnaHRfdXYgPSBsaWdodF9ub3JtYWwqMC41\nKzAuNTsKCiAgaWYgKGxpZ2h0X3V2LnggPCAwLjAgfHwgbGlnaHRfdXYueSA8IDAuMCB8fCBsaWdo\ndF91di54ID4gMS4wIHx8IGxpZ2h0X3V2LnkgPiAxLjApIHsKICAgIHJldHVybiAwLjA7CiAgfQoK\nICBpZiAobGVuZ3RoKGxpZ2h0X25vcm1hbCkgPD0xLjApIHsKICAgIGZsb2F0IGJpYXMgPSAwLjA7\nCiAgICBmbG9hdCBsaWdodF9kZXB0aF8xID0gdGV4dHVyZTJEKGxpZ2h0X3RleHR1cmUsIGxpZ2h0\nX3V2KS5yOwogICAgZmxvYXQgbGlnaHRfZGVwdGhfMiA9IGxlbmd0aChwb3NpdGlvbik7CiAgICBm\nbG9hdCBpbGx1bWluYXRlZCA9IHN0ZXAobGlnaHRfZGVwdGhfMiwgbGlnaHRfZGVwdGhfMSArIGJp\nYXMpOwogICAgcmV0dXJuIGlsbHVtaW5hdGVkICogMC42OwogIH0KICBlbHNlIHsKICAgIHJldHVy\nbiAwLjA7CiAgfQp9CgoKdm9pZCBtYWluKHZvaWQpIHsKICBpZiAoc2hhZGVyX3Bhc3MgPT0gMCkg\newogICAgLy8gZy1idWZmZXIgcGFzcwogICAgdmVjNCBkaWZmdXNlID0gdGV4dHVyZTJEKGRpZmZ1\nc2VfdGV4dHVyZSwgbG9jYWxfdGNvb3Jkcyk7CiAgICBpZiAoZGlmZnVzZS5hIDwgMC41KSB7CiAg\nICAgIGRpc2NhcmQ7CiAgICB9CiAgICBnbF9GcmFnRGF0YVswXSA9IGRpZmZ1c2U7CiAgICBnbF9G\ncmFnRGF0YVsxXSA9IHZlYzQod29ybGRfcG9zaXRpb24sIGxpbmVhcl9kZXB0aCk7CiAgfQogIGVs\nc2UgaWYgKHNoYWRlcl9wYXNzID09IDEpIHsKICAgIGZsb2F0IGRlcHRoID0gbGluZWFyX2RlcHRo\nOwogICAgZ2xfRnJhZ0RhdGFbMF0gPSB2ZWM0KGRlcHRoLCBkZXB0aCwgZGVwdGgsIDEuMCk7CiAg\nfQogIGVsc2UgaWYgKHNoYWRlcl9wYXNzID09IDIpIHsKICAgIC8vIGxpZ2h0IHBlcnNwZWN0aXZl\nIHBhc3MKICAgIHZlYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nv\nb3JkLnh5KTsKICAgIHZlYzQgc3BhY2UgPSB0ZXh0dXJlMkQoc3BhdGlhbF90ZXh0dXJlLCB0Y29v\ncmRzKTsKICAgIGlmIChzcGFjZS53ID09IC0xLjApIHsKICAgICAgZGlzY2FyZDsKICAgIH0KICAg\nIGVsc2UgewogICAgICBmbG9hdCBsaWdodCA9IGlsbHVtaW5hdGlvbihzcGFjZS54eXosIHNwYWNl\nLncpOwogICAgICBnbF9GcmFnRGF0YVswXSA9IHZlYzQobGlnaHQsIGxpZ2h0LCBsaWdodCwgMS4w\nKTsKICAgIH0KICB9CiAgZWxzZSBpZiAoc2hhZGVyX3Bhc3MgPT0gMykgewogICAgLy8gY29tYmlu\nZSB0aGUgbGlnaHRpbmcgYW5kIGRpZmZ1c2UgcGFzc2VzIGFuZCBkaXNwbGF5CiAgICB2ZWMyIHRj\nb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAgICB2ZWM0\nIGRpZmZ1c2UgPSB0ZXh0dXJlMkQoZGlmZnVzZV90ZXh0dXJlLCB0Y29vcmRzKTsKICAgIGlmIChk\naWZmdXNlLncgPT0gLTEuMCkgewogICAgICBkaXNjYXJkOwogICAgfQogICAgdmVjNCBsaWdodG1h\ncCA9IHRleHR1cmUyRChsaWdodF90ZXh0dXJlLCB0Y29vcmRzKTsKICAgIHZlYzMgc2hhZG93ID0g\nZGlmZnVzZS5yZ2IgKiAwLjI7CiAgICB2ZWMzIGNvbG9yID0gbWl4KHNoYWRvdywgZGlmZnVzZS5y\nZ2IsIGxpZ2h0bWFwLnJnYik7CiAgICBnbF9GcmFnRGF0YVswXSA9IHZlYzQoY29sb3IsIDEuMCk7\nCiAgfQp9Cg==\n", "picking.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnZhcnlpbmcgdmVjMyBsb2Nh\nbF9wb3NpdGlvbjsKdW5pZm9ybSB2ZWMzIG9iamVjdF9pbmRleDsKdW5pZm9ybSBib29sIG1ncmxf\nc2VsZWN0X21vZGU7CnVuaWZvcm0gdmVjMyBtZ3JsX21vZGVsX2xvY2FsX21pbjsKdW5pZm9ybSB2\nZWMzIG1ncmxfbW9kZWxfbG9jYWxfc2l6ZTsKCgp2b2lkIG1haW4odm9pZCkgewogIGlmIChtZ3Js\nX3NlbGVjdF9tb2RlKSB7CiAgICBnbF9GcmFnQ29sb3IgPSB2ZWM0KG9iamVjdF9pbmRleCwgMS4w\nKTsKICB9CiAgZWxzZSB7CiAgICB2ZWMzIHNoaWZ0ZWQgPSBsb2NhbF9wb3NpdGlvbiAtIG1ncmxf\nbW9kZWxfbG9jYWxfbWluOwogICAgdmVjMyBzY2FsZWQgPSBzaGlmdGVkIC8gbWdybF9tb2RlbF9s\nb2NhbF9zaXplOwogICAgZ2xfRnJhZ0NvbG9yID0gdmVjNChzY2FsZWQsIDEuMCk7CiAgfTsKfQo=\n", "scatter_blur.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gZmxvYXQgYmx1cl9yYWRpdXM7CnVuaWZvcm0gZmxvYXQgc2Ft\ncGxlczsKCmNvbnN0IGZsb2F0IG1heF9zYW1wbGVzID0gMzIuMDsKY29uc3QgZmxvYXQgdHdvX3Bp\nID0gNi4yODMxODUzMDcxODsKCgojaW5jbHVkZSAibm9ybWFsaXplX3NjcmVlbl9jb29yZC5nbHNs\nIgoKCnZlYzIgc2NyZWVuX2NsYW1wKHZlYzIgY29vcmQpIHsKICByZXR1cm4gY2xhbXAoY29vcmQs\nIHZlYzIoMC4wLCAwLjApLCBnbF9GcmFnQ29vcmQueHkpOwp9CgoKdmVjMiBwcm5nKHZlYzIgY28p\nIHsKICB2ZWMyIGEgPSBmcmFjdChjby55eCAqIHZlYzIoNS4zOTgzLCA1LjQ0MjcpKTsKICB2ZWMy\nIGIgPSBhLnh5ICsgdmVjMigyMS41MzUxLCAxNC4zMTM3KTsKICB2ZWMyIGMgPSBhICsgZG90KGEu\neXgsIGIpOwogIC8vcmV0dXJuIGZyYWN0KGMueCAqIGMueSAqIDk1LjQzMzcpOwogIHJldHVybiBm\ncmFjdCh2ZWMyKGMueCpjLnkqOTUuNDMzNywgYy54KmMueSo5Ny41OTcpKTsKfQoKCmZsb2F0IHBy\nbmcoZmxvYXQgbil7CiAgdmVjMiBhID0gZnJhY3QobiAqIHZlYzIoNS4zOTgzLCA1LjQ0MjcpKTsK\nICB2ZWMyIGIgPSBhLnh5ICsgdmVjMigyMS41MzUxLCAxNC4zMTM3KTsKICB2ZWMyIGMgPSBhICsg\nZG90KGEueXgsIGIpOwogIHJldHVybiBmcmFjdChjLnggKiBjLnkgKiA5NS40MzM3KTsKfQoKCnZv\naWQgbWFpbih2b2lkKSB7CiAgZmxvYXQgY291bnQgPSAwLjA7CiAgdmVjNCBjb2xvciA9IHZlYzQo\nMC4wLCAwLjAsIDAuMCwgMC4wKTsKCiAgZmxvYXQgeCwgeSwgcmFkaXVzOwogIGZsb2F0IGFuZ2xl\nID0gdHdvX3BpICogcHJuZyhnbF9GcmFnQ29vcmQueHkpLng7CiAgZmxvYXQgYW5nbGVfc3RlcCA9\nIHR3b19waSAvIHNhbXBsZXM7CiAgCiAgZm9yIChmbG9hdCBpPTAuMDsgaTxtYXhfc2FtcGxlczsg\naSs9MS4wKSB7CiAgICByYWRpdXMgPSBibHVyX3JhZGl1cyAqIHBybmcoYW5nbGUpOwogICAgeCA9\nIGdsX0ZyYWdDb29yZC54ICsgY29zKGFuZ2xlKSpyYWRpdXM7CiAgICB5ID0gZ2xfRnJhZ0Nvb3Jk\nLnkgKyBzaW4oYW5nbGUpKnJhZGl1czsKICAgIGFuZ2xlICs9IGFuZ2xlX3N0ZXA7CiAgICBpZiAo\neCA8IDAuMCB8fCB5IDwgMC4wIHx8IHggPj0gbWdybF9idWZmZXJfd2lkdGggfHwgeSA+PSBtZ3Js\nX2J1ZmZlcl9oZWlnaHQpIHsKICAgICAgY29udGludWU7CiAgICB9CiAgICBjb2xvciArPSB0ZXh0\ndXJlMkQoaW5wdXRfdGV4dHVyZSwgbm9ybWFsaXplX3NjcmVlbl9jb29yZCh2ZWMyKHgsIHkpKSk7\nCiAgICBjb3VudCArPSAxLjA7CiAgICBpZiAoY291bnQgPj0gc2FtcGxlcykgewogICAgICBicmVh\nazsKICAgIH0KICB9CiAgCiAgaWYgKGNvdW50ID09IDAuMCkgewogICAgY29sb3IgPSB0ZXh0dXJl\nMkQoaW5wdXRfdGV4dHVyZSwgbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkp\nKTsKICAgIGNvdW50ID0gMS4wOwogIH0KICBnbF9GcmFnQ29sb3IgPSBjb2xvciAvIGNvdW50Owp9\nCg==\n"};
-    please.prop_map(lookup_table, function (name, src) {
-        // see m.media.js's please.media.handlers.glsl for reference:
-        please.media.assets[name] = please.gl.__build_shader(atob(src), name);
+(function () {
+    please.__bundled_glsl = {"picture_in_picture.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl93aWR0\naDsKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl9oZWlnaHQ7Cgp1bmlmb3JtIHZlYzIgcGlwX3Np\nemU7CnVuaWZvcm0gdmVjMiBwaXBfY29vcmQ7CnVuaWZvcm0gZmxvYXQgcGlwX2FscGhhOwp1bmlm\nb3JtIHNhbXBsZXIyRCBtYWluX3RleHR1cmU7CnVuaWZvcm0gc2FtcGxlcjJEIHBpcF90ZXh0dXJl\nOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2\nb2lkKSB7CiAgdmVjMiBzY3JlZW5fY29vcmQgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0Zy\nYWdDb29yZC54eSk7CiAgdmVjNCBjb2xvciA9IHRleHR1cmUyRChtYWluX3RleHR1cmUsIHNjcmVl\nbl9jb29yZCk7CgogIC8vIHNjYWxlIHRoZSBzY3JlZW5fY29vcmQgdG8gcmVwcmVzZW50IGEgcGVy\nY2VudAogIHNjcmVlbl9jb29yZCAqPSAxMDAuMDsKICB2ZWMyIHBpcF90ZXN0ID0gc2NyZWVuX2Nv\nb3JkIC0gcGlwX2Nvb3JkOwogIGlmIChwaXBfdGVzdC54ID49IDAuMCAmJiBwaXBfdGVzdC55ID49\nIDAuMCAmJiBwaXBfdGVzdC54IDw9IHBpcF9zaXplLnggJiYgcGlwX3Rlc3QueSA8PSBwaXBfc2l6\nZS55KSB7CiAgICB2ZWM0IHBpcF9jb2xvciA9IHRleHR1cmUyRChwaXBfdGV4dHVyZSwgcGlwX3Rl\nc3QgLyBwaXBfc2l6ZSk7CiAgICBjb2xvciA9IG1peChjb2xvciwgcGlwX2NvbG9yLCBwaXBfY29s\nb3IuYSAvIHBpcF9hbHBoYSk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "splat.vert": "CnVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7CnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5p\nZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4OwphdHRyaWJ1dGUgdmVjMyBwb3NpdGlvbjsKCgp2\nb2lkIG1haW4odm9pZCkgewogIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2aWV3\nX21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7Cn0K\n", "simple.vert": "Ci8vIG1hdHJpY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2pl\nY3Rpb25fbWF0cml4OwoKLy8gdmVydGV4IGRhdGEKYXR0cmlidXRlIHZlYzMgcG9zaXRpb247CmF0\ndHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZlYzIgdGNvb3JkczsKCi8vIG1pc2MgYWRq\ndXN0bWVudHMKdW5pZm9ybSBmbG9hdCBtZ3JsX29ydGhvZ3JhcGhpY19zY2FsZTsKCi8vIGJpbGxi\nb2FyZCBzcHJpdGVzIGVuYWJsZXIKdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKCi8vIGlu\ndGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBpbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5n\nIHZlYzMgbG9jYWxfcG9zaXRpb247CnZhcnlpbmcgdmVjMyBsb2NhbF9ub3JtYWw7CnZhcnlpbmcg\ndmVjMiBsb2NhbF90Y29vcmRzOwp2YXJ5aW5nIHZlYzMgd29ybGRfcG9zaXRpb247CnZhcnlpbmcg\ndmVjMyBzY3JlZW5fcG9zaXRpb247CnZhcnlpbmcgZmxvYXQgbGluZWFyX2RlcHRoOwoKCnZvaWQg\nbWFpbih2b2lkKSB7CiAgLy8gcGFzcyBhbG9uZyB0byB0aGUgZnJhZ21lbnQgc2hhZGVyCiAgbG9j\nYWxfcG9zaXRpb24gPSBwb3NpdGlvbiAqIG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwogIGxvY2Fs\nX25vcm1hbCA9IG5vcm1hbDsKICBsb2NhbF90Y29vcmRzID0gdGNvb3JkczsKCiAgLy8gY2FsY3Vs\nYXRlIG1vZGVsdmlldyBtYXRyaXgKICBtYXQ0IG1vZGVsX3ZpZXcgPSB2aWV3X21hdHJpeCAqIHdv\ncmxkX21hdHJpeDsKICBpZiAoYmlsbGJvYXJkX21vZGUgPiAwLjApIHsKICAgIC8vIGNsZWFyIG91\ndCByb3RhdGlvbiBpbmZvcm1hdGlvbgogICAgbW9kZWxfdmlld1swXS54eXogPSB3b3JsZF9tYXRy\naXhbMF0ueHl6OwogICAgbW9kZWxfdmlld1syXS54eXogPSB3b3JsZF9tYXRyaXhbMl0ueHl6Owog\nICAgaWYgKGJpbGxib2FyZF9tb2RlID09IDIuMCkgewogICAgICBtb2RlbF92aWV3WzFdLnh5eiA9\nIHdvcmxkX21hdHJpeFsxXS54eXo7CiAgICB9CiAgfQoKICAvLyB2YXJpb3VzIGNvb3JkaW5hdGUg\ndHJhbnNmb3JtcwogIHZlYzQgZmluYWxfcG9zaXRpb24gPSBwcm9qZWN0aW9uX21hdHJpeCAqIG1v\nZGVsX3ZpZXcgKiB2ZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApOwogIHdvcmxkX3Bvc2l0aW9uID0g\nKHdvcmxkX21hdHJpeCAqIHZlYzQobG9jYWxfcG9zaXRpb24sIDEuMCkpLnh5ejsKICBzY3JlZW5f\ncG9zaXRpb24gPSBmaW5hbF9wb3NpdGlvbi54eXo7CiAgbGluZWFyX2RlcHRoID0gbGVuZ3RoKG1v\nZGVsX3ZpZXcgKiB2ZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApKTsKICBnbF9Qb3NpdGlvbiA9IGZp\nbmFsX3Bvc2l0aW9uOwp9Cg==\n", "color_curve.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gY3VydmUgZmxvYXQgdmFsdWVfY3VydmVbMTZdOwp1bmlmb3Jt\nIGN1cnZlIGZsb2F0IHJlZF9jdXJ2ZVsxNl07CnVuaWZvcm0gY3VydmUgZmxvYXQgZ3JlZW5fY3Vy\ndmVbMTZdOwp1bmlmb3JtIGN1cnZlIGZsb2F0IGJsdWVfY3VydmVbMTZdOwoKCmluY2x1ZGUoIm5v\ncm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCmZsb2F0IHZhbHVlKHZlYzMgY29sb3IpIHsK\nICByZXR1cm4gbWF4KGNvbG9yLnIsIG1heChjb2xvci5nLCBjb2xvci5iKSk7Cn0KCgp2b2lkIG1h\naW4odm9pZCkgewogIHZlYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJh\nZ0Nvb3JkLnh5KTsKICB2ZWMzIGNvbG9yID0gdGV4dHVyZTJEKGlucHV0X3RleHR1cmUsIHRjb29y\nZHMpLnJnYjsKCiAgZmxvYXQgdjEgPSB2YWx1ZShjb2xvcik7CiAgZmxvYXQgdjIgPSBzYW1wbGVf\nY3VydmUodmFsdWVfY3VydmUsIHYxKTsKICBmbG9hdCBzY2FsZSA9IDEuMCAvIHYxOwogIGNvbG9y\nID0gY29sb3IgKiBzY2FsZSAqIHYyOwogIAogIGNvbG9yLnIgPSBzYW1wbGVfY3VydmUocmVkX2N1\ncnZlLCBjb2xvci5yKTsKICBjb2xvci5nID0gc2FtcGxlX2N1cnZlKGdyZWVuX2N1cnZlLCBjb2xv\nci5nKTsKICBjb2xvci5iID0gc2FtcGxlX2N1cnZlKGJsdWVfY3VydmUsIGNvbG9yLmIpOwogIGds\nX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIDEuMCk7Cn0K\n", "diffuse.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0\ndXJlOwoKdW5pZm9ybSBmbG9hdCBhbHBoYTsKdW5pZm9ybSBib29sIGlzX3Nwcml0ZTsKdW5pZm9y\nbSBib29sIGlzX3RyYW5zcGFyZW50OwoKdmFyeWluZyB2ZWMzIGxvY2FsX3Bvc2l0aW9uOwp2YXJ5\naW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2YXJ5aW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWlu\nZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgc2NyZWVuX3Bvc2l0aW9uOwoKCnZv\naWQgbWFpbih2b2lkKSB7CiAgdmVjNCBkaWZmdXNlID0gdGV4dHVyZTJEKGRpZmZ1c2VfdGV4dHVy\nZSwgbG9jYWxfdGNvb3Jkcyk7CiAgaWYgKGlzX3Nwcml0ZSkgewogICAgZmxvYXQgY3V0b2ZmID0g\naXNfdHJhbnNwYXJlbnQgPyAwLjEgOiAxLjA7CiAgICBpZiAoZGlmZnVzZS5hIDwgY3V0b2ZmKSB7\nCiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgfQogIGRpZmZ1c2UuYSAqPSBhbHBoYTsKICBnbF9GcmFn\nQ29sb3IgPSBkaWZmdXNlOwp9Cg==\n", "stereo.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnVuaWZvcm0gdmVjNCBtZ3Js\nX2NsZWFyX2NvbG9yOwp1bmlmb3JtIGZsb2F0IG1ncmxfZnJhbWVfc3RhcnQ7CnVuaWZvcm0gZmxv\nYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfaGVpZ2h0OwoK\ndW5pZm9ybSBzYW1wbGVyMkQgbGVmdF9leWVfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgcmln\naHRfZXllX3RleHR1cmU7Cgp1bmlmb3JtIGJvb2wgc3RlcmVvX3NwbGl0Owp1bmlmb3JtIHZlYzMg\nbGVmdF9jb2xvcjsKdW5pZm9ybSB2ZWMzIHJpZ2h0X2NvbG9yOwoKdmVjNCBzYW1wbGVfb3JfY2xl\nYXIoc2FtcGxlcjJEIHNhbXBsZXIsIHZlYzIgY29vcmQpIHsKICB2ZWM0IGNvbG9yID0gdGV4dHVy\nZTJEKHNhbXBsZXIsIGNvb3JkKTsKICBpZiAoY29sb3IuYSA9PSAwLjApIHsKICAgIGNvbG9yID0g\nbWdybF9jbGVhcl9jb2xvcjsKICB9CiAgcmV0dXJuIGNvbG9yOwp9Cgp2b2lkIG1haW4odm9pZCkg\newogIHZlYzIgY29vcmQgPSBnbF9GcmFnQ29vcmQueHkgLyB2ZWMyKG1ncmxfYnVmZmVyX3dpZHRo\nLCBtZ3JsX2J1ZmZlcl9oZWlnaHQpOwogIHZlYzQgY29sb3I7CgogIGlmIChzdGVyZW9fc3BsaXQp\nIHsKICAgIC8vIEZJWE1FOiBhcHBseSBkaXN0b3J0aW9uIGVmZmVjdCBuZWVkZWQgZm9yIFZSIGds\nYXNzZXMKICAgIGlmIChjb29yZC54IDwgMC41KSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKGxl\nZnRfZXllX3RleHR1cmUsIHZlYzIoY29vcmQueCoyLjAsIGNvb3JkLnkpKTsKICAgIH0KICAgIGVs\nc2UgewogICAgICBjb2xvciA9IHRleHR1cmUyRChyaWdodF9leWVfdGV4dHVyZSwgdmVjMigoY29v\ncmQueCAtIDAuNSkqMi4wLCBjb29yZC55KSk7CiAgICB9CiAgfQoKICBlbHNlIHsKICAgIHZlYzMg\nbGVmdCA9IHNhbXBsZV9vcl9jbGVhcihsZWZ0X2V5ZV90ZXh0dXJlLCBjb29yZCkucmdiICogbGVm\ndF9jb2xvcjsKICAgIHZlYzMgcmlnaHQgPSBzYW1wbGVfb3JfY2xlYXIocmlnaHRfZXllX3RleHR1\ncmUsIGNvb3JkKS5yZ2IgKiByaWdodF9jb2xvcjsKICAgIGNvbG9yID0gdmVjNCgobGVmdCtyaWdo\ndCksIDEuMCk7CiAgfQogIAogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "curve_template.glsl": "Ly8gIERvIG5vdCBjYWxsIGluY2x1ZGUgb24gY3VydmVfdGVtcGxhdGUuZ2xzbCBpbiB5b3VyIHNv\ndXJjZSBmaWxlcy4KLy8gIFVzZSB0aGUgY3VydmUgbWFjcm8gaW5zdGVhZCEhIQoKR0xfVFlQRSBz\nYW1wbGVfY3VydmUoR0xfVFlQRSBzYW1wbGVzW0FSUkFZX0xFTl0sIGZsb2F0IGFscGhhKSB7CiAg\nZmxvYXQgcGljayA9IChBUlJBWV9MRU4uMCAtIDEuMCkgKiBhbHBoYTsKICBpbnQgbG93ID0gaW50\nKGZsb29yKHBpY2spKTsKICBpbnQgaGlnaCA9IGludChjZWlsKHBpY2spKTsKICBmbG9hdCBiZXRh\nID0gZnJhY3QocGljayk7CgogIEdMX1RZUEUgbG93X3NhbXBsZTsKICBHTF9UWVBFIGhpZ2hfc2Ft\ncGxlOwoKICAvLyB3b3JrYXJvdW5kIGJlY2F1c2UgZ2xzbCBkb2VzIG5vdCBhbGxvdyBmb3IgcmFu\nZG9tIGFjY2VzcyBvbiBhcnJheXMgPjpPCiAgZm9yIChpbnQgaT0wOyBpPEFSUkFZX0xFTjsgaSs9\nMSkgewogICAgaWYgKGkgPT0gbG93KSB7CiAgICAgIGxvd19zYW1wbGUgPSBzYW1wbGVzW2ldOwog\nICAgfQogICAgaWYgKGkgPT0gaGlnaCkgewogICAgICBoaWdoX3NhbXBsZSA9IHNhbXBsZXNbaV07\nCiAgICB9CiAgfQogIAogIHJldHVybiBtaXgobG93X3NhbXBsZSwgaGlnaF9zYW1wbGUsIGJldGEp\nOwp9Cg==\n", "diagonal_wipe.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBibHVyX3JhZGl1czsKdW5pZm9ybSBib29sIGZsaXBfYXhpczsK\ndW5pZm9ybSBib29sIGZsaXBfZGlyZWN0aW9uOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2b2lkKSB7CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFs\naXplX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkpOwogIGZsb2F0IHNsb3BlID0gbWdybF9i\ndWZmZXJfaGVpZ2h0IC8gbWdybF9idWZmZXJfd2lkdGg7CiAgaWYgKGZsaXBfYXhpcykgewogICAg\nc2xvcGUgKj0gLTEuMDsKICB9CiAgZmxvYXQgaGFsZl9oZWlnaHQgPSBtZ3JsX2J1ZmZlcl9oZWln\naHQgKiAwLjU7CiAgZmxvYXQgaGlnaF9wb2ludCA9IG1ncmxfYnVmZmVyX2hlaWdodCArIGhhbGZf\naGVpZ2h0ICsgYmx1cl9yYWRpdXMgKyAxLjA7CiAgZmxvYXQgbG93X3BvaW50ID0gKGhhbGZfaGVp\nZ2h0ICogLTEuMCkgLSBibHVyX3JhZGl1cyAtIDEuMDsKICBmbG9hdCBtaWRwb2ludCA9IG1peCho\naWdoX3BvaW50LCBsb3dfcG9pbnQsIGZsaXBfZGlyZWN0aW9uID8gMS4wIC0gcHJvZ3Jlc3MgOiBw\ncm9ncmVzcyk7CiAgZmxvYXQgdGVzdCA9ICgoZ2xfRnJhZ0Nvb3JkLnggLSBtZ3JsX2J1ZmZlcl93\naWR0aC8yLjApICogc2xvcGUpICsgbWlkcG9pbnQ7CgogIHZlYzQgY29sb3I7CiAgZmxvYXQgZGlz\ndCA9IGdsX0ZyYWdDb29yZC55IC0gdGVzdDsKICBpZiAoZGlzdCA8PSBibHVyX3JhZGl1cyAmJiBk\naXN0ID49IChibHVyX3JhZGl1cyotMS4wKSkgewogICAgdmVjNCBjb2xvcl9hID0gdGV4dHVyZTJE\nKHRleHR1cmVfYSwgdGNvb3Jkcyk7CiAgICB2ZWM0IGNvbG9yX2IgPSB0ZXh0dXJlMkQodGV4dHVy\nZV9iLCB0Y29vcmRzKTsKICAgIGZsb2F0IGJsZW5kID0gKGRpc3QgKyBibHVyX3JhZGl1cykgLyAo\nYmx1cl9yYWRpdXMqMi4wKTsKICAgIGNvbG9yID0gbWl4KGNvbG9yX2EsIGNvbG9yX2IsIGZsaXBf\nZGlyZWN0aW9uID8gMS4wIC0gYmxlbmQgOiBibGVuZCk7CiAgfQogIGVsc2UgewogICAgaWYgKChn\nbF9GcmFnQ29vcmQueSA8IHRlc3QgJiYgIWZsaXBfZGlyZWN0aW9uKSB8fCAoZ2xfRnJhZ0Nvb3Jk\nLnkgPiB0ZXN0ICYmIGZsaXBfZGlyZWN0aW9uKSkgewogICAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2EsIHRjb29yZHMpOwogICAgfQogICAgZWxzZSB7CiAgICAgIGNvbG9yID0gdGV4dHVy\nZTJEKHRleHR1cmVfYiwgdGNvb3Jkcyk7CiAgICB9CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9y\nOwp9Cg==\n", "normalize_screen_coord.glsl": "CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZm\nZXJfaGVpZ2h0OwoKLy8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0Zy\nYWdDb29yZC54eSwgd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNj\ncmVlbiBjb29yZGluYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0\nZSB0aGF0IGlzIG5vcm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0\nbyAxLjAuCi8vCnZlYzIgbm9ybWFsaXplX3NjcmVlbl9jb29yZCh2ZWMyIGNvb3JkKSB7CiAgcmV0\ndXJuIHZlYzIoY29vcmQueC9tZ3JsX2J1ZmZlcl93aWR0aCwgY29vcmQueS9tZ3JsX2J1ZmZlcl9o\nZWlnaHQpOwp9Cgo=\n", "deferred.vert": "Ci8vIG1hdHJpY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2pl\nY3Rpb25fbWF0cml4OwoKLy8gdmVydGV4IGRhdGEKYXR0cmlidXRlIHZlYzMgcG9zaXRpb247CmF0\ndHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZlYzIgdGNvb3JkczsKCi8vIG1pc2MgYWRq\ndXN0bWVudHMKdW5pZm9ybSBmbG9hdCBtZ3JsX29ydGhvZ3JhcGhpY19zY2FsZTsKCi8vIGJpbGxi\nb2FyZCBzcHJpdGVzIGVuYWJsZXIKdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKCi8vIGlu\ndGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBpbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5n\nIHZlYzMgbG9jYWxfcG9zaXRpb247CnZhcnlpbmcgdmVjMyBsb2NhbF9ub3JtYWw7CnZhcnlpbmcg\ndmVjMiBsb2NhbF90Y29vcmRzOwp2YXJ5aW5nIHZlYzMgd29ybGRfcG9zaXRpb247CnZhcnlpbmcg\ndmVjMyBzY3JlZW5fcG9zaXRpb247CnZhcnlpbmcgZmxvYXQgbGluZWFyX2RlcHRoOwoKLy8gdW5p\nZm9ybQp1bmlmb3JtIGJvb2wgZ2VvbWV0cnlfcGFzczsKCgp2b2lkIG1haW4odm9pZCkgewogIGlm\nIChnZW9tZXRyeV9wYXNzKSB7CiAgICAvLyBwYXNzIGFsb25nIHRvIHRoZSBmcmFnbWVudCBzaGFk\nZXIKICAgIGxvY2FsX3Bvc2l0aW9uID0gcG9zaXRpb24gKiBtZ3JsX29ydGhvZ3JhcGhpY19zY2Fs\nZTsKICAgIGxvY2FsX25vcm1hbCA9IG5vcm1hbDsKICAgIGxvY2FsX3Rjb29yZHMgPSB0Y29vcmRz\nOwoKICAgIC8vIGNhbGN1bGF0ZSBtb2RlbHZpZXcgbWF0cml4CiAgICBtYXQ0IG1vZGVsX3ZpZXcg\nPSB2aWV3X21hdHJpeCAqIHdvcmxkX21hdHJpeDsKICAgIGlmIChiaWxsYm9hcmRfbW9kZSA+IDAu\nMCkgewogICAgICAvLyBjbGVhciBvdXQgcm90YXRpb24gaW5mb3JtYXRpb24KICAgICAgbW9kZWxf\ndmlld1swXS54eXogPSB3b3JsZF9tYXRyaXhbMF0ueHl6OwogICAgICBtb2RlbF92aWV3WzJdLnh5\neiA9IHdvcmxkX21hdHJpeFsyXS54eXo7CiAgICAgIGlmIChiaWxsYm9hcmRfbW9kZSA9PSAyLjAp\nIHsKICAgICAgICBtb2RlbF92aWV3WzFdLnh5eiA9IHdvcmxkX21hdHJpeFsxXS54eXo7CiAgICAg\nIH0KICAgIH0KCiAgICAvLyB2YXJpb3VzIGNvb3JkaW5hdGUgdHJhbnNmb3JtcwogICAgdmVjNCBm\naW5hbF9wb3NpdGlvbiA9IHByb2plY3Rpb25fbWF0cml4ICogbW9kZWxfdmlldyAqIHZlYzQobG9j\nYWxfcG9zaXRpb24sIDEuMCk7CiAgICB3b3JsZF9wb3NpdGlvbiA9ICh3b3JsZF9tYXRyaXggKiB2\nZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApKS54eXo7CiAgICBzY3JlZW5fcG9zaXRpb24gPSBmaW5h\nbF9wb3NpdGlvbi54eXo7CiAgICBsaW5lYXJfZGVwdGggPSBsZW5ndGgoKG1vZGVsX3ZpZXcgKiB2\nZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApKSk7CiAgICBnbF9Qb3NpdGlvbiA9IGZpbmFsX3Bvc2l0\naW9uOwogIH0KICBlbHNlIHsKICAgIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2\naWV3X21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7CiAgfQp9Cg==\n", "disintegrate.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBweF9zaXplOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCi8vIGh0dHBzOi8vc3RhY2tvdmVyZmxvdy5jb20vcXVlc3Rpb25zLzEy\nOTY0Mjc5L3doYXRzLXRoZS1vcmlnaW4tb2YtdGhpcy1nbHNsLXJhbmQtb25lLWxpbmVyCmZsb2F0\nIHJhbmRvbV9zZWVkKHZlYzIgY28pIHsKICByZXR1cm4gZnJhY3Qoc2luKGRvdChjby54eSAsdmVj\nMigxMi45ODk4LDc4LjIzMykpKSAqIDQzNzU4LjU0NTMpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsK\nICB2ZWMyIGdyaWQgPSBnbF9GcmFnQ29vcmQueHkgLyBweF9zaXplOwogIHZlYzIgb2Zmc2V0ID0g\nZnJhY3QoZ3JpZCkqMC41OwogIGZsb2F0IHJhbmRvbSA9IChyYW5kb21fc2VlZChmbG9vcihncmlk\nICsgb2Zmc2V0KSkqMC45KSArIDAuMTsKICByYW5kb20gKj0gKDEuMCAtIHByb2dyZXNzKTsKICB2\nZWMyIHRjb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAg\ndmVjNCBjb2xvcjsKICBpZiAocmFuZG9tIDwgMC4xKSB7CiAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2IsIHRjb29yZHMpOwogIH0KICBlbHNlIHsKICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYSwgdGNvb3Jkcyk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "deferred.frag": "I2V4dGVuc2lvbiBHTF9FWFRfZHJhd19idWZmZXJzIDogcmVxdWlyZQpwcmVjaXNpb24gbWVkaXVt\ncCBmbG9hdDsKCi8vIG1ncmwgYnVpbHRpbnMKdW5pZm9ybSB2ZWM0IG1ncmxfY2xlYXJfY29sb3I7\nCnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZm\nZXJfaGVpZ2h0OwoKLy8gZm9yIGxpZ2h0aW5nCnVuaWZvcm0gbWF0NCBsaWdodF9wcm9qZWN0aW9u\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IGxpZ2h0X3ZpZXdfbWF0cml4OwoKLy8gdmFyeWluZwp2YXJ5\naW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2YXJ5\naW5nIGZsb2F0IGxpbmVhcl9kZXB0aDsKCi8vIHNhbXBsZXJzCnVuaWZvcm0gc2FtcGxlcjJEIGRp\nZmZ1c2VfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgc3BhdGlhbF90ZXh0dXJlOwp1bmlmb3Jt\nIHNhbXBsZXIyRCBsaWdodF90ZXh0dXJlOwoKLy8gbW9kZSBzd2l0Y2hpbmcKdW5pZm9ybSBpbnQg\nc2hhZGVyX3Bhc3M7CgoKaW5jbHVkZSgibm9ybWFsaXplX3NjcmVlbl9jb29yZC5nbHNsIik7CgoK\nZmxvYXQgaWxsdW1pbmF0aW9uKHZlYzMgX3Bvc2l0aW9uLCBmbG9hdCBfZGVwdGgpIHsKICAvLyB0\ncmFuc2Zvcm0gdGhlIHdvcmxkIGNvb3JkaW5hdGUgaW50byB0aGUgbGlnaHQncyB2aWV3IHNwYWNl\nICAKICB2ZWMzIHBvc2l0aW9uID0gKGxpZ2h0X3ZpZXdfbWF0cml4ICogdmVjNChfcG9zaXRpb24s\nIDEuMCkpLnh5ejsKCiAgLy8gYXBwbHkgdGhlIGxpZ2h0J3MgcHJvamVjdGlvbiBtYXRyaXgKICB2\nZWM0IGxpZ2h0X3Byb2plY3RlZCA9IGxpZ2h0X3Byb2plY3Rpb25fbWF0cml4ICogdmVjNChwb3Np\ndGlvbiwgMS4wKTsKICAKICAvLyBkZXRlcm1pbmUgdGhlIHZlY3RvciBmcm9tIHRoZSBsaWdodCBz\nb3VyY2UgdG8gdGhlIGZyYWdtZW50CiAgdmVjMiBsaWdodF9ub3JtYWwgPSBsaWdodF9wcm9qZWN0\nZWQueHkvbGlnaHRfcHJvamVjdGVkLnc7CiAgdmVjMiBsaWdodF91diA9IGxpZ2h0X25vcm1hbCow\nLjUrMC41OwoKICBpZiAobGlnaHRfdXYueCA8IDAuMCB8fCBsaWdodF91di55IDwgMC4wIHx8IGxp\nZ2h0X3V2LnggPiAxLjAgfHwgbGlnaHRfdXYueSA+IDEuMCkgewogICAgcmV0dXJuIDAuMDsKICB9\nCgogIGlmIChsZW5ndGgobGlnaHRfbm9ybWFsKSA8PTEuMCkgewogICAgZmxvYXQgYmlhcyA9IDAu\nMDsKICAgIGZsb2F0IGxpZ2h0X2RlcHRoXzEgPSB0ZXh0dXJlMkQobGlnaHRfdGV4dHVyZSwgbGln\naHRfdXYpLnI7CiAgICBmbG9hdCBsaWdodF9kZXB0aF8yID0gbGVuZ3RoKHBvc2l0aW9uKTsKICAg\nIGZsb2F0IGlsbHVtaW5hdGVkID0gc3RlcChsaWdodF9kZXB0aF8yLCBsaWdodF9kZXB0aF8xICsg\nYmlhcyk7CiAgICByZXR1cm4gaWxsdW1pbmF0ZWQgKiAwLjY7CiAgfQogIGVsc2UgewogICAgcmV0\ndXJuIDAuMDsKICB9Cn0KCgp2b2lkIG1haW4odm9pZCkgewogIGlmIChzaGFkZXJfcGFzcyA9PSAw\nKSB7CiAgICAvLyBnLWJ1ZmZlciBwYXNzCiAgICB2ZWM0IGRpZmZ1c2UgPSB0ZXh0dXJlMkQoZGlm\nZnVzZV90ZXh0dXJlLCBsb2NhbF90Y29vcmRzKTsKICAgIGlmIChkaWZmdXNlLmEgPCAwLjUpIHsK\nICAgICAgZGlzY2FyZDsKICAgIH0KICAgIGdsX0ZyYWdEYXRhWzBdID0gZGlmZnVzZTsKICAgIGds\nX0ZyYWdEYXRhWzFdID0gdmVjNCh3b3JsZF9wb3NpdGlvbiwgbGluZWFyX2RlcHRoKTsKICB9CiAg\nZWxzZSBpZiAoc2hhZGVyX3Bhc3MgPT0gMSkgewogICAgZmxvYXQgZGVwdGggPSBsaW5lYXJfZGVw\ndGg7CiAgICBnbF9GcmFnRGF0YVswXSA9IHZlYzQoZGVwdGgsIGRlcHRoLCBkZXB0aCwgMS4wKTsK\nICB9CiAgZWxzZSBpZiAoc2hhZGVyX3Bhc3MgPT0gMikgewogICAgLy8gbGlnaHQgcGVyc3BlY3Rp\ndmUgcGFzcwogICAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9GcmFn\nQ29vcmQueHkpOwogICAgdmVjNCBzcGFjZSA9IHRleHR1cmUyRChzcGF0aWFsX3RleHR1cmUsIHRj\nb29yZHMpOwogICAgaWYgKHNwYWNlLncgPT0gLTEuMCkgewogICAgICBkaXNjYXJkOwogICAgfQog\nICAgZWxzZSB7CiAgICAgIGZsb2F0IGxpZ2h0ID0gaWxsdW1pbmF0aW9uKHNwYWNlLnh5eiwgc3Bh\nY2Uudyk7CiAgICAgIGdsX0ZyYWdEYXRhWzBdID0gdmVjNChsaWdodCwgbGlnaHQsIGxpZ2h0LCAx\nLjApOwogICAgfQogIH0KICBlbHNlIGlmIChzaGFkZXJfcGFzcyA9PSAzKSB7CiAgICAvLyBjb21i\naW5lIHRoZSBsaWdodGluZyBhbmQgZGlmZnVzZSBwYXNzZXMgYW5kIGRpc3BsYXkKICAgIHZlYzIg\ndGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nvb3JkLnh5KTsKICAgIHZl\nYzQgZGlmZnVzZSA9IHRleHR1cmUyRChkaWZmdXNlX3RleHR1cmUsIHRjb29yZHMpOwogICAgaWYg\nKGRpZmZ1c2UudyA9PSAtMS4wKSB7CiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgICB2ZWM0IGxpZ2h0\nbWFwID0gdGV4dHVyZTJEKGxpZ2h0X3RleHR1cmUsIHRjb29yZHMpOwogICAgdmVjMyBzaGFkb3cg\nPSBkaWZmdXNlLnJnYiAqIDAuMjsKICAgIHZlYzMgY29sb3IgPSBtaXgoc2hhZG93LCBkaWZmdXNl\nLnJnYiwgbGlnaHRtYXAucmdiKTsKICAgIGdsX0ZyYWdEYXRhWzBdID0gdmVjNChjb2xvciwgMS4w\nKTsKICB9Cn0K\n", "picking.frag": "CnZhcnlpbmcgdmVjMyBsb2NhbF9wb3NpdGlvbjsKdW5pZm9ybSB2ZWMzIG9iamVjdF9pbmRleDsK\ndW5pZm9ybSBib29sIG1ncmxfc2VsZWN0X21vZGU7CnVuaWZvcm0gdmVjMyBtZ3JsX21vZGVsX2xv\nY2FsX21pbjsKdW5pZm9ybSB2ZWMzIG1ncmxfbW9kZWxfbG9jYWxfc2l6ZTsKCgp2b2lkIG1haW4o\ndm9pZCkgewogIGlmIChtZ3JsX3NlbGVjdF9tb2RlKSB7CiAgICBnbF9GcmFnQ29sb3IgPSB2ZWM0\nKG9iamVjdF9pbmRleCwgMS4wKTsKICB9CiAgZWxzZSB7CiAgICB2ZWMzIHNoaWZ0ZWQgPSBsb2Nh\nbF9wb3NpdGlvbiAtIG1ncmxfbW9kZWxfbG9jYWxfbWluOwogICAgdmVjMyBzY2FsZWQgPSBzaGlm\ndGVkIC8gbWdybF9tb2RlbF9sb2NhbF9zaXplOwogICAgZ2xfRnJhZ0NvbG9yID0gdmVjNChzY2Fs\nZWQsIDEuMCk7CiAgfTsKfQo=\n", "scatter_blur.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gZmxvYXQgYmx1cl9yYWRpdXM7CnVuaWZvcm0gZmxvYXQgc2Ft\ncGxlczsKCmNvbnN0IGZsb2F0IG1heF9zYW1wbGVzID0gMzIuMDsKY29uc3QgZmxvYXQgdHdvX3Bp\nID0gNi4yODMxODUzMDcxODsKCgppbmNsdWRlKCJub3JtYWxpemVfc2NyZWVuX2Nvb3JkLmdsc2wi\nKTsKCgp2ZWMyIHNjcmVlbl9jbGFtcCh2ZWMyIGNvb3JkKSB7CiAgcmV0dXJuIGNsYW1wKGNvb3Jk\nLCB2ZWMyKDAuMCwgMC4wKSwgZ2xfRnJhZ0Nvb3JkLnh5KTsKfQoKCnZlYzIgcHJuZyh2ZWMyIGNv\nKSB7CiAgdmVjMiBhID0gZnJhY3QoY28ueXggKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7CiAgdmVj\nMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSArIGRvdChh\nLnl4LCBiKTsKICAvL3JldHVybiBmcmFjdChjLnggKiBjLnkgKiA5NS40MzM3KTsKICByZXR1cm4g\nZnJhY3QodmVjMihjLngqYy55Kjk1LjQzMzcsIGMueCpjLnkqOTcuNTk3KSk7Cn0KCgpmbG9hdCBw\ncm5nKGZsb2F0IG4pewogIHZlYzIgYSA9IGZyYWN0KG4gKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7\nCiAgdmVjMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSAr\nIGRvdChhLnl4LCBiKTsKICByZXR1cm4gZnJhY3QoYy54ICogYy55ICogOTUuNDMzNyk7Cn0KCgp2\nb2lkIG1haW4odm9pZCkgewogIGZsb2F0IGNvdW50ID0gMC4wOwogIHZlYzQgY29sb3IgPSB2ZWM0\nKDAuMCwgMC4wLCAwLjAsIDAuMCk7CgogIGZsb2F0IHgsIHksIHJhZGl1czsKICBmbG9hdCBhbmds\nZSA9IHR3b19waSAqIHBybmcoZ2xfRnJhZ0Nvb3JkLnh5KS54OwogIGZsb2F0IGFuZ2xlX3N0ZXAg\nPSB0d29fcGkgLyBzYW1wbGVzOwogIAogIGZvciAoZmxvYXQgaT0wLjA7IGk8bWF4X3NhbXBsZXM7\nIGkrPTEuMCkgewogICAgcmFkaXVzID0gYmx1cl9yYWRpdXMgKiBwcm5nKGFuZ2xlKTsKICAgIHgg\nPSBnbF9GcmFnQ29vcmQueCArIGNvcyhhbmdsZSkqcmFkaXVzOwogICAgeSA9IGdsX0ZyYWdDb29y\nZC55ICsgc2luKGFuZ2xlKSpyYWRpdXM7CiAgICBhbmdsZSArPSBhbmdsZV9zdGVwOwogICAgaWYg\nKHggPCAwLjAgfHwgeSA8IDAuMCB8fCB4ID49IG1ncmxfYnVmZmVyX3dpZHRoIHx8IHkgPj0gbWdy\nbF9idWZmZXJfaGVpZ2h0KSB7CiAgICAgIGNvbnRpbnVlOwogICAgfQogICAgY29sb3IgKz0gdGV4\ndHVyZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQodmVjMih4LCB5KSkp\nOwogICAgY291bnQgKz0gMS4wOwogICAgaWYgKGNvdW50ID49IHNhbXBsZXMpIHsKICAgICAgYnJl\nYWs7CiAgICB9CiAgfQogIAogIGlmIChjb3VudCA9PSAwLjApIHsKICAgIGNvbG9yID0gdGV4dHVy\nZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nvb3JkLnh5\nKSk7CiAgICBjb3VudCA9IDEuMDsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3IgLyBjb3VudDsK\nfQo=\n"};
+    please.prop_map(please.__bundled_glsl, function (name, src) {
+        addEventListener("mgrl_gl_context_created", function () {
+            // see m.media.js's please.media.handlers.glsl for reference:
+            please.media.assets[name] = new please.gl.ShaderSource(atob(src), name);
+        });
     });
-});
+})();
 // - bundled image assets --------------------------------------------------- //
 (function () {
     var lookup_table = {"loading.png": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAIAQMAAABzrGucAAAABlBMVEUAAAD///+l2Z/dAAAAQklE\nQVQI12P4Dwb7nzPseWaY878+/jbD7qjb2XXb9+8FMbT/Z38GMpxue5V/fwuRyv7/9jlDzy3DnO//\nP/9n+A8FAIOUL60mfZTLAAAAAElFTkSuQmCC\n", "girl_with_headphones.png": "data:image/png;base64,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\n"};

@@ -218,7 +218,7 @@ please.gl.__jta_model = function (src, uri) {
                 return node;
             }
             else {
-                throw("no such object in " + uri + ": " + model_name);
+                throw new Error("no such object in " + uri + ": " + model_name);
             }
         }
     };
@@ -345,9 +345,9 @@ please.gl.__jta_extract_keyframes = function (data) {
 please.gl.__jta_metadata_html = function (scene) {
     if (scene.meta) {
         var work_title = scene.uri.slice(scene.uri.lastIndexOf("/")+1);
-        var author = scene.meta["author"].trim();
-        var attrib_url = scene.meta["url"].trim();
-        var src_url = scene.meta["src_url"].trim();
+        var author = String.trim(scene.meta["author"] || "");
+        var attrib_url = String.trim(scene.meta["url"] || "");
+        var src_url = String.trim(scene.meta["src_url"] || "");
         var license_url = scene.meta["license"] ? scene.meta["license"] : "Unknown License";
         var license_name = {
             "http://creativecommons.org/publicdomain/zero/1.0/" : "Public Domain",
@@ -506,7 +506,7 @@ please.gl.__jta_extract_models = function (model_defs, buffer_objects) {
                 model.uniforms[state_name] = please.gl.__jta_array(state);
             }
             else {
-                throw ("Not implemented: non-array uniforms from jta export");
+                throw new Error("Not implemented: non-array uniforms from jta export");
             }
         });
         return model;

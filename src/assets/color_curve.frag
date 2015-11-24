@@ -9,7 +9,8 @@ uniform curve float red_curve[16];
 uniform curve float green_curve[16];
 uniform curve float blue_curve[16];
 
-#include "normalize_screen_coord.glsl"
+
+include("normalize_screen_coord.glsl");
 
 
 float value(vec3 color) {

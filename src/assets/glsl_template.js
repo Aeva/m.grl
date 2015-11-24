@@ -1,10 +1,12 @@
 // - bundled glsl shader assets --------------------------------------------- //
 
 
-addEventListener("mgrl_gl_context_created", function () {
-    var lookup_table = #### JSON HERE ####;
-    please.prop_map(lookup_table, function (name, src) {
-        // see m.media.js's please.media.handlers.glsl for reference:
-        please.media.assets[name] = please.gl.__build_shader(atob(src), name);
+(function () {
+    please.__bundled_glsl = #### JSON HERE ####;
+    please.prop_map(please.__bundled_glsl, function (name, src) {
+        addEventListener("mgrl_gl_context_created", function () {
+            // see m.media.js's please.media.handlers.glsl for reference:
+            please.media.assets[name] = new please.gl.ShaderSource(atob(src), name);
+        });
     });
-});
+})();
