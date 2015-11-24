@@ -16,6 +16,10 @@
  public domain by way of CC0.  More information about CC0 is available
  here: https://creativecommons.org/publicdomain/zero/1.0/
 
+ The test runner is made available under the GPLv3 or newer.  See
+ https://www.gnu.org/licenses/gpl-3.0.txt for more information.  The
+ individual tests however are public domain by way of CC0.
+
  Art assets included in the demos have their respective license
  information posted on the demo index or in the individual demo
  folders.  (Hint: most of them are CC-BY-SA)
@@ -40,7 +44,7 @@
 #include "m.multipass.js"
 #include "m.overlay.js"
 #include "m.gl.js"
-#include "m.glsl_macros.js"
+#include "m.gl.ast.js"
 #include "m.jta.js"
 #include "m.gani.js"
 #include "m.graph.js"

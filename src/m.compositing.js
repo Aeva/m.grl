@@ -159,7 +159,7 @@ please.render = function(node) {
     var expire = arguments[1] || please.pipeline.__framestart;
     var stack = arguments[2] || [];
     if (stack.indexOf(node)>=0) {
-        throw("M.GRL doesn't currently suport render graph cycles.");
+        throw new Error("M.GRL doesn't currently suport render graph cycles.");
     }
 
     var delay = 0;
@@ -186,7 +186,7 @@ please.render = function(node) {
                 }
                 else {
                     // FIXME: splat render the texture and call it a day
-                    throw("missing functionality");
+                    throw new Error("missing functionality");
                 }
             }
             else if (typeof(proxy) === "object") {

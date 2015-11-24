@@ -78,7 +78,7 @@ please.pages.create = function (name, options) {
 
     // apply preset options
     if (options.preset) {
-        throw ("unimplemented feature");
+        throw new Error("unimplemented feature");
     }
 
     // create the ui page base

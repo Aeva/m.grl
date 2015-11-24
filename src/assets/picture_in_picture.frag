@@ -11,7 +11,7 @@ uniform sampler2D main_texture;
 uniform sampler2D pip_texture;
 
 
-#include "normalize_screen_coord.glsl"
+include("normalize_screen_coord.glsl");
 
 
 void main(void) {
