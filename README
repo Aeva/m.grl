@@ -5,6 +5,8 @@
 .
 
 
+ License information:
+ 
  M.GRL is made available to you as free software under the terms of
  the LGPLv3 or, at your option, any later version of the LGPL as
  published by the Free Software Foundation.  See
@@ -25,14 +27,11 @@
  M.GRL makes use of gl-matrix, which you can find out more about here:
  http://glmatrix.net/ and https://github.com/toji/gl-matrix
 
- Have a nice day!
 .
 
 
- The Midnight Graphics & Recreation Library (m.grl) javascript
- framework for writing games.
-
  Some basic features:
+
  - 2D and 3D rendering via WebGL
  - animation via assigning functions to shader variables
  - export 3D models and animations from Blender
@@ -45,6 +44,9 @@
 
  Sphinx is used for documenting M.GRL.  If you make changes to the
  api, you will need to regenerate some of the documentation.
+
+ M.GRL's documentation is available here:
+ http://mgrl.midnightsisters.org/docs/build/html/
 
  Automatic generation of API documentation in Sphinx is accomplished
  with whisperdoc.  This tool can be installed from here:
@@ -59,4 +61,8 @@ $ sh update_docs.sh
  Unit tests may be ran here: http://mgrl.midnightsisters.org/tests/
  M.GRL makes use of its own minimal unit testing framework, which can
  be found in the 'tests' directory of this repository.
+.
+
+
+ Have a nice day!
 .
