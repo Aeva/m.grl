@@ -14,6 +14,10 @@
  public domain by way of CC0.  More information about CC0 is available
  here: https://creativecommons.org/publicdomain/zero/1.0/
 
+ The test runner is made available under the GPLv3 or newer.  See
+ https://www.gnu.org/licenses/gpl-3.0.txt for more information.  The
+ individual tests however are public domain by way of CC0.
+
  Art assets included in the demos have their respective license
  information posted on the demo index or in the individual demo
  folders.  (Hint: most of them are CC-BY-SA)
@@ -30,10 +34,12 @@
 
  Some basic features:
  - 2D and 3D rendering via WebGL
- - export from Blender
- - skeletal mesh animation (soon!)
+ - animation via assigning functions to shader variables
+ - export 3D models and animations from Blender
  - gani-compatible sprite animation system
- - keyboard input handling that makes sense for games
+ - a GLSL to GLSL shader compiler
+ - compositing graph for multipass rendering
+ - dynamic lighting via deferred rendering
 .
 
 
@@ -47,4 +53,10 @@
  To regenerate the API pages, you can run this shell script:
 
 $ sh update_docs.sh
+.
+
+
+ Unit tests may be ran here: http://mgrl.midnightsisters.org/tests/
+ M.GRL makes use of its own minimal unit testing framework, which can
+ be found in the 'tests' directory of this repository.
 .
