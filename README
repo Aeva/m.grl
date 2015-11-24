@@ -26,11 +26,10 @@
 
  M.GRL makes use of gl-matrix, which you can find out more about here:
  http://glmatrix.net/ and https://github.com/toji/gl-matrix
-
 .
 
 
- Some basic features:
+ A Short list of M.GRL's features:
 
  - 2D and 3D rendering via WebGL
  - animation via assigning functions to shader variables
