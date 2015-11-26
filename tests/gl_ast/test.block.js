@@ -85,7 +85,6 @@ test["error on redundant methods in file"] = function () {
     try {
         var tree = please.gl.glsl_to_ast(src);
     } catch (err) {
-        console.info(err);
         raised = true;
     };
     assert(raised);
@@ -120,4 +119,28 @@ test["error on redundant methods after includes"] = function () {
         raised = true;
     };
     assert(raised);
+};
+
+test["swappable method syntax"] = function () {
+    var src = '';
+    src += 'swappable float alpha() { return 1.0; }\n';
+    src += 'swappable vec4 diffuse() { return vec4(1.0, 1.0, 1.0, alpha()); }\n';
+    src += 'plugin vec4 red() { return vec4(1.0, 0.0, 0.0, alpha()); }\n';
+    src += 'plugin float half() { return 0.5; }\n';
+    src += 'void main() {\n';
+    src += '  return diffuse();\n';
+    src += '}\n';
+    var tree = please.gl.glsl_to_ast(src);
+    assert(tree.methods.length == 5);
+    
+    var by_name = {};
+    tree.methods.map(function (method) {
+        by_name[method.name] = method;
+    });
+
+    assert(by_name['alpha']);
+    assert(by_name['diffuse']);   
+    assert(by_name['red']);
+    assert(by_name['half']);
+    assert(by_name['main']);
 };

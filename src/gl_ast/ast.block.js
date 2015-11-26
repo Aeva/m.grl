@@ -201,6 +201,11 @@ please.gl.ast.Block.prototype.make_function = function (invocation) {
     else if (!params.is_flat) {
         throw new Error("Nested parenthesis in function declaration: " + invocation);
     }
+
+    this.special = null;
+    if (prefix[0] == "swappable" || prefix[0] == "plugin") {
+        this.special = prefix.shift();
+    }
     
     this.name = prefix[1]; // the name of the function
     this.input = []; // arguments eg [['float', 'foo'], ['float', 'bar']]
