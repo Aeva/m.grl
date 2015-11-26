@@ -121,6 +121,7 @@ test["error on redundant methods after includes"] = function () {
     assert(raised);
 };
 
+
 test["swappable method syntax"] = function () {
     var src = '';
     src += 'swappable float alpha() { return 1.0; }\n';
@@ -143,4 +144,31 @@ test["swappable method syntax"] = function () {
     assert(by_name['red']);
     assert(by_name['half']);
     assert(by_name['main']);
+
+    assert(tree.enums['alpha'].length == 2);
+    assert(tree.enums['alpha'][0] == 'alpha');
+    assert(tree.enums['alpha'][1] == 'half');
+
+    assert(tree.enums['diffuse'].length == 2);
+    assert(tree.enums['diffuse'][0] == 'diffuse');
+    assert(tree.enums['diffuse'][1] == 'red');
+
+    assert(tree.rewrite['__mode_for_alpha'] == 'alpha');
+    assert(tree.rewrite['__mode_for_diffuse'] == 'diffuse');
+};
+
+
+test["swappable methods cannot be overloaded"] = function () {
+    var src = '';
+    src += 'swappable vec4 diffuse() { return vec4(1.0, 1.0, 1.0, 1.0); }\n';
+    src += 'swappable vec3 diffuse() { return vec4(1.0, 1.0, 1.0); }\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+        tree.print();
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
 };

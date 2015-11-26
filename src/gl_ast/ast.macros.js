@@ -53,3 +53,47 @@ please.gl.macros.curve = function (globals) {
     }
     return out;
 };
+
+
+//
+please.gl.macros.rewrite_swappable = function (method, available) {
+    var lookup = {};
+    ITER(a, available) {
+        var pick = available[a];
+        if (pick.macro == "plugin") {
+            lookup[pick.name] = pick;
+        }
+    }
+    console.assert(method.dynamic_globals.length == 1);
+
+    var original = method.print().split('\n');
+    var args = method.input.map(function (arg) {
+        return arg[1];
+    }).join(", ");
+    
+    var body = '';
+    body += 'switch (' + method.dynamic_globals[0].name + ') {\n'
+    var order = method.enumerate_plugins(available);
+    ITER(i, order) {
+        if (i > 0) {
+            body += 'case ' + i + ':\n';
+            // print invocation to other method
+            body += '  return ' + order[i] + '(' + args + ');\n';
+        }
+    }
+    body += 'default:\n';
+    // print original method body here
+
+    body += original.slice(1, -2).join('\n') + '\n';
+
+    body += '  break;\n';
+    body += '}';
+
+    var out = original[0] + '\n';
+    var parts = body.split('\n');
+    ITER(i, parts) {
+        out += '  ' + parts[i] + '\n';
+    }
+    out += '}\n'
+    return out;
+};
