@@ -154,8 +154,8 @@ test["swappable method syntax"] = function () {
     assert(tree.enums['diffuse'][0] == 'diffuse');
     assert(tree.enums['diffuse'][1] == 'red');
 
-    assert(tree.rewrite['__mode_for_alpha'] == 'alpha');
-    assert(tree.rewrite['__mode_for_diffuse'] == 'diffuse');
+    assert(tree.rewrite['_mgrl_switch_alpha'] == 'alpha');
+    assert(tree.rewrite['_mgrl_switch_diffuse'] == 'diffuse');
 };
 
 

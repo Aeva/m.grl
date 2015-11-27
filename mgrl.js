@@ -3201,6 +3201,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     };
     // sort through the shaders passed to this function
     var errors = [];
+    var ast_ref = {
+        "vert" : null,
+        "frag" : null,
+    };
     for (var i=1; i< arguments.length; i+=1) {
         var shader = arguments[i];
         if (typeof(shader) === "string") {
@@ -3210,9 +3214,11 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             var blob = shader.__direct_build();
             if (blob.type == gl.VERTEX_SHADER) {
                 prog.vert = blob;
+                ast_ref.vert = shader.__ast;
             }
             if (blob.type == gl.FRAGMENT_SHADER) {
                 prog.frag = blob;
+                ast_ref.frag = shader.__ast;
             }
             if (blob.error) {
                 errors.push(blob.error);
@@ -3278,6 +3284,26 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     u_map[gl.SAMPLER_2D] = "1iv";
     // 
     var sampler_uniforms = [];
+    // track special behavior from glsl->glsl compiler
+    var rewrites = {};
+    var enums = {};
+    for (var shader_type in ast_ref) if (ast_ref.hasOwnProperty(shader_type)) {
+        var tree = ast_ref[shader_type];
+        for (var name in tree.rewrite) if (tree.rewrite.hasOwnProperty(name)) {
+            if (!rewrites[name]) {
+                rewrites[name] = tree.rewrite[name];
+            }
+        }
+        for (var name in tree.enums) if (tree.enums.hasOwnProperty(name)) {
+            if (!enums[name]) {
+                enums[name] = tree.enums[name];
+            }
+        }
+    }
+    console.info("rewrites:");
+    console.info(rewrites);
+    console.info("enums:");
+    console.info(enums);
     // create helper functions for uniform vars
     var bind_uniform = function (data, binding_name) {
         // data.name -> variable name
@@ -4608,7 +4634,7 @@ please.gl.ast.Block.prototype.make_function = function (invocation) {
     this.output = prefix[0]; // return type eg 'float'
     if (this.macro == "swappable") {
         var handle = new please.gl.ast.Global(
-            "uniform", "int", "__mode_for_" + this.name,
+            "uniform", "int", "_mgrl_switch_" + this.name,
             null, null, null, "swappable");
         handle.meta = this.meta;
         handle.enum = this;
@@ -5035,20 +5061,25 @@ please.gl.macros.rewrite_swappable = function (method, available) {
     var args = method.input.map(function (arg) {
         return arg[1];
     }).join(", ");
-    var body = '';
-    body += 'switch (' + method.dynamic_globals[0].name + ') {\n'
+    var uniform = method.dynamic_globals[0].name;
     var order = method.enumerate_plugins(available);
+    if (order.length == 1) {
+        return original.join("\n");
+    }
+    var body = '';
+    var cases = [];
     for (var i=0; i<order.length; i+=1) {
         if (i > 0) {
-            body += 'case ' + i + ':\n';
-            // print invocation to other method
-            body += '  return ' + order[i] + '(' + args + ');\n';
+            var clause = '';
+            clause += 'if ('+uniform+'=='+i+') {\n';
+            clause += '  return ' + order[i] + '(' + args + ');\n';
+            clause += '}\n';
+            cases.push(clause);
         }
     }
-    body += 'default:\n';
-    // print original method body here
+    body += cases.join("else");
+    body += 'else {\n';
     body += original.slice(1, -2).join('\n') + '\n';
-    body += '  break;\n';
     body += '}';
     var out = original[0] + '\n';
     var parts = body.split('\n');

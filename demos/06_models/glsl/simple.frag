@@ -22,6 +22,20 @@ varying vec3 light_weight;
 varying float directional_weight;
 
 
+swappable vec2 tcoords() {
+  return local_tcoords;
+}
+
+
+plugin vec4 checkers() {
+  // placeholder
+  return vec4(1.0, 0.0, 0.0, 1.0);
+}
+
+
+swappable vec4 diffuse() {
+  return texture2D(diffuse_texture, tcoords());
+}
 
 
 // Handy function for producing pseudo-randomness.  Returns a value
@@ -101,7 +115,7 @@ void main(void) {
   }
   else {
     // sample the color value for the models from a texture
-    color_sample = pdq_phong(texture2D(diffuse_texture, local_tcoords));
+    color_sample = pdq_phong(diffuse());
     weird = pdq_anti_phong(vec4(rand, rand, rand, 1.0));
   }
 

@@ -510,6 +510,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 
     // sort through the shaders passed to this function
     var errors = [];
+    var ast_ref = {
+        "vert" : null,
+        "frag" : null,
+    };
     for (var i=1; i< arguments.length; i+=1) {
         var shader = arguments[i];
         if (typeof(shader) === "string") {
@@ -519,9 +523,11 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             var blob = shader.__direct_build();
             if (blob.type == gl.VERTEX_SHADER) {
                 prog.vert = blob;
+                ast_ref.vert = shader.__ast;
             }
             if (blob.type == gl.FRAGMENT_SHADER) {
                 prog.frag = blob;
+                ast_ref.frag = shader.__ast;
             }
             if (blob.error) {
                 errors.push(blob.error);
@@ -594,6 +600,27 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 
     // 
     var sampler_uniforms = [];
+
+    // track special behavior from glsl->glsl compiler
+    var rewrites = {};
+    var enums = {};
+    ITER_PROPS(shader_type, ast_ref) {
+        var tree = ast_ref[shader_type];
+        ITER_PROPS(name, tree.rewrite) {
+            if (!rewrites[name]) {
+                rewrites[name] = tree.rewrite[name];
+            }
+        }
+        ITER_PROPS(name, tree.enums) {
+            if (!enums[name]) {
+                enums[name] = tree.enums[name];
+            }
+        }
+    }
+    console.info("rewrites:");
+    console.info(rewrites);
+    console.info("enums:");
+    console.info(enums);
 
     // create helper functions for uniform vars
     var bind_uniform = function (data, binding_name) {

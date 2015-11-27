@@ -55,7 +55,7 @@ test['swappable methods integration'] = function () {
 
     var new_tree = please.gl.glsl_to_ast(tree.print());
     assert(new_tree.globals.length == 1);
-    assert(new_tree.globals[0].name == '__mode_for_contrived');
+    assert(new_tree.globals[0].name == '_mgrl_switch_contrived');
     assert(new_tree.globals[0].mode == 'uniform');
     assert(new_tree.globals[0].type == 'int');
     
