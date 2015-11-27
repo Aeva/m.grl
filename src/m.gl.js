@@ -637,8 +637,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         var uni = "uniform" + u_map[data.type];
         var non_sampler = data.type !== gl.SAMPLER_2D;
         var is_array = data.size > 1;
-        var strings = enums[data.name] || null;
         var binding_name = rewrites[data.name] || binding_name;
+        var strings = enums[binding_name] || null;
 
         // FIXME - set defaults per data type
         prog.__cache.vars[binding_name] = null;
@@ -686,10 +686,13 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     else {
                         // Setter for enums
                         setter_method = function (value) {
-                            var found = 0;
-                            if (value.constructor == String) {
+                            var found;
+                            if (value === null) {
+                                found = 0;
+                            }
+                            else if (value.constructor == String) {
                                 found = strings.indexOf(value);
-                                if (found = -1) {
+                                if (found === -1) {
                                     found = 0;
                                     console.warn("Invalid enum: " + value);
                                 }
@@ -697,12 +700,12 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                             else if (value.constructor == Number) {
                                 found = value;
                             }
-                            else if (value !== null) {
+                            else {
                                 throw new TypeError("Invalid enum: " + value);
                             }
                             if (prog.__cache.vars[binding_name] !== found) {
                                 prog.__cache.vars[binding_name] = found;
-                                upload = new Int32Array([found]);
+                                var upload = new Int32Array([found]);
                                 return gl[uni](pointer, upload);
                             }
                         }
