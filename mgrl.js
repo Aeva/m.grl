@@ -3316,6 +3316,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         var uni = "uniform" + u_map[data.type];
         var non_sampler = data.type !== gl.SAMPLER_2D;
         var is_array = data.size > 1;
+        var strings = enums[data.name] || null;
+        var binding_name = rewrites[data.name] || binding_name;
         // FIXME - set defaults per data type
         prog.__cache.vars[binding_name] = null;
         prog.uniform_list.push(binding_name);
@@ -3340,19 +3342,45 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     }
                 }
                 else if (data.type === gl.INT || data.type === gl.BOOL) {
-                    // Setter for int and bool type uniforms.
-                    setter_method = function (value) {
-                        var number, upload = value;
-                        if (value.length === undefined) {
-                            number = value;
-                            upload = new Int32Array([value]);
+                    if (strings == null || data.type === gl.BOOL) {
+                        // Setter for int and bool type uniforms.
+                        setter_method = function (value) {
+                            var number, upload = value;
+                            if (value.length === undefined) {
+                                number = value;
+                                upload = new Int32Array([value]);
+                            }
+                            else {
+                                number = value[0];
+                            }
+                            if (prog.__cache.vars[binding_name] !== number) {
+                                prog.__cache.vars[binding_name] = number;
+                                return gl[uni](pointer, upload);
+                            }
                         }
-                        else {
-                            number = value[0];
-                        }
-                        if (prog.__cache.vars[binding_name] !== number) {
-                            prog.__cache.vars[binding_name] = number;
-                            return gl[uni](pointer, upload);
+                    }
+                    else {
+                        // Setter for enums
+                        setter_method = function (value) {
+                            var found = 0;
+                            if (value.constructor == String) {
+                                found = strings.indexOf(value);
+                                if (found = -1) {
+                                    found = 0;
+                                    console.warn("Invalid enum: " + value);
+                                }
+                            }
+                            else if (value.constructor == Number) {
+                                found = value;
+                            }
+                            else if (value !== null) {
+                                throw new Error("Invalid enum: " + value);
+                            }
+                            if (prog.__cache.vars[binding_name] !== found) {
+                                prog.__cache.vars[binding_name] = found;
+                                upload = new Int32Array([found]);
+                                return gl[uni](pointer, upload);
+                            }
                         }
                     }
                 }
