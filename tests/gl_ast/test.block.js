@@ -132,6 +132,7 @@ test["swappable method syntax"] = function () {
     src += '  return diffuse();\n';
     src += '}\n';
     var tree = please.gl.glsl_to_ast(src);
+    tree.print();
     assert(tree.methods.length == 5);
     
     var by_name = {};
