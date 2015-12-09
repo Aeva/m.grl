@@ -3346,17 +3346,20 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                         // Setter for int and bool type uniforms.
                         setter_method = function (value) {
                             var number, upload = value;
-                            if (value.length === undefined) {
+                            if (value == null) {
+                                number = 0;
+                                upload = new Int32Array([0]);
+                            }
+                            else if (value.length === undefined) {
                                 number = value;
                                 upload = new Int32Array([value]);
                             }
                             else {
                                 number = value[0];
+                                upload = new Int32Array([number]);
                             }
-                            if (prog.__cache.vars[binding_name] !== number) {
-                                prog.__cache.vars[binding_name] = number;
-                                return gl[uni](pointer, upload);
-                            }
+                            prog.__cache.vars[binding_name] = number;
+                            return gl[uni](pointer, upload);
                         }
                     }
                     else {

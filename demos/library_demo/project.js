@@ -25,6 +25,7 @@ window.demo = {
         "chess.frag",
         "basic.frag",
         "stage.jta",
+        "floor.jta",
         "bg.png",
         "trees.png",
     ],
@@ -38,6 +39,8 @@ addEventListener("load", function() {
     please.gl.set_context("gl_canvas", {
         antialias : false,
     });
+
+    please.set_clear_color(0.0, 0.0, 0.0, 1.0);
 
     // Add search paths for asset types.
     please.set_search_path("glsl", "glsl/");
@@ -64,23 +67,32 @@ addEventListener("mgrl_media_ready", please.once(function () {
     prog.activate();
         
     // Setup the scene to be rendered.
-    var graph = new please.SceneGraph();
-    var camera = new please.CameraNode();
-    camera.look_at = [0.0, 0.0, 5.0];
-    camera.location = [0.0, -14.0, 8.0];
+    var graph = demo.graph = new please.SceneGraph();
+    var camera = demo.camera = new please.CameraNode();
+    camera.look_at = [0.0, 1.0, 1.2];
+    camera.location = [0.0, -0.5, 1.1];
+    camera.fov = 60;
     graph.add(camera);
-
-
     
-    var model = please.access("stage.jta").instance();
-    graph.add(model);
+    var stage = demo.stage = please.access("stage.jta").instance();
+    stage.propogate(function (node) {
+        node.shader.mode = 0;
+    });
+    graph.add(stage);
 
+    var floor = demo.floor = please.access("floor.jta").instance();
+    floor.node_lookup["floor"].shader.mode = 1;
+    graph.add(floor);
 
+    // make the demo auto scroll
+    demo.player_x = please.repeating_driver(0, 16, 10000);
+    
     
     // Setup the rendering pipeline.
     please.pipeline.add_autoscale();
     please.pipeline.add(10, "project/draw", function () {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        prog.vars.uv_offset = demo.player_x;
         graph.draw();
     });
     please.pipeline.start();
