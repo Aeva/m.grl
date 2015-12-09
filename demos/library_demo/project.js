@@ -28,6 +28,12 @@ window.demo = {
         "floor.jta",
         "bg.png",
         "trees.png",
+
+        "campfire.gani",
+        "clock.gani",
+        "coin.gani",
+        "idle.gani",
+        "walk.gani",
     ],
 
     "player_x" : 0,
@@ -75,9 +81,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(camera);
     
     var stage = demo.stage = please.access("stage.jta").instance();
-    stage.propogate(function (node) {
-        node.shader.mode = 0;
-    });
+    stage.propogate(function (node) { node.shader.mode = 0; });
     graph.add(stage);
 
     var floor = demo.floor = please.access("floor.jta").instance();
@@ -85,8 +89,31 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(floor);
 
     // make the demo auto scroll
-    demo.player_x = please.repeating_driver(0, 16, 10000);
+    demo.player_x = please.repeating_driver(0, 16, 15000);
+
+
+    var add_char = function (ani, x, y, focused) {
+        var entity = please.access(ani).instance(false);
+        entity.propogate(function (node) { node.shader.mode = 3; });
+        entity.rotation_x = 90;
+        entity.scale = [.25, .25, .25];
+        entity.location = [x, y, 0];
+        if (!focused) {
+            entity.location_x = function () {
+                return (((demo.player_x+(x+8)) % 16) * -1 + 8);
+            }
+        }
+        entity.dir = 3;
+        graph.add(entity);
+        return entity;
+    };
+
     
+    // add some stuff to the demo
+    add_char("walk.gani", 0, 3, true);
+    for (var i=0; i<16; i+=1) {
+        var coin = add_char("coin.gani", i, Math.random()*3 + 1.5);
+    }
     
     // Setup the rendering pipeline.
     please.pipeline.add_autoscale();
