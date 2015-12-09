@@ -1,0 +1,65 @@
+
+.mgrl_ui_page {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    border: 1px solid black;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, .8);
+    color: black;
+    z-index: 10000;
+    font-family: sans-serif;
+}
+
+.mgrl_ui_page.window_preset {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+}
+
+.mgrl_ui_page.canvas_preset {
+    width: 800px;
+    height: 600px;
+    margin-left: -400px;
+    margin-top: -300px;
+}
+
+.mgrl_ui_page.small_preset {
+    width: 530px;
+    height: 320px;
+    margin-left: -265px;
+    margin-top: -160px;
+}
+
+.mgrl_ui_close_button {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 16px;
+    height: 16px;
+    border: 1px solid black;
+    border-radius: 4px;
+    background: rgba(200, 50, 50, .8);
+}
+
+.mgrl_ui_close_button:hover {
+    background: rgba(255, 50, 50, 1);
+}
+
+.mgrl_ui_button_row {
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
+}
+
+.mgrl_ui_button {
+}
+
+.mgrl_ui_content_area {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+}
