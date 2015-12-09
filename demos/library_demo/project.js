@@ -37,7 +37,16 @@ window.demo = {
     ],
 
     "player_x" : 0,
+    "avatar" : null,
 };
+
+
+addEventListener("keydown", function (event) {
+});
+
+
+addEventListener("keyup", function (event) {
+});
 
 
 addEventListener("load", function() {
@@ -110,7 +119,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     
     // add some stuff to the demo
-    add_char("walk.gani", 0, 3, true);
+    demo.avatar = add_char("walk.gani", 0, 3, true);
+
+    // add some coins
     for (var i=0; i<16; i+=1) {
         var coin = add_char("coin.gani", i, Math.random()*3 + 1.5);
     }

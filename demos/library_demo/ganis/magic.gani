@@ -1,0 +1,84 @@
+SPRITE   10            HEAD    0    0   32   32 head normal up
+SPRITE   11            HEAD    0   32   32   32 head normal left
+SPRITE   12            HEAD    0   64   32   32 head normal down
+SPRITE   13            HEAD    0   96   32   32 head normal right
+SPRITE   20            HEAD    0    0   32   32 head blink 1 up
+SPRITE   21            HEAD   32   32   32   32 head blink 1 left
+SPRITE   22            HEAD   32   64   32   32 head blink 1 down
+SPRITE   23            HEAD   32   96   32   32 head blink 1 right
+SPRITE   30            HEAD    0    0   32   32 head blink 2 up
+SPRITE   31            HEAD   64   32   32   32 head blink 2 left
+SPRITE   32            HEAD   64   64   32   32 head blink 2 down
+SPRITE   33            HEAD   64   96   32   32 head blink 2 right
+SPRITE   50            HAIR    0    0   48   48 hair up
+SPRITE   51            HAIR    0   48   48   48 hair left
+SPRITE   52            HAIR    0   96   48   48 hair down
+SPRITE   53            HAIR    0  144   48   48 hair right
+SPRITE  800            BODY    0  256   64   64 body magic 1 up
+SPRITE  801            BODY    0  320   64   64 body magic 1 left
+SPRITE  802            BODY    0  384   64   64 body magic 1 down
+SPRITE  803            BODY    0  448   64   64 body magic 1 right
+SPRITE  810            BODY   64  256   64   64 body magic 2 up
+SPRITE  811            BODY   64  320   64   64 body magic 2 left
+SPRITE  812            BODY   64  384   64   64 body magic 2 down
+SPRITE  813            BODY   64  448   64   64 body magic 2 right
+SPRITE  820            BODY  128  256   64   64 body magic 3 up
+SPRITE  821            BODY  128  320   64   64 body magic 3 left
+SPRITE  822            BODY  128  384   64   64 body magic 3 down
+SPRITE  823            BODY  128  448   64   64 body magic 3 right
+SPRITE  830            BODY  192  256   64   64 body magic 4 up
+SPRITE  831            BODY  192  320   64   64 body magic 4 left
+SPRITE  832            BODY  192  384   64   64 body magic 4 down
+SPRITE  833            BODY  192  448   64   64 body magic 4 right
+SPRITE  840            BODY  256  256   64   64 body magic 5 up
+SPRITE  841            BODY  256  320   64   64 body magic 5 left
+SPRITE  842            BODY  256  384   64   64 body magic 5 down
+SPRITE  843            BODY  256  448   64   64 body magic 5 right
+SPRITE  850            BODY  320  256   64   64 body magic 6 up
+SPRITE  851            BODY  320  320   64   64 body magic 6 left
+SPRITE  852            BODY  320  384   64   64 body magic 6 down
+SPRITE  853            BODY  320  448   64   64 body magic 6 right
+
+CONTINUOUS
+DEFAULTHEAD heads/default.png
+DEFAULTHAIR hair/messy.png
+DEFAULTBODY outfits/red_dress.png
+
+ANI
+   800  -8 -16,   10  8 -8,   50  0 -16
+   801  -8 -16,   11  8 -8,   51  0 -16
+   802  -8 -16,   12  8 -8,   52  0 -16
+   803  -8 -16,   13  8 -8,   53  0 -16
+WAIT 4
+
+   810  -8 -16,   20  8 -8,   50  0 -16
+   811  -8 -16,   21  8 -8,   51  0 -16
+   812  -8 -16,   22  8 -8,   52  0 -16
+   813  -8 -16,   23  8 -8,   53  0 -16
+WAIT 4
+
+   820  -8 -16,   30  8 -8,   50  0 -16
+   821  -8 -16,   31  8 -8,   51  0 -16
+   822  -8 -16,   32  8 -8,   52  0 -16
+   823  -8 -16,   33  8 -8,   53  0 -16
+WAIT 4
+
+   830  -8 -16,   30  8 -8,   50  0 -16
+   831  -8 -16,   31  8 -8,   51  0 -16
+   832  -8 -16,   32  8 -8,   52  0 -16
+   833  -8 -16,   33  8 -8,   53  0 -16
+WAIT 4
+
+   840  -8 -16,   20  8 -8,   50  0 -16
+   841  -8 -16,   21  8 -8,   51  0 -16
+   842  -8 -16,   22  8 -8,   52  0 -16
+   843  -8 -16,   23  8 -8,   53  0 -16
+WAIT 4
+
+   850  -8 -16,   10  8 -8,   50  0 -16
+   851  -8 -16,   11  8 -8,   51  0 -16
+   852  -8 -16,   12  8 -8,   52  0 -16
+   853  -8 -16,   13  8 -8,   53  0 -16
+WAIT 4
+
+ANIEND
