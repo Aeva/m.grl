@@ -24,8 +24,9 @@ window.demo = {
     "manifest" : [
         "chess.frag",
         "basic.frag",
-        
-        
+        "stage.jta",
+        "bg.png",
+        "trees.png",
     ],
 
     "player_x" : 0,
@@ -71,8 +72,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
 
     
-    // var model = please.access("gavroche_hall.jta").instance();
-    // graph.add(model);
+    var model = please.access("stage.jta").instance();
+    graph.add(model);
 
 
     
