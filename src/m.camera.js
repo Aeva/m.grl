@@ -81,7 +81,40 @@
 please.CameraNode = function () {
     please.GraphNode.call(this);
     this.__is_camera = true;
-    please.renderer.init_camera(this);
+
+#ifdef WEBGL
+    if (please.renderer.name === "gl") {
+        // code specific to the webgl renderer
+        please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
+        please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
+        this.__projection_mode = "perspective";
+    }
+#endif
+
+#ifdef DOM
+    if (please.renderer.name === "dom") {
+        // code specific to the dom renderer
+        this.look_at = [0, 0, 0];
+        this.look_at_x = 0;
+        this.look_at_y = 0;
+        this.look_at_z = 0;
+        this.up_vector = [0, 1, 0];
+        this.up_vector_x = 0;
+        this.up_vector_y = 1;
+        this.up_vector_z = 0;
+        this.__projection_mode = "orthographic";
+        this.location_z = 100.0;
+        Object.freeze(this.look_at);
+        Object.freeze(this.look_at_x);
+        Object.freeze(this.look_at_y);
+        Object.freeze(this.look_at_z);
+        Object.freeze(this.up_vector);
+        Object.freeze(this.up_vector_x);
+        Object.freeze(this.up_vector_y);
+        Object.freeze(this.up_vector_z);
+        Object.freeze(this.__projection_mode);
+    }
+#endif
 
     ANI("focal_distance", this.__focal_distance);
     ANI("depth_of_field", .5);
@@ -210,10 +243,10 @@ please.CameraNode.prototype.update_camera = function () {
     var width = this.width;
     var height = this.height;
     if (width === null) {
-        width = please.renderer.get_width();
+        width = please.renderer.width;
     }
     if (height === null) {
-        height = please.renderer.get_height();
+        height = please.renderer.height;
     }
 
     // Determine if the common args have changed.

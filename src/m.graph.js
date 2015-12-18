@@ -404,9 +404,68 @@ please.GraphNode = function () {
         "projection_matrix",
         "view_matrix",
     ];
+    
+#ifdef WEBGL
+    if (please.renderer.name === "gl") {
+        // code specific to the webgl renderer
+       
+        this.__regen_glsl_bindings = function (event) {
+            // GLSL bindings with default driver methods:
+            var prog = please.gl.__cache.current;
+            var old = null;
+            if (event) {
+                old = event.old_prog;
+            }
+            // deep copy
+            var old_data = this.__ani_store;
+            this.__ani_store = {};
+            this.shader = {};
+            please.make_animatable(
+                this, "world_matrix", this.__world_matrix_driver, this.shader, true);
+            please.make_animatable(
+                this, "normal_matrix", this.__normal_matrix_driver, this.shader, true);
+            // GLSLS bindings with default behaviors
+            please.make_animatable(
+                this, "alpha", 1.0, this.shader);
+            please.make_animatable(
+                this, "is_sprite", this.__is_sprite_driver, this.shader, true);
+            please.make_animatable(
+                this, "is_transparent", this.__is_transparent_driver, this.shader, true);
+            please.make_animatable_tripple(
+                this, "object_index", "rgb", this.__object_id_driver, this.shader, true);
+            please.make_animatable(
+                this, "billboard_mode", this.__billboard_driver, this.shader, true);
 
-    please.renderer.init_graph_node(this);
+            // prog.samplers is a subset of prog.vars
+            for (var name, i=0; i<prog.uniform_list.length; i+=1) {
+                name = prog.uniform_list[i];
+                if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
+                    please.make_animatable(this, name, null, this.shader);
+                }
+            }
 
+            // restore old values that were wiped out
+            ITER_PROPS(name, old_data) {
+                var old_value = old_data[name];
+                if (old_value !== undefined && old_value !== null) {
+                    this.__ani_store[name] = old_value;
+                }
+            }
+        }.bind(this);
+        this.__regen_glsl_bindings();
+        window.addEventListener("mgrl_changed_shader", this.__regen_glsl_bindings);
+    }
+#endif
+
+#ifdef DOM
+    if (please.renderer.name === "dom") {
+        // code specific to the dom renderer
+        this.shader = {};
+	please.make_animatable(
+            this, "world_matrix", this.__world_matrix_driver, this.shader, true);
+    }
+#endif
+    
     this.is_bone = false;
     this.visible = true;
     this.draw_type = "model"; // can be set to "sprite"
@@ -719,7 +778,8 @@ please.SceneGraph = function () {
         }
     };
 
-    if (please.renderer.allow_picking) {
+#ifdef WEBGL
+    if (please.renderer.name === "gl") {
         this.picking = {
             "enabled" : false,
             "skip_location_info" : true,
@@ -752,6 +812,7 @@ please.SceneGraph = function () {
             }
         };
     }
+#endif
 
     Object.defineProperty(this, "graph_root", {
         "configurable" : false,

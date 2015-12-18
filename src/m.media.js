@@ -471,9 +471,7 @@ please.media.handlers.img = function (url, asset_name, callback) {
         });
         img.src = url;
         img.asset_name = asset_name;
-#ifdef WEBGL
         img.instance = please.media.__image_instance;
-#endif
         please.media.processing += 1;
         
         return true; // trigger the media load event to be postponed
@@ -550,7 +548,66 @@ please.media.__image_buffer_cache = {};
 // future.
 //
 please.media.__image_instance = function (center, scale, x, y, width, height, alpha) {
-    return please.renderer.image_instance(this);
+#ifdef WEBGL
+    if (please.renderer.name === "gl") {
+        // code specific to the webgl renderer
+        
+        DEFAULT(center, false);
+        DEFAULT(scale, 32);
+        DEFAULT(x, 0);
+        DEFAULT(y, 0);
+        DEFAULT(width, this.width);
+        DEFAULT(height, this.height);
+        DEFAULT(alpha, true);
+        this.scale_filter = "NEAREST";
+
+        var builder = new please.builder.SpriteBuilder(center, scale, alpha);
+        var flat = builder.add_flat(this.width, this.height, x, y, width, height);
+        var hint = flat.hint;
+
+        var data = please.media.__image_buffer_cache[hint];
+        if (!data) {
+            var data = builder.build();
+            please.media.__image_buffer_cache[hint] = data;
+        }
+
+        var node = new please.GraphNode();
+        node.vbo = data.vbo;
+        node.ibo = data.ibo;
+        node.ext = {};
+        node.vars = {};
+        node.__drawable = true;
+        if (alpha) {
+            node.sort_mode = "alpha";
+        }
+        node.asset = this;
+        node.hint = hint;
+        node.draw_type = "sprite";
+        node.sort_mode = "alpha";
+        node.shader["diffuse_texture"] = this.asset_name,
+        
+        node.bind = function() { 
+            this.vbo.bind();
+            this.ibo.bind();
+        };
+        node.draw = function() {
+            this.ibo.draw();
+        };
+        return node;
+    }
+#endif
+
+#ifdef DOM
+    if (please.renderer.name === "dom") {
+        // code specific to the dom renderer
+        var node = new please.GraphNode();
+        var div = please.overlay.new_element();
+        div.appendChild(this);
+        div.bind_to_node(node);
+        node.asset = this;
+        return node;
+    }
+#endif
 };
 please.media.errors["img"].instance = please.media.__image_instance;
 #endif

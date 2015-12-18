@@ -31,8 +31,8 @@ please.overlay = {
 //
 please.__create_canvas_overlay = function () {
     var canvas = please.gl.canvas;
-    if (!please.gl.overlay) {
-        var overlay = please.gl.overlay = document.createElement("div");
+    if (!please.renderer.overlay) {
+        var overlay = please.renderer.overlay = document.createElement("div");
         overlay.id="mgrl_overlay";
         overlay.style.zIndex = 1000;
         overlay.style.position = "absolute";
@@ -47,7 +47,7 @@ please.__create_canvas_overlay = function () {
 //
 please.__align_canvas_overlay = function () {
     var canvas = please.gl.canvas;
-    var overlay = please.gl.overlay;
+    var overlay = please.renderer.overlay;
     var rect = canvas.getBoundingClientRect();
     overlay.style.top = rect.top + "px";
     overlay.style.left = rect.left + "px";
