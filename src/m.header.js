@@ -44,7 +44,7 @@
 #include "m.multipass.js"
 #include "m.overlay.js"
 
-#ifdef NOGL
+#ifdef DOM
 #include "m.dom.js"
 #endif
 

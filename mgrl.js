@@ -1979,6 +1979,15 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         };
         return node;
     }
+    if (please.renderer.name === "dom") {
+        // code specific to the dom renderer
+        var node = new please.GraphNode();
+        var div = please.overlay.new_element();
+        div.appendChild(this);
+        div.bind_to_node(node);
+        node.asset = this;
+        return node;
+    }
 };
 please.media.errors["img"].instance = please.media.__image_instance;
 // - m.input.js ------------------------------------------------------------- //
@@ -7042,6 +7051,12 @@ please.GraphNode = function () {
         this.__regen_glsl_bindings();
         window.addEventListener("mgrl_changed_shader", this.__regen_glsl_bindings);
     }
+    if (please.renderer.name === "dom") {
+        // code specific to the dom renderer
+        this.shader = {};
+ please.make_animatable(
+            this, "world_matrix", this.__world_matrix_driver, this.shader, true);
+    }
     this.is_bone = false;
     this.visible = true;
     this.draw_type = "model"; // can be set to "sprite"
@@ -7733,6 +7748,28 @@ please.CameraNode = function () {
         please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
         please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
         this.__projection_mode = "perspective";
+    }
+    if (please.renderer.name === "dom") {
+        // code specific to the dom renderer
+        this.look_at = [0, 0, 0];
+        this.look_at_x = 0;
+        this.look_at_y = 0;
+        this.look_at_z = 0;
+        this.up_vector = [0, 1, 0];
+        this.up_vector_x = 0;
+        this.up_vector_y = 1;
+        this.up_vector_z = 0;
+        this.__projection_mode = "orthographic";
+        this.location_z = 100.0;
+        Object.freeze(this.look_at);
+        Object.freeze(this.look_at_x);
+        Object.freeze(this.look_at_y);
+        Object.freeze(this.look_at_z);
+        Object.freeze(this.up_vector);
+        Object.freeze(this.up_vector_x);
+        Object.freeze(this.up_vector_y);
+        Object.freeze(this.up_vector_z);
+        Object.freeze(this.__projection_mode);
     }
     please.make_animatable(this, "focal_distance", this.__focal_distance);;
     please.make_animatable(this, "depth_of_field", .5);;
