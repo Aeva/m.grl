@@ -48,11 +48,11 @@ please.__create_canvas_overlay = function () {
 please.__align_canvas_overlay = function () {
     var canvas = please.gl.canvas;
     var overlay = please.renderer.overlay;
-    var rect = canvas.getBoundingClientRect();
-    overlay.style.top = rect.top + "px";
-    overlay.style.left = rect.left + "px";
-    overlay.style.width = rect.width + "px";
-    overlay.style.height = rect.height + "px";
+    overlay.rect = canvas.getBoundingClientRect();
+    overlay.style.top = overlay.rect.top + "px";
+    overlay.style.left = overlay.rect.left + "px";
+    overlay.style.width = overlay.rect.width + "px";
+    overlay.style.height = overlay.rect.height + "px";
 };
 
 
@@ -182,6 +182,18 @@ please.overlay.remove_element_of_class = function (class_name) {
 //
 please.overlay_sync = function () {
     var parent = please.renderer.overlay;
+    var rect = parent.getBoundingClientRect();
+    // Recursive offset finder, because there doesn't seem to be a more direct way to get the offset of an element relative to the page origin.
+    var offset = function (element, x, y) {
+        if (element.offsetParent) {
+            return offset(element.offsetParent, x + element.offsetLeft, y + element.offsetTop);
+        }
+        return [x + element.offsetLeft, y + element.offsetTop];
+    };
+    // Store the result so it can be used from other places.
+    parent.offset = offset(parent, parent.clientWidth / 2, parent.clientHeight / 2);
+    var offset_x = parent.offset[0];
+    var offset_y = parent.offset[1];
     var origin = new Float32Array([0, 0, 0, 1]);
     ITER(i, please.overlay.__bindings) {
         var element = please.overlay.__bindings[i];
@@ -200,13 +212,20 @@ please.overlay_sync = function () {
             
             var position = vec4.create();
             vec4.transformMat4(position, origin, final_matrix);
-            var x = ((position[0] / position[3]) + 1) * 0.5;
-            var y = ((position[1] / position[3]) + 1) * 0.5;
-            element.style.left = x*100 + "%";
-            element.style.bottom = y*100 + "%";
+            var x = (position[0] / position[3]) * 0.5;
+            var y = (position[1] / position[3]) * 0.5;
+            element.style.left = offset_x + x * rect.width + 'px';
+            element.style.top = offset_y - y * rect.height + 'px';
+            // This must be an integer according to the standard, so a maximum precision must be chosen.
+            // position[2] is distance to camera; use negative multiplier to get correct sort order.
+            element.style.zIndex = Math.round((100 - position[2]) * 1000000);
+            //element.style.transform = "rotate(" + TODO + "rad) scale(" + TODO + ")";
+            element.style.display = node.visible ? "block" : "none";
 
             if (element.auto_center) {
-                element.style.marginLeft = element.getBoundingClientRect().width/-2 + "px";
+                var box = element.getBoundingClientRect();
+                element.style.marginLeft = box.width/-2 + "px";
+                element.style.marginTop = box.height/-2 + "px";
             }
         }
     }

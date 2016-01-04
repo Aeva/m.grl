@@ -39,3 +39,10 @@ please.dom.set_context = function (div_id) {
         return context.clientHeight;
     });
 };
+
+please.dom.pos_from_event = function (x, y) {
+    var parent = please.renderer.overlay;
+    var offset_x = parent.offset[0];
+    var offset_y = parent.offset[1];
+    return [(x - offset_x) * 2 / window.graph.camera.orthographic_grid, (y - offset_y) * -2 / window.graph.camera.orthographic_grid];
+}
