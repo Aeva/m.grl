@@ -1,0 +1,90 @@
+
+
+#controls {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+    z-index: 20;
+}
+#controls.hidden {
+    display: none;
+}
+#controls.reveal {
+    display: block;
+    animation-duration: 1s;
+    animation-name: reveal;
+}
+
+
+#editor, #sidebar {
+    position: absolute;
+    background-color: rgba(255, 255, 255, 0.8);
+    color: black;
+    border: 1px solid #333;
+    box-shadow: 2px 3px 0px 0px rgba(0, 0, 0, 0.2);
+}
+
+#editor {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    top: 0px;
+    left: 0px;
+    box-sizing: border-box;
+    width: 400px;
+    height: 100%;
+    padding: 5px;
+}
+
+#editor textarea {
+    color: black;
+    background-color: rgba(0,0,0, 0.1);
+    border: 1px solid black;
+    margin: 0px;
+    resize: none;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+#editor #compiler_output {
+    display: none;
+    margin-top: 5px;
+    background-color: rgba(255,0,0, 0.1);
+    padding: 5px;
+    box-sizing: border-box;
+}
+
+#editor #button_area {
+    margin-top: 5px;
+    text-align: right;
+}
+
+#editor #button_area input {
+}
+
+button {
+    border: 1px outset black;
+    border-radius: 3px;
+    background-color: transparent;
+    color: black;
+}
+
+button:active {
+    border: 1px inset black;
+}
+
+
+#sidebar {
+    display: none;
+}
+
+@keyframes reveal {
+    from {
+        opacity: 0.0;
+    }
+    to {
+        opacity: 1.0;
+    }
+}
