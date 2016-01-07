@@ -7,10 +7,10 @@
  * positions locked to appear over the screen position of any
  * GraphNode in use.
  *
- * The #mgrl_overlay div is created when the OpenGL rendering context
+ * The #mgrl_overlay div is created when the rendering context
  * is established.  While you can interact with this directly if you
  * like, it is generally advised to use the overlay API to add and
- * destroy widgets intended to function seamlessly with the WebGL
+ * destroy widgets intended to function seamlessly with the animated
  * content.
  *
  * Please note that the overlay currently sets the "pointer-events"
@@ -29,10 +29,10 @@ please.overlay = {
 
 
 //
-please.__create_canvas_overlay = function () {
-    var canvas = please.gl.canvas;
+please.__create_canvas_overlay = function (reference) {
     if (!please.renderer.overlay) {
         var overlay = please.renderer.overlay = document.createElement("div");
+        overlay.reference = reference;
         overlay.id="mgrl_overlay";
         overlay.style.zIndex = 1000;
         overlay.style.position = "absolute";
@@ -46,9 +46,8 @@ please.__create_canvas_overlay = function () {
 
 //
 please.__align_canvas_overlay = function () {
-    var canvas = please.gl.canvas;
     var overlay = please.renderer.overlay;
-    overlay.rect = canvas.getBoundingClientRect();
+    overlay.rect = overlay.reference.getBoundingClientRect();
     overlay.style.top = overlay.rect.top + "px";
     overlay.style.left = overlay.rect.left + "px";
     overlay.style.width = overlay.rect.width + "px";
@@ -183,17 +182,8 @@ please.overlay.remove_element_of_class = function (class_name) {
 please.overlay_sync = function () {
     var parent = please.renderer.overlay;
     var rect = parent.getBoundingClientRect();
-    // Recursive offset finder, because there doesn't seem to be a more direct way to get the offset of an element relative to the page origin.
-    var offset = function (element, x, y) {
-        if (element.offsetParent) {
-            return offset(element.offsetParent, x + element.offsetLeft, y + element.offsetTop);
-        }
-        return [x + element.offsetLeft, y + element.offsetTop];
-    };
-    // Store the result so it can be used from other places.
-    parent.offset = offset(parent, parent.clientWidth / 2, parent.clientHeight / 2);
-    var offset_x = parent.offset[0];
-    var offset_y = parent.offset[1];
+    var offset_x = parent.clientWidth / 2;
+    var offset_y = parent.clientHeight / 2;
     var origin = new Float32Array([0, 0, 0, 1]);
     ITER(i, please.overlay.__bindings) {
         var element = please.overlay.__bindings[i];

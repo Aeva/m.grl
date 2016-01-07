@@ -50,7 +50,7 @@ please.gl.set_context = function (canvas_id, options) {
     });
     
     this.canvas = document.getElementById(canvas_id);
-    please.__create_canvas_overlay();
+    please.__create_canvas_overlay(this.canvas);
     please.pipeline.add(-1, "mgrl/picking_pass", please.__picking_pass).skip_when(
         function () { return please.__picking.queue.length === 0 && please.__picking.move_event === null; });
 

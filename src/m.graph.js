@@ -461,7 +461,7 @@ please.GraphNode = function () {
     if (please.renderer.name === "dom") {
         // code specific to the dom renderer
         this.shader = {};
-	please.make_animatable(
+        please.make_animatable(
             this, "world_matrix", this.__world_matrix_driver, this.shader, true);
     }
 #endif
