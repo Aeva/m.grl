@@ -20,23 +20,7 @@
     <div id="controls" class="hidden">
       
       <div id="editor">
-        <textarea autofocus=1 spellcheck=0>
-plugin vec4 red() {
-  return vec4(1.0, 0.0, 0.0, 1.0);
-}
-plugin vec4 green() {
-  return vec4(0.0, 1.0, 0.0, 1.0);
-}
-plugin vec4 blue() {
-  return vec4(0.0, 0.0, 1.0, 1.0);
-}
-swappable vec4 color() {
-  return vec4(0.5, 0.5, 0.5, 1.0);
-}
-
-void main() {
-  gl_FragColor = color();
-}</textarea>
+        <textarea id="shader_source" autofocus=1 spellcheck=0></textarea>
         <div id="compiler_output"></div>
         <div id="button_area">
           <button id="compile_button">Compile!</button>
