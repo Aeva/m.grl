@@ -108,6 +108,7 @@ please.set_search_path = function (type, path) {
 //
 please.load = function (asset_name, callback, options) {
     var opt = {
+        "force_reload" : false,
         "force_type" : false,
         "absolute_url" : false,
     }
@@ -118,6 +119,9 @@ please.load = function (asset_name, callback, options) {
                 opt[key] = !!options[key];
             }
         }
+    }
+    if (please.media.assets[asset_name] && !opt.force_reload) {
+        return;
     }
     var type = opt.force_type ? opt.force_type : please.media.guess_type(asset_name);
     if (please.media.handlers[type] === "undefined") {
