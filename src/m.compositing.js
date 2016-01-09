@@ -64,7 +64,7 @@ please.RenderNode = function (prog, options) {
     this.__prog = prog;
     Object.defineProperty(this, "__prog", {
         enumerable : false,
-        configurable: false,
+        configurable: true,
         writable : false,
         value : prog,
     });
