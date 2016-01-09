@@ -148,7 +148,7 @@ addEventListener("mgrl_fps", function (event) {
     // This handler is called every so often to report an estimation
     // of the current frame rate, so that it can be displayed to the
     // user.
-    document.getElementById("fps").value = event.detail;
+    document.getElementById("fps").innerHTML = event.detail;
 });
 
 
