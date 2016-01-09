@@ -88,7 +88,7 @@ please.gl.macros.rewrite_swappable = function (method, available) {
             cases.push(clause);
         }
     }
-    body += cases.join("else");
+    body += cases.join("else ");
     body += 'else {\n';
     body += original.slice(1, -2).join('\n') + '\n';
     body += '}';
