@@ -72,7 +72,7 @@
 button {
     border: 1px outset black;
     border-radius: 3px;
-    background-color: transparent;
+    background-color: white;
     color: black;
 }
 

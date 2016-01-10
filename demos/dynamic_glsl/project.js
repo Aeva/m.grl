@@ -33,6 +33,7 @@ var demo = {
         "ext.frag",
         "base.frag",
         "suzanne.jta",
+        "river_scene.jta",
     ],
 };
 
@@ -79,6 +80,11 @@ demo.build_shader = function () {
     demo.hide_error();
     var handle = "build_" + (demo.last_index + 1);
 
+    var old_enums = null;
+    if (demo.last_build) {
+        old_enums = demo.last_build.final_ast.frag.enums.diffuse_color;
+    }
+
     // copy over source and reset base shader
     var src = document.getElementById("shader_source").value;
     demo.reflow_shader("ext.frag", src);
@@ -87,10 +93,11 @@ demo.build_shader = function () {
     try {
         // attempt to build and activate the new shader
         var prog = please.glsl(handle, "simple.vert", "base.frag");
+        var new_enums = prog.final_ast.frag.enums.diffuse_color;
         prog.activate();
         demo.last_index += 1;
         demo.last_build = prog;
-        demo.reset_colors();
+        demo.reset_model_effects(old_enums, new_enums);
     }
     catch (error) {
         // build failed: show an error message
@@ -99,13 +106,48 @@ demo.build_shader = function () {
 };
 
 
-demo.reset_colors = function () {
+demo.initial_model_settings = function () {
     var ast = please.access("base.frag").__ast;
     var enums = ast.enums["diffuse_color"];
-
+    
     demo.models.map(function (model, i) {
-        model.shader.diffuse_color = (i%(enums.length-1))+1;
-    });
+        var found = false;
+        enums.map(function (name, i) {
+            if (i>0 && model.node_name.indexOf(name) > -1) {
+                model.shader.diffuse_color = i;
+                found = true;
+            }
+        });
+        if (!found) {
+            model.shader.diffuse_color = (i%(enums.length-1))+1;
+        }
+    });    
+};
+
+
+demo.reset_model_effects = function (old_enums, new_enums) {
+    if (old_enums && new_enums) {
+        var mapping = {};
+        old_enums.map(function(name, i) {
+            var found = new_enums.indexOf(name);
+            if (found > -1) {
+                mapping[i] = found;
+            }
+        });
+
+        var counter = 1;
+        demo.models.map(function (model) {
+            var old_value = model.shader.diffuse_color;
+            var new_value = mapping[old_value];
+            if (new_value) {
+                model.shader.diffuse_color = new_value;
+            }
+            else {
+                model.shader.diffuse_color = (counter%(new_enums.length-1))+1;
+                counter += 1;
+            }
+        });
+    }
 };
 
 
@@ -178,9 +220,16 @@ addEventListener("mgrl_media_ready", please.once(function () {
         demo.models.push(monkey);
         monkey.rotation_z = please.repeating_driver(360, 0, 8000);
     });
-    demo.reset_colors();
 
-    graph.on_mouseup = function (event) {
+    var scene = please.access("river_scene.jta").instance();
+    scene.children.map(function (model) {
+        demo.models.push(model);
+    });
+    
+    graph.add(scene);
+    demo.initial_model_settings();
+
+    graph.on_mousedown = function (event) {
         if (event.picked) {
             demo.cycle_effect(event.picked);
         }
@@ -189,8 +238,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // add a camera object to the scene graph
     var camera = new please.CameraNode();
-    camera.look_at = [0.0, 0.0, 1.0];
-    camera.location = [1.0, -6, 2.0];
+    camera.look_at = [-1.5, 0.0, 1.0];
+    camera.location = [-3, -8, 2.5];
     graph.add(camera);
 
     // add a render pass

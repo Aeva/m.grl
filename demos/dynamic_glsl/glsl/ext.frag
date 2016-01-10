@@ -13,8 +13,8 @@ varying float linear_depth;
 
 
 plugin vec3 grid() {
-  float frequency = 1.5;
-  float thickness = 0.025;
+  float frequency = 0.75;
+  float thickness = 0.05;
   float radius = thickness * 0.5;
 
   vec3 tmp = fract((world_position * frequency) + radius);
@@ -31,14 +31,6 @@ plugin vec3 grid() {
 }
 
 
-plugin vec3 scanner() {
-  float angle = clamp(abs(screen_normal.z)*1.5, 0.0, 1.0);
-  vec3 towards = vec3(0.0, 0.0, 0.0);
-  vec3 away = vec3(1.0, 1.0, 1.0);
-  return mix(away, towards, angle);
-}
-
-
 // takes a point in space and outputs a color
 float distortion (vec3 coords, float frequency, float amplitude) {
   vec3 wave = sin(coords*frequency)*amplitude;
@@ -48,7 +40,60 @@ float distortion (vec3 coords, float frequency, float amplitude) {
 }
 
 
-plugin vec3 abstract_water() {
+float random() {
+  float low = distortion(world_position, 10.0, 10.0);
+  float high = distortion(world_position, low, 10.0);
+  return fract(high);
+}
+
+
+plugin vec3 tree() {
+  float amp = 0.2;
+  float freq = 30.0;
+  float spacing = 0.75;
+  float wave = sin((world_position.x + world_position.y)*freq)*amp;
+  float z = world_position.z + wave;
+  float z_mod = fract(z/spacing);
+  
+  if (z_mod < 0.5) {
+    return vec3(0.0, 0.5, 0.2);
+  }
+  else {
+    return vec3(0.0, 0.6, 0.2);
+  }
+}
+
+
+plugin vec3 bricks() {
+  float area = 1.2;
+  float height = 0.5;
+  float mortar = 0.06;
+
+  bool cond = fract(world_position.z / (height * 2.0)) < 0.5;
+  vec3 offset = cond? vec3(area*0.5, area*0.5, 0.0) : vec3(0.0);
+
+  vec3 scale_factor = vec3(area, area, height);
+  vec3 scaled = (world_position + offset) / scale_factor;
+  vec3 seam = vec3(mortar) / scale_factor;
+
+  vec3 grid = fract(scaled + seam);
+  bool x_mod = grid.x < seam.x;
+  bool y_mod = grid.y < seam.y;
+  bool z_mod = grid.z < seam.z;
+
+  vec3 color;
+  if (x_mod || y_mod || z_mod) {
+    color = vec3(0.4, 0.0, 0.3);
+  }
+  else {
+    color = vec3(1.0, 0.2, 0.3);
+  }
+  
+  return color * (0.4 + random()*0.7);
+}
+
+
+plugin vec3 water() {
   // note, the higher 'squish' is, the more the surface of the object
   // becomes apparent.
   vec3 squish = world_normal * 0.15;
