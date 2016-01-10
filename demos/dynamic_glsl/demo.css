@@ -7,6 +7,7 @@
     right: 20px;
     bottom: 20px;
     z-index: 20;
+    pointer-events: none;
 }
 #controls.hidden {
     display: none;
@@ -15,6 +16,9 @@
     display: block;
     animation-duration: 2s;
     animation-name: reveal;
+}
+#controls * {
+    pointer-events: auto;
 }
 
 

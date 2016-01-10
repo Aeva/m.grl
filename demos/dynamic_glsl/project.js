@@ -109,6 +109,14 @@ demo.reset_colors = function () {
 };
 
 
+demo.cycle_effect = function(model) {
+    var ast = please.access("base.frag").__ast;
+    var enums = ast.enums["diffuse_color"];
+    var index = model.__ani_store.diffuse_color;
+    model.__ani_store.diffuse_color = ((index+1)%(enums.length-1))+1;
+};
+
+
 addEventListener("load", function() {
     // Attach the opengl rendering context.  This must be done before
     // anything else.
@@ -159,14 +167,25 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var graph = demo.graph = new please.SceneGraph();
     var asset = please.access("suzanne.jta");
 
+    graph.picking.enabled = true;
+    graph.picking.skip_location_info = true;
+
     // add some objects onscreen
     [-3, 0, 3].map(function (x) {
         var monkey = asset.instance();
         monkey.location_x = x;
         graph.add(monkey);
         demo.models.push(monkey);
+        monkey.rotation_z = please.repeating_driver(360, 0, 8000);
     });
     demo.reset_colors();
+
+    graph.on_mouseup = function (event) {
+        if (event.picked) {
+            demo.cycle_effect(event.picked);
+        }
+    };
+
 
     // add a camera object to the scene graph
     var camera = new please.CameraNode();
@@ -178,6 +197,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var renderer = new DynamicRenderNode();
     renderer.graph = graph;
     demo.viewport.raise_curtains(renderer);
+    renderer.clear_color = [0.5, 0.5, 0.5, 1.0];
 }));
 
 
