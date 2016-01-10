@@ -510,7 +510,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 
     // sort through the shaders passed to this function
     var errors = [];
-    var ast_ref = {
+    var ast_ref = prog.final_ast = {
         "vert" : null,
         "frag" : null,
     };
