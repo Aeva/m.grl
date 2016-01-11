@@ -33,7 +33,7 @@ var demo = {
         "ext.frag",
         "base.frag",
         "suzanne.jta",
-        "river_scene.jta",
+        "holodeck.jta",
     ],
 };
 
@@ -227,7 +227,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
         monkey.rotation_z = please.repeating_driver(360, 0, 8000);
     });
 
-    var scene = please.access("river_scene.jta").instance();
+    var scene = please.access("holodeck.jta").instance();
     scene.children.map(function (model) {
         demo.models.push(model);
     });
@@ -247,6 +247,12 @@ addEventListener("mgrl_media_ready", please.once(function () {
     camera.look_at = [-1.5, 0.0, 1.0];
     camera.location = [-3, -8, 2.5];
     graph.add(camera);
+
+    // experimental aspec ration dependent fov
+    camera.fov = function () {
+        var rect = please.gl.canvas.getBoundingClientRect();
+        return please.degrees(Math.atan2(rect.height, rect.width)) * 1.58;
+    };
 
     // add a render pass
     var renderer = new DynamicRenderNode();
