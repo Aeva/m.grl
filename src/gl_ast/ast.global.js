@@ -15,11 +15,13 @@
 please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro) {
     console.assert(this !== window);
     please.gl.ast.mixin(this);
+    this.enum = [];
     this.mode = mode;
     this.type = type;
     this.name = name;
     this.size = size;
     this.macro = macro;
+    this.rewrite = null;
     this.qualifier = qualifier;
     if (mode === "const") {
         this.value = value;

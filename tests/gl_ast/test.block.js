@@ -85,7 +85,6 @@ test["error on redundant methods in file"] = function () {
     try {
         var tree = please.gl.glsl_to_ast(src);
     } catch (err) {
-        console.info(err);
         raised = true;
     };
     assert(raised);
@@ -111,6 +110,59 @@ test["error on redundant methods after includes"] = function () {
     var src = '';
     src += 'include("normalize_screen_coord.glsl");\n';
     src += 'vec2 normalize_screen_coord(vec2 coord) {}\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+        tree.print();
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["swappable method syntax"] = function () {
+    var src = '';
+    src += 'swappable float alpha() { return 1.0; }\n';
+    src += 'swappable vec4 diffuse() { return vec4(1.0, 1.0, 1.0, alpha()); }\n';
+    src += 'plugin vec4 red() { return vec4(1.0, 0.0, 0.0, alpha()); }\n';
+    src += 'plugin float half() { return 0.5; }\n';
+    src += 'void main() {\n';
+    src += '  return diffuse();\n';
+    src += '}\n';
+    var tree = please.gl.glsl_to_ast(src);
+    tree.print();
+    assert(tree.methods.length == 5);
+    
+    var by_name = {};
+    tree.methods.map(function (method) {
+        by_name[method.name] = method;
+    });
+
+    assert(by_name['alpha']);
+    assert(by_name['diffuse']);   
+    assert(by_name['red']);
+    assert(by_name['half']);
+    assert(by_name['main']);
+
+    assert(tree.enums['alpha'].length == 2);
+    assert(tree.enums['alpha'][0] == 'alpha');
+    assert(tree.enums['alpha'][1] == 'half');
+
+    assert(tree.enums['diffuse'].length == 2);
+    assert(tree.enums['diffuse'][0] == 'diffuse');
+    assert(tree.enums['diffuse'][1] == 'red');
+
+    assert(tree.rewrite['_mgrl_switch_alpha'] == 'alpha');
+    assert(tree.rewrite['_mgrl_switch_diffuse'] == 'diffuse');
+};
+
+
+test["swappable methods cannot be overloaded"] = function () {
+    var src = '';
+    src += 'swappable vec4 diffuse() { return vec4(1.0, 1.0, 1.0, 1.0); }\n';
+    src += 'swappable vec3 diffuse() { return vec4(1.0, 1.0, 1.0); }\n';
 
     var raised = false;
     try {

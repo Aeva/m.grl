@@ -53,3 +53,51 @@ please.gl.macros.curve = function (globals) {
     }
     return out;
 };
+
+
+//
+please.gl.macros.rewrite_swappable = function (method, available) {
+    var lookup = {};
+    ITER(a, available) {
+        var pick = available[a];
+        if (pick.macro == "plugin") {
+            lookup[pick.name] = pick;
+        }
+    }
+    console.assert(method.dynamic_globals.length == 1);
+
+    var original = method.print().split('\n');
+    var args = method.input.map(function (arg) {
+        return arg[1];
+    }).join(", ");
+    
+    var uniform = method.dynamic_globals[0].name;
+    var order = method.enumerate_plugins(available);
+    if (order.length == 1) {
+        return original.join("\n");
+    }
+    
+    var body = '';
+    var cases = [];
+    ITER(i, order) {
+        if (i > 0) {
+            var clause = '';
+            clause += 'if ('+uniform+'=='+i+') {\n';
+            clause +=  '  return ' + order[i] + '(' + args + ');\n';
+            clause += '}\n';
+            cases.push(clause);
+        }
+    }
+    body += cases.join("else ");
+    body += 'else {\n';
+    body += original.slice(1, -2).join('\n') + '\n';
+    body += '}';
+
+    var out = original[0] + '\n';
+    var parts = body.split('\n');
+    ITER(i, parts) {
+        out += '  ' + parts[i] + '\n';
+    }
+    out += '}\n'
+    return out;
+};

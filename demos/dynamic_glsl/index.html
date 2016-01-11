@@ -1,0 +1,35 @@
+<!doctype html>
+<html><head>
+  <meta charset="UTF-8">
+  <script type="text/javascript" src="../gl-matrix.js"></script>
+  <script type="text/javascript" src="../../mgrl.js"></script>
+  <link rel="stylesheet" type="text/css" href="libs/theme.css" />
+  
+  <script type="text/javascript" src="project.js"></script>
+  <link rel="stylesheet" type="text/css" href="ui.css" />
+  <link rel="stylesheet" type="text/css" href="demo.css" />
+  
+</head><body>
+  <div id="demo_area">
+    <div id="fps_counter">FPS:<span id="fps">???</span></div>
+    <div id="loading_screen"></div>
+    <canvas id="gl_canvas" class="fullscreen" width=800 height=600>
+      Your browser does not appear to support HTML5 canvas and/or webgl.
+    </canvas>
+
+    <div id="controls" class="hidden">
+      
+      <div id="editor">
+        <textarea id="shader_source" autofocus=1 spellcheck=0></textarea>
+        <div id="compiler_output"></div>
+        <div id="button_area">
+          <button id="compile_button">Compile!</button>
+        </div>
+      </div>
+
+      <div id="sidebar">
+      </div>
+      
+    </div>
+  </div>
+</body></html>
