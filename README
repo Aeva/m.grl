@@ -13,9 +13,12 @@
  https://www.gnu.org/licenses/lgpl-3.0.txt for more infomation.
 
  The code for the examples in the 'demos' folder is dedicated to the
- public domain by way of CC0.  More information about CC0 is available
- here: https://creativecommons.org/publicdomain/zero/1.0/
-
+ public domain by way of CC0 unless otherwise noted.  If you make use
+ of any CC0 resources from this project, it is gently requested that
+ you provide some sort of attribution to this project as being the
+ origin of the respective resources.  More information about CC0 is
+ available here: https://creativecommons.org/publicdomain/zero/1.0/
+ 
  The test runner is made available under the GPLv3 or newer.  See
  https://www.gnu.org/licenses/gpl-3.0.txt for more information.  The
  individual tests however are public domain by way of CC0.
