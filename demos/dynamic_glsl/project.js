@@ -224,7 +224,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.picking.skip_location_info = true;
 
     // add some objects onscreen
-    var names = ["grid", "weird_noise", "water"];
+    var names = ["vibrant", "weird_noise", "water"];
     [-3, 0, 3].map(function (x, i) {
         var monkey = asset.instance();
         monkey.node_name = names[i];
