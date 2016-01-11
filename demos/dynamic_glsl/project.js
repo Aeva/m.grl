@@ -40,7 +40,14 @@ var demo = {
 
 demo.init_controls = function () {
     // populate default values, connect ui events, and fade in
-    document.getElementById("shader_source").value = please.access("ext.frag").src;
+    var editor = document.getElementById("shader_source");
+    editor.value = please.access("ext.frag").src;
+    editor.addEventListener("keypress", function (event) {
+        if (event.ctrlKey && event.key === "Enter") {
+            event.preventDefault();
+            demo.build_shader();
+        }
+    });
     document.getElementById("compile_button").addEventListener("click", demo.build_shader);
 
     // delay a little before showing the controls
