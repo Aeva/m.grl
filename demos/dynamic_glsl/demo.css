@@ -1,3 +1,9 @@
+@font-face {
+    font-family: 'inconsolata';
+    src: url('../fonts/inconsolata/inconsolata.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
 
 
 #controls {
@@ -44,14 +50,14 @@
 
 #editor textarea {
     color: black;
-    background-color: rgba(255, 255, 255, 0.5);
+    background-color: rgba(255, 255, 255, 0.6);
     border: 1px solid black;
     margin: 0px;
     resize: none;
     height: 100%;
     box-sizing: border-box;
-    font-size: 12px;
-    font-family: mono;
+    font-size: 14px;
+    font-family: inconsolata;
 }
 
 #editor #compiler_output {
