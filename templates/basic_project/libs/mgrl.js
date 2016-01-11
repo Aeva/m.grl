@@ -4137,7 +4137,12 @@ please.gl.ast.str = function (text, offset) {
     }
     return str;
 };
-//
+/* [+] please.gl.ast.flatten(stream)
+ * 
+ * Take a token stream and "flatten" it into it's string
+ * representation.
+ * 
+ */
 please.gl.ast.flatten = function (stream) {
     if (stream.print) {
         return stream.print();
@@ -4155,6 +4160,60 @@ please.gl.ast.flatten = function (stream) {
     else {
         throw new Error("unable to flatten stream");
     }
+};
+/* [+] please.gl.ast.regex_split(stream, regex, callback)
+ * 
+ * Returns a new stream of tokens, splitting apart tokens where
+ * necessary, so that regex matches are their own token.
+ *
+ * If 'callback' is provided, the return result of the callback will
+ * be inserted into the stream instead of the matched string.
+ * 
+ */
+please.gl.ast.search = function (stream, regex, callback) {
+    var new_stream = [];
+    function split_token (token) {
+        var found = regex.exec(token);
+        if (found) {
+            var target = found[0];
+            var offset = token.indexOf(target);
+            // meta_? refers to the new token.meta.offset values
+            var meta_a = token.meta.offset;
+            var meta_b = meta_a + offset;
+            var meta_c = meta_b + target.length;
+            var before = please.gl.ast.str(token.slice(0, offset), meta_a);
+            var after = please.gl.ast.str(token.slice(offset+target.length), meta_c);
+            var result;
+            if (callback) {
+                result = callback(target);
+                result.meta.offset = meta_b;
+            }
+            else {
+                result = please.gl.ast.str(target, meta_b);
+            }
+            var new_tokens = [];
+            if (before.length > 0) {
+                new_tokens.push(before);
+            }
+            new_tokens.push(result);
+            new_tokens = new_tokens.concat(split_token(after));
+            var out = [];
+            for (var i=0; i<new_tokens.length; i+=1) {
+                var trimmed = please.gl.__trim([new_tokens[i]]);
+                if (trimmed.length > 0) {
+                    out.push(trimmed);
+                }
+            }
+            return out;
+        }
+        else {
+            return [token];
+        }
+    };
+    for (var i=0; i<stream.length; i+=1) {
+        new_stream = new_stream.concat(split_token(stream[i]));
+    }
+    return new_stream;
 };
 // - gl_ast/ast.comment.js -------------------------------------------- //
 /* [+] please.gl.ast.Comment(text, multiline)
@@ -4187,7 +4246,7 @@ please.gl.ast.Comment.prototype.print = function () {
 // commented out, and returns a list of Comment objects and strings.
 // This is the very first step in producing the token stream.
 please.gl.__find_comments = function (src, uri) {
-    var open_regex = /(?:\/\/|\/\*|\"|\'|#)/m;//"
+    var open_regex = /(?:\/\/|\/\*|\"|\'|^#)/m;//"
     var open = open_regex.exec(src);
     if (open === null) {
         return [src];
@@ -4470,20 +4529,8 @@ please.gl.ast.Block.prototype.print = function () {
     if (this.type === "global") {
         return this.__print_program();
     }
-    var flat = "";
+    var flat = please.gl.ast.flatten(this.data);
     var out = "";
-    for (var i=0; i<this.data.length; i+=1) {
-        var token = this.data[i];
-        if (token.print) {
-            flat += token.print();
-        }
-        else {
-            flat += token;
-            if (token == ";") {
-                flat += "\n";
-            }
-        }
-    };
     var indented = "";
     var lines = flat.split("\n");
     for (var i=0; i<lines.length; i+=1) {
@@ -4821,6 +4868,63 @@ please.gl.__identify_functions = function (ast) {
         collapse(recording_for, cache);
     }
     return remainder;
+};
+// - gl_ast/ast.hexcode.js ----------------------------------------------- //
+/* [+] please.gl.ast.Hexcode(stream)
+ * 
+ * AST constructor function representing (parenthetical) sections.
+ * 
+ */
+please.gl.ast.Hexcode = function (stream) {
+    console.assert(this !== window);
+    please.gl.ast.mixin(this);
+    if (stream[0] !== "#") {
+        please.gl.ast.error(stream, "Malformed hexcode: " + stream[0]);
+    }
+    var hex = stream.slice(1);
+    if (hex.length === 3 || hex.length === 6) {
+        this.type = "vec3";
+        this.value = this.parse_hex(hex);
+    }
+    else if (hex.length === 4 || hex.length === 8) {
+        this.type = "vec4";
+        this.value = this.parse_hex(hex);
+    }
+    else {
+        this.type = null;
+        please.gl.ast.error(stream, "Malformed hexcode: " + stream[0]);
+    }
+};
+please.gl.ast.Hexcode.prototype.parse_hex = function(hex) {
+    var cut = hex.length==3||hex.length==4 ? 1 : 2;
+    var values = [];
+    for (var i=0; i<hex.length; i+= cut) {
+        var part = hex.slice(i, i+cut);
+        if (cut == 1) {
+            part += part;
+        }
+        values.push(parseInt(part, 16)/255.0);
+    };
+    return values;
+};
+please.gl.ast.Hexcode.prototype.print = function() {
+    var vals = this.value.map(function (num) {
+        var str = String(num);
+        if (str.indexOf(".") == -1) {
+            str += ".0";
+        }
+        return str;
+    });
+    return this.type + "(" + vals.join(", ") + ")";
+};
+// Identify hexcode symbols.
+please.gl.__identify_hexcodes = function (ast) {
+    var callback = function (token) {
+        return new please.gl.ast.Hexcode(token);
+    };
+    var regex = /(?:#[0-9A-Fa-f]+)/m;
+    var new_ast = please.gl.ast.search(ast, regex, callback);
+    return new_ast;
 };
 // - gl_ast/ast.parenthetical.js ----------------------------------------- //
 /* [+] please.gl.ast.Parenthetical(stream)
@@ -5219,6 +5323,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
                 throw new Error("Extra '}' on line " + (token.line+1));
             }
             else {
+                tree = please.gl.__identify_hexcodes(tree);
                 tree = please.gl.__identify_parentheticals(tree);
                 tree = please.gl.__identify_invocations(tree);
                 return [new please.gl.ast.Block(tree), i];

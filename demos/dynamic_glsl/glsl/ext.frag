@@ -31,10 +31,10 @@ plugin vec3 grid() {
   bool z_mod = tmp.z < thickness;
 
   if (x_mod || y_mod || z_mod) {
-    return vec3(1.0, 0.75, 0.0);
+    return #ffbf00;
   }
   else {
-    return vec3(0.2, 0.2, 0.2);
+    return #333;
   }
 }
 

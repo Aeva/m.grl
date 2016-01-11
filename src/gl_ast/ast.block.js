@@ -26,22 +26,9 @@ please.gl.ast.Block.prototype.print = function () {
         return this.__print_program();
     }
 
-    var flat = "";
+    var flat = please.gl.ast.flatten(this.data);
     var out = "";
     
-    ITER(i, this.data) {
-        var token = this.data[i];
-        if (token.print) {
-            flat += token.print();
-        }
-        else {
-            flat += token;
-            if (token == ";") {
-                flat += "\n";
-            }
-        }
-    };
-
     var indented = "";
     var lines = flat.split("\n");
     ITER(i, lines) {
