@@ -1537,7 +1537,7 @@ please.load = function (asset_name, callback, options) {
             }
         }
     }
-    if (please.media.assets[asset_name] && !opt.force_reload) {
+    if (please.media.assets[asset_name] && !please.media.assets[asset_name].bundled && !opt.force_reload) {
         return;
     }
     var type = opt.force_type ? opt.force_type : please.media.guess_type(asset_name);
@@ -9270,6 +9270,7 @@ addEventListener("mgrl_gl_context_created", function () {
     please.prop_map(lookup_table, function (name, src) {
         // see m.media.js's please.media.handlers.glsl for reference:
         please.media.assets[name] = atob(src);
+        please.media.assets[name].bundled = true;
     });
 });
 // - bundled glsl shader assets --------------------------------------------- //
@@ -9279,6 +9280,7 @@ addEventListener("mgrl_gl_context_created", function () {
         addEventListener("mgrl_gl_context_created", function () {
             // see m.media.js's please.media.handlers.glsl for reference:
             please.media.assets[name] = new please.gl.ShaderSource(atob(src), name);
+            please.media.assets[name].bundled = true;
         });
     });
 })();
@@ -9294,6 +9296,7 @@ addEventListener("mgrl_gl_context_created", function () {
         img.asset_name = name;
         img.instance = please.media.__image_instance;
         please.media.assets[name] = img;
+        please.media.assets[name].bundled = true;
     });
 })();
 // -------------------------------------------------------------------------- //
