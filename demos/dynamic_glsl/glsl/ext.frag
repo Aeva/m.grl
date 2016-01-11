@@ -63,10 +63,10 @@ plugin vec3 tree() {
 }
 
 
-plugin vec3 bricks() {
-  float area = 1.2;
-  float height = 0.5;
-  float mortar = 0.06;
+plugin vec3 brick() {
+  float area = 0.9;
+  float height = 0.3;
+  float mortar = 0.05;
 
   bool cond = fract(world_position.z / (height * 2.0)) < 0.5;
   vec3 offset = cond? vec3(area*0.5, area*0.5, 0.0) : vec3(0.0);
