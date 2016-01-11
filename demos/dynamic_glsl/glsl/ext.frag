@@ -15,6 +15,11 @@ varying vec3 screen_normal;
 varying float linear_depth;
 
 
+plugin vec3 vibrant() {
+  return fract(world_position * world_normal);
+}
+
+
 plugin vec3 grid() {
   float frequency = 0.75;
   float thickness = 0.05;
