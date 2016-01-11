@@ -4,9 +4,8 @@ uniform float mgrl_frame_start;
 
 // handy positional information etc
 varying vec3 local_position;
-varying vec3 local_normal;
-varying vec2 local_tcoords;
 varying vec3 world_position;
+varying vec3 local_normal;
 varying vec3 world_normal;
 varying vec3 screen_normal;
 varying float linear_depth;
@@ -42,7 +41,7 @@ float distortion (vec3 coords, float frequency, float amplitude) {
 
 float random() {
   float low = distortion(world_position, 10.0, 10.0);
-  float high = distortion(world_position, low, 10.0);
+  float high = distortion(world_position, low, 1000.0);
   return fract(high);
 }
 
@@ -83,13 +82,13 @@ plugin vec3 bricks() {
 
   vec3 color;
   if (x_mod || y_mod || z_mod) {
-    color = vec3(0.4, 0.0, 0.3);
+    color = vec3(0.4, 0.0, 0.1);
   }
   else {
-    color = vec3(1.0, 0.2, 0.3);
+    color = vec3(1.0, 0.2, 0.16) * (0.4 + random()*0.7);
   }
   
-  return color * (0.4 + random()*0.7);
+  return color;
 }
 
 
@@ -107,16 +106,10 @@ plugin vec3 water() {
 }
 
 
+
 plugin vec3 weird_noise() {
-  float low = distortion(world_position, 10.0, 10.0);
-  float high = distortion(world_position, 10.0, low);
+  float dt = mgrl_frame_start/10000.0;
+  float low = distortion(world_position, 10.0, 10.0) * 0.5;
+  float high = distortion(world_position+dt, 10.0, low);
   return vec3(high);
-}
-
-
-plugin vec3 solid_noise() {
-  float dt = mgrl_frame_start/500.0;
-  float low = distortion(world_position, 10.0, 10.0);
-  float high = distortion(world_position, low, 10.0);
-  return vec3(fract(high*dt));
 }

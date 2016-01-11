@@ -152,10 +152,14 @@ demo.reset_model_effects = function (old_enums, new_enums) {
 
 
 demo.cycle_effect = function(model) {
-    var ast = please.access("base.frag").__ast;
-    var enums = ast.enums["diffuse_color"];
+    var enums = demo.last_build.final_ast.frag.enums.diffuse_color;
     var index = model.__ani_store.diffuse_color;
-    model.__ani_store.diffuse_color = ((index+1)%(enums.length-1))+1;
+    var next = ((index+1)%(enums.length));
+    if (next == 0) {
+        next += 1;
+    }
+    model.__ani_store.diffuse_color = next;
+    
 };
 
 
@@ -213,8 +217,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.picking.skip_location_info = true;
 
     // add some objects onscreen
-    [-3, 0, 3].map(function (x) {
+    var names = ["grid", "weird_noise", "water"];
+    [-3, 0, 3].map(function (x, i) {
         var monkey = asset.instance();
+        monkey.node_name = names[i];
         monkey.location_x = x;
         graph.add(monkey);
         demo.models.push(monkey);
