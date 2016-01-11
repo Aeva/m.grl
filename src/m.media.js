@@ -120,7 +120,7 @@ please.load = function (asset_name, callback, options) {
             }
         }
     }
-    if (please.media.assets[asset_name] && !opt.force_reload) {
+    if (please.media.assets[asset_name] && !please.media.assets[asset_name].bundled && !opt.force_reload) {
         return;
     }
     var type = opt.force_type ? opt.force_type : please.media.guess_type(asset_name);

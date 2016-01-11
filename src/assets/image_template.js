@@ -14,5 +14,6 @@
         img.instance = please.media.__image_instance;
 #endif
         please.media.assets[name] = img;
+        please.media.assets[name].bundled = true;
     });
 })();
