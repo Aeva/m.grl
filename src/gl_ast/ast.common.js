@@ -70,7 +70,12 @@ please.gl.ast.str = function (text, offset) {
 };
 
 
-//
+/* [+] please.gl.ast.flatten(stream)
+ * 
+ * Take a token stream and "flatten" it into it's string
+ * representation.
+ * 
+ */
 please.gl.ast.flatten = function (stream) {
     if (stream.print) {
         return stream.print();
@@ -88,4 +93,66 @@ please.gl.ast.flatten = function (stream) {
     else {
         throw new Error("unable to flatten stream");
     }
+};
+
+
+/* [+] please.gl.ast.regex_split(stream, regex, callback)
+ * 
+ * Returns a new stream of tokens, splitting apart tokens where
+ * necessary, so that regex matches are their own token.
+ *
+ * If 'callback' is provided, the return result of the callback will
+ * be inserted into the stream instead of the matched string.
+ * 
+ */
+please.gl.ast.search = function (stream, regex, callback) {
+    var new_stream = [];
+
+    function split_token (token) {
+        var found = regex.exec(token);
+        if (found) {
+            var target = found[0];
+            var offset = token.indexOf(target);
+
+            // meta_? refers to the new token.meta.offset values
+            var meta_a = token.meta.offset;
+            var meta_b = meta_a + offset;
+            var meta_c = meta_b + target.length;
+            
+            var before = please.gl.ast.str(token.slice(0, offset), meta_a);
+            var after = please.gl.ast.str(token.slice(offset+target.length), meta_c);
+
+            var result;
+            if (callback) {
+                result = callback(target);
+                result.meta.offset = meta_b;
+            }
+            else {
+                result = please.gl.ast.str(target, meta_b);
+            }
+            
+            var new_tokens = [];
+            if (before.length > 0) {
+                new_tokens.push(before);
+            }
+            new_tokens.push(result);
+            new_tokens = new_tokens.concat(split_token(after));
+            var out = [];
+            ITER(i, new_tokens) {
+                var trimmed = please.gl.__trim([new_tokens[i]]);
+                if (trimmed.length > 0) {
+                    out.push(trimmed);
+                }
+            }
+            return out;
+        }
+        else {
+            return [token];
+        }
+    };
+    
+    ITER(i, stream) {
+        new_stream = new_stream.concat(split_token(stream[i]));
+    }
+    return new_stream;
 };

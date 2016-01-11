@@ -20,6 +20,7 @@ please.gl.__symbols = [
 #include "gl_ast/ast.comment.js"
 #include "gl_ast/ast.global.js"
 #include "gl_ast/ast.block.js"
+#include "gl_ast/ast.hexcode.js"
 #include "gl_ast/ast.parenthetical.js"
 #include "gl_ast/ast.invocation.js"
 #include "gl_ast/ast.macros.js"
@@ -135,6 +136,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
                 throw new Error("Extra '}' on line " + (token.line+1));
             }
             else {
+                tree = please.gl.__identify_hexcodes(tree);
                 tree = please.gl.__identify_parentheticals(tree);
                 tree = please.gl.__identify_invocations(tree);
                 return [new please.gl.ast.Block(tree), i];
