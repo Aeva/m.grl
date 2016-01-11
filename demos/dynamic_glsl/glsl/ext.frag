@@ -1,8 +1,12 @@
+// This source file is dedicated to the public domain by way of CC0.
+// More information about CC0 can be found here:
+// https://creativecommons.org/publicdomain/zero/1.0/
 
-// time passed
+// If you reuse or modify this code, it is gently requested that you
+// attribute Aeva Palecek as the original author.
+
+
 uniform float mgrl_frame_start;
-
-// handy positional information etc
 varying vec3 local_position;
 varying vec3 world_position;
 varying vec3 local_normal;
