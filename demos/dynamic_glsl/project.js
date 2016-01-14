@@ -43,12 +43,10 @@ demo.init_controls = function () {
     var editor = document.getElementById("shader_source");
     editor.value = please.access("ext.frag").src;
 
-    // attempt to reset cursor position in webkit browsers
-    if (document.createRange) {
-        var range = document.createRange();
-        range.setStart(editor, 0);
-        range.setEnd(editor, 0);
-    }
+    // attempt to reset cursor position in some browsers
+    window.setTimeout(function () {
+        editor.scrollTop = 0;
+    }, 0);
 
     // bind events to buttons
     editor.addEventListener("keypress", function (event) {
