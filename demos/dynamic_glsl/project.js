@@ -43,11 +43,6 @@ demo.init_controls = function () {
     var editor = document.getElementById("shader_source");
     editor.value = please.access("ext.frag").src;
 
-    // attempt to reset cursor position in some browsers
-    window.setTimeout(function () {
-        editor.scrollTop = 0;
-    }, 0);
-
     // bind events to buttons
     editor.addEventListener("keypress", function (event) {
         if (event.ctrlKey && event.key === "Enter") {
@@ -64,6 +59,10 @@ demo.init_controls = function () {
     // delay a little before showing the controls
     setTimeout(function () {
         document.getElementById("controls").className = "reveal";
+        
+        // attempt to reset cursor position in some browsers
+        var editor = document.getElementById("shader_source");
+        editor.scrollTop = 0;
     }, 3000);
 };
 
