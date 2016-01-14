@@ -42,6 +42,7 @@ demo.init_controls = function () {
     // populate default values, connect ui events, and fade in
     var editor = document.getElementById("shader_source");
     editor.value = please.access("ext.frag").src;
+    editor.scrollTop = 0;
     editor.addEventListener("keypress", function (event) {
         if (event.ctrlKey && event.key === "Enter") {
             event.preventDefault();
