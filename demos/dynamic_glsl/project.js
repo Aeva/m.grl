@@ -42,7 +42,15 @@ demo.init_controls = function () {
     // populate default values, connect ui events, and fade in
     var editor = document.getElementById("shader_source");
     editor.value = please.access("ext.frag").src;
-    editor.scrollTop = 0;
+
+    // attempt to reset cursor position in webkit browsers
+    if (document.createRange) {
+        var range = document.createRange();
+        range.setStart(editor, 0);
+        range.setEnd(editor, 0);
+    }
+
+    // bind events to buttons
     editor.addEventListener("keypress", function (event) {
         if (event.ctrlKey && event.key === "Enter") {
             event.preventDefault();
