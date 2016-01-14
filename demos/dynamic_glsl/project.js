@@ -49,12 +49,41 @@ demo.init_controls = function () {
         }
     });
     document.getElementById("compile_button").addEventListener("click", demo.build_shader);
+    document.getElementById("hide_intro").addEventListener("click", demo.hide_intro);
+    document.getElementById("show_intro").addEventListener("click", demo.show_intro);
+    document.getElementById("hide_source").addEventListener("click", demo.hide_source);
+    document.getElementById("show_source").addEventListener("click", demo.show_source);
 
     // delay a little before showing the controls
     setTimeout(function () {
         document.getElementById("controls").className = "reveal";
     }, 3000);
 };
+
+
+demo.hide_intro = function () {
+    document.getElementById("intro").style.visibility = "hidden";
+    document.getElementById("intro_minimized").style.display = "block";
+};
+
+
+demo.show_intro = function () {
+    document.getElementById("intro_minimized").style.display = "none";
+    document.getElementById("intro").style.visibility = "visible";
+};
+
+
+demo.hide_source = function () {
+    document.getElementById("editor").style.visibility = "hidden";
+    document.getElementById("editor_minimized").style.display = "block";
+};
+
+
+demo.show_source = function () {
+    document.getElementById("editor_minimized").style.display = "none";
+    document.getElementById("editor").style.visibility = "visible";
+};
+
 
 demo.show_error = function (error_msg) {
     var widget = document.getElementById("compiler_output");

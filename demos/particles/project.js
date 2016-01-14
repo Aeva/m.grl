@@ -131,7 +131,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
 var ParticleFountain = function() {
     var asset = please.access("snow_flakes.png");
-    var span = function () { return 5000 + Math.random()*1000; };
+    var span = function () { return 7000 + Math.random()*1000; };
     var limit = 300;
     var ext = {
         "pt_1" : [0, 0, 0],

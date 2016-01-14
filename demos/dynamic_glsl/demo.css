@@ -6,6 +6,28 @@
 }
 
 
+@font-face {
+    font-family: 'cantarell-regular';
+    src: url('../fonts/abattis-cantarell/cantarell-regular.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+
+a {
+    color: #00C8FF;
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+}
+
+
+button {
+    font-size: 16px;
+}
+
+
 #controls {
     position: absolute;
     top: 20px;
@@ -14,6 +36,7 @@
     bottom: 20px;
     z-index: 20;
     pointer-events: none;
+    font-family: cantarell-regular;
 }
 #controls.hidden {
     display: none;
@@ -28,12 +51,17 @@
 }
 
 
-#editor, #sidebar {
-    position: absolute;
+#editor, #editor_minimized {
     background-color: rgba(255, 255, 255, 0.6);
     color: black;
+}
+
+#editor, #editor_minimized, #intro_minimized {
+    position: absolute;
     border: 1px solid #333;
     box-shadow: 2px 3px 0px 0px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    padding: 5px;
 }
 
 #editor {
@@ -42,10 +70,8 @@
     align-items: stretch;
     top: 0px;
     left: 0px;
-    box-sizing: border-box;
     width: 550px;
     height: 100%;
-    padding: 5px;
 }
 
 #editor textarea {
@@ -69,28 +95,121 @@
     white-space: pre-wrap;
 }
 
-#editor #button_area {
+#editor .button_area {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
     margin-top: 5px;
     text-align: right;
 }
 
-#editor #button_area input {
-}
-
-button {
+#editor button, #editor_minimized button {
     border: 1px outset black;
     border-radius: 3px;
     background-color: white;
     color: black;
 }
 
-button:active {
+#editor button:active {
     border: 1px inset black;
 }
 
 
-#sidebar {
+#editor_minimized {
     display: none;
+    bottom: 0px;
+    left: 0px;
+}
+
+
+#intro_minimized {
+    display: none;
+    bottom: 0px;
+    right: 0px;
+}
+
+
+#intro>div, #intro_minimized {
+    background-color: rgba(40, 40, 40, 0.93);
+    color: white;
+    border: 1px solid #333;
+}
+
+
+#intro {
+    display: flex;
+    align-items: center;
+    position: absolute;
+    max-width: 800px;
+    top: 0px;
+    right: 30px;
+    bottom: 0px;
+    margin-left: 30px;
+}
+
+#intro>div {
+    display: block;
+    box-shadow: 2px 3px 0px 0px rgba(0, 0, 0, 0.2);
+    padding: 10px;
+}
+
+#intro h1 {
+    background-color: rgba(0, 80, 150, 0.3);
+    color: white;
+    line-height: 1em;
+    text-align: center;
+    margin: 0px -11px 0px -11px;
+    padding: 5px 0px 5px 0px;
+}
+
+#intro h2 {
+    background-color: rgba(255, 255, 255, 0.6);
+    color: black;
+    margin: 25px -11px 10px -11px;
+    padding: 2px 0px 2px 0px;
+    border-top: 1px dotted #888;
+    border-bottom: 1px dotted #888;
+    line-height: 1em;
+    font-size: 23px;
+    font-style: italic;
+    text-align: center;
+}
+
+#intro h2 span {
+    color: #990000;
+}
+
+#intro p {
+    margin: 0px;
+    padding: 10px;
+    text-indent: 2em;
+    font-size: 20px;
+}
+
+#intro .button_area {
+    text-align: center;
+    margin-top: 10px;
+}
+
+#intro button, #intro_minimized button {
+    border: 1px outset white;
+    border-radius: 3px;
+    background-color: black;
+    color: white;
+}
+
+#intro button:active {
+    border: 1px inset white;
+}
+
+.code_example {
+    white-space: pre-wrap;
+    border-left: 6px solid #ccc;
+    padding: 0px 0px 4px 1em;
+    margin: 10px 50px 10px 70px;
+    font-size: 18px;
+    font-family: inconsolata;
 }
 
 @keyframes reveal {
