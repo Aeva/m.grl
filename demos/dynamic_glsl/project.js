@@ -62,6 +62,11 @@ demo.init_controls = function () {
         
         // attempt to reset cursor position in some browsers
         var editor = document.getElementById("shader_source");
+        if (document.createRange) {
+            var range = document.createRange();
+            range.setStart(editor, 0);
+            range.setEnd(editor, 0);
+        }
         editor.scrollTop = 0;
     }, 3000);
 };
