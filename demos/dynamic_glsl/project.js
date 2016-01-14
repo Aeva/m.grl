@@ -59,15 +59,6 @@ demo.init_controls = function () {
     // delay a little before showing the controls
     setTimeout(function () {
         document.getElementById("controls").className = "reveal";
-        
-        // attempt to reset cursor position in some browsers
-        var editor = document.getElementById("shader_source");
-        if (document.createRange) {
-            var range = document.createRange();
-            range.setStart(editor, 0);
-            range.setEnd(editor, 0);
-        }
-        editor.scrollTop = 0;
     }, 3000);
 };
 
