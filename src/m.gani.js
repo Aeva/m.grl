@@ -494,8 +494,8 @@ please.media.__AnimationData = function (gani_text, uri) {
 #ifdef WEBGL
         "vbo" : null,
         "ibo" : null,
-        "instance" : function () {},
 #endif
+        "instance" : function () {},
     };
 
     // the create function returns an AnimationInstance for this
@@ -706,18 +706,23 @@ please.media.__AnimationData = function (gani_text, uri) {
         });
     }
 
-#ifdef WEBGL
     // return a graph node instance of this animation
-    ani.instance = function (alpha) {
-        DEFAULT(alpha, true);
-        var node = new please.GraphNode();
-        node.__drawable = true;
-        node.ext = {};
-        node.vars = {};
-        node.samplers = {};
-        node.draw_type = "sprite";
-        node.sort_mode = "alpha";
+    ani.instance = function () {
+#ifdef WEBGL
+        if (please.renderer.name == "gl") {
+            return ani.__gl_instance()
+        }
+#endif
+#ifdef DOM
+        if (please.renderer.name == "dom") {
+            return ani.__dom_instance()
+        }
+#endif
+    };
 
+    
+    // used by both possible instance functions
+    ani.__common_mixin = function (node, setup_callback, frame_callback) {
         // cache of gani data
         node.__ganis = {};
         node.__current_gani = null;
@@ -745,22 +750,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             var action_name = get_action_name(ani_name);
             if (!node.__ganis[action_name]) {
                 node.__ganis[action_name] = resource;
-                
-                if (please.renderer.name == "gl") {
-                    if (!resource.ibo) {
-                        // build the VBO and IBO for this animation.
-                        please.gani.build_gl_buffers(resource);
-                    }
-                }
-                else if (please.renderer.name == "dom") {
-                    node.div = please.overlay.new_element();
-                    node.canvas = document.createElement("canvas");
-                    node.div.appendChild(node.canvas);
-                    node.div.bind_to_node(node);
-                    node.canvas.width = please.dom.orthographic_grid * 2;
-                    node.canvas.height = please.dom.orthographic_grid * 2;
-                    node.context = node.canvas.getContext("2d");
-                }
+                setup_callback(resource);
 
                 // Bind new attributes
                 please.prop_map(resource.attrs, function (name, value) {
@@ -792,25 +782,14 @@ please.media.__AnimationData = function (gani_text, uri) {
                 // Generate the frameset for the animation.
                 var score = resource.frames.map(function (frame) {
                     var callback;
-                    if (please.renderer.name == "dom") {
-                        callback = function (speed, skip_to) {
-                            node.context.clearRect(0, 0, node.canvas.width, node.canvas.height);
-                            for (var i = 0; i < frame.data[node.dir].length; ++i) {
-                                var f = frame.data[node.dir][i];
-                                var sprite = resource.sprites[f.sprite];
-                                var uri = resource.attrs[sprite.resource];
-                                var asset = please.access(uri);
-                                node.context.drawImage(asset, sprite.x, sprite.y, sprite.w, sprite.h, f.x, f.y, sprite.w, sprite.h);
-                            }
-                        };
-                    }
-                    else {
-                        callback = function (speed, skip_to) {
-                            // FIXME play frame.sound
-                            node.__current_frame = frame;
-                            node.__current_gani = resource;
-                        };
-                    }
+                    callback = function (speed, skip_to) {
+                        // FIXME play frame.sound
+                        node.__current_frame = frame;
+                        node.__current_gani = resource;
+                        if (frame_callback) {
+                            frame_callback(resource, frame);
+                        }
+                    };
                     return {
                         "speed" : frame.wait,
                         "callback" : callback,
@@ -826,9 +805,30 @@ please.media.__AnimationData = function (gani_text, uri) {
                 //action.queue = resource.setbackto; // not sure about this
             }
         };
+
         node.add_gani(this);
         node.play(get_action_name(this.__uri));
+    };
 
+    
+#ifdef WEBGL
+    ani.__gl_instance = function () {
+        var node = new please.GraphNode();
+        node.__drawable = true;
+        node.ext = {};
+        node.vars = {};
+        node.samplers = {};
+        node.draw_type = "sprite";
+        node.sort_mode = "alpha";
+
+        var setup_callback = function (resource) {
+            if (!resource.ibo) {
+                // build the VBO and IBO for this animation.
+                please.gani.build_gl_buffers(resource);
+            }
+        };
+
+        ani.__common_mixin(node, setup_callback, null);
 
         // draw function for the animation
         node.draw = function () {
@@ -874,6 +874,38 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
             }
         };
+        return node;
+    };
+#endif
+#ifdef DOM
+    ani.__dom_instance = function () {
+        var node = new please.GraphNode();
+
+        var setup_callback = function (resource) {
+            node.div = please.overlay.new_element();
+            node.canvas = document.createElement("canvas");
+            node.div.appendChild(node.canvas);
+            node.div.bind_to_node(node);
+            node.canvas.width = please.dom.orthographic_grid * 2;
+            node.canvas.height = please.dom.orthographic_grid * 2;
+            node.context = node.canvas.getContext("2d");
+        };
+
+        var frame_callback = function(resource, frame, speed, skip_to) {
+            node.context.clearRect(0, 0, node.canvas.width, node.canvas.height);
+            for (var i = 0; i < frame.data[node.dir].length; ++i) {
+                var f = frame.data[node.dir][i];
+                var sprite = resource.sprites[f.sprite];
+                var uri = resource.attrs[sprite.resource];
+                var asset = please.access(uri);
+                node.context.drawImage(
+                    asset, sprite.x, sprite.y, sprite.w, sprite.h,
+                    f.x, f.y, sprite.w, sprite.h);
+            }
+        };
+        
+        ani.__common_mixin(node, setup_callback, frame_callback);
+        
         return node;
     };
 #endif
