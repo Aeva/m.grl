@@ -47,11 +47,17 @@ please.__create_canvas_overlay = function (reference) {
 //
 please.__align_canvas_overlay = function () {
     var overlay = please.renderer.overlay;
-    overlay.rect = overlay.reference.getBoundingClientRect();
-    overlay.style.top = overlay.rect.top + "px";
-    overlay.style.left = overlay.rect.left + "px";
-    overlay.style.width = overlay.rect.width + "px";
-    overlay.style.height = overlay.rect.height + "px";
+    var rect = overlay.reference.getBoundingClientRect();
+    if (overlay.rect && overlay.rect.top == rect.top && overlay.rect.left == rect.left && overlay.rect.width == rect.width && overlay.rect.height == rect.height) {
+        return;
+    }
+    overlay.rect = rect;
+    overlay.style.top = rect.top + "px";
+    overlay.style.left = rect.left + "px";
+    overlay.style.width = rect.width + "px";
+    overlay.style.height = rect.height + "px";
+    var event = new CustomEvent("mgrl_overlay_aligned");
+    window.dispatchEvent(event);
 };
 
 
@@ -180,6 +186,7 @@ please.overlay.remove_element_of_class = function (class_name) {
 
 //
 please.overlay_sync = function () {
+    please.__align_canvas_overlay();
     var parent = please.renderer.overlay;
     var rect = parent.getBoundingClientRect();
     var offset_x = parent.clientWidth / 2;

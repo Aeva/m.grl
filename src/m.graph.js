@@ -869,6 +869,9 @@ please.SceneGraph = function () {
             // null<positive_number will evaluate to true anyway.
             this.tick();
         }
+        if (this.camera) {
+            this.camera.update_camera();
+        }
     };
 
     this.draw = function (exclude_test) {
@@ -876,7 +879,6 @@ please.SceneGraph = function () {
 
         var prog = please.gl.get_program();
         if (this.camera) {
-            this.camera.update_camera();
             prog.vars.projection_matrix = this.camera.projection_matrix;
             prog.vars.view_matrix = this.camera.view_matrix;
             prog.vars.focal_distance = this.camera.focal_distance;

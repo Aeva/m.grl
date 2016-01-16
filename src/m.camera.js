@@ -88,6 +88,7 @@ please.CameraNode = function () {
         please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
         please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
         this.__projection_mode = "perspective";
+        ANI("orthographic_grid", 32);
     }
 #endif
 
@@ -107,6 +108,7 @@ please.CameraNode = function () {
         Object.freeze(this.up_vector_y);
         Object.freeze(this.up_vector_z);
         Object.freeze(this.__projection_mode);
+        ANI("orthographic_grid", please.dom.orthographic_grid);
     }
 #endif
 
@@ -120,7 +122,6 @@ please.CameraNode = function () {
     ANI("right", null);
     ANI("bottom", null);
     ANI("top", null);
-    ANI("orthographic_grid", 32);
     ANI("origin_x", 0.5);
     ANI("origin_y", 0.5);
 
@@ -305,7 +306,7 @@ please.CameraNode.prototype.update_camera = function () {
             this.__last.orthographic_grid = orthographic_grid;
 
             // Recalculate the projection matrix and flag it as dirty
-            var scale = orthographic_grid/2;
+            var scale = orthographic_grid;
             mat4.ortho(
                 this.projection_matrix,
                 left/scale, right/scale, bottom/scale, top/scale, near, far);
