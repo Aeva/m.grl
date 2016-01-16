@@ -21,6 +21,9 @@ please.gl.ast.Invocation.prototype.print = function () {
 
 
 // Identify function calls and collapse the relevant ast together.
+// This also catches function prototypes, though only returns
+// invocation objects.  Another function will transform those
+// invocations into function prototypes.
 please.gl.__identify_invocations = function (ast) {
     var ignore = please.gl.__symbols.concat([
         "for",

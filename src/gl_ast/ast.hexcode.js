@@ -62,6 +62,6 @@ please.gl.__identify_hexcodes = function (ast) {
     };
     
     var regex = /(?:#[0-9A-Fa-f]+)/m;
-    var new_ast = please.gl.ast.search(ast, regex, callback);
+    var new_ast = please.gl.ast.regex_reflow(ast, regex, callback);
     return new_ast;
 };

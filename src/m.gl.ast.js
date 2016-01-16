@@ -23,6 +23,7 @@ please.gl.__symbols = [
 #include "gl_ast/ast.hexcode.js"
 #include "gl_ast/ast.parenthetical.js"
 #include "gl_ast/ast.invocation.js"
+#include "gl_ast/ast.function_prototype.js"
 #include "gl_ast/ast.macros.js"
 
 // - glslglsl/ast.js ----------------------------------------------------- //
@@ -156,6 +157,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         remainder = please.gl.__identify_parentheticals(remainder);
         remainder = please.gl.__identify_functions(remainder);
         remainder = please.gl.__identify_invocations(remainder);
+        remainder = please.gl.__identify_prototypes(remainder);
         var stream = globals.concat(remainder);
         var ast = new please.gl.ast.Block(stream);
         ast.make_global_scope();

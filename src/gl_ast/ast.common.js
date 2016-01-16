@@ -96,7 +96,7 @@ please.gl.ast.flatten = function (stream) {
 };
 
 
-/* [+] please.gl.ast.regex_split(stream, regex, callback)
+/* [+] please.gl.ast.regex_reflow(stream, regex, callback)
  * 
  * Returns a new stream of tokens, splitting apart tokens where
  * necessary, so that regex matches are their own token.
@@ -105,7 +105,7 @@ please.gl.ast.flatten = function (stream) {
  * be inserted into the stream instead of the matched string.
  * 
  */
-please.gl.ast.search = function (stream, regex, callback) {
+please.gl.ast.regex_reflow = function (stream, regex, callback) {
     var new_stream = [];
 
     function split_token (token) {
