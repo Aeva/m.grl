@@ -130,7 +130,7 @@ please.builder.SpriteBuilder.prototype = {
 
     // builds and returns a VBO
     "build" : function () {
-        if (please.renderer == 'dom') {
+        if (please.renderer.name == 'dom') {
             return {};
         }
         var v_count = this.__v_array.position.length / 3;

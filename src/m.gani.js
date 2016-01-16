@@ -746,9 +746,18 @@ please.media.__AnimationData = function (gani_text, uri) {
             if (!node.__ganis[action_name]) {
                 node.__ganis[action_name] = resource;
                 
-                if (!resource.ibo) {
+                if (please.renderer.name == "gl" && !resource.ibo) {
                     // build the VBO and IBO for this animation.
                     please.gani.build_gl_buffers(resource);
+                }
+                else if (please.renderer.name == "dom") {
+                    node.div = please.overlay.new_element();
+                    node.canvas = document.createElement("canvas");
+                    node.div.appendChild(node.canvas);
+                    node.div.bind_to_node(node);
+                    node.canvas.width = please.dom.orthographic_grid * 2;
+                    node.canvas.height = please.dom.orthographic_grid * 2;
+                    node.context = node.canvas.getContext("2d");
                 }
 
                 // Bind new attributes
@@ -780,13 +789,29 @@ please.media.__AnimationData = function (gani_text, uri) {
 
                 // Generate the frameset for the animation.
                 var score = resource.frames.map(function (frame) {
-                    return {
-                        "speed" : frame.wait,
-                        "callback" : function (speed, skip_to) {
+                    var callback;
+                    if (please.renderer.name == "dom") {
+                        callback = function (speed, skip_to) {
+                            node.context.clearRect(0, 0, node.canvas.width, node.canvas.height);
+                            for (var i = 0; i < frame.data[node.dir].length; ++i) {
+                                var f = frame.data[node.dir][i];
+                                var sprite = resource.sprites[f.sprite];
+                                var uri = resource.attrs[sprite.resource];
+                                var asset = please.access(uri);
+                                node.context.drawImage(asset, sprite.x, sprite.y, sprite.w, sprite.h, f.x, f.y, sprite.w, sprite.h);
+                            }
+                        };
+                    }
+                    else {
+                        callback = function (speed, skip_to) {
                             // FIXME play frame.sound
                             node.__current_frame = frame;
                             node.__current_gani = resource;
-                        },
+                        };
+                    }
+                    return {
+                        "speed" : frame.wait,
+                        "callback" : callback,
                     };
                 });
                 
