@@ -189,9 +189,10 @@ please.overlay_sync = function () {
     please.__align_canvas_overlay();
     var parent = please.renderer.overlay;
     var rect = parent.getBoundingClientRect();
-    var offset_x = parent.clientWidth / 2;
-    var offset_y = parent.clientHeight / 2;
+    var offset_x = rect.width * 0.5;
+    var offset_y = rect.height * 0.5;
     var origin = new Float32Array([0, 0, 0, 1]);
+    
     ITER(i, please.overlay.__bindings) {
         var element = please.overlay.__bindings[i];
         var node = element.__graph_node;
@@ -213,12 +214,13 @@ please.overlay_sync = function () {
             var y = (position[1] / position[3]) * 0.5;
             element.style.left = offset_x + x * rect.width + 'px';
             element.style.top = offset_y - y * rect.height + 'px';
-            // This must be an integer according to the standard, so a maximum precision must be chosen.
-            // position[2] is distance to camera; use negative multiplier to get correct sort order.
+            
+            // This must be an integer according to the standard, so a
+            // maximum precision must be chosen.  position[2] is the distance
+            // to the camera; use negative multiplier to get correct sort order.
             element.style.zIndex = Math.round((100 - position[2]) * 1000000);
-            //element.style.transform = "rotate(" + TODO + "rad) scale(" + TODO + ")";
+            
             element.style.display = node.visible ? "block" : "none";
-
             if (element.auto_center) {
                 var box = element.getBoundingClientRect();
                 element.style.marginLeft = box.width/-2 + "px";

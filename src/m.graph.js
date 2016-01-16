@@ -829,7 +829,9 @@ please.SceneGraph = function () {
         return rhs.__z_depth - lhs.__z_depth;
     };
 
-    this.tick = function () {
+    
+#ifdef WEBGL
+    var gl_tick = function () {
         this.__last_framestart = please.pipeline.__framestart;
 
         // nodes in the z-sorting path
@@ -863,7 +865,7 @@ please.SceneGraph = function () {
         };
     };
 
-    this.sync = function () {
+    var gl_draw = function (exclude_test) {
         if (this.__last_framestart < please.pipeline.__framestart) {
             // note, this.__last_framestart can be null, but
             // null<positive_number will evaluate to true anyway.
@@ -872,10 +874,6 @@ please.SceneGraph = function () {
         if (this.camera) {
             this.camera.update_camera();
         }
-    };
-
-    this.draw = function (exclude_test) {
-        this.sync();
 
         var prog = please.gl.get_program();
         if (this.camera) {
@@ -931,6 +929,28 @@ please.SceneGraph = function () {
             gl.depthMask(true);
         }
     };
+#endif
+    
+#ifdef DOM
+    var dom_draw = function () {
+        if (this.__last_framestart < please.pipeline.__framestart) {
+            // note, this.__last_framestart can be null, but
+            // null<positive_number will evaluate to true anyway.
+            this.__last_framestart = please.pipeline.__framestart;
+        }
+        if (this.camera) {
+            this.camera.update_camera();
+        }
+    };
+#endif
+
+    if (please.renderer.name == "gl") {
+        this.tick = gl_tick;
+        this.draw = gl_draw;
+    }
+    else if (please.renderer.name == "dom") {
+        this.draw = dom_draw;
+    }
 };
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 

@@ -57,9 +57,9 @@
 #include "m.gani.js"
 #include "m.graph.js"
 #include "m.camera.js"
-#include "m.builder.js"
 
 #ifdef WEBGL
+#include "m.builder.js"
 #include "m.compositing.js"
 #include "m.effects.js"
 #include "m.lights.js"

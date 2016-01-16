@@ -534,6 +534,7 @@ please.media.handlers.text = function (url, asset_name, callback) {
 //// to put this in m.media.js. :/
 #ifdef WEBGL
 please.media.__image_buffer_cache = {};
+#endif
 
 // [+] please.media.\_\_image_instance([center=false, scale=64, x=0, y=0, width=this.width, height=this.height, alpha=true])
 //
@@ -577,9 +578,7 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         node.ext = {};
         node.vars = {};
         node.__drawable = true;
-        if (alpha) {
-            node.sort_mode = "alpha";
-        }
+
         node.asset = this;
         node.hint = hint;
         node.draw_type = "sprite";
@@ -602,7 +601,10 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         // code specific to the dom renderer
         var node = new please.GraphNode();
         var div = please.overlay.new_element();
-        div.appendChild(this);
+        div.style.width = this.width + "px";
+        div.style.height = this.height + "px";
+        div.style.backgroundImage = "url(" + this.src +")";
+
         div.bind_to_node(node);
         node.asset = this;
         return node;
@@ -610,4 +612,3 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
 #endif
 };
 please.media.errors["img"].instance = please.media.__image_instance;
-#endif

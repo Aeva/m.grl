@@ -746,9 +746,11 @@ please.media.__AnimationData = function (gani_text, uri) {
             if (!node.__ganis[action_name]) {
                 node.__ganis[action_name] = resource;
                 
-                if (please.renderer.name == "gl" && !resource.ibo) {
-                    // build the VBO and IBO for this animation.
-                    please.gani.build_gl_buffers(resource);
+                if (please.renderer.name == "gl") {
+                    if (!resource.ibo) {
+                        // build the VBO and IBO for this animation.
+                        please.gani.build_gl_buffers(resource);
+                    }
                 }
                 else if (please.renderer.name == "dom") {
                     node.div = please.overlay.new_element();
