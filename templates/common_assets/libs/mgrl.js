@@ -4161,7 +4161,7 @@ please.gl.ast.flatten = function (stream) {
         throw new Error("unable to flatten stream");
     }
 };
-/* [+] please.gl.ast.regex_split(stream, regex, callback)
+/* [+] please.gl.ast.regex_reflow(stream, regex, callback)
  * 
  * Returns a new stream of tokens, splitting apart tokens where
  * necessary, so that regex matches are their own token.
@@ -4170,7 +4170,7 @@ please.gl.ast.flatten = function (stream) {
  * be inserted into the stream instead of the matched string.
  * 
  */
-please.gl.ast.search = function (stream, regex, callback) {
+please.gl.ast.regex_reflow = function (stream, regex, callback) {
     var new_stream = [];
     function split_token (token) {
         var found = regex.exec(token);
@@ -4549,20 +4549,13 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     this.enums = {};
     var out = "";
     var methods = [];
+    var hoists = [];
     if (!is_include && this.inclusions.length > 0) {
         // First, combine all of the globals and hoist them to the top
         // of the generated file.
         var globals = {};
         var ext_ast = {};
         var imports = this.all_includes();
-        for (var i=0; i<imports.length; i+=1) {
-            var other = please.access(imports[i]).__ast;
-            for (var m=0; m<other.methods.length; m+=1) {
-                methods.push(other.methods[m]);
-            }
-        }
-        methods = methods.concat(this.methods);
-        please.gl.__validate_functions(methods);
         var append_global = function(global) {
             if (globals[global.name] === undefined) {
                 globals[global.name] = global;
@@ -4573,14 +4566,30 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
             }
         };
         for (var i=0; i<imports.length; i+=1) {
-            var other = please.access(imports[i]);
-            var imported = ext_ast[imports[i]] = other.__ast;
-            imported.globals.map(append_global);
+            var other = ext_ast[imports[i]] = please.access(imports[i]).__ast;
+            other.globals.map(append_global);
+            for (var m=0; m<other.methods.length; m+=1) {
+                methods.push(other.methods[m]);
+            }
+            for (var h=0; h<other.hoists.length; h+=1) {
+                hoists.push(other.hoists[h]);
+            }
         }
         this.globals.map(append_global);
+        methods = methods.concat(this.methods);
+        please.gl.__validate_functions(methods);
+        hoists = hoists.concat(this.hoists);
         // Append the collection of globals to the output buffer.
         for (var name in globals) if (globals.hasOwnProperty(name)) {
             out += globals[name].print();
+        }
+        // Generate function prototypes for all methods, validate the
+        // resulting concatination, and print the to the output buffer.
+        hoists = hoists.concat(methods.map(function (m) { return m.generate_hoist(); }));
+        hoists = please.gl.__reduce_hoists(hoists);
+        out += "\n// Generated and hoisted function prototypes follow:\n"
+        for (var h=0; h<hoists.length; h+=1) {
+            out += hoists[h].print();
         }
         // Pass globals to the curve macro and append the result.
         var curve_functions = please.gl.macros.curve(globals);
@@ -4599,6 +4608,15 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     else {
         methods = methods.concat(this.methods);
         please.gl.__validate_functions(methods);
+    }
+    // if applicable, print out hoists
+    if (this.inclusions.length==0 && !is_include) {
+        hoists = hoists.concat(methods.map(function (m) { return m.generate_hoist(); }));
+        hoists = please.gl.__reduce_hoists(hoists);
+        out += "\n// Generated and hoisted function prototypes follow:\n"
+        for (var h=0; h<hoists.length; h+=1) {
+            out += hoists[h].print();
+        }
     }
     if (methods.length > 0) {
         // find and print virtual globals
@@ -4624,12 +4642,16 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
             out += global.print();
         };
     }
-    // Now, append the contents of this ast tree sans globals.
+    // Now, append the contents of this ast tree sans globals and
+    // explicit function prototypes.
     for (var i=0; i<this.data.length; i+=1) {
         var token = this.data[i];
         if (token.constructor == please.gl.ast.Global) {
             var dummy_out = (this.inclusions.length>0 || is_include) ? "// " : "";
             out += dummy_out + token.print();
+        }
+        else if (token.constructor == please.gl.ast.FunctionPrototype) {
+            out += "// " + token.print();
         }
         else if (token.constructor != please.gl.ast.Block &&
                  token.constructor != please.gl.ast.Comment &&
@@ -4750,9 +4772,20 @@ please.gl.ast.Block.prototype.make_function = function (invocation) {
         },
     });
 };
+// Generates a please.gl.ast.FunctionPrototype object for this method.
+please.gl.ast.Block.prototype.generate_hoist = function () {
+    if (this.type !== "function") {
+        throw new Error("Attempted to generate a function prototype for non-function block");
+    }
+    var prefix = this.output + " " + this.name;
+    var hoist = new please.gl.ast.FunctionPrototype(prefix, null);
+    hoist.input = this.input;
+    return hoist;
+};
 // Make this block represent the global scope.
 please.gl.ast.Block.prototype.make_global_scope = function () {
     this.type = "global";
+    this.hoists = []; // "function prototypes"
     this.globals = [];
     this.methods = [];
     this.rewrite = {};
@@ -4764,6 +4797,9 @@ please.gl.ast.Block.prototype.make_global_scope = function () {
         }
         if (item.constructor == please.gl.ast.Block && item.type == "function") {
             this.methods.push(item);
+        }
+        if (item.constructor == please.gl.ast.FunctionPrototype) {
+            this.hoists.push(item);
         }
     }
     please.gl.__bind_invocations(this.data, this.methods);
@@ -4923,7 +4959,7 @@ please.gl.__identify_hexcodes = function (ast) {
         return new please.gl.ast.Hexcode(token);
     };
     var regex = /(?:#[0-9A-Fa-f]+)/m;
-    var new_ast = please.gl.ast.search(ast, regex, callback);
+    var new_ast = please.gl.ast.regex_reflow(ast, regex, callback);
     return new_ast;
 };
 // - gl_ast/ast.parenthetical.js ----------------------------------------- //
@@ -5051,6 +5087,9 @@ please.gl.ast.Invocation.prototype.print = function () {
     return this.name + this.args.print()
 };
 // Identify function calls and collapse the relevant ast together.
+// This also catches function prototypes, though only returns
+// invocation objects.  Another function will transform those
+// invocations into function prototypes.
 please.gl.__identify_invocations = function (ast) {
     var ignore = please.gl.__symbols.concat([
         "for",
@@ -5136,6 +5175,85 @@ please.gl.__bind_invocations = function (stream, methods_set, scope) {
             please.gl.__bind_invocations(item.data, null, scope);
         }
     }
+};
+// - gl_ast/ast.function_prototype.js ------------------------------------ //
+/* [+] please.gl.ast.Prototype(prefix, params)
+ * 
+ * AST constructor function representing function calls.
+ * 
+ */
+please.gl.ast.FunctionPrototype = function (prefix, params) {
+    please.gl.ast.mixin(this);
+    prefix = prefix.split(" ");
+    this.name = prefix[1];
+    this.output = prefix[0];
+    this.input = [];
+    if (params !== null) {
+        if (params.constructor !== please.gl.ast.Parenthetical) {
+            throw new Error("Malformed function prototype: " + invocation);
+        }
+        else if (!params.is_flat) {
+            throw new Error("Nested parenthesis in prototype params: " + invocation);
+        }
+        var arg_parts = please.gl.__trim(params.data.join("").split(","));
+        if (!(arg_parts.length == 1 && arg_parts[0] == "void")) {
+            for (var i=0; i<arg_parts.length; i+=1) {
+                this.input.push(arg_parts[i].split(" "));
+            };
+        }
+    }
+    Object.defineProperty(this, "signature", {
+        get: function () {
+            var sig = this.output;
+            for (var i=0; i<this.input.length; i+=1) {
+                sig += ":" + this.input[i][0];
+            }
+            return sig;
+        },
+    });
+};
+// Prints the glsl for this object.
+please.gl.ast.FunctionPrototype.prototype.print = function () {
+    var ret = this.output + " " + this.name + "(";
+    var parts = [];
+    for (var i=0; i<this.input.length; i+=1) {
+        parts.push(this.input[i][0]);
+    }
+    ret += parts.join(", ") + ");\n";
+    return ret;
+};
+// Searches through the ast for invocation objects that are actually
+// function prototypes, and replaces them as such.
+please.gl.__identify_prototypes = function (ast) {
+    var new_ast = [];
+    var name_regex = /^(?:[a-zA-Z_-][a-zA-Z0-9_-])+ (?:[a-zA-Z_-][a-zA-Z0-9_-])+$/;
+    for (var i=0; i<ast.length; i+=1) {
+        var item = ast[i];
+        if (item.constructor == please.gl.ast.Invocation && name_regex.exec(item.name) !== null) {
+            var proto = new please.gl.ast.FunctionPrototype(item.name, item.args);
+            proto.meta = item.meta;
+            new_ast.push(proto);
+        }
+        else {
+            new_ast.push(item);
+        }
+    }
+    return new_ast;
+};
+// Remove duplicates and verify that the provided collection of hoists
+// does not contain any conflicting type signatures.
+please.gl.__reduce_hoists = function(hoists) {
+    var found = {};
+    var new_set = [];
+    for (var h=0; h<hoists.length; h+=1) {
+        var proto = hoists[h];
+        var repr = proto.print();
+        if (!found[repr]) {
+            found[repr] = true;
+            new_set.push(proto);
+        }
+    }
+    return new_set;
 };
 // - gl_ast/ast.macros.js --------------------------------------------- //
 /*
@@ -5342,6 +5460,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         remainder = please.gl.__identify_parentheticals(remainder);
         remainder = please.gl.__identify_functions(remainder);
         remainder = please.gl.__identify_invocations(remainder);
+        remainder = please.gl.__identify_prototypes(remainder);
         var stream = globals.concat(remainder);
         var ast = new please.gl.ast.Block(stream);
         ast.make_global_scope();
