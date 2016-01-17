@@ -2131,7 +2131,12 @@ please.keys.normalize_dvorak = function (str) {
 please.keys.__legacy_name = function (key) {
     key = key.toLowerCase();
     if (key.length === 1) {
-        return please.keys.normalize_dvorak(key);
+        if (window.location.hash === "#dvorak") {
+            return please.keys.normalize_dvorak(key);
+        }
+        else {
+            return key;
+        }
     }
     else if (please.keys.__keyname_codes[key]) {
         return key;
