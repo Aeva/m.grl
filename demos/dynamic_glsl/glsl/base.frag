@@ -1,6 +1,4 @@
 
-include("ext.frag");
-
 
 varying float linear_depth;
 

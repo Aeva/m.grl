@@ -38,66 +38,8 @@ var demo = {
 };
 
 
-demo.init_controls = function () {
-    // populate default values, connect ui events, and fade in
-    var editor = document.getElementById("shader_source");
-    editor.value = please.access("ext.frag").src;
-
-    // bind events to buttons
-    editor.addEventListener("keypress", function (event) {
-        if (event.ctrlKey && event.key === "Enter") {
-            event.preventDefault();
-            demo.build_shader();
-        }
-    });
-    document.getElementById("compile_button").addEventListener("click", demo.build_shader);
-    document.getElementById("hide_intro").addEventListener("click", demo.hide_intro);
-    document.getElementById("show_intro").addEventListener("click", demo.show_intro);
-    document.getElementById("hide_source").addEventListener("click", demo.hide_source);
-    document.getElementById("show_source").addEventListener("click", demo.show_source);
-
-    // delay a little before showing the controls
-    setTimeout(function () {
-        document.getElementById("controls").className = "reveal";
-    }, 3000);
-};
-
-
-demo.hide_intro = function () {
-    document.getElementById("intro").style.visibility = "hidden";
-    document.getElementById("intro_minimized").style.display = "block";
-};
-
-
-demo.show_intro = function () {
-    document.getElementById("intro_minimized").style.display = "none";
-    document.getElementById("intro").style.visibility = "visible";
-};
-
-
-demo.hide_source = function () {
-    document.getElementById("editor").style.visibility = "hidden";
-    document.getElementById("editor_minimized").style.display = "block";
-};
-
-
-demo.show_source = function () {
-    document.getElementById("editor_minimized").style.display = "none";
-    document.getElementById("editor").style.visibility = "visible";
-};
-
-
-demo.show_error = function (error_msg) {
-    var widget = document.getElementById("compiler_output");
-    widget.style.display = "block";
-    widget.innerHTML = error_msg;
-};
-
-
-demo.hide_error = function () {
-    var widget = document.getElementById("compiler_output");
-    widget.style.display = "none";
-};
+// Note, "bindings.js" contains functions that are used to show, hide,
+// or modify the overlay controls in this demo.
 
 
 demo.reflow_shader = function (handle, new_src) {
@@ -126,11 +68,10 @@ demo.build_shader = function () {
     // copy over source and reset base shader
     var src = document.getElementById("shader_source").value;
     demo.reflow_shader("ext.frag", src);
-    demo.reflow_shader("base.frag");
     
     try {
         // attempt to build and activate the new shader
-        var prog = please.glsl(handle, "simple.vert", "base.frag");
+        var prog = please.glsl(handle, "simple.vert", "base.frag", "ext.frag");
         var new_enums = prog.final_ast.frag.enums.diffuse_color;
         prog.activate();
         demo.last_index += 1;
@@ -145,8 +86,7 @@ demo.build_shader = function () {
 
 
 demo.initial_model_settings = function () {
-    var ast = please.access("base.frag").__ast;
-    var enums = ast.enums["diffuse_color"];
+    var enums = demo.last_build.final_ast.frag.enums.diffuse_color;
     
     demo.models.map(function (model, i) {
         var found = false;
@@ -312,5 +252,4 @@ var DynamicRenderNode = function () {
             return demo.last_build;
         },
     });
-
 };
