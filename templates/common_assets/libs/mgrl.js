@@ -5854,14 +5854,22 @@ please.gl.__jta_model = function (src, uri) {
                     node.__asset_hint = uri + ":" + model.__vbo_hint;
                     node.__asset = model;
                     node.__drawable = true;
-                    please.prop_map(model.samplers, function(name, uri) {
+                    please.prop_map(model.samplers, function(name, img_uri) {
                         if (node.shader.hasOwnProperty(name)) {
-                            node.shader[name] = uri;
+                            node.shader[name] = img_uri;
+                        }
+                        else {
+                            node.__ani_store[name] = img_uri;
+                            console.warn("Model \"" + uri + "\" defines a sampler variable not used by the current shader program: " + name);
                         }
                     });
                     please.prop_map(model.uniforms, function(name, value) {
                         if (node.shader.hasOwnProperty(name)) {
                             node.shader[name] = value;
+                        }
+                        else {
+                            node.__ani_store[name] = value;
+                            console.warn("Model \"" + uri + "\" defines a uniform variable not used by the current shader program: " + name);
                         }
                     });
                     node.bind = function () {
@@ -6168,8 +6176,11 @@ please.gl.__jta_extract_models = function (model_defs, buffer_objects) {
             else if (state.type === "Array") {
                 model.uniforms[state_name] = please.gl.__jta_array(state);
             }
-            else {
-                throw new Error("Not implemented: non-array uniforms from jta export");
+            else if (typeof(state) === "number") {
+                model.uniforms[state_name] = state;
+            }
+            else if (typeof(state) === "boolean") {
+                model.uniforms[state_name] = state;
             }
         });
         return model;
