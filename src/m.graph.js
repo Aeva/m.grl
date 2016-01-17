@@ -399,13 +399,13 @@ please.GraphNode = function () {
 
     // Automatically databind to the shader program's uniform and
     // sampler variables.
-    var prog = please.gl.get_program();
     var ignore = [
         "projection_matrix",
         "view_matrix",
     ];
     
 #ifdef WEBGL
+    var prog = please.gl.get_program();
     if (please.renderer.name === "gl") {
         // code specific to the webgl renderer
        
@@ -672,6 +672,7 @@ please.GraphNode.prototype = {
         var position = vec3.transformMat4(vec3.create(), this.location, matrix);
         this.__z_depth = position[2];
     },
+#ifdef WEBGL
     "__bind" : function (prog) {
         // calls this.bind if applicable.
         if (this.__drawable && typeof(this.bind) === "function") {
@@ -706,6 +707,7 @@ please.GraphNode.prototype = {
             this.__last_vbo = please.gl.__last_vbo;
         }
     },
+#endif
     // The bind function is called to set up the object's state.
     // Uniforms and textures are bound automatically.
     "bind" : null,
