@@ -32,6 +32,11 @@ demo.init_controls = function () {
             demo.build_shader();
         }
     });
+    window.addEventListener("keypress", function (event) {
+        if (event.key === "Escape") {
+            demo.hide_intro();
+        }
+    });
     document.getElementById("compile_button").addEventListener("click", demo.build_shader);
     document.getElementById("hide_intro").addEventListener("click", demo.hide_intro);
     document.getElementById("show_intro").addEventListener("click", demo.show_intro);
