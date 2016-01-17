@@ -6,3 +6,4 @@
 /apps/jta_tool/*.egg-info
 *.blend?
 /src/tmp/
+/src/Makefile

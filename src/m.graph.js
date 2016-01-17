@@ -399,58 +399,73 @@ please.GraphNode = function () {
 
     // Automatically databind to the shader program's uniform and
     // sampler variables.
-    var prog = please.gl.get_program();
     var ignore = [
         "projection_matrix",
         "view_matrix",
     ];
+    
+#ifdef WEBGL
+    var prog = please.gl.get_program();
+    if (please.renderer.name === "gl") {
+        // code specific to the webgl renderer
+       
+        this.__regen_glsl_bindings = function (event) {
+            // GLSL bindings with default driver methods:
+            var prog = please.gl.__cache.current;
+            var old = null;
+            if (event) {
+                old = event.old_prog;
+            }
+            // deep copy
+            var old_data = this.__ani_store;
+            this.__ani_store = {};
+            this.shader = {};
+            please.make_animatable(
+                this, "world_matrix", this.__world_matrix_driver, this.shader, true);
+            please.make_animatable(
+                this, "normal_matrix", this.__normal_matrix_driver, this.shader, true);
+            // GLSLS bindings with default behaviors
+            please.make_animatable(
+                this, "alpha", 1.0, this.shader);
+            please.make_animatable(
+                this, "is_sprite", this.__is_sprite_driver, this.shader, true);
+            please.make_animatable(
+                this, "is_transparent", this.__is_transparent_driver, this.shader, true);
+            please.make_animatable_tripple(
+                this, "object_index", "rgb", this.__object_id_driver, this.shader, true);
+            please.make_animatable(
+                this, "billboard_mode", this.__billboard_driver, this.shader, true);
 
-    // GLSL bindings with default driver methods:
-    this.__regen_glsl_bindings = function (event) {
-        var prog = please.gl.__cache.current;
-        var old = null;
-        if (event) {
-            old = event.old_prog;
-        }
-        // deep copy
-        var old_data = this.__ani_store;
-        this.__ani_store = {};
+            // prog.samplers is a subset of prog.vars
+            for (var name, i=0; i<prog.uniform_list.length; i+=1) {
+                name = prog.uniform_list[i];
+                if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
+                    please.make_animatable(this, name, null, this.shader);
+                }
+            }
+
+            // restore old values that were wiped out
+            ITER_PROPS(name, old_data) {
+                var old_value = old_data[name];
+                if (old_value !== undefined && old_value !== null) {
+                    this.__ani_store[name] = old_value;
+                }
+            }
+        }.bind(this);
+        this.__regen_glsl_bindings();
+        window.addEventListener("mgrl_changed_shader", this.__regen_glsl_bindings);
+    }
+#endif
+
+#ifdef DOM
+    if (please.renderer.name === "dom") {
+        // code specific to the dom renderer
         this.shader = {};
         please.make_animatable(
             this, "world_matrix", this.__world_matrix_driver, this.shader, true);
-        please.make_animatable(
-            this, "normal_matrix", this.__normal_matrix_driver, this.shader, true);
-        // GLSLS bindings with default behaviors
-        please.make_animatable(
-            this, "alpha", 1.0, this.shader);
-        please.make_animatable(
-            this, "is_sprite", this.__is_sprite_driver, this.shader, true);
-        please.make_animatable(
-            this, "is_transparent", this.__is_transparent_driver, this.shader, true);
-        please.make_animatable_tripple(
-            this, "object_index", "rgb", this.__object_id_driver, this.shader, true);
-        please.make_animatable(
-            this, "billboard_mode", this.__billboard_driver, this.shader, true);
-
-        // prog.samplers is a subset of prog.vars
-        for (var name, i=0; i<prog.uniform_list.length; i+=1) {
-            name = prog.uniform_list[i];
-            if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
-                please.make_animatable(this, name, null, this.shader);
-            }
-        }
-
-        // restore old values that were wiped out
-        ITER_PROPS(name, old_data) {
-            var old_value = old_data[name];
-            if (old_value !== undefined && old_value !== null) {
-                this.__ani_store[name] = old_value;
-            }
-        }
-    }.bind(this);
-    this.__regen_glsl_bindings();
-    window.addEventListener("mgrl_changed_shader", this.__regen_glsl_bindings);
-
+    }
+#endif
+    
     this.is_bone = false;
     this.visible = true;
     this.draw_type = "model"; // can be set to "sprite"
@@ -657,6 +672,7 @@ please.GraphNode.prototype = {
         var position = vec3.transformMat4(vec3.create(), this.location, matrix);
         this.__z_depth = position[2];
     },
+#ifdef WEBGL
     "__bind" : function (prog) {
         // calls this.bind if applicable.
         if (this.__drawable && typeof(this.bind) === "function") {
@@ -691,6 +707,7 @@ please.GraphNode.prototype = {
             this.__last_vbo = please.gl.__last_vbo;
         }
     },
+#endif
     // The bind function is called to set up the object's state.
     // Uniforms and textures are bound automatically.
     "bind" : null,
@@ -763,24 +780,41 @@ please.SceneGraph = function () {
         }
     };
 
-    this.picking = {
-        "enabled" : false,
-        "skip_location_info" : true,
-        "skip_on_move_event" : true,
-        "compositing_root" : null,
-        "__reference_node" : this.__create_picking_node(),
-        // __click_test stores what was selected on the last
-        // mouse_down event.  If mouse up matches, the objects gets a
-        // "click" event after it's mouse up event.  __last_click
-        // stores what object recieved a click last, and is reset
-        // whenever a contradicting mouseup occurs.  It also stores
-        // when that object was clicked on for the double click
-        // threshold.
-        "__click_test" : null,
-        "__last_click" : null,
-        "__clear_timer" : null,
-    };
-    this.picking.compositing_root = this.picking.__reference_node;
+#ifdef WEBGL
+    if (please.renderer.name === "gl") {
+        this.picking = {
+            "enabled" : false,
+            "skip_location_info" : true,
+            "skip_on_move_event" : true,
+            "compositing_root" : null,
+            "__reference_node" : this.__create_picking_node(),
+            // __click_test stores what was selected on the last
+            // mouse_down event.  If mouse up matches, the objects gets a
+            // "click" event after it's mouse up event.  __last_click
+            // stores what object recieved a click last, and is reset
+            // whenever a contradicting mouseup occurs.  It also stores
+            // when that object was clicked on for the double click
+            // threshold.
+            "__click_test" : null,
+            "__last_click" : null,
+            "__clear_timer" : null,
+        };
+        this.picking.compositing_root = this.picking.__reference_node;
+
+        this.__picked_node = function (color_array) {
+            if (r===0 && g===0 && b===0) {
+                return null;
+            }
+            else {
+                var r = color_array[0];
+                var g = color_array[1];
+                var b = color_array[2];
+                var color_index = r + g*256 + b*65536;
+                return this.__flat[color_index-1];
+            }
+        };
+    }
+#endif
 
     Object.defineProperty(this, "graph_root", {
         "configurable" : false,
@@ -797,7 +831,9 @@ please.SceneGraph = function () {
         return rhs.__z_depth - lhs.__z_depth;
     };
 
-    this.tick = function () {
+    
+#ifdef WEBGL
+    var gl_tick = function () {
         this.__last_framestart = please.pipeline.__framestart;
 
         // nodes in the z-sorting path
@@ -831,29 +867,18 @@ please.SceneGraph = function () {
         };
     };
 
-    this.__picked_node = function (color_array) {
-        if (r===0 && g===0 && b===0) {
-            return null;
-        }
-        else {
-            var r = color_array[0];
-            var g = color_array[1];
-            var b = color_array[2];
-            var color_index = r + g*256 + b*65536;
-            return this.__flat[color_index-1];
-        }
-    };
-
-    this.draw = function (exclude_test) {
+    var gl_draw = function (exclude_test) {
         if (this.__last_framestart < please.pipeline.__framestart) {
             // note, this.__last_framestart can be null, but
             // null<positive_number will evaluate to true anyway.
             this.tick();
         }
+        if (this.camera) {
+            this.camera.update_camera();
+        }
 
         var prog = please.gl.get_program();
         if (this.camera) {
-            this.camera.update_camera();
             prog.vars.projection_matrix = this.camera.projection_matrix;
             prog.vars.view_matrix = this.camera.view_matrix;
             prog.vars.focal_distance = this.camera.focal_distance;
@@ -906,6 +931,28 @@ please.SceneGraph = function () {
             gl.depthMask(true);
         }
     };
+#endif
+    
+#ifdef DOM
+    var dom_draw = function () {
+        if (this.__last_framestart < please.pipeline.__framestart) {
+            // note, this.__last_framestart can be null, but
+            // null<positive_number will evaluate to true anyway.
+            this.__last_framestart = please.pipeline.__framestart;
+        }
+        if (this.camera) {
+            this.camera.update_camera();
+        }
+    };
+#endif
+
+    if (please.renderer.name == "gl") {
+        this.tick = gl_tick;
+        this.draw = gl_draw;
+    }
+    else if (please.renderer.name == "dom") {
+        this.draw = dom_draw;
+    }
 };
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 
@@ -988,7 +1035,7 @@ please.__req_object_pick = function (x, y, event_info) {
 //
 // This code facilitates color based picking, when relevant. 
 //
-please.pipeline.add(-1, "mgrl/picking_pass", function () {
+please.__picking_pass = function () {
     var req = please.__picking.queue.shift();
     if (!req) {
         req = please.__picking.move_event;
@@ -1055,7 +1102,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
 
     // restore original clear color
     gl.clearColor.apply(gl, please.__clear_color);
-}).skip_when(function () { return please.__picking.queue.length === 0 && please.__picking.move_event === null; });
+};
 
 
 //

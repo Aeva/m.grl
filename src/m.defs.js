@@ -11,7 +11,15 @@
  */
 
 // Define said namespace:
-if (window.please === undefined) { window.please = {} };
+window.please = {};
+
+please.renderer = {
+    "name" : null,
+    "overlay" : null,
+    "width" : 0,
+    "height" : 0,
+};
+
 
 
 // [+] please.prop_map(dict, callback)

@@ -7,10 +7,10 @@
  * positions locked to appear over the screen position of any
  * GraphNode in use.
  *
- * The #mgrl_overlay div is created when the OpenGL rendering context
+ * The #mgrl_overlay div is created when the rendering context
  * is established.  While you can interact with this directly if you
  * like, it is generally advised to use the overlay API to add and
- * destroy widgets intended to function seamlessly with the WebGL
+ * destroy widgets intended to function seamlessly with the animated
  * content.
  *
  * Please note that the overlay currently sets the "pointer-events"
@@ -29,16 +29,16 @@ please.overlay = {
 
 
 //
-please.__create_canvas_overlay = function () {
-    var canvas = please.gl.canvas;
-    if (!canvas.overlay) {
-        var overlay = canvas.overlay = document.createElement("div");
+please.__create_canvas_overlay = function (reference) {
+    if (!please.renderer.overlay) {
+        var overlay = please.renderer.overlay = document.createElement("div");
+        overlay.reference = reference;
         overlay.id="mgrl_overlay";
         overlay.style.zIndex = 1000;
         overlay.style.position = "absolute";
         overlay.style.pointerEvents = "none";
         overlay.style.overflow = "hidden";
-        document.body.appendChild(canvas.overlay);
+        document.body.appendChild(overlay);
         please.__align_canvas_overlay();
     }
 };
@@ -46,13 +46,18 @@ please.__create_canvas_overlay = function () {
 
 //
 please.__align_canvas_overlay = function () {
-    var canvas = please.gl.canvas;
-    var overlay = canvas.overlay;
-    var rect = canvas.getBoundingClientRect();
+    var overlay = please.renderer.overlay;
+    var rect = overlay.reference.getBoundingClientRect();
+    if (overlay.rect && overlay.rect.top == rect.top && overlay.rect.left == rect.left && overlay.rect.width == rect.width && overlay.rect.height == rect.height) {
+        return;
+    }
+    overlay.rect = rect;
     overlay.style.top = rect.top + "px";
     overlay.style.left = rect.left + "px";
     overlay.style.width = rect.width + "px";
     overlay.style.height = rect.height + "px";
+    var event = new CustomEvent("mgrl_overlay_aligned");
+    window.dispatchEvent(event);
 };
 
 
@@ -101,7 +106,7 @@ please.__align_canvas_overlay = function () {
 //
 please.overlay.new_element = function (id, classes) {
     var el = document.createElement("div");
-    please.gl.canvas.overlay.appendChild(el);
+    please.renderer.overlay.appendChild(el);
     el.style.position = "absolute";
     if (id) {
         el.id = id;
@@ -136,7 +141,7 @@ please.overlay.new_element = function (id, classes) {
 // nodes if applicable.
 //
 please.overlay.remove_element = function (el) {
-    var overlay = please.gl.canvas.overlay;
+    var overlay = please.renderer.overlay;
     if (el) {
         if (el.constructor == Array || el.constructor == HTMLCollection) {
             DECR(i, el) {
@@ -173,16 +178,21 @@ please.overlay.remove_element_of_id = function (id) {
 // Removes off children to #mgrl_overlay of the given css class name.
 // 
 please.overlay.remove_element_of_class = function (class_name) {
-    var overlay = please.gl.canvas.overlay;
+    var overlay = please.renderer.overlay;
     var found = overlay.getElementsByClassName(class_name);
     please.overlay.remove_element(found);
 };
 
 
 //
-please.pipeline.add(-1, "mgrl/overlay_sync", function () {
-    var parent = document.getElementById("mgrl_overlay");
+please.overlay_sync = function () {
+    please.__align_canvas_overlay();
+    var parent = please.renderer.overlay;
+    var rect = parent.getBoundingClientRect();
+    var offset_x = rect.width * 0.5;
+    var offset_y = rect.height * 0.5;
     var origin = new Float32Array([0, 0, 0, 1]);
+    
     ITER(i, please.overlay.__bindings) {
         var element = please.overlay.__bindings[i];
         var node = element.__graph_node;
@@ -200,13 +210,21 @@ please.pipeline.add(-1, "mgrl/overlay_sync", function () {
             
             var position = vec4.create();
             vec4.transformMat4(position, origin, final_matrix);
-            var x = ((position[0] / position[3]) + 1) * 0.5;
-            var y = ((position[1] / position[3]) + 1) * 0.5;
-            element.style.left = x*100 + "%";
-            element.style.bottom = y*100 + "%";
-
+            var x = (position[0] / position[3]) * 0.5;
+            var y = (position[1] / position[3]) * 0.5;
+            element.style.left = offset_x + x * rect.width + 'px';
+            element.style.top = offset_y - y * rect.height + 'px';
+            
+            // This must be an integer according to the standard, so a
+            // maximum precision must be chosen.  position[2] is the distance
+            // to the camera; use negative multiplier to get correct sort order.
+            element.style.zIndex = Math.round((100 - position[2]) * 1000000);
+            
+            element.style.display = node.visible ? "block" : "none";
             if (element.auto_center) {
-                element.style.marginLeft = element.getBoundingClientRect().width/-2 + "px";
+                var box = element.getBoundingClientRect();
+                element.style.marginLeft = box.width/-2 + "px";
+                element.style.marginTop = box.height/-2 + "px";
             }
         }
     }
@@ -217,4 +235,5 @@ please.pipeline.add(-1, "mgrl/overlay_sync", function () {
             el.style.display = el.hide_when() ? "none" : "block";
         }
     }
-});
+};
+please.pipeline.add(-1, "mgrl/overlay_sync", please.overlay_sync);

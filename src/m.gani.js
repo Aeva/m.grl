@@ -494,8 +494,8 @@ please.media.__AnimationData = function (gani_text, uri) {
 #ifdef WEBGL
         "vbo" : null,
         "ibo" : null,
-        "instance" : function () {},
 #endif
+        "instance" : function () {},
     };
 
     // the create function returns an AnimationInstance for this
@@ -706,18 +706,23 @@ please.media.__AnimationData = function (gani_text, uri) {
         });
     }
 
-#ifdef WEBGL
     // return a graph node instance of this animation
-    ani.instance = function (alpha) {
-        DEFAULT(alpha, true);
-        var node = new please.GraphNode();
-        node.__drawable = true;
-        node.ext = {};
-        node.vars = {};
-        node.samplers = {};
-        node.draw_type = "sprite";
-        node.sort_mode = "alpha";
+    ani.instance = function () {
+#ifdef WEBGL
+        if (please.renderer.name == "gl") {
+            return ani.__gl_instance()
+        }
+#endif
+#ifdef DOM
+        if (please.renderer.name == "dom") {
+            return ani.__dom_instance()
+        }
+#endif
+    };
 
+    
+    // used by both possible instance functions
+    ani.__common_mixin = function (node, setup_callback, frame_callback) {
         // cache of gani data
         node.__ganis = {};
         node.__current_gani = null;
@@ -745,11 +750,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             var action_name = get_action_name(ani_name);
             if (!node.__ganis[action_name]) {
                 node.__ganis[action_name] = resource;
-                
-                if (!resource.ibo) {
-                    // build the VBO and IBO for this animation.
-                    please.gani.build_gl_buffers(resource);
-                }
+                setup_callback(resource);
 
                 // Bind new attributes
                 please.prop_map(resource.attrs, function (name, value) {
@@ -780,13 +781,18 @@ please.media.__AnimationData = function (gani_text, uri) {
 
                 // Generate the frameset for the animation.
                 var score = resource.frames.map(function (frame) {
+                    var callback;
+                    callback = function (speed, skip_to) {
+                        // FIXME play frame.sound
+                        node.__current_frame = frame;
+                        node.__current_gani = resource;
+                        if (frame_callback) {
+                            frame_callback(resource, frame);
+                        }
+                    };
                     return {
                         "speed" : frame.wait,
-                        "callback" : function (speed, skip_to) {
-                            // FIXME play frame.sound
-                            node.__current_frame = frame;
-                            node.__current_gani = resource;
-                        },
+                        "callback" : callback,
                     };
                 });
                 
@@ -799,9 +805,30 @@ please.media.__AnimationData = function (gani_text, uri) {
                 //action.queue = resource.setbackto; // not sure about this
             }
         };
+
         node.add_gani(this);
         node.play(get_action_name(this.__uri));
+    };
 
+    
+#ifdef WEBGL
+    ani.__gl_instance = function () {
+        var node = new please.GraphNode();
+        node.__drawable = true;
+        node.ext = {};
+        node.vars = {};
+        node.samplers = {};
+        node.draw_type = "sprite";
+        node.sort_mode = "alpha";
+
+        var setup_callback = function (resource) {
+            if (!resource.ibo) {
+                // build the VBO and IBO for this animation.
+                please.gani.build_gl_buffers(resource);
+            }
+        };
+
+        ani.__common_mixin(node, setup_callback, null);
 
         // draw function for the animation
         node.draw = function () {
@@ -847,6 +874,35 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
             }
         };
+        return node;
+    };
+#endif
+#ifdef DOM
+    ani.__dom_instance = function () {
+        var node = new please.GraphNode();
+
+        var setup_callback = function (resource) {
+            node.div = please.overlay.new_element();
+            node.div.bind_to_node(node);
+        };
+
+        var frame_callback = function(resource, frame, speed, skip_to) {
+            var html = ""
+            var cell = resource.single_dir ? frame.data[0] : frame.data[node.dir%4];
+            for (var sprite=0; sprite<cell.length; sprite+=1) {
+                var instance = cell[sprite];
+                var sprite_id = instance.sprite;
+                var x = instance.x;
+                var y = instance.y;
+                html += please.gani.sprite_to_html(resource, sprite_id, x, y);
+            }
+            if (node.div !== undefined) {
+                node.div.innerHTML = html;
+            }
+        };
+        
+        ani.__common_mixin(node, setup_callback, frame_callback);
+        
         return node;
     };
 #endif
@@ -912,5 +968,52 @@ please.gani.build_gl_buffers = function (ani) {
     var buffers = builder.build();
     ani.vbo = buffers.vbo;
     ani.ibo = buffers.ibo;
+};
+#endif
+
+
+#ifdef DOM
+/* [+] please.gani.sprite\_to\_html(ani_object, sprite_id, x, y)
+ * 
+ * Generates an html string that will render a particular gani sprite
+ * instance.
+ * 
+ */
+please.gani.sprite_to_html = function (ani_object, sprite_id, x, y) {
+    var sprite = ani_object.sprites[sprite_id];
+    if (sprite.resource === undefined) {
+        return "";
+    }
+    var html = '<div style="';
+
+    var uri = ani_object.attrs[sprite.resource];
+    var asset = please.access(uri, true);
+    var is_error = false;
+    if (!asset) {
+        asset = please.access(uri);
+        is_error = true;
+        please.load(uri, function(state, uri) {
+            if (state === "pass") {
+	        ani_object.__set_dirty();
+            }
+        });
+    }
+    var src = asset.src;
+    var clip_x = sprite.x * -1;
+    var clip_y = sprite.y * -1;
+    html += "position: absolute;";
+    html += "display: block;";
+    html += "background-image: url('" + src + "');";
+    if (is_error) {
+        html += "background-size:" + sprite.w + "px " + sprite.h+"px;";
+    }
+    else {
+        html += "background-position: " + clip_x + "px " + clip_y + "px;";
+    }
+    html += "width: " + sprite.w + "px;";
+    html += "height: " + sprite.h + "px;";
+    html += "left: " + x + "px;";
+    html += "top: " + y + "px;";
+    return html + '"></div>';
 };
 #endif

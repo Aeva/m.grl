@@ -71,6 +71,10 @@ please.LoadingScreen = function (transition_effect) {
     label.location = [-6, -1, 1];
     label.rotation_x = 0;
     label.scale = [16, 16, 16];
+    container.scale = function () {
+        var scale = 1.0 * (please.gl.canvas.width / 1600.0);
+        return [scale, scale, scale];
+    };
 
     container.add(girl);
     container.add(label);

@@ -1,7 +1,7 @@
 // - m.gl.js ------------------------------------------------------------- //
 
 
-// Namespace for m.gl guts
+// Namespace for webgl specific code
 please.gl = {
     "canvas" : null,
     "ctx" : null,
@@ -11,6 +11,9 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
+
+    "name" : "gl",
+    "overlay" : null,
 };
 
 
@@ -18,9 +21,12 @@ please.gl = {
 //
 // This function is used for setting the current rendering context
 // (which canvas element M.GRL will be drawing to), as well as
-// creating the "gl" namespace, which is used extensively by M.GRL,
-// and therefor this function is usually the first thing your program
-// should call.
+// creating the "gl" namespace (window.gl, not please.gl), which is
+// used extensively by M.GRL, and therefor this function is usually
+// the first thing your program should call.
+//
+// Please note that this method can only be called once, and if it is
+// called, please.dom.set_context may not be used.
 //
 // The "options" paramater is an object which is passed to the
 // canvas.getContext function, but may be omitted if you do not wish
@@ -30,12 +36,24 @@ please.gl = {
 // https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
 //
 please.gl.set_context = function (canvas_id, options) {
-    if (this.canvas !== null) {
-        throw new Error("This library is not presently designed to work with multiple contexts.");
+    if (this.canvas !== null || please.renderer.name !== null) {
+        throw new Error("Cannot initialize a second rendering context.");
     }
 
+    please.renderer.name = "gl";
+    Object.freeze(please.renderer.name);
+    please.renderer.__defineGetter__("width", function () {
+        return please.gl.canvas.width;
+    });
+    please.renderer.__defineGetter__("height", function () {
+        return please.gl.canvas.height;
+    });
+    
     this.canvas = document.getElementById(canvas_id);
-    please.__create_canvas_overlay();
+    please.__create_canvas_overlay(this.canvas);
+    please.pipeline.add(-1, "mgrl/picking_pass", please.__picking_pass).skip_when(
+        function () { return please.__picking.queue.length === 0 && please.__picking.move_event === null; });
+
     try {
         var names = ["webgl", "experimental-webgl"];
         for (var n=0; n<names.length; n+=1) {

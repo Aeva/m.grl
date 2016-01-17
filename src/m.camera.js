@@ -82,8 +82,35 @@ please.CameraNode = function () {
     please.GraphNode.call(this);
     this.__is_camera = true;
 
-    please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
-    please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
+#ifdef WEBGL
+    if (please.renderer.name === "gl") {
+        // code specific to the webgl renderer
+        please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
+        please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
+        this.__projection_mode = "perspective";
+        ANI("orthographic_grid", 32);
+    }
+#endif
+
+#ifdef DOM
+    if (please.renderer.name === "dom") {
+        // code specific to the dom renderer
+        please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
+        this.look_at = function() { return [this.location_x, this.location_y, 0]; };
+        this.up_vector = [0, 1, 0];
+        this.up_vector_x = 0;
+        this.up_vector_y = 1;
+        this.up_vector_z = 0;
+        this.__projection_mode = "orthographic";
+        this.location_z = 100.0;
+        Object.freeze(this.up_vector);
+        Object.freeze(this.up_vector_x);
+        Object.freeze(this.up_vector_y);
+        Object.freeze(this.up_vector_z);
+        Object.freeze(this.__projection_mode);
+        ANI("orthographic_grid", please.dom.orthographic_grid);
+    }
+#endif
 
     ANI("focal_distance", this.__focal_distance);
     ANI("depth_of_field", .5);
@@ -95,7 +122,6 @@ please.CameraNode = function () {
     ANI("right", null);
     ANI("bottom", null);
     ANI("top", null);
-    ANI("orthographic_grid", 32);
     ANI("origin_x", 0.5);
     ANI("origin_y", 0.5);
 
@@ -107,7 +133,6 @@ please.CameraNode = function () {
 
     this.mark_dirty();
     this.projection_matrix = mat4.create();
-    this.__projection_mode = "perspective";
 
     please.make_animatable(
         this, "view_matrix", this.__view_matrix_driver, this, true);
@@ -213,10 +238,10 @@ please.CameraNode.prototype.update_camera = function () {
     var width = this.width;
     var height = this.height;
     if (width === null) {
-        width = please.gl.canvas.width;
+        width = please.renderer.width;
     }
     if (height === null) {
-        height = please.gl.canvas.height;
+        height = please.renderer.height;
     }
 
     // Determine if the common args have changed.
@@ -281,7 +306,7 @@ please.CameraNode.prototype.update_camera = function () {
             this.__last.orthographic_grid = orthographic_grid;
 
             // Recalculate the projection matrix and flag it as dirty
-            var scale = orthographic_grid/2;
+            var scale = orthographic_grid;
             mat4.ortho(
                 this.projection_matrix,
                 left/scale, right/scale, bottom/scale, top/scale, near, far);

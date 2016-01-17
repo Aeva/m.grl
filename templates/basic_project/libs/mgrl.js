@@ -182,7 +182,13 @@ if (!window.CustomEvent) {
  * 
  */
 // Define said namespace:
-if (window.please === undefined) { window.please = {} };
+window.please = {};
+please.renderer = {
+    "name" : null,
+    "overlay" : null,
+    "width" : 0,
+    "height" : 0,
+};
 // [+] please.prop_map(dict, callback)
 //
 // Variation of array.map for non-array objects:
@@ -1936,44 +1942,55 @@ please.media.__image_buffer_cache = {};
 // future.
 //
 please.media.__image_instance = function (center, scale, x, y, width, height, alpha) {
-    if (center === undefined) { center = false; };
-    if (scale === undefined) { scale = 32; };
-    if (x === undefined) { x = 0; };
-    if (y === undefined) { y = 0; };
-    if (width === undefined) { width = this.width; };
-    if (height === undefined) { height = this.height; };
-    if (alpha === undefined) { alpha = true; };
-    this.scale_filter = "NEAREST";
-    var builder = new please.builder.SpriteBuilder(center, scale, alpha);
-    var flat = builder.add_flat(this.width, this.height, x, y, width, height);
-    var hint = flat.hint;
-    var data = please.media.__image_buffer_cache[hint];
-    if (!data) {
-        var data = builder.build();
-        please.media.__image_buffer_cache[hint] = data;
-    }
-    var node = new please.GraphNode();
-    node.vbo = data.vbo;
-    node.ibo = data.ibo;
-    node.ext = {};
-    node.vars = {};
-    node.shader["diffuse_texture"] = this.asset_name,
-    node.__drawable = true;
-    if (alpha) {
+    if (please.renderer.name === "gl") {
+        // code specific to the webgl renderer
+        if (center === undefined) { center = false; };
+        if (scale === undefined) { scale = 32; };
+        if (x === undefined) { x = 0; };
+        if (y === undefined) { y = 0; };
+        if (width === undefined) { width = this.width; };
+        if (height === undefined) { height = this.height; };
+        if (alpha === undefined) { alpha = true; };
+        this.scale_filter = "NEAREST";
+        var builder = new please.builder.SpriteBuilder(center, scale, alpha);
+        var flat = builder.add_flat(this.width, this.height, x, y, width, height);
+        var hint = flat.hint;
+        var data = please.media.__image_buffer_cache[hint];
+        if (!data) {
+            var data = builder.build();
+            please.media.__image_buffer_cache[hint] = data;
+        }
+        var node = new please.GraphNode();
+        node.vbo = data.vbo;
+        node.ibo = data.ibo;
+        node.ext = {};
+        node.vars = {};
+        node.__drawable = true;
+        node.asset = this;
+        node.hint = hint;
+        node.draw_type = "sprite";
         node.sort_mode = "alpha";
+        node.shader["diffuse_texture"] = this.asset_name,
+        node.bind = function() {
+            this.vbo.bind();
+            this.ibo.bind();
+        };
+        node.draw = function() {
+            this.ibo.draw();
+        };
+        return node;
     }
-    node.asset = this;
-    node.hint = hint;
-    node.draw_type = "sprite";
-    node.sort_mode = "alpha";
-    node.bind = function() {
-        this.vbo.bind();
-        this.ibo.bind();
-    };
-    node.draw = function() {
-        this.ibo.draw();
-    };
-    return node;
+    if (please.renderer.name === "dom") {
+        // code specific to the dom renderer
+        var node = new please.GraphNode();
+        var div = please.overlay.new_element();
+        div.style.width = this.width + "px";
+        div.style.height = this.height + "px";
+        div.style.backgroundImage = "url(" + this.src +")";
+        div.bind_to_node(node);
+        node.asset = this;
+        return node;
+    }
 };
 please.media.errors["img"].instance = please.media.__image_instance;
 // - m.input.js ------------------------------------------------------------- //
@@ -2557,10 +2574,10 @@ please.pipeline.__regen_cache = function () {
  * positions locked to appear over the screen position of any
  * GraphNode in use.
  *
- * The #mgrl_overlay div is created when the OpenGL rendering context
+ * The #mgrl_overlay div is created when the rendering context
  * is established.  While you can interact with this directly if you
  * like, it is generally advised to use the overlay API to add and
- * destroy widgets intended to function seamlessly with the WebGL
+ * destroy widgets intended to function seamlessly with the animated
  * content.
  *
  * Please note that the overlay currently sets the "pointer-events"
@@ -2575,28 +2592,33 @@ please.overlay = {
     "__bindings" : [],
 };
 //
-please.__create_canvas_overlay = function () {
-    var canvas = please.gl.canvas;
-    if (!canvas.overlay) {
-        var overlay = canvas.overlay = document.createElement("div");
+please.__create_canvas_overlay = function (reference) {
+    if (!please.renderer.overlay) {
+        var overlay = please.renderer.overlay = document.createElement("div");
+        overlay.reference = reference;
         overlay.id="mgrl_overlay";
         overlay.style.zIndex = 1000;
         overlay.style.position = "absolute";
         overlay.style.pointerEvents = "none";
         overlay.style.overflow = "hidden";
-        document.body.appendChild(canvas.overlay);
+        document.body.appendChild(overlay);
         please.__align_canvas_overlay();
     }
 };
 //
 please.__align_canvas_overlay = function () {
-    var canvas = please.gl.canvas;
-    var overlay = canvas.overlay;
-    var rect = canvas.getBoundingClientRect();
+    var overlay = please.renderer.overlay;
+    var rect = overlay.reference.getBoundingClientRect();
+    if (overlay.rect && overlay.rect.top == rect.top && overlay.rect.left == rect.left && overlay.rect.width == rect.width && overlay.rect.height == rect.height) {
+        return;
+    }
+    overlay.rect = rect;
     overlay.style.top = rect.top + "px";
     overlay.style.left = rect.left + "px";
     overlay.style.width = rect.width + "px";
     overlay.style.height = rect.height + "px";
+    var event = new CustomEvent("mgrl_overlay_aligned");
+    window.dispatchEvent(event);
 };
 // [+] please.overlay.new_element(id, classes)
 //
@@ -2643,7 +2665,7 @@ please.__align_canvas_overlay = function () {
 //
 please.overlay.new_element = function (id, classes) {
     var el = document.createElement("div");
-    please.gl.canvas.overlay.appendChild(el);
+    please.renderer.overlay.appendChild(el);
     el.style.position = "absolute";
     if (id) {
         el.id = id;
@@ -2673,7 +2695,7 @@ please.overlay.new_element = function (id, classes) {
 // nodes if applicable.
 //
 please.overlay.remove_element = function (el) {
-    var overlay = please.gl.canvas.overlay;
+    var overlay = please.renderer.overlay;
     if (el) {
         if (el.constructor == Array || el.constructor == HTMLCollection) {
             for (var i=el.length-1; i>=0; i-=1) {
@@ -2706,13 +2728,17 @@ please.overlay.remove_element_of_id = function (id) {
 // Removes off children to #mgrl_overlay of the given css class name.
 // 
 please.overlay.remove_element_of_class = function (class_name) {
-    var overlay = please.gl.canvas.overlay;
+    var overlay = please.renderer.overlay;
     var found = overlay.getElementsByClassName(class_name);
     please.overlay.remove_element(found);
 };
 //
-please.pipeline.add(-1, "mgrl/overlay_sync", function () {
-    var parent = document.getElementById("mgrl_overlay");
+please.overlay_sync = function () {
+    please.__align_canvas_overlay();
+    var parent = please.renderer.overlay;
+    var rect = parent.getBoundingClientRect();
+    var offset_x = rect.width * 0.5;
+    var offset_y = rect.height * 0.5;
     var origin = new Float32Array([0, 0, 0, 1]);
     for (var i=0; i<please.overlay.__bindings.length; i+=1) {
         var element = please.overlay.__bindings[i];
@@ -2730,12 +2756,19 @@ please.pipeline.add(-1, "mgrl/overlay_sync", function () {
                 node.shader.world_matrix);
             var position = vec4.create();
             vec4.transformMat4(position, origin, final_matrix);
-            var x = ((position[0] / position[3]) + 1) * 0.5;
-            var y = ((position[1] / position[3]) + 1) * 0.5;
-            element.style.left = x*100 + "%";
-            element.style.bottom = y*100 + "%";
+            var x = (position[0] / position[3]) * 0.5;
+            var y = (position[1] / position[3]) * 0.5;
+            element.style.left = offset_x + x * rect.width + 'px';
+            element.style.top = offset_y - y * rect.height + 'px';
+            // This must be an integer according to the standard, so a
+            // maximum precision must be chosen.  position[2] is the distance
+            // to the camera; use negative multiplier to get correct sort order.
+            element.style.zIndex = Math.round((100 - position[2]) * 1000000);
+            element.style.display = node.visible ? "block" : "none";
             if (element.auto_center) {
-                element.style.marginLeft = element.getBoundingClientRect().width/-2 + "px";
+                var box = element.getBoundingClientRect();
+                element.style.marginLeft = box.width/-2 + "px";
+                element.style.marginTop = box.height/-2 + "px";
             }
         }
     }
@@ -2745,9 +2778,59 @@ please.pipeline.add(-1, "mgrl/overlay_sync", function () {
             el.style.display = el.hide_when() ? "none" : "block";
         }
     }
-});
+};
+please.pipeline.add(-1, "mgrl/overlay_sync", please.overlay_sync);
+// - m.dom.js ------------------------------------------------------------ //
+// Namespace for code specific to the dom renderer
+please.dom = {};
+// [+] please.dom.set_context(element)
+//
+// This function is used for setting the element on which overlay elements
+// are placed.  Either this, or please.gl.set_context, should be the first
+// M.GRL call that a program makes.  Only one of these functions may be
+// called, and they may be called only once.
+//
+// Please note that while a game may be written to use either this
+// renderer or the one defined in m.gl.js, much of M.GRL's
+// functionality was originally written with 3D rendering in mind, and
+// is not compatible with this 2D renderer is in use.
+//
+please.dom.set_context = function (element, orthographic_grid) {
+    if (please.renderer.name !== null) {
+        throw new Error("Cannot initialize a second rendering context.");
+    }
+    please.renderer.name = "dom";
+    Object.freeze(please.renderer.name);
+    please.dom.canvas = document.getElementById(element);
+    please.dom.orthographic_grid = orthographic_grid || 32;
+    please.renderer.__defineGetter__("width", function () {
+        return please.dom.canvas.width;
+    });
+    please.renderer.__defineGetter__("height", function () {
+        return please.dom.canvas.height;
+    });
+    please.__create_canvas_overlay(please.dom.canvas);
+    please.renderer.overlay.style.pointerEvents = "auto";
+    please.dom.canvas_changed();
+};
+please.dom.canvas_changed = function () {
+    if (please.dom.canvas.width == please.dom._old_width && please.dom.canvas.height == please.dom._old_height) {
+        return;
+    }
+    please.dom._old_width = please.dom.canvas.width;
+    please.dom._old_height = please.dom.canvas.height;
+    var ctx = please.dom.context = please.dom.canvas.getContext("2d");
+    ctx.translate(please.dom.canvas.width / 2, please.dom.canvas.height / 2);
+    ctx.scale(please.dom.orthographic_grid, -please.dom.orthographic_grid);
+    var event = new CustomEvent("mgrl_dom_context_changed");
+    window.dispatchEvent(event);
+};
+please.dom.pos_from_event = function (x, y) {
+    var parent = please.renderer.overlay;
+    return [(x - parent.clientWidth / 2) / please.dom.orthographic_grid, -(y - parent.clientHeight / 2) / please.dom.orthographic_grid];
+};
 // - m.gl.js ------------------------------------------------------------- //
-// Namespace for m.gl guts
+// Namespace for webgl specific code
 please.gl = {
     "canvas" : null,
     "ctx" : null,
@@ -2757,14 +2840,19 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
+    "name" : "gl",
+    "overlay" : null,
 };
 // [+] please.gl.set_context(canvas_id, options)
 //
 // This function is used for setting the current rendering context
 // (which canvas element M.GRL will be drawing to), as well as
-// creating the "gl" namespace, which is used extensively by M.GRL,
-// and therefor this function is usually the first thing your program
-// should call.
+// creating the "gl" namespace (window.gl, not please.gl), which is
+// used extensively by M.GRL, and therefor this function is usually
+// the first thing your program should call.
+//
+// Please note that this method can only be called once, and if it is
+// called, please.dom.set_context may not be used.
 //
 // The "options" paramater is an object which is passed to the
 // canvas.getContext function, but may be omitted if you do not wish
@@ -2774,11 +2862,21 @@ please.gl = {
 // https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
 //
 please.gl.set_context = function (canvas_id, options) {
-    if (this.canvas !== null) {
-        throw new Error("This library is not presently designed to work with multiple contexts.");
+    if (this.canvas !== null || please.renderer.name !== null) {
+        throw new Error("Cannot initialize a second rendering context.");
     }
+    please.renderer.name = "gl";
+    Object.freeze(please.renderer.name);
+    please.renderer.__defineGetter__("width", function () {
+        return please.gl.canvas.width;
+    });
+    please.renderer.__defineGetter__("height", function () {
+        return please.gl.canvas.height;
+    });
     this.canvas = document.getElementById(canvas_id);
-    please.__create_canvas_overlay();
+    please.__create_canvas_overlay(this.canvas);
+    please.pipeline.add(-1, "mgrl/picking_pass", please.__picking_pass).skip_when(
+        function () { return please.__picking.queue.length === 0 && please.__picking.move_event === null; });
     try {
         var names = ["webgl", "experimental-webgl"];
         for (var n=0; n<names.length; n+=1) {
@@ -6765,15 +6863,16 @@ please.media.__AnimationData = function (gani_text, uri) {
         });
     }
     // return a graph node instance of this animation
-    ani.instance = function (alpha) {
-        if (alpha === undefined) { alpha = true; };
-        var node = new please.GraphNode();
-        node.__drawable = true;
-        node.ext = {};
-        node.vars = {};
-        node.samplers = {};
-        node.draw_type = "sprite";
-        node.sort_mode = "alpha";
+    ani.instance = function () {
+        if (please.renderer.name == "gl") {
+            return ani.__gl_instance()
+        }
+        if (please.renderer.name == "dom") {
+            return ani.__dom_instance()
+        }
+    };
+    // used by both possible instance functions
+    ani.__common_mixin = function (node, setup_callback, frame_callback) {
         // cache of gani data
         node.__ganis = {};
         node.__current_gani = null;
@@ -6799,10 +6898,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             var action_name = get_action_name(ani_name);
             if (!node.__ganis[action_name]) {
                 node.__ganis[action_name] = resource;
-                if (!resource.ibo) {
-                    // build the VBO and IBO for this animation.
-                    please.gani.build_gl_buffers(resource);
-                }
+                setup_callback(resource);
                 // Bind new attributes
                 please.prop_map(resource.attrs, function (name, value) {
                     if (!node[name]) {
@@ -6829,13 +6925,18 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
                 // Generate the frameset for the animation.
                 var score = resource.frames.map(function (frame) {
+                    var callback;
+                    callback = function (speed, skip_to) {
+                        // FIXME play frame.sound
+                        node.__current_frame = frame;
+                        node.__current_gani = resource;
+                        if (frame_callback) {
+                            frame_callback(resource, frame);
+                        }
+                    };
                     return {
                         "speed" : frame.wait,
-                        "callback" : function (speed, skip_to) {
-                            // FIXME play frame.sound
-                            node.__current_frame = frame;
-                            node.__current_gani = resource;
-                        },
+                        "callback" : callback,
                     };
                 });
                 // add the action for this animation
@@ -6848,6 +6949,22 @@ please.media.__AnimationData = function (gani_text, uri) {
         };
         node.add_gani(this);
         node.play(get_action_name(this.__uri));
+    };
+    ani.__gl_instance = function () {
+        var node = new please.GraphNode();
+        node.__drawable = true;
+        node.ext = {};
+        node.vars = {};
+        node.samplers = {};
+        node.draw_type = "sprite";
+        node.sort_mode = "alpha";
+        var setup_callback = function (resource) {
+            if (!resource.ibo) {
+                // build the VBO and IBO for this animation.
+                please.gani.build_gl_buffers(resource);
+            }
+        };
+        ani.__common_mixin(node, setup_callback, null);
         // draw function for the animation
         node.draw = function () {
             var frame = node.__current_frame;
@@ -6890,6 +7007,29 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
             }
         };
+        return node;
+    };
+    ani.__dom_instance = function () {
+        var node = new please.GraphNode();
+        var setup_callback = function (resource) {
+            node.div = please.overlay.new_element();
+            node.div.bind_to_node(node);
+        };
+        var frame_callback = function(resource, frame, speed, skip_to) {
+            var html = ""
+            var cell = resource.single_dir ? frame.data[0] : frame.data[node.dir%4];
+            for (var sprite=0; sprite<cell.length; sprite+=1) {
+                var instance = cell[sprite];
+                var sprite_id = instance.sprite;
+                var x = instance.x;
+                var y = instance.y;
+                html += please.gani.sprite_to_html(resource, sprite_id, x, y);
+            }
+            if (node.div !== undefined) {
+                node.div.innerHTML = html;
+            }
+        };
+        ani.__common_mixin(node, setup_callback, frame_callback);
         return node;
     };
     return ani;
@@ -6947,6 +7087,48 @@ please.gani.build_gl_buffers = function (ani) {
     var buffers = builder.build();
     ani.vbo = buffers.vbo;
     ani.ibo = buffers.ibo;
+};
+/* [+] please.gani.sprite\_to\_html(ani_object, sprite_id, x, y)
+ * 
+ * Generates an html string that will render a particular gani sprite
+ * instance.
+ * 
+ */
+please.gani.sprite_to_html = function (ani_object, sprite_id, x, y) {
+    var sprite = ani_object.sprites[sprite_id];
+    if (sprite.resource === undefined) {
+        return "";
+    }
+    var html = '<div style="';
+    var uri = ani_object.attrs[sprite.resource];
+    var asset = please.access(uri, true);
+    var is_error = false;
+    if (!asset) {
+        asset = please.access(uri);
+        is_error = true;
+        please.load(uri, function(state, uri) {
+            if (state === "pass") {
+         ani_object.__set_dirty();
+            }
+        });
+    }
+    var src = asset.src;
+    var clip_x = sprite.x * -1;
+    var clip_y = sprite.y * -1;
+    html += "position: absolute;";
+    html += "display: block;";
+    html += "background-image: url('" + src + "');";
+    if (is_error) {
+        html += "background-size:" + sprite.w + "px " + sprite.h+"px;";
+    }
+    else {
+        html += "background-position: " + clip_x + "px " + clip_y + "px;";
+    }
+    html += "width: " + sprite.w + "px;";
+    html += "height: " + sprite.h + "px;";
+    html += "left: " + x + "px;";
+    html += "top: " + y + "px;";
+    return html + '"></div>';
 };
 // - m.graph.js ---------------------------------------------------------- //
 /* [+]
@@ -7329,54 +7511,63 @@ please.GraphNode = function () {
     this.rotation = [0, 0, 0];
     // Automatically databind to the shader program's uniform and
     // sampler variables.
-    var prog = please.gl.get_program();
     var ignore = [
         "projection_matrix",
         "view_matrix",
     ];
-    // GLSL bindings with default driver methods:
-    this.__regen_glsl_bindings = function (event) {
-        var prog = please.gl.__cache.current;
-        var old = null;
-        if (event) {
-            old = event.old_prog;
-        }
-        // deep copy
-        var old_data = this.__ani_store;
-        this.__ani_store = {};
+    var prog = please.gl.get_program();
+    if (please.renderer.name === "gl") {
+        // code specific to the webgl renderer
+        this.__regen_glsl_bindings = function (event) {
+            // GLSL bindings with default driver methods:
+            var prog = please.gl.__cache.current;
+            var old = null;
+            if (event) {
+                old = event.old_prog;
+            }
+            // deep copy
+            var old_data = this.__ani_store;
+            this.__ani_store = {};
+            this.shader = {};
+            please.make_animatable(
+                this, "world_matrix", this.__world_matrix_driver, this.shader, true);
+            please.make_animatable(
+                this, "normal_matrix", this.__normal_matrix_driver, this.shader, true);
+            // GLSLS bindings with default behaviors
+            please.make_animatable(
+                this, "alpha", 1.0, this.shader);
+            please.make_animatable(
+                this, "is_sprite", this.__is_sprite_driver, this.shader, true);
+            please.make_animatable(
+                this, "is_transparent", this.__is_transparent_driver, this.shader, true);
+            please.make_animatable_tripple(
+                this, "object_index", "rgb", this.__object_id_driver, this.shader, true);
+            please.make_animatable(
+                this, "billboard_mode", this.__billboard_driver, this.shader, true);
+            // prog.samplers is a subset of prog.vars
+            for (var name, i=0; i<prog.uniform_list.length; i+=1) {
+                name = prog.uniform_list[i];
+                if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
+                    please.make_animatable(this, name, null, this.shader);
+                }
+            }
+            // restore old values that were wiped out
+            for (var name in old_data) if (old_data.hasOwnProperty(name)) {
+                var old_value = old_data[name];
+                if (old_value !== undefined && old_value !== null) {
+                    this.__ani_store[name] = old_value;
+                }
+            }
+        }.bind(this);
+        this.__regen_glsl_bindings();
+        window.addEventListener("mgrl_changed_shader", this.__regen_glsl_bindings);
+    }
+    if (please.renderer.name === "dom") {
+        // code specific to the dom renderer
         this.shader = {};
         please.make_animatable(
             this, "world_matrix", this.__world_matrix_driver, this.shader, true);
-        please.make_animatable(
-            this, "normal_matrix", this.__normal_matrix_driver, this.shader, true);
-        // GLSLS bindings with default behaviors
-        please.make_animatable(
-            this, "alpha", 1.0, this.shader);
-        please.make_animatable(
-            this, "is_sprite", this.__is_sprite_driver, this.shader, true);
-        please.make_animatable(
-            this, "is_transparent", this.__is_transparent_driver, this.shader, true);
-        please.make_animatable_tripple(
-            this, "object_index", "rgb", this.__object_id_driver, this.shader, true);
-        please.make_animatable(
-            this, "billboard_mode", this.__billboard_driver, this.shader, true);
-        // prog.samplers is a subset of prog.vars
-        for (var name, i=0; i<prog.uniform_list.length; i+=1) {
-            name = prog.uniform_list[i];
-            if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
-                please.make_animatable(this, name, null, this.shader);
-            }
-        }
-        // restore old values that were wiped out
-        for (var name in old_data) if (old_data.hasOwnProperty(name)) {
-            var old_value = old_data[name];
-            if (old_value !== undefined && old_value !== null) {
-                this.__ani_store[name] = old_value;
-            }
-        }
-    }.bind(this);
-    this.__regen_glsl_bindings();
-    window.addEventListener("mgrl_changed_shader", this.__regen_glsl_bindings);
+    }
     this.is_bone = false;
     this.visible = true;
     this.draw_type = "model"; // can be set to "sprite"
@@ -7680,24 +7871,38 @@ please.SceneGraph = function () {
             }
         }
     };
-    this.picking = {
-        "enabled" : false,
-        "skip_location_info" : true,
-        "skip_on_move_event" : true,
-        "compositing_root" : null,
-        "__reference_node" : this.__create_picking_node(),
-        // __click_test stores what was selected on the last
-        // mouse_down event.  If mouse up matches, the objects gets a
-        // "click" event after it's mouse up event.  __last_click
-        // stores what object recieved a click last, and is reset
-        // whenever a contradicting mouseup occurs.  It also stores
-        // when that object was clicked on for the double click
-        // threshold.
-        "__click_test" : null,
-        "__last_click" : null,
-        "__clear_timer" : null,
-    };
-    this.picking.compositing_root = this.picking.__reference_node;
+    if (please.renderer.name === "gl") {
+        this.picking = {
+            "enabled" : false,
+            "skip_location_info" : true,
+            "skip_on_move_event" : true,
+            "compositing_root" : null,
+            "__reference_node" : this.__create_picking_node(),
+            // __click_test stores what was selected on the last
+            // mouse_down event.  If mouse up matches, the objects gets a
+            // "click" event after it's mouse up event.  __last_click
+            // stores what object recieved a click last, and is reset
+            // whenever a contradicting mouseup occurs.  It also stores
+            // when that object was clicked on for the double click
+            // threshold.
+            "__click_test" : null,
+            "__last_click" : null,
+            "__clear_timer" : null,
+        };
+        this.picking.compositing_root = this.picking.__reference_node;
+        this.__picked_node = function (color_array) {
+            if (r===0 && g===0 && b===0) {
+                return null;
+            }
+            else {
+                var r = color_array[0];
+                var g = color_array[1];
+                var b = color_array[2];
+                var color_index = r + g*256 + b*65536;
+                return this.__flat[color_index-1];
+            }
+        };
+    }
     Object.defineProperty(this, "graph_root", {
         "configurable" : false,
         "writable" : false,
@@ -7711,7 +7916,7 @@ please.SceneGraph = function () {
     var z_sort_function = function (lhs, rhs) {
         return rhs.__z_depth - lhs.__z_depth;
     };
-    this.tick = function () {
+    var gl_tick = function () {
         this.__last_framestart = please.pipeline.__framestart;
         // nodes in the z-sorting path
         this.__alpha = [];
@@ -7741,27 +7946,17 @@ please.SceneGraph = function () {
             }
         };
     };
-    this.__picked_node = function (color_array) {
-        if (r===0 && g===0 && b===0) {
-            return null;
-        }
-        else {
-            var r = color_array[0];
-            var g = color_array[1];
-            var b = color_array[2];
-            var color_index = r + g*256 + b*65536;
-            return this.__flat[color_index-1];
-        }
-    };
-    this.draw = function (exclude_test) {
+    var gl_draw = function (exclude_test) {
         if (this.__last_framestart < please.pipeline.__framestart) {
             // note, this.__last_framestart can be null, but
             // null<positive_number will evaluate to true anyway.
             this.tick();
         }
-        var prog = please.gl.get_program();
         if (this.camera) {
             this.camera.update_camera();
+        }
+        var prog = please.gl.get_program();
+        if (this.camera) {
             prog.vars.projection_matrix = this.camera.projection_matrix;
             prog.vars.view_matrix = this.camera.view_matrix;
             prog.vars.focal_distance = this.camera.focal_distance;
@@ -7813,6 +8008,23 @@ please.SceneGraph = function () {
             gl.depthMask(true);
         }
     };
+    var dom_draw = function () {
+        if (this.__last_framestart < please.pipeline.__framestart) {
+            // note, this.__last_framestart can be null, but
+            // null<positive_number will evaluate to true anyway.
+            this.__last_framestart = please.pipeline.__framestart;
+        }
+        if (this.camera) {
+            this.camera.update_camera();
+        }
+    };
+    if (please.renderer.name == "gl") {
+        this.tick = gl_tick;
+        this.draw = gl_draw;
+    }
+    else if (please.renderer.name == "dom") {
+        this.draw = dom_draw;
+    }
 };
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 // Used by the dispatcher function below
@@ -7885,7 +8097,7 @@ please.__req_object_pick = function (x, y, event_info) {
 //
 // This code facilitates color based picking, when relevant. 
 //
-please.pipeline.add(-1, "mgrl/picking_pass", function () {
+please.__picking_pass = function () {
     var req = please.__picking.queue.shift();
     if (!req) {
         req = please.__picking.move_event;
@@ -7943,7 +8155,7 @@ please.pipeline.add(-1, "mgrl/picking_pass", function () {
     }
     // restore original clear color
     gl.clearColor.apply(gl, please.__clear_color);
-}).skip_when(function () { return please.__picking.queue.length === 0 && please.__picking.move_event === null; });
+};
 //
 // Picking RenderNode
 //
@@ -8058,8 +8270,30 @@ addEventListener("mgrl_gl_context_created", function (event) {
 please.CameraNode = function () {
     please.GraphNode.call(this);
     this.__is_camera = true;
-    please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
-    please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
+    if (please.renderer.name === "gl") {
+        // code specific to the webgl renderer
+        please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
+        please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
+        this.__projection_mode = "perspective";
+        please.make_animatable(this, "orthographic_grid", 32);;
+    }
+    if (please.renderer.name === "dom") {
+        // code specific to the dom renderer
+        please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
+        this.look_at = function() { return [this.location_x, this.location_y, 0]; };
+        this.up_vector = [0, 1, 0];
+        this.up_vector_x = 0;
+        this.up_vector_y = 1;
+        this.up_vector_z = 0;
+        this.__projection_mode = "orthographic";
+        this.location_z = 100.0;
+        Object.freeze(this.up_vector);
+        Object.freeze(this.up_vector_x);
+        Object.freeze(this.up_vector_y);
+        Object.freeze(this.up_vector_z);
+        Object.freeze(this.__projection_mode);
+        please.make_animatable(this, "orthographic_grid", please.dom.orthographic_grid);;
+    }
     please.make_animatable(this, "focal_distance", this.__focal_distance);;
     please.make_animatable(this, "depth_of_field", .5);;
     please.make_animatable(this, "depth_falloff", 10);;
@@ -8068,7 +8302,6 @@ please.CameraNode = function () {
     please.make_animatable(this, "right", null);;
     please.make_animatable(this, "bottom", null);;
     please.make_animatable(this, "top", null);;
-    please.make_animatable(this, "orthographic_grid", 32);;
     please.make_animatable(this, "origin_x", 0.5);;
     please.make_animatable(this, "origin_y", 0.5);;
     please.make_animatable(this, "width", null);;
@@ -8077,7 +8310,6 @@ please.CameraNode = function () {
     please.make_animatable(this, "far", 100.0);;
     this.mark_dirty();
     this.projection_matrix = mat4.create();
-    this.__projection_mode = "perspective";
     please.make_animatable(
         this, "view_matrix", this.__view_matrix_driver, this, true);
     // HAAAAAAAAAAAAAAAAAAAAAAAAACK
@@ -8161,10 +8393,10 @@ please.CameraNode.prototype.update_camera = function () {
     var width = this.width;
     var height = this.height;
     if (width === null) {
-        width = please.gl.canvas.width;
+        width = please.renderer.width;
     }
     if (height === null) {
-        height = please.gl.canvas.height;
+        height = please.renderer.height;
     }
     // Determine if the common args have changed.
     var dirty = false;
@@ -8218,7 +8450,7 @@ please.CameraNode.prototype.update_camera = function () {
             this.__last.top = top;
             this.__last.orthographic_grid = orthographic_grid;
             // Recalculate the projection matrix and flag it as dirty
-            var scale = orthographic_grid/2;
+            var scale = orthographic_grid;
             mat4.ortho(
                 this.projection_matrix,
                 left/scale, right/scale, bottom/scale, top/scale, near, far);
@@ -9157,6 +9389,10 @@ please.LoadingScreen = function (transition_effect) {
     label.location = [-6, -1, 1];
     label.rotation_x = 0;
     label.scale = [16, 16, 16];
+    container.scale = function () {
+        var scale = 1.0 * (please.gl.canvas.width / 1600.0);
+        return [scale, scale, scale];
+    };
     container.add(girl);
     container.add(label);
     graph.add(container);

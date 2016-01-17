@@ -43,12 +43,22 @@
 #include "m.input.js"
 #include "m.multipass.js"
 #include "m.overlay.js"
+
+#ifdef DOM
+#include "m.dom.js"
+#endif
+
+#ifdef WEBGL
 #include "m.gl.js"
 #include "m.gl.ast.js"
 #include "m.jta.js"
+#endif
+
 #include "m.gani.js"
 #include "m.graph.js"
 #include "m.camera.js"
+
+#ifdef WEBGL
 #include "m.builder.js"
 #include "m.compositing.js"
 #include "m.effects.js"
@@ -56,9 +66,13 @@
 #include "m.prefab.js"
 #include "m.struct.js"
 #include "m.particles.js"
+#endif
+
 #ifdef ASSETS
 #include "tmp/text_assets.js"
+#ifdef WEBGL
 #include "tmp/glsl_assets.js"
+#endif
 #include "tmp/image_assets.js"
 #endif
 
