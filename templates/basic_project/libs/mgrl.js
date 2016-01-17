@@ -1966,9 +1966,6 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         node.ext = {};
         node.vars = {};
         node.__drawable = true;
-        if (alpha) {
-            node.sort_mode = "alpha";
-        }
         node.asset = this;
         node.hint = hint;
         node.draw_type = "sprite";
@@ -1987,7 +1984,9 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         // code specific to the dom renderer
         var node = new please.GraphNode();
         var div = please.overlay.new_element();
-        div.appendChild(this);
+        div.style.width = this.width + "px";
+        div.style.height = this.height + "px";
+        div.style.backgroundImage = "url(" + this.src +")";
         div.bind_to_node(node);
         node.asset = this;
         return node;
@@ -2575,10 +2574,10 @@ please.pipeline.__regen_cache = function () {
  * positions locked to appear over the screen position of any
  * GraphNode in use.
  *
- * The #mgrl_overlay div is created when the OpenGL rendering context
+ * The #mgrl_overlay div is created when the rendering context
  * is established.  While you can interact with this directly if you
  * like, it is generally advised to use the overlay API to add and
- * destroy widgets intended to function seamlessly with the WebGL
+ * destroy widgets intended to function seamlessly with the animated
  * content.
  *
  * Please note that the overlay currently sets the "pointer-events"
@@ -2593,10 +2592,10 @@ please.overlay = {
     "__bindings" : [],
 };
 //
-please.__create_canvas_overlay = function () {
-    var canvas = please.gl.canvas;
+please.__create_canvas_overlay = function (reference) {
     if (!please.renderer.overlay) {
         var overlay = please.renderer.overlay = document.createElement("div");
+        overlay.reference = reference;
         overlay.id="mgrl_overlay";
         overlay.style.zIndex = 1000;
         overlay.style.position = "absolute";
@@ -2608,13 +2607,18 @@ please.__create_canvas_overlay = function () {
 };
 //
 please.__align_canvas_overlay = function () {
-    var canvas = please.gl.canvas;
     var overlay = please.renderer.overlay;
-    var rect = canvas.getBoundingClientRect();
+    var rect = overlay.reference.getBoundingClientRect();
+    if (overlay.rect && overlay.rect.top == rect.top && overlay.rect.left == rect.left && overlay.rect.width == rect.width && overlay.rect.height == rect.height) {
+        return;
+    }
+    overlay.rect = rect;
     overlay.style.top = rect.top + "px";
     overlay.style.left = rect.left + "px";
     overlay.style.width = rect.width + "px";
     overlay.style.height = rect.height + "px";
+    var event = new CustomEvent("mgrl_overlay_aligned");
+    window.dispatchEvent(event);
 };
 // [+] please.overlay.new_element(id, classes)
 //
@@ -2730,7 +2734,11 @@ please.overlay.remove_element_of_class = function (class_name) {
 };
 //
 please.overlay_sync = function () {
+    please.__align_canvas_overlay();
     var parent = please.renderer.overlay;
+    var rect = parent.getBoundingClientRect();
+    var offset_x = rect.width * 0.5;
+    var offset_y = rect.height * 0.5;
     var origin = new Float32Array([0, 0, 0, 1]);
     for (var i=0; i<please.overlay.__bindings.length; i+=1) {
         var element = please.overlay.__bindings[i];
@@ -2748,12 +2756,19 @@ please.overlay_sync = function () {
                 node.shader.world_matrix);
             var position = vec4.create();
             vec4.transformMat4(position, origin, final_matrix);
-            var x = ((position[0] / position[3]) + 1) * 0.5;
-            var y = ((position[1] / position[3]) + 1) * 0.5;
-            element.style.left = x*100 + "%";
-            element.style.bottom = y*100 + "%";
+            var x = (position[0] / position[3]) * 0.5;
+            var y = (position[1] / position[3]) * 0.5;
+            element.style.left = offset_x + x * rect.width + 'px';
+            element.style.top = offset_y - y * rect.height + 'px';
+            // This must be an integer according to the standard, so a
+            // maximum precision must be chosen.  position[2] is the distance
+            // to the camera; use negative multiplier to get correct sort order.
+            element.style.zIndex = Math.round((100 - position[2]) * 1000000);
+            element.style.display = node.visible ? "block" : "none";
             if (element.auto_center) {
-                element.style.marginLeft = element.getBoundingClientRect().width/-2 + "px";
+                var box = element.getBoundingClientRect();
+                element.style.marginLeft = box.width/-2 + "px";
+                element.style.marginTop = box.height/-2 + "px";
             }
         }
     }
@@ -2767,12 +2782,8 @@ please.overlay_sync = function () {
 please.pipeline.add(-1, "mgrl/overlay_sync", please.overlay_sync);
 // - m.dom.js ------------------------------------------------------------ //
 // Namespace for code specific to the dom renderer
-please.dom = {
-    "div" : null,
-    "image_instance" : function (asset) {
-    },
-};
-// [+] please.dom.set_context(div_id)
+please.dom = {};
+// [+] please.dom.set_context(element)
 //
 // This function is used for setting the element on which overlay elements
 // are placed.  Either this, or please.gl.set_context, should be the first
@@ -2784,20 +2795,39 @@ please.dom = {
 // functionality was originally written with 3D rendering in mind, and
 // is not compatible with this 2D renderer is in use.
 //
-please.dom.set_context = function (div_id) {
-    if (please.renderer.name !== null || this.div !== null) {
+please.dom.set_context = function (element, orthographic_grid) {
+    if (please.renderer.name !== null) {
         throw new Error("Cannot initialize a second rendering context.");
     }
     please.renderer.name = "dom";
     Object.freeze(please.renderer.name);
-    var context = document.getElementById(div_id);
-    this.div = please.renderer.overlay = context;
+    please.dom.canvas = document.getElementById(element);
+    please.dom.orthographic_grid = orthographic_grid || 32;
     please.renderer.__defineGetter__("width", function () {
-        return context.clientWidth;
+        return please.dom.canvas.width;
     });
     please.renderer.__defineGetter__("height", function () {
-        return context.clientHeight;
+        return please.dom.canvas.height;
     });
+    please.__create_canvas_overlay(please.dom.canvas);
+    please.renderer.overlay.style.pointerEvents = "auto";
+    please.dom.canvas_changed();
+};
+please.dom.canvas_changed = function () {
+    if (please.dom.canvas.width == please.dom._old_width && please.dom.canvas.height == please.dom._old_height) {
+        return;
+    }
+    please.dom._old_width = please.dom.canvas.width;
+    please.dom._old_height = please.dom.canvas.height;
+    var ctx = please.dom.context = please.dom.canvas.getContext("2d");
+    ctx.translate(please.dom.canvas.width / 2, please.dom.canvas.height / 2);
+    ctx.scale(please.dom.orthographic_grid, -please.dom.orthographic_grid);
+    var event = new CustomEvent("mgrl_dom_context_changed");
+    window.dispatchEvent(event);
+};
+please.dom.pos_from_event = function (x, y) {
+    var parent = please.renderer.overlay;
+    return [(x - parent.clientWidth / 2) / please.dom.orthographic_grid, -(y - parent.clientHeight / 2) / please.dom.orthographic_grid];
 };
 // - m.gl.js ------------------------------------------------------------- //
 // Namespace for webgl specific code
@@ -2844,7 +2874,7 @@ please.gl.set_context = function (canvas_id, options) {
         return please.gl.canvas.height;
     });
     this.canvas = document.getElementById(canvas_id);
-    please.__create_canvas_overlay();
+    please.__create_canvas_overlay(this.canvas);
     please.pipeline.add(-1, "mgrl/picking_pass", please.__picking_pass).skip_when(
         function () { return please.__picking.queue.length === 0 && please.__picking.move_event === null; });
     try {
@@ -6833,15 +6863,16 @@ please.media.__AnimationData = function (gani_text, uri) {
         });
     }
     // return a graph node instance of this animation
-    ani.instance = function (alpha) {
-        if (alpha === undefined) { alpha = true; };
-        var node = new please.GraphNode();
-        node.__drawable = true;
-        node.ext = {};
-        node.vars = {};
-        node.samplers = {};
-        node.draw_type = "sprite";
-        node.sort_mode = "alpha";
+    ani.instance = function () {
+        if (please.renderer.name == "gl") {
+            return ani.__gl_instance()
+        }
+        if (please.renderer.name == "dom") {
+            return ani.__dom_instance()
+        }
+    };
+    // used by both possible instance functions
+    ani.__common_mixin = function (node, setup_callback, frame_callback) {
         // cache of gani data
         node.__ganis = {};
         node.__current_gani = null;
@@ -6867,10 +6898,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             var action_name = get_action_name(ani_name);
             if (!node.__ganis[action_name]) {
                 node.__ganis[action_name] = resource;
-                if (!resource.ibo) {
-                    // build the VBO and IBO for this animation.
-                    please.gani.build_gl_buffers(resource);
-                }
+                setup_callback(resource);
                 // Bind new attributes
                 please.prop_map(resource.attrs, function (name, value) {
                     if (!node[name]) {
@@ -6897,13 +6925,18 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
                 // Generate the frameset for the animation.
                 var score = resource.frames.map(function (frame) {
+                    var callback;
+                    callback = function (speed, skip_to) {
+                        // FIXME play frame.sound
+                        node.__current_frame = frame;
+                        node.__current_gani = resource;
+                        if (frame_callback) {
+                            frame_callback(resource, frame);
+                        }
+                    };
                     return {
                         "speed" : frame.wait,
-                        "callback" : function (speed, skip_to) {
-                            // FIXME play frame.sound
-                            node.__current_frame = frame;
-                            node.__current_gani = resource;
-                        },
+                        "callback" : callback,
                     };
                 });
                 // add the action for this animation
@@ -6916,6 +6949,22 @@ please.media.__AnimationData = function (gani_text, uri) {
         };
         node.add_gani(this);
         node.play(get_action_name(this.__uri));
+    };
+    ani.__gl_instance = function () {
+        var node = new please.GraphNode();
+        node.__drawable = true;
+        node.ext = {};
+        node.vars = {};
+        node.samplers = {};
+        node.draw_type = "sprite";
+        node.sort_mode = "alpha";
+        var setup_callback = function (resource) {
+            if (!resource.ibo) {
+                // build the VBO and IBO for this animation.
+                please.gani.build_gl_buffers(resource);
+            }
+        };
+        ani.__common_mixin(node, setup_callback, null);
         // draw function for the animation
         node.draw = function () {
             var frame = node.__current_frame;
@@ -6958,6 +7007,29 @@ please.media.__AnimationData = function (gani_text, uri) {
                 }
             }
         };
+        return node;
+    };
+    ani.__dom_instance = function () {
+        var node = new please.GraphNode();
+        var setup_callback = function (resource) {
+            node.div = please.overlay.new_element();
+            node.div.bind_to_node(node);
+        };
+        var frame_callback = function(resource, frame, speed, skip_to) {
+            var html = ""
+            var cell = resource.single_dir ? frame.data[0] : frame.data[node.dir%4];
+            for (var sprite=0; sprite<cell.length; sprite+=1) {
+                var instance = cell[sprite];
+                var sprite_id = instance.sprite;
+                var x = instance.x;
+                var y = instance.y;
+                html += please.gani.sprite_to_html(resource, sprite_id, x, y);
+            }
+            if (node.div !== undefined) {
+                node.div.innerHTML = html;
+            }
+        };
+        ani.__common_mixin(node, setup_callback, frame_callback);
         return node;
     };
     return ani;
@@ -7015,6 +7087,48 @@ please.gani.build_gl_buffers = function (ani) {
     var buffers = builder.build();
     ani.vbo = buffers.vbo;
     ani.ibo = buffers.ibo;
+};
+/* [+] please.gani.sprite\_to\_html(ani_object, sprite_id, x, y)
+ * 
+ * Generates an html string that will render a particular gani sprite
+ * instance.
+ * 
+ */
+please.gani.sprite_to_html = function (ani_object, sprite_id, x, y) {
+    var sprite = ani_object.sprites[sprite_id];
+    if (sprite.resource === undefined) {
+        return "";
+    }
+    var html = '<div style="';
+    var uri = ani_object.attrs[sprite.resource];
+    var asset = please.access(uri, true);
+    var is_error = false;
+    if (!asset) {
+        asset = please.access(uri);
+        is_error = true;
+        please.load(uri, function(state, uri) {
+            if (state === "pass") {
+         ani_object.__set_dirty();
+            }
+        });
+    }
+    var src = asset.src;
+    var clip_x = sprite.x * -1;
+    var clip_y = sprite.y * -1;
+    html += "position: absolute;";
+    html += "display: block;";
+    html += "background-image: url('" + src + "');";
+    if (is_error) {
+        html += "background-size:" + sprite.w + "px " + sprite.h+"px;";
+    }
+    else {
+        html += "background-position: " + clip_x + "px " + clip_y + "px;";
+    }
+    html += "width: " + sprite.w + "px;";
+    html += "height: " + sprite.h + "px;";
+    html += "left: " + x + "px;";
+    html += "top: " + y + "px;";
+    return html + '"></div>';
 };
 // - m.graph.js ---------------------------------------------------------- //
 /* [+]
@@ -7451,7 +7565,7 @@ please.GraphNode = function () {
     if (please.renderer.name === "dom") {
         // code specific to the dom renderer
         this.shader = {};
- please.make_animatable(
+        please.make_animatable(
             this, "world_matrix", this.__world_matrix_driver, this.shader, true);
     }
     this.is_bone = false;
@@ -7802,7 +7916,7 @@ please.SceneGraph = function () {
     var z_sort_function = function (lhs, rhs) {
         return rhs.__z_depth - lhs.__z_depth;
     };
-    this.tick = function () {
+    var gl_tick = function () {
         this.__last_framestart = please.pipeline.__framestart;
         // nodes in the z-sorting path
         this.__alpha = [];
@@ -7832,18 +7946,17 @@ please.SceneGraph = function () {
             }
         };
     };
-    this.sync = function () {
+    var gl_draw = function (exclude_test) {
         if (this.__last_framestart < please.pipeline.__framestart) {
             // note, this.__last_framestart can be null, but
             // null<positive_number will evaluate to true anyway.
             this.tick();
         }
-    };
-    this.draw = function (exclude_test) {
-        this.sync();
-        var prog = please.gl.get_program();
         if (this.camera) {
             this.camera.update_camera();
+        }
+        var prog = please.gl.get_program();
+        if (this.camera) {
             prog.vars.projection_matrix = this.camera.projection_matrix;
             prog.vars.view_matrix = this.camera.view_matrix;
             prog.vars.focal_distance = this.camera.focal_distance;
@@ -7895,6 +8008,23 @@ please.SceneGraph = function () {
             gl.depthMask(true);
         }
     };
+    var dom_draw = function () {
+        if (this.__last_framestart < please.pipeline.__framestart) {
+            // note, this.__last_framestart can be null, but
+            // null<positive_number will evaluate to true anyway.
+            this.__last_framestart = please.pipeline.__framestart;
+        }
+        if (this.camera) {
+            this.camera.update_camera();
+        }
+    };
+    if (please.renderer.name == "gl") {
+        this.tick = gl_tick;
+        this.draw = gl_draw;
+    }
+    else if (please.renderer.name == "dom") {
+        this.draw = dom_draw;
+    }
 };
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 // Used by the dispatcher function below
@@ -8145,28 +8275,24 @@ please.CameraNode = function () {
         please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
         please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
         this.__projection_mode = "perspective";
+        please.make_animatable(this, "orthographic_grid", 32);;
     }
     if (please.renderer.name === "dom") {
         // code specific to the dom renderer
-        this.look_at = [0, 0, 0];
-        this.look_at_x = 0;
-        this.look_at_y = 0;
-        this.look_at_z = 0;
+        please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
+        this.look_at = function() { return [this.location_x, this.location_y, 0]; };
         this.up_vector = [0, 1, 0];
         this.up_vector_x = 0;
         this.up_vector_y = 1;
         this.up_vector_z = 0;
         this.__projection_mode = "orthographic";
         this.location_z = 100.0;
-        Object.freeze(this.look_at);
-        Object.freeze(this.look_at_x);
-        Object.freeze(this.look_at_y);
-        Object.freeze(this.look_at_z);
         Object.freeze(this.up_vector);
         Object.freeze(this.up_vector_x);
         Object.freeze(this.up_vector_y);
         Object.freeze(this.up_vector_z);
         Object.freeze(this.__projection_mode);
+        please.make_animatable(this, "orthographic_grid", please.dom.orthographic_grid);;
     }
     please.make_animatable(this, "focal_distance", this.__focal_distance);;
     please.make_animatable(this, "depth_of_field", .5);;
@@ -8176,7 +8302,6 @@ please.CameraNode = function () {
     please.make_animatable(this, "right", null);;
     please.make_animatable(this, "bottom", null);;
     please.make_animatable(this, "top", null);;
-    please.make_animatable(this, "orthographic_grid", 32);;
     please.make_animatable(this, "origin_x", 0.5);;
     please.make_animatable(this, "origin_y", 0.5);;
     please.make_animatable(this, "width", null);;
@@ -8325,7 +8450,7 @@ please.CameraNode.prototype.update_camera = function () {
             this.__last.top = top;
             this.__last.orthographic_grid = orthographic_grid;
             // Recalculate the projection matrix and flag it as dirty
-            var scale = orthographic_grid/2;
+            var scale = orthographic_grid;
             mat4.ortho(
                 this.projection_matrix,
                 left/scale, right/scale, bottom/scale, top/scale, near, far);
@@ -8568,9 +8693,6 @@ please.builder.SpriteBuilder.prototype = {
     },
     // builds and returns a VBO
     "build" : function () {
-        if (please.renderer == 'dom') {
-            return {};
-        }
         var v_count = this.__v_array.position.length / 3;
         var attr_map = {
             "position" : new Float32Array(this.__v_array.position),
@@ -9267,6 +9389,10 @@ please.LoadingScreen = function (transition_effect) {
     label.location = [-6, -1, 1];
     label.rotation_x = 0;
     label.scale = [16, 16, 16];
+    container.scale = function () {
+        var scale = 1.0 * (please.gl.canvas.width / 1600.0);
+        return [scale, scale, scale];
+    };
     container.add(girl);
     container.add(label);
     graph.add(container);
