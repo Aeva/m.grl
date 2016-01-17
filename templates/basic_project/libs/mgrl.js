@@ -3307,27 +3307,50 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "vert" : null,
         "frag" : null,
     };
+    var sources = {
+        "vert" : [],
+        "frag" : [],
+    };
     for (var i=1; i< arguments.length; i+=1) {
         var shader = arguments[i];
         if (typeof(shader) === "string") {
             shader = please.access(shader);
         }
         if (shader) {
-            var blob = shader.__direct_build();
-            if (blob.type == gl.VERTEX_SHADER) {
-                prog.vert = blob;
-                ast_ref.vert = shader.__ast;
+            if (sources[shader.mode] !== undefined) {
+                sources[shader.mode].push(shader);
             }
-            if (blob.type == gl.FRAGMENT_SHADER) {
-                prog.frag = blob;
-                ast_ref.frag = shader.__ast;
-            }
-            if (blob.error) {
-                errors.push(blob.error);
-                build_fail += "\n\n" + blob.error;
+            else {
+                throw new Error("Only .vert and .frag shaders may be used here.");
             }
         }
     }
+    ["vert", "frag"].map(function (type) {
+        var shader, count = sources[type].length;
+        if (count == 0) {
+            throw new Error(
+                "You must provide at least one vertex and fragment shader.");
+        }
+        else if (count == 1) {
+            shader = sources[type][0];
+        }
+        else if (count > 1) {
+            var new_src = "";
+            var new_uri = [];
+            sources[type].map(function (shader) {
+                new_src += shader.src;
+                new_uri.push(shader.uri);
+            });
+            shader = new please.gl.ShaderSource(new_src, new_uri.join("::"));
+        }
+        var blob = shader.__direct_build();
+        ast_ref[type] = shader.__ast;
+        prog[type] = blob;
+        if (blob.error) {
+            errors.push(blob.error);
+            build_fail += "\n\n" + blob.error;
+        }
+    });
     if (!prog.vert) {
         throw new Error("No vertex shader defined for shader program \"" + name + "\".\n" +
               "Did you remember to call please.load on your vertex shader?");
