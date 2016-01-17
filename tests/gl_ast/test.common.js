@@ -16,3 +16,13 @@ test["please.gl.ast.str"] = function () {
     assert(foo.meta.char === null);
     assert(foo.meta.uri === "<unknown file>");
 };
+
+
+
+test["please.gl.ast.regex_reflow"] = function () {
+    var regex = /(?:#[0-9A-Fa-f]+)/m;
+    var stream = please.gl.__split_tokens(
+        please.gl.ast.str("foo bar #333 #444 #555 internet #666 whee", 0));
+    var result = please.gl.ast.regex_reflow(stream, regex);
+    assert(result.length === 7);
+};

@@ -1,0 +1,84 @@
+<!doctype html>
+<html><head>
+  <meta charset="UTF-8">
+  <script type="text/javascript" src="../gl-matrix.js"></script>
+  <script type="text/javascript" src="../../mgrl.js"></script>
+  <link rel="stylesheet" type="text/css" href="libs/theme.css" />
+  
+  <script type="text/javascript" src="project.js"></script>
+  <link rel="stylesheet" type="text/css" href="ui.css" />
+  <link rel="stylesheet" type="text/css" href="demo.css" />
+  
+</head><body>
+  <div id="demo_area">
+    <div id="fps_counter">FPS:<span id="fps">???</span></div>
+    <div id="loading_screen"></div>
+    <canvas id="gl_canvas" class="fullscreen" width=800 height=600>
+      Your browser does not appear to support HTML5 canvas and/or webgl.
+    </canvas>
+
+    <div id="controls" class="hidden">
+      
+      <div id="editor">
+        <textarea id="shader_source" spellcheck=0></textarea>
+        <div id="compiler_output"></div>
+        <div class="button_area">
+          <button id="hide_source">Hide source</button>
+          <button id="compile_button">Compile!</button>
+        </div>
+      </div>
+
+      <div id="editor_minimized">
+        <div class="button_area">
+          <button id="show_source">Show source</button>
+        </div>
+      </div>
+
+      <div id="intro">
+        <div>
+          <h1>GLSL ⟶ GLSL Compiler Demo</h1>
+          <h2><span>✖</span> in which you click on objects to change their
+            appearance <span>✖</span></h2>
+          <p>
+            Hello!  This is a demonstration of M.GRL's new GLSL to
+            GLSL compiler.  The editor pane on the left contains
+            shader source code that defines several procedural
+            textures.  A second source file (which is not directly
+            exposed for editing) describes the 'main' method for the
+            shader program.
+          </p>
+          <p>
+            You can define additional procedural textures by adding
+            them into the shader source in the editing box on the
+            left.  These functions must be prefaced with 'plugin' and
+            have the same type signature as the other plugin
+            functions.  An example of such a function is as follows:
+          </p>
+          <div class="code_example">plugin vec3 red() {
+    return #FF0000;
+}</div>
+          <p>
+            Click compile, and then click on the objects in the demo
+            to cycle through the available textures.
+          </p>
+          <p>
+            More information about the shader compiler can be found in
+            <a href="http://stephaniehurlburt.com/blog/2016/1/3/building-a-glsl-shader-compiler">this blog post</a>.
+          </p>
+          <div class="button_area">
+            <button id="hide_intro" autofocus=1>Ok - Hide this box please!</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="intro_minimized">
+        <div class="button_area">
+          <button id="show_intro">Information</button>
+        </div>
+      </div>
+
+      
+    </div>
+    
+  </div>
+</body></html>

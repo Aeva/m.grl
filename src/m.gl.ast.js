@@ -20,8 +20,10 @@ please.gl.__symbols = [
 #include "gl_ast/ast.comment.js"
 #include "gl_ast/ast.global.js"
 #include "gl_ast/ast.block.js"
+#include "gl_ast/ast.hexcode.js"
 #include "gl_ast/ast.parenthetical.js"
 #include "gl_ast/ast.invocation.js"
+#include "gl_ast/ast.function_prototype.js"
 #include "gl_ast/ast.macros.js"
 
 // - glslglsl/ast.js ----------------------------------------------------- //
@@ -135,6 +137,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
                 throw new Error("Extra '}' on line " + (token.line+1));
             }
             else {
+                tree = please.gl.__identify_hexcodes(tree);
                 tree = please.gl.__identify_parentheticals(tree);
                 tree = please.gl.__identify_invocations(tree);
                 return [new please.gl.ast.Block(tree), i];
@@ -154,6 +157,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         remainder = please.gl.__identify_parentheticals(remainder);
         remainder = please.gl.__identify_functions(remainder);
         remainder = please.gl.__identify_invocations(remainder);
+        remainder = please.gl.__identify_prototypes(remainder);
         var stream = globals.concat(remainder);
         var ast = new please.gl.ast.Block(stream);
         ast.make_global_scope();

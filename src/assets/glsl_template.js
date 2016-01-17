@@ -7,6 +7,7 @@
         addEventListener("mgrl_gl_context_created", function () {
             // see m.media.js's please.media.handlers.glsl for reference:
             please.media.assets[name] = new please.gl.ShaderSource(atob(src), name);
+            please.media.assets[name].bundled = true;
         });
     });
 })();

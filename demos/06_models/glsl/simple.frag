@@ -22,8 +22,6 @@ varying vec3 light_weight;
 varying float directional_weight;
 
 
-
-
 // Handy function for producing pseudo-randomness.  Returns a value
 // between 0 and 1
 float random_seed(vec3 co) {
