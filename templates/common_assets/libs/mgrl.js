@@ -3082,6 +3082,16 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
         scale_mode = image_object.scale_filter;
         use_mipmaps = false;
     }
+    var overflow_map = {
+        "CLAMP" : gl.CLAMP_TO_EDGE,
+        "REPEAT" : gl.REPEAT,
+        "MIRROR" : gl.MIRRORED_REPEAT,
+    };
+    var find_overflow = function(req) {
+        return req ? overflow_map[req] || null : null;
+    };
+    var overflow_x = find_overflow(image_object.overflow_x);
+    var overflow_y = find_overflow(image_object.overflow_y);
     if (use_mipmaps === undefined) {
         use_mipmaps = true;
     }
@@ -3119,6 +3129,12 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
         else if (scale_mode === "NEAREST") {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        }
+        if (overflow_x) {
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, overflow_x);
+        }
+        if (overflow_y) {
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, overflow_y);
         }
         gl.bindTexture(gl.TEXTURE_2D, null);
         please.gl.__cache.textures[uri] = tid;
@@ -9405,10 +9421,17 @@ please.LoadingScreen = function (transition_effect) {
     camera.set_orthographic();
     camera.orthographic_grid = 64;
     var container = new please.GraphNode();
-    var girl = please.access("girl_with_headphones.png").instance();
+    var instance = function(uri) {
+        var asset = please.access(uri);
+        asset.scale_filter = "NEAREST";
+        asset.overflow_x = "CLAMP";
+        asset.overflow_y = "CLAMP";
+        return asset.instance();
+    };
+    var girl = instance("girl_with_headphones.png");
     girl.location = [-10, -1, 0];
     girl.rotation_x = 0;
-    var label = please.access("loading.png").instance();
+    var label = instance("loading.png");
     label.location = [-6, -1, 1];
     label.rotation_x = 0;
     label.scale = [16, 16, 16];

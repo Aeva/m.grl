@@ -284,6 +284,17 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
         use_mipmaps = false;
     }
 
+    var overflow_map = {
+        "CLAMP" : gl.CLAMP_TO_EDGE,
+        "REPEAT" : gl.REPEAT,
+        "MIRROR" : gl.MIRRORED_REPEAT,
+    };
+    var find_overflow = function(req) {
+        return req ? overflow_map[req] || null : null;
+    };
+    var overflow_x = find_overflow(image_object.overflow_x);
+    var overflow_y = find_overflow(image_object.overflow_y);
+
     if (use_mipmaps === undefined) {
         use_mipmaps = true;
     }
@@ -325,6 +336,12 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
         else if (scale_mode === "NEAREST") {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        }
+        if (overflow_x) {
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, overflow_x);
+        }
+        if (overflow_y) {
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, overflow_y);
         }
         gl.bindTexture(gl.TEXTURE_2D, null);
 
