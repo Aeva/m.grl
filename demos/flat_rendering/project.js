@@ -31,7 +31,7 @@ var demo = {
 addEventListener("load", function() {
     // Attach the dom rendering context.  This must be done before
     // anything else.  32 is the tile size.
-    please.dom.set_context("gl_canvas", 32);
+    please.dom.set_context("gl_canvas", 16);
 
     // Define where m.grl is to find various assets when using the
     // load methed.
@@ -46,17 +46,6 @@ addEventListener("load", function() {
     please.load("walk.gani");
     please.load("idle.gani");
     please.load("flores.png");
-
-    // Register a render passes with the scheduler.  The autoscale
-    // prefab is used to change the dimensions of the rendering canvas
-    // when it has the 'fullscreen' css class, as well as constrain
-    // the maximum height of said canvas element.  You are responsible
-    // for providing the css needed to upsample the canvas, though
-    // this project template accomplishes that for you.  See "ui.css".
-    //please.pipeline.add_autoscale();
-
-    // Show a loading screen
-    //demo.viewport = new please.LoadingScreen();
 });
 
 
@@ -102,12 +91,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     
     var flowers_asset = please.access("flores.png");
     function add_flower (location_y) {
-        var div = please.overlay.new_element("flower" + location_y);
-        div.style.background = "url(" + flowers_asset.currentSrc + ")";
-        div.style.width = flowers_asset.width + "px";
-        div.style.height = flowers_asset.height + "px";
-        var node = new please.GraphNode();
-        div.bind_to_node(node);
+        var node = flowers_asset.instance();
         node.location = [0, location_y, 0];
         flora.add(node);
     }
@@ -118,19 +102,29 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // Lets add a GANI animation next.
     var coin = demo.main.coin = please.access("coin.gani").instance();
     graph.add(coin);
-    var div = please.overlay.new_element("coin");
-    div.bind_to_node(coin);
 
     // Lets make that coin fly around too for good measure.
     coin.location_x = please.oscillating_driver(-10, 10, 3000);
     coin.location_y = please.oscillating_driver(-4, 4, 700);
     coin.location_z = 0; // ensure the coin appears above the flowers
 
+    // add some characters standing about
+    var char_asset = please.access("walk.gani");
+    function add_char (x, y) {
+        var node = char_asset.instance();
+        node.location = [x, y, 0];
+        node.dir = 2;
+        graph.add(node);
+    };
+    add_char(0,0);
+    add_char(1,1);
+    
+
 
     // Transition from the loading screen prefab to our renderer
     //demo.viewport.raise_curtains(demo.main.renderer);
     please.pipeline.add(10, "project/draw", function () {
-        graph.sync();
+        graph.draw();
     })
 
     // start the rendering pipeline

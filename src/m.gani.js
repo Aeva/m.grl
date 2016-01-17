@@ -883,24 +883,21 @@ please.media.__AnimationData = function (gani_text, uri) {
 
         var setup_callback = function (resource) {
             node.div = please.overlay.new_element();
-            node.canvas = document.createElement("canvas");
-            node.div.appendChild(node.canvas);
             node.div.bind_to_node(node);
-            node.canvas.width = please.dom.orthographic_grid * 2;
-            node.canvas.height = please.dom.orthographic_grid * 2;
-            node.context = node.canvas.getContext("2d");
         };
 
         var frame_callback = function(resource, frame, speed, skip_to) {
-            node.context.clearRect(0, 0, node.canvas.width, node.canvas.height);
-            for (var i = 0; i < frame.data[node.dir].length; ++i) {
-                var f = frame.data[node.dir][i];
-                var sprite = resource.sprites[f.sprite];
-                var uri = resource.attrs[sprite.resource];
-                var asset = please.access(uri);
-                node.context.drawImage(
-                    asset, sprite.x, sprite.y, sprite.w, sprite.h,
-                    f.x, f.y, sprite.w, sprite.h);
+            var html = ""
+            var cell = resource.single_dir ? frame.data[0] : frame.data[node.dir%4];
+            for (var sprite=0; sprite<cell.length; sprite+=1) {
+                var instance = cell[sprite];
+                var sprite_id = instance.sprite;
+                var x = instance.x;
+                var y = instance.y;
+                html += please.gani.sprite_to_html(resource, sprite_id, x, y);
+            }
+            if (node.div !== undefined) {
+                node.div.innerHTML = html;
             }
         };
         
@@ -971,5 +968,52 @@ please.gani.build_gl_buffers = function (ani) {
     var buffers = builder.build();
     ani.vbo = buffers.vbo;
     ani.ibo = buffers.ibo;
+};
+#endif
+
+
+#ifdef DOM
+/* [+] please.gani.sprite\_to\_html(ani_object, sprite_id, x, y)
+ * 
+ * Generates an html string that will render a particular gani sprite
+ * instance.
+ * 
+ */
+please.gani.sprite_to_html = function (ani_object, sprite_id, x, y) {
+    var sprite = ani_object.sprites[sprite_id];
+    if (sprite.resource === undefined) {
+        return "";
+    }
+    var html = '<div style="';
+
+    var uri = ani_object.attrs[sprite.resource];
+    var asset = please.access(uri, true);
+    var is_error = false;
+    if (!asset) {
+        asset = please.access(uri);
+        is_error = true;
+        please.load(uri, function(state, uri) {
+            if (state === "pass") {
+	        ani_object.__set_dirty();
+            }
+        });
+    }
+    var src = asset.src;
+    var clip_x = sprite.x * -1;
+    var clip_y = sprite.y * -1;
+    html += "position: absolute;";
+    html += "display: block;";
+    html += "background-image: url('" + src + "');";
+    if (is_error) {
+        html += "background-size:" + sprite.w + "px " + sprite.h+"px;";
+    }
+    else {
+        html += "background-position: " + clip_x + "px " + clip_y + "px;";
+    }
+    html += "width: " + sprite.w + "px;";
+    html += "height: " + sprite.h + "px;";
+    html += "left: " + x + "px;";
+    html += "top: " + y + "px;";
+    return html + '"></div>';
 };
 #endif
