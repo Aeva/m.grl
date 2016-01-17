@@ -2484,6 +2484,12 @@ please.pipeline.remove_above = function (priority) {
 // Activates the rendering pipeline.
 //
 please.pipeline.start = function () {
+    if (please.renderer.name === "gl") {
+        please.pipeline.__on_draw = please.pipeline.__on_draw_gl;
+    }
+    if (please.renderer.name === "dom") {
+        please.pipeline.__on_draw = please.pipeline.__on_draw_dom;
+    }
     this.__stopped = false;
     this.__reschedule();
 };
@@ -2504,6 +2510,9 @@ please.pipeline.stop = function () {
 };
 // Step through the pipeline stages.
 please.pipeline.__on_draw = function () {
+};
+// Draw pipeline stage for 
+please.pipeline.__on_draw_gl = function () {
     // record frame start time
     var start_time = performance.now();
     please.pipeline.__fps_samples.push(start_time);
@@ -2541,14 +2550,44 @@ please.pipeline.__on_draw = function () {
     // reschedule the draw, if applicable
     please.pipeline.__reschedule();
     // update the fps counter
-    if (please.pipeline.__fps_samples.length > 100) {
-        var samples = please.pipeline.__fps_samples;
-        var displacement = samples[samples.length-1] - samples[0];
-        var fps = (samples.length-1) * (1000/displacement); // wrong?
-        window.dispatchEvent(new CustomEvent(
-            "mgrl_fps", {"detail":Math.round(fps)}));
-        please.pipeline.__fps_samples = [];
+    please.pipeline.__update_fps();
+};
+//
+please.pipeline.__on_draw_dom = function () {
+    // record frame start time
+    var start_time = performance.now();
+    please.pipeline.__fps_samples.push(start_time);
+    please.pipeline.__framestart = start_time;
+    // if necessary, generate the sorted list of pipeline stages
+    if (please.pipeline.__dirty) {
+        please.pipeline.__regen_cache();
     }
+    // call the pipeline stages
+    var stage, msg = null, reset_name_bool = false;
+    for (var i=0; i<please.pipeline.__cache.length; i+=1) {
+        stage = please.pipeline.__cache[i];
+        if (stage.skip_condition && stage.skip_condition()) {
+            continue;
+        }
+        msg = stage.callback(msg);
+    }
+    // reschedule the draw, if applicable
+    please.pipeline.__reschedule();
+    // update the fps counter
+    please.pipeline.__update_fps();
+};
+//
+please.pipeline.__update_fps = function () {
+    please.postpone(function () {
+        if (please.pipeline.__fps_samples.length > 100) {
+            var samples = please.pipeline.__fps_samples;
+            var displacement = samples[samples.length-1] - samples[0];
+            var fps = (samples.length-1) * (1000/displacement); // wrong?
+            window.dispatchEvent(new CustomEvent(
+                "mgrl_fps", {"detail":Math.round(fps)}));
+            please.pipeline.__fps_samples = [];
+        }
+    });
 };
 // called by both please.pipeline.start and please.pipeline.__on_draw
 // to schedule or reschedule (if applicable) the event function.
