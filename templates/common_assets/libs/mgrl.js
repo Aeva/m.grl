@@ -7511,11 +7511,11 @@ please.GraphNode = function () {
     this.rotation = [0, 0, 0];
     // Automatically databind to the shader program's uniform and
     // sampler variables.
-    var prog = please.gl.get_program();
     var ignore = [
         "projection_matrix",
         "view_matrix",
     ];
+    var prog = please.gl.get_program();
     if (please.renderer.name === "gl") {
         // code specific to the webgl renderer
         this.__regen_glsl_bindings = function (event) {
