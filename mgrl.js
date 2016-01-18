@@ -2131,7 +2131,12 @@ please.keys.normalize_dvorak = function (str) {
 please.keys.__legacy_name = function (key) {
     key = key.toLowerCase();
     if (key.length === 1) {
-        return please.keys.normalize_dvorak(key);
+        if (window.location.hash === "#dvorak") {
+            return please.keys.normalize_dvorak(key);
+        }
+        else {
+            return key;
+        }
     }
     else if (please.keys.__keyname_codes[key]) {
         return key;
@@ -2479,6 +2484,12 @@ please.pipeline.remove_above = function (priority) {
 // Activates the rendering pipeline.
 //
 please.pipeline.start = function () {
+    if (please.renderer.name === "gl") {
+        please.pipeline.__on_draw = please.pipeline.__on_draw_gl;
+    }
+    if (please.renderer.name === "dom") {
+        please.pipeline.__on_draw = please.pipeline.__on_draw_dom;
+    }
     this.__stopped = false;
     this.__reschedule();
 };
@@ -2499,6 +2510,9 @@ please.pipeline.stop = function () {
 };
 // Step through the pipeline stages.
 please.pipeline.__on_draw = function () {
+};
+// Draw pipeline stage for 
+please.pipeline.__on_draw_gl = function () {
     // record frame start time
     var start_time = performance.now();
     please.pipeline.__fps_samples.push(start_time);
@@ -2536,14 +2550,44 @@ please.pipeline.__on_draw = function () {
     // reschedule the draw, if applicable
     please.pipeline.__reschedule();
     // update the fps counter
-    if (please.pipeline.__fps_samples.length > 100) {
-        var samples = please.pipeline.__fps_samples;
-        var displacement = samples[samples.length-1] - samples[0];
-        var fps = (samples.length-1) * (1000/displacement); // wrong?
-        window.dispatchEvent(new CustomEvent(
-            "mgrl_fps", {"detail":Math.round(fps)}));
-        please.pipeline.__fps_samples = [];
+    please.pipeline.__update_fps();
+};
+//
+please.pipeline.__on_draw_dom = function () {
+    // record frame start time
+    var start_time = performance.now();
+    please.pipeline.__fps_samples.push(start_time);
+    please.pipeline.__framestart = start_time;
+    // if necessary, generate the sorted list of pipeline stages
+    if (please.pipeline.__dirty) {
+        please.pipeline.__regen_cache();
     }
+    // call the pipeline stages
+    var stage, msg = null, reset_name_bool = false;
+    for (var i=0; i<please.pipeline.__cache.length; i+=1) {
+        stage = please.pipeline.__cache[i];
+        if (stage.skip_condition && stage.skip_condition()) {
+            continue;
+        }
+        msg = stage.callback(msg);
+    }
+    // reschedule the draw, if applicable
+    please.pipeline.__reschedule();
+    // update the fps counter
+    please.pipeline.__update_fps();
+};
+//
+please.pipeline.__update_fps = function () {
+    please.postpone(function () {
+        if (please.pipeline.__fps_samples.length > 100) {
+            var samples = please.pipeline.__fps_samples;
+            var displacement = samples[samples.length-1] - samples[0];
+            var fps = (samples.length-1) * (1000/displacement); // wrong?
+            window.dispatchEvent(new CustomEvent(
+                "mgrl_fps", {"detail":Math.round(fps)}));
+            please.pipeline.__fps_samples = [];
+        }
+    });
 };
 // called by both please.pipeline.start and please.pipeline.__on_draw
 // to schedule or reschedule (if applicable) the event function.
@@ -5810,14 +5854,22 @@ please.gl.__jta_model = function (src, uri) {
                     node.__asset_hint = uri + ":" + model.__vbo_hint;
                     node.__asset = model;
                     node.__drawable = true;
-                    please.prop_map(model.samplers, function(name, uri) {
+                    please.prop_map(model.samplers, function(name, img_uri) {
                         if (node.shader.hasOwnProperty(name)) {
-                            node.shader[name] = uri;
+                            node.shader[name] = img_uri;
+                        }
+                        else {
+                            node.__ani_store[name] = img_uri;
+                            console.warn("Model \"" + uri + "\" defines a sampler variable not used by the current shader program: " + name);
                         }
                     });
                     please.prop_map(model.uniforms, function(name, value) {
                         if (node.shader.hasOwnProperty(name)) {
                             node.shader[name] = value;
+                        }
+                        else {
+                            node.__ani_store[name] = value;
+                            console.warn("Model \"" + uri + "\" defines a uniform variable not used by the current shader program: " + name);
                         }
                     });
                     node.bind = function () {
@@ -6124,8 +6176,11 @@ please.gl.__jta_extract_models = function (model_defs, buffer_objects) {
             else if (state.type === "Array") {
                 model.uniforms[state_name] = please.gl.__jta_array(state);
             }
-            else {
-                throw new Error("Not implemented: non-array uniforms from jta export");
+            else if (typeof(state) === "number") {
+                model.uniforms[state_name] = state;
+            }
+            else if (typeof(state) === "boolean") {
+                model.uniforms[state_name] = state;
             }
         });
         return model;
