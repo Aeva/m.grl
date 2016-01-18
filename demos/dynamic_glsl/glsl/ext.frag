@@ -25,16 +25,22 @@ plugin vec3 grid() {
   float thickness = 0.05;
   float radius = thickness * 0.5;
 
+  float flow = mgrl_frame_start/2500.0;
+  float wave = distance(world_position, vec3(0.0));
+  float pulse = fract(wave * 0.2 - flow);
+  float breach = fract(wave * 0.1 + flow);
+  float line = breach > 0.5 ? 0.9 : 1.0;
+
   vec3 tmp = fract((world_position * frequency) + radius);
   bool x_mod = tmp.x < thickness;
   bool y_mod = tmp.y < thickness;
   bool z_mod = tmp.z < thickness;
 
   if (x_mod || y_mod || z_mod) {
-    return #ffbf00;
+    return #00bfff * (pulse * 0.9 + 0.1);
   }
   else {
-    return #333;
+    return #333 * line;
   }
 }
 
