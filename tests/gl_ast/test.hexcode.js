@@ -6,10 +6,22 @@
 */
 
 
-test["basic_hexcode_test"] = function () {
+test["basic_hexcode_integration"] = function () {
     var src = "";
     src += "vec3 test() {\n";
     src += "  return #000;\n";
+    src += "}\n";
+
+    var tree = please.gl.glsl_to_ast(src);
+    var result = tree.print();
+    assert(result.indexOf("vec3(0.0, 0.0, 0.0)") !== -1);
+};
+
+
+test["parenthetical_hexcode_integration"] = function () {
+    var src = "";
+    src += "vec3 test() {\n";
+    src += "  return (#000);\n";
     src += "}\n";
 
     var tree = please.gl.glsl_to_ast(src);
