@@ -19,14 +19,28 @@ test["basic_hexcode_integration"] = function () {
 
 
 test["parenthetical_hexcode_integration"] = function () {
-    var src = "";
-    src += "vec3 test() {\n";
-    src += "  return (#000);\n";
-    src += "}\n";
-
+    var src = "distance(#F00, #00F);";
     var tree = please.gl.glsl_to_ast(src);
     var result = tree.print();
-    assert(result.indexOf("vec3(0.0, 0.0, 0.0)") !== -1);
+    assert(tree.data.length == 1);
+
+    var invocation = tree.data[0];
+    assert(invocation.constructor == please.gl.ast.Invocation);
+    assert(invocation.args.length == 2);
+    assert(invocation.name == "distance");
+
+    var red = invocation.args[0];
+    var blue = invocation.args[1];
+    assert(red.constructor == please.gl.ast.Hexcode);
+    assert(blue.constructor == please.gl.ast.Hexcode);
+    assert(red.type == "vec3");
+    assert(blue.type == "vec3");
+    assert(red.value[0] == 1.0);
+    assert(red.value[1] == 0.0);
+    assert(red.value[2] == 0.0);
+    assert(blue.value[0] == 0.0);
+    assert(blue.value[1] == 0.0);
+    assert(blue.value[2] == 1.0);
 };
 
 
