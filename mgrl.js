@@ -2523,7 +2523,7 @@ please.pipeline.__on_draw_gl = function () {
     }
     var prog = please.gl.__cache.current;
     if (prog) {
-        prog.vars.mgrl_frame_start = start_time;
+        prog.vars.mgrl_frame_start = start_time/1000.0;
     }
     // render the pipeline stages
     var stage, msg = null, reset_name_bool = false;
