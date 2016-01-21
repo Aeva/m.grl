@@ -21,9 +21,6 @@ test["prototype_hoisting"] = function () {
     src += "}\n";
     var tree = please.gl.glsl_to_ast(src);
     var result = tree.print();
-
-    console.info(result);
-
     var proto_index = result.indexOf("vec3 contrived(float);");
     var body_index = result.indexOf("vec3 contrived(float mag) {");
     assert(proto_index !== -1);

@@ -6,7 +6,7 @@
 */
 
 
-test["basic_hexcode_test"] = function () {
+test["basic_hexcode_integration"] = function () {
     var src = "";
     src += "vec3 test() {\n";
     src += "  return #000;\n";
@@ -15,6 +15,32 @@ test["basic_hexcode_test"] = function () {
     var tree = please.gl.glsl_to_ast(src);
     var result = tree.print();
     assert(result.indexOf("vec3(0.0, 0.0, 0.0)") !== -1);
+};
+
+
+test["parenthetical_hexcode_integration"] = function () {
+    var src = "distance(#F00, #00F);";
+    var tree = please.gl.glsl_to_ast(src);
+    var invocation = tree.data[0];
+    assert(invocation.print() == "distance(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0))");
+
+    var src = "distance(#FF0000, #00FFFF);";
+    var tree = please.gl.glsl_to_ast(src);
+    var invocation = tree.data[0];
+    assert(invocation.print() == "distance(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 1.0))");
+};
+
+
+test["parenthetical_hexcode_within_functions"] = function () {
+    var src = "";
+    src += "vec3 test() {\n";
+    src += "  return distance(#000, #FFF);\n";
+    src += "}\n";
+    var tree = please.gl.glsl_to_ast(src);
+    var result = tree.print();
+    
+    assert(result.indexOf("vec3(0.0, 0.0, 0.0)") !== -1);
+    assert(result.indexOf("vec3(1.0, 1.0, 1.0)") !== -1);
 };
 
 
