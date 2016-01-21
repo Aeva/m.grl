@@ -79,8 +79,8 @@ void main(void) {
     // generate a procedural texture for the floor
 
     // wobble coordinates for the "weird" half
-    float wobble_x = world_position.x + sin((world_position.y+(mgrl_frame_start/5000.0))*3.0) / 2.0;
-    float wobble_y = world_position.y + sin((world_position.x+(mgrl_frame_start/5000.0))*3.0) / 2.0;
+    float wobble_x = world_position.x + sin((world_position.y+(mgrl_frame_start/5.0))*3.0) / 2.0;
+    float wobble_y = world_position.y + sin((world_position.x+(mgrl_frame_start/5.0))*3.0) / 2.0;
     float checker_scale = 3.0;
 
     // generate a checkerboard, mix between world coordinates and wobble coordinates
