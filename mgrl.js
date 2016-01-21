@@ -4377,12 +4377,14 @@ please.gl.ast.regex_reflow = function (stream, regex, callback) {
                 new_tokens.push(before);
             }
             new_tokens.push(result);
-            new_tokens = new_tokens.concat(split_token(after));
+            if (after.length > 0) {
+                new_tokens = new_tokens.concat(split_token(after));
+            }
             var out = [];
             for (var i=0; i<new_tokens.length; i+=1) {
                 var trimmed = please.gl.__trim([new_tokens[i]]);
                 if (trimmed.length > 0) {
-                    out.push(trimmed);
+                    out = out.concat(trimmed);
                 }
             }
             return out;
@@ -5638,6 +5640,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         var globals = please.gl.__clean_globals(extract[0]);
         var remainder = extract[1];
         remainder = please.gl.__remove_precision(remainder);
+        remainder = please.gl.__identify_hexcodes(remainder);
         remainder = please.gl.__identify_parentheticals(remainder);
         remainder = please.gl.__identify_functions(remainder);
         remainder = please.gl.__identify_invocations(remainder);
