@@ -14,7 +14,7 @@ vec2 pick(vec2 coord) {
 
 void main(void) {
   vec2 tcoords = pick(gl_FragCoord.xy);
-  float foo = sin((gl_FragCoord.x+(mgrl_frame_start/5.0))/100.0) * tcoords.x * 0.25;
+  float foo = sin((gl_FragCoord.x+(mgrl_frame_start*200.0))/100.0) * tcoords.x * 0.25;
   tcoords.y += foo;
   gl_FragColor = texture2D(splat_texture, tcoords);
 }

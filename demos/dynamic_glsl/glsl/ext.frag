@@ -25,7 +25,7 @@ plugin vec3 grid() {
   float thickness = 0.05;
   float radius = thickness * 0.5;
 
-  float flow = mgrl_frame_start/2500.0;
+  float flow = mgrl_frame_start/2.5;
   float wave = distance(world_position, vec3(0.0));
   float pulse = fract(wave * 0.2 - flow);
   float breach = fract(wave * 0.1 + flow);
@@ -112,7 +112,7 @@ plugin vec3 water() {
   // becomes apparent.
   vec3 squish = world_normal * 0.15;
 
-  float morph = mgrl_frame_start/5000.0;
+  float morph = mgrl_frame_start/5.0;
   float low = distortion(squish + world_position+vec3(morph), 2.0, 0.5);
   float high = distortion(squish + world_position-vec3(morph), 20.0, 0.1);
   vec3 dark = vec3(0.0, 0.3, 0.6);
@@ -123,7 +123,7 @@ plugin vec3 water() {
 
 
 plugin vec3 weird_noise() {
-  float dt = mgrl_frame_start/10000.0;
+  float dt = mgrl_frame_start/10.0;
   float low = distortion(world_position, 10.0, 10.0) * 0.5;
   float high = distortion(world_position+dt, 10.0, low);
   return vec3(high);
