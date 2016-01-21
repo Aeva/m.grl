@@ -112,7 +112,7 @@ plugin vec3 water() {
   // becomes apparent.
   vec3 squish = world_normal * 0.15;
 
-  float morph = mgrl_frame_start/5.0;
+  float morph = mod(mgrl_frame_start/5.0, 1000.0);
   float low = distortion(squish + world_position+vec3(morph), 2.0, 0.5);
   float high = distortion(squish + world_position-vec3(morph), 20.0, 0.1);
   vec3 dark = vec3(0.0, 0.3, 0.6);
