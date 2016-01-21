@@ -21,26 +21,26 @@ test["basic_hexcode_integration"] = function () {
 test["parenthetical_hexcode_integration"] = function () {
     var src = "distance(#F00, #00F);";
     var tree = please.gl.glsl_to_ast(src);
-    var result = tree.print();
-    assert(tree.data.length == 1);
-
     var invocation = tree.data[0];
-    assert(invocation.constructor == please.gl.ast.Invocation);
-    assert(invocation.args.length == 2);
-    assert(invocation.name == "distance");
+    assert(invocation.print() == "distance(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0))");
 
-    var red = invocation.args[0];
-    var blue = invocation.args[1];
-    assert(red.constructor == please.gl.ast.Hexcode);
-    assert(blue.constructor == please.gl.ast.Hexcode);
-    assert(red.type == "vec3");
-    assert(blue.type == "vec3");
-    assert(red.value[0] == 1.0);
-    assert(red.value[1] == 0.0);
-    assert(red.value[2] == 0.0);
-    assert(blue.value[0] == 0.0);
-    assert(blue.value[1] == 0.0);
-    assert(blue.value[2] == 1.0);
+    var src = "distance(#FF0000, #00FFFF);";
+    var tree = please.gl.glsl_to_ast(src);
+    var invocation = tree.data[0];
+    assert(invocation.print() == "distance(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 1.0))");
+};
+
+
+test["parenthetical_hexcode_within_functions"] = function () {
+    var src = "";
+    src += "vec3 test() {\n";
+    src += "  return distance(#000, #FFF);\n";
+    src += "}\n";
+    var tree = please.gl.glsl_to_ast(src);
+    var result = tree.print();
+    
+    assert(result.indexOf("vec3(0.0, 0.0, 0.0)") !== -1);
+    assert(result.indexOf("vec3(1.0, 1.0, 1.0)") !== -1);
 };
 
 

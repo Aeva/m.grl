@@ -136,12 +136,14 @@ please.gl.ast.regex_reflow = function (stream, regex, callback) {
                 new_tokens.push(before);
             }
             new_tokens.push(result);
-            new_tokens = new_tokens.concat(split_token(after));
+            if (after.length > 0) {
+                new_tokens = new_tokens.concat(split_token(after));
+            }
             var out = [];
             ITER(i, new_tokens) {
                 var trimmed = please.gl.__trim([new_tokens[i]]);
                 if (trimmed.length > 0) {
-                    out.push(trimmed);
+                    out = out.concat(trimmed);
                 }
             }
             return out;
