@@ -971,6 +971,10 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             "size" : null,
             "average" : null,
         },
+        "reference" : {
+            "data" : attr_map,
+            "options" : options,
+        },
     };
 
     if (attr_map.position !== undefined) {
@@ -1170,7 +1174,11 @@ please.gl.ibo = function (data, options) {
                 total = face_count;
             }
             gl.drawElements(opt.mode, total, opt.type, start*data.BYTES_PER_ELEMENT);
-        }
+        },
+        "reference" : {
+            "data" : data,
+            "options" : options,
+        },
     };
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.id);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
