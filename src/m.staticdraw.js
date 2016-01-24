@@ -162,7 +162,7 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
 
             // create a cache key from sampler settings to determine
             // which texture group this object belongs in
-            var cache_key = [];
+            var cache_key = ["::"];
             ITER(i, samplers) {
                 var name = samplers[i];
                 var uri = inspect.shader[name];
@@ -170,7 +170,8 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
                     cache_key.push(uri);
                 }
             }
-            cache_key = cache_key.join(String.fromCharCode(29));
+            var delim = String.fromCharCode(29);
+            cache_key = cache_key.join(delim);
 
             // create a new cache group if necessary and populate the
             // sampler settings for that group

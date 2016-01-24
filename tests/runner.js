@@ -28,6 +28,19 @@
 window.test = {};
 window._results = {};
 window._hints = [];
+window._lazy_cache = {};
+
+var lazy_bind = function(name, setter) {
+    window._lazy_cache[name] = null;
+    Object.defineProperty(window, name, {
+        get: function () {
+            if (window._lazy_cache[name] == null) {
+                window._lazy_cache[name] = setter();
+            }
+            return window._lazy_cache[name];
+        }
+    })
+}
 
 var assert = function (condition) {
     if (!condition) {

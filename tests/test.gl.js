@@ -7,30 +7,29 @@
 
 
 
-window.addEventListener("mgrl_gl_context_created", function () {
-    window.sample_indexed_vbo = (function () {
-        var vbo_data = {
-            "position" : new Float32Array([
-                1.1, 1.2, 1.3,
-                2.1, 2.2, 2.3,
-                3.1, 3.2, 3.3,
-                4.1, 4.2, 4.3,
-            ]),
-            "tcoords" :  new Float32Array([
-                5.1, 5.2,
-                6.1, 6.2,
-                7.1, 7.2,
-                8.1, 8.2,
-            ]),
-        };
-        var count = vbo_data.position.length / 3;
-        return please.gl.vbo(count, vbo_data);
-    })();
+lazy_bind("sample_indexed_vbo", function () {
+    var vbo_data = {
+        "position" : new Float32Array([
+            1.1, 1.2, 1.3,
+            2.1, 2.2, 2.3,
+            3.1, 3.2, 3.3,
+            4.1, 4.2, 4.3,
+        ]),
+        "tcoords" :  new Float32Array([
+            5.1, 5.2,
+            6.1, 6.2,
+            7.1, 7.2,
+            8.1, 8.2,
+        ]),
+    };
+    var count = vbo_data.position.length / 3;
+    return please.gl.vbo(count, vbo_data);
+});
 
-    window.sample_ibo = (function () {
-        var ibo_data = new Uint32Array([0, 1, 2, 1, 3, 2]);
-        return please.gl.ibo(ibo_data);
-    })();
+
+lazy_bind("sample_ibo", function () {
+    var ibo_data = new Uint32Array([0, 1, 2, 1, 3, 2]);
+    return please.gl.ibo(ibo_data);
 });
 
 
