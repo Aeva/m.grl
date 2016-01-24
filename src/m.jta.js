@@ -193,6 +193,10 @@ please.gl.__jta_model = function (src, uri) {
                             model.ibo.draw(group.start, group.count);
                         };
                     };
+                    node.__buffers = {
+                        "vbo" : model.vbo,
+                        "ibo" : model.ibo,
+                    };
                 }
                 if (entity.bone_name) {
                     node.is_bone = true;

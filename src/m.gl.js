@@ -972,8 +972,9 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             "average" : null,
         },
         "reference" : {
+            "size" : vertex_count,
             "data" : attr_map,
-            "options" : options,
+            "options" : opt,
         },
     };
 
@@ -1177,12 +1178,39 @@ please.gl.ibo = function (data, options) {
         },
         "reference" : {
             "data" : data,
-            "options" : options,
+            "options" : opt,
         },
     };
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.id);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
     return ibo;
+};
+
+
+/* [+] please.gl.decode_buffers(vbo, ibo)
+ * 
+ * Takes a VBO and an IBO and returns the raw mesh data.
+ * 
+ */
+please.gl.decode_buffers = function (vbo, ibo) {
+    var long_data = {};
+    var ibo_data = ibo.reference.data;
+    var vbo_data = vbo.reference.data;
+    var vertex_count = vbo.reference.size;
+    
+    ITER_PROPS(attr, vbo_data) {
+        var buffer = vbo_data[attr];
+        var data = [];
+        var type_size = buffer.length / vertex_count;
+        ITER(i, ibo_data) {
+            var seek = ibo_data[i];
+            data = data.concat(
+                Array.apply(null, buffer.slice(seek, seek+type_size)));
+        }
+        long_data[attr] = data;
+    }
+    long_data.__vertex_count = vertex_count;
+    return long_data;
 };
 
 
