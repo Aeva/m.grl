@@ -59,6 +59,7 @@
 #include "m.camera.js"
 
 #ifdef WEBGL
+#include "m.staticdraw.js"
 #include "m.builder.js"
 #include "m.compositing.js"
 #include "m.effects.js"
