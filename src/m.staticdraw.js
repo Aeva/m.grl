@@ -21,23 +21,24 @@
 please.StaticDrawNode = function (graph_node) {
     please.GraphNode.call(this);
 
-    var flattened = please.__static_graph_groups(graph_node);
+    var flattened = this.__flatten_graph(graph_node);
     flattened.cache_keys.sort();
 
     // generate the static vbo
-    var vbo = please.__static_create_composite_vbo(flattened);
+    var vbo = this.__combine_vbos(flattened);
     this.__static_vbo = vbo;
     this.__last_vbo = vbo;
 
     // generate the draw callback
-    this.__draw = please.__static_draw_callback(flattened);
+    this.__draw = this.__generate_draw_callback(flattened);
 };
+please.StaticDrawNode.prototype = Object.create(please.GraphNode.prototype);
 
 
 //
 // Generate a branchless draw function for the static draw set.
 //
-please.__static_draw_callback = function (flat) {
+please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
     var src = "";
     src += "if (!this.visible) { return; }\n";
     src += "this.__static_vbo.bind();\n";
@@ -50,7 +51,7 @@ please.__static_draw_callback = function (flat) {
 //
 //  Generate the new vertex buffer object
 //
-please.__static_create_composite_vbo = function (flat) {
+please.StaticDrawNode.prototype.__combine_vbos = function (flat) {
     var all_attrs = {}; // a map from attribute names to expected data type
     var attr_data = {}; // the data for the vbo
 
@@ -119,7 +120,7 @@ please.__static_create_composite_vbo = function (flat) {
 //  variables, generate mesh data with world matrix applied, and sort
 //  into texture groups.
 //
-please.__static_graph_groups = function (graph) {
+please.StaticDrawNode.prototype.__flatten_graph = function (graph) {
     var prog = please.gl.get_program();
     var samplers = prog.sampler_list;
     var uniforms = [];
@@ -142,7 +143,7 @@ please.__static_graph_groups = function (graph) {
 
             var matrix = inspect.shader.world_matrix;
             var chunk = {
-                "data" : please.__mesh_to_world_coordinates(mesh_data, matrix),
+                "data" : this.__bake_mesh(mesh_data, matrix),
                 "uniforms" : {},
             };
             
@@ -192,7 +193,7 @@ please.__static_graph_groups = function (graph) {
 //
 //  Apply a world matrix to an array of vertex positions.
 //
-please.__mesh_to_world_coordinates = function (mesh_data, matrix) {
+please.StaticDrawNode.prototype.__bake_mesh = function (mesh_data, matrix) {
     var vertex_count = mesh_data.__vertex_count;
     var old_coords = mesh_data.position;
     var new_coords = [];
