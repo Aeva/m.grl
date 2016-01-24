@@ -15,6 +15,7 @@ lazy_bind("sample_graph", function () {
     nodes.map(function (node) {
         node.__drawable = true;
         node.__buffers = {
+            // these buffers are defined in test.gl.js
             "vbo" : window.sample_indexed_vbo,
             "ibo" : window.sample_ibo,
         };
@@ -24,3 +25,27 @@ lazy_bind("sample_graph", function () {
     bar.location_x = 10;
     return root;
 });
+
+
+
+test["static draw node: flatten graph"] = function () {
+    var proto = please.StaticDrawNode.prototype;
+    var flat = proto.__flatten_graph(sample_graph);
+    var keys = flat.cache_keys;
+    var groups = flat.groups;
+    var bindings = flat.sampler_bindings;
+
+    assert(keys.length == 1);
+    assert(keys[0] == "::");
+
+    assert(groups["::"].length == 2);
+    var foo = groups["::"][0];
+    var bar = groups["::"][1];
+    
+    groups["::"].map(function (chunk) {
+        var size = chunk.data.__vertex_count;
+        please.prop_map(chunk.data.__types, function (attr, type) {
+            assert(chunk.data[attr].length == size * type);
+        });
+    });
+};
