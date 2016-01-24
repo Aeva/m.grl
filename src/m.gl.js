@@ -974,9 +974,14 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         "reference" : {
             "size" : vertex_count,
             "data" : attr_map,
+            "type" : {},
             "options" : opt,
         },
     };
+
+    ITER_PROPS(attr, attr_map) {
+        vbo.reference.type[attr] = attr_map[attr].length / vertex_count;
+    }
 
     if (attr_map.position !== undefined) {
         var point, sum = null;
@@ -1196,12 +1201,12 @@ please.gl.decode_buffers = function (vbo, ibo) {
     var long_data = {};
     var ibo_data = ibo.reference.data;
     var vbo_data = vbo.reference.data;
-    var faces = ibo_data.length;
-    var vertex_count = faces * 3;
+    var vbo_type = vbo.reference.type;
+    var vertex_count = ibo_data.length;
     
     ITER_PROPS(attr, vbo_data) {
         var buffer = vbo_data[attr];
-        var type_size = buffer.length / vertex_count;
+        var type_size = vbo_type[attr];
         var output = new Float32Array(vertex_count * type_size);
         ITER(i, ibo_data) {
             var seek = ibo_data[i];
@@ -1213,6 +1218,7 @@ please.gl.decode_buffers = function (vbo, ibo) {
         long_data[attr] = output;
     }
     long_data.__vertex_count = vertex_count;
+    long_data.__types = vbo_type;
     return long_data;
 };
 
