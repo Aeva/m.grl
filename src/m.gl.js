@@ -1209,7 +1209,7 @@ please.gl.decode_buffers = function (vbo, ibo) {
         var type_size = vbo_type[attr];
         var output = new Float32Array(vertex_count * type_size);
         ITER(i, ibo_data) {
-            var seek = ibo_data[i];
+            var seek = ibo_data[i] * type_size;
             var write = i * type_size;
             for (var channel = 0; channel<type_size; channel +=1) {
                 output[write+channel] = buffer[seek+channel]

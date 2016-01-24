@@ -13,7 +13,7 @@ window.addEventListener("mgrl_gl_context_created", function () {
             "position" : new Float32Array([
                 1.1, 1.2, 1.3,
                 2.1, 2.2, 2.3,
-                3.1, 3.2, 3.2,
+                3.1, 3.2, 3.3,
                 4.1, 4.2, 4.3,
             ]),
             "tcoords" :  new Float32Array([
@@ -111,7 +111,7 @@ test["please.gl.decode_buffers"] = function () {
     
     // triange 1 tcoords
     assert(data.tcoords[0] == cast_float32(5.1));
-    assert(data.tcoords[1] == cast_float32(5.1));
+    assert(data.tcoords[1] == cast_float32(5.2));
     //
     assert(data.tcoords[2] == cast_float32(6.1));
     assert(data.tcoords[3] == cast_float32(6.2));
@@ -122,7 +122,7 @@ test["please.gl.decode_buffers"] = function () {
 
     // triange 2 tcoords
     assert(data.tcoords[6] == cast_float32(6.1));
-    assert(data.tcoords[7] == cast_float32(6.1));
+    assert(data.tcoords[7] == cast_float32(6.2));
     //
     assert(data.tcoords[8] == cast_float32(8.1));
     assert(data.tcoords[9] == cast_float32(8.2));
