@@ -39,11 +39,14 @@ please.StaticDrawNode.prototype = Object.create(please.GraphNode.prototype);
 // Generate a branchless draw function for the static draw set.
 //
 please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
-    var src = "";
-    src += "if (!this.visible) { return; }\n";
-    src += "this.__static_vbo.bind();\n";
-    src += "this.__static_vbo.draw();\n"; // WRONG
+    var calls = [
+        "if (!this.visible) { return; }",
+        "this.__static_vbo.bind()",
 
+        // wrong
+        "gl.drawArrays(gl.TRIANGLES, 0, " + this.__static_vbo.reference.size +")",
+    ];
+    src = calls.join("\n");
     return new Function(src);
 };
 
@@ -53,14 +56,16 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
 //
 please.StaticDrawNode.prototype.__combine_vbos = function (flat) {
     var all_attrs = {}; // a map from attribute names to expected data type
-    var attr_data = {}; // the data for the vbo
+    var total_vertices = 0;
 
     // determine all attribute names needed for the new vbo
-    ITER(key, flat.cache_keys) {
+    ITER(ki, flat.cache_keys) {
+        var key = flat.cache_keys[ki];
         var nodes = flat.groups[key];
         ITER(n, nodes) {
             var node_attrs = nodes[n].data;
             var vertex_count = node_attrs.__vertex_count;
+            total_vertices += vertex_count;
             ITER_PROPS(attr, node_attrs) {
                 if (attr.startsWith("__")) {
                     continue;
@@ -69,7 +74,6 @@ please.StaticDrawNode.prototype.__combine_vbos = function (flat) {
                 var type_size = items.length / vertex_count;
                 if (!all_attrs[attr]) {
                     all_attrs[attr] = type_size;
-                    attr_data[attr] = [];
                 }
                 else if (all_attrs[attr] !== type_size) {
                     var message = "Mismatched attribute array data types.";
@@ -80,38 +84,41 @@ please.StaticDrawNode.prototype.__combine_vbos = function (flat) {
         }
     }
 
-    var zeros = function (vertex_count, type_size) {
-        return Array.apply(null, new Float32Array(vertex_count * type_size));
-    };
+    // build the empty arrays
+    var attr_data = {}; // the data for the vbo
+    ITER_PROPS(attr, all_attrs) {
+        attr_data[attr] = new Float32Array(total_vertices * all_attrs[attr]);
+    }
 
     // loop over the mesh data objects and concatinate them together
     // into one array
-    ITER(key, flat.cache_keys) {
+    var offset = 0;
+    ITER(ki, flat.cache_keys) {
+        var key = flat.cache_keys[ki];
         var nodes = flat.groups[key];
         ITER(n, nodes) {
             var node_attrs = nodes[n].data;
             var vertex_count = node_attrs.__vertex_count;
             ITER_PROPS(attr, attr_data) {
+                var type = all_attrs[attr];
+                var size = vertex_count * type;
                 if (node_attrs[attr]) {
-                    attr_data[attr] = attr_data[attr].concat(node_attrs[attr]);
+                    for (var i=0; i<size; i+=1) {
+                        attr_data[attr][offset+i] = node_attrs[attr][i];
+                    }
                 }
                 else {
-                    var padding = zeros(vertex_count, all_attrs[attr]);
-                    attr_data[attr] = attr_data[attr].concat(padding);
+                    for (var i=offset; i<offset+size; i+=1) {
+                        attr_data[attr][i] = 0;
+                    }
                 }
             }
+            offset += vertex_count;
         }
     }
 
-    // cast the attribute arrays to Float32Array buffers
-    var buffers = {};
-    ITER_PROPS(attr, attr_data) {
-        buffers[attr] = new Float32Array(attr_data);
-    }
-
     // create the composite VBO
-    var vertex_count = buffers.position.length / 3.0;
-    return please.gl.vbo(vertex_count, buffers);
+    return please.gl.vbo(total_vertices, attr_data);
 };
 
 
@@ -120,7 +127,7 @@ please.StaticDrawNode.prototype.__combine_vbos = function (flat) {
 //  variables, generate mesh data with world matrix applied, and sort
 //  into texture groups.
 //
-please.StaticDrawNode.prototype.__flatten_graph = function (graph) {
+please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
     var prog = please.gl.get_program();
     var samplers = prog.sampler_list;
     var uniforms = [];
@@ -135,7 +142,8 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph) {
     var cache_keys = [];
     var sampler_bindings = {};
     graph_node.propogate(function (inspect) {
-        if (inspect.__drawable && inspect.__visible) {
+        if (inspect.__drawable && inspect.visible) {
+            var mesh_data = inspect.mesh_data();
             if (mesh_data == null) {
                 console.warn("unable to use object for static draw:", inspect);
                 return;
@@ -143,7 +151,7 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph) {
 
             var matrix = inspect.shader.world_matrix;
             var chunk = {
-                "data" : this.__bake_mesh(mesh_data, matrix),
+                "data" : this.__apply_matrix(mesh_data, matrix),
                 "uniforms" : {},
             };
             
@@ -180,7 +188,7 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph) {
             // add the object to a texture group
             groups[cache_key].push(chunk);
         }
-    });
+    }.bind(this));
 
     return {
         "groups" : groups,
@@ -193,7 +201,7 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph) {
 //
 //  Apply a world matrix to an array of vertex positions.
 //
-please.StaticDrawNode.prototype.__bake_mesh = function (mesh_data, matrix) {
+please.StaticDrawNode.prototype.__apply_matrix = function (mesh_data, matrix) {
     var vertex_count = mesh_data.__vertex_count;
     var old_coords = mesh_data.position;
     var new_coords = [];

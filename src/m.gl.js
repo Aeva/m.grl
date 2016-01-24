@@ -1196,18 +1196,21 @@ please.gl.decode_buffers = function (vbo, ibo) {
     var long_data = {};
     var ibo_data = ibo.reference.data;
     var vbo_data = vbo.reference.data;
-    var vertex_count = vbo.reference.size;
+    var faces = ibo_data.length;
+    var vertex_count = faces * 3;
     
     ITER_PROPS(attr, vbo_data) {
         var buffer = vbo_data[attr];
-        var data = [];
         var type_size = buffer.length / vertex_count;
+        var output = new Float32Array(vertex_count * type_size);
         ITER(i, ibo_data) {
             var seek = ibo_data[i];
-            data = data.concat(
-                Array.apply(null, buffer.slice(seek, seek+type_size)));
+            var write = i * type_size;
+            for (var channel = 0; channel<type_size; channel +=1) {
+                output[write+channel] = buffer[seek+channel]
+            }
         }
-        long_data[attr] = data;
+        long_data[attr] = output;
     }
     long_data.__vertex_count = vertex_count;
     return long_data;
