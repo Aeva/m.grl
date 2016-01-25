@@ -64,21 +64,20 @@ please.StaticDrawNode.prototype.__combine_vbos = function (flat) {
         var nodes = flat.groups[key];
         ITER(n, nodes) {
             var node_attrs = nodes[n].data;
+            var node_types = node_attrs.__types;
             var vertex_count = node_attrs.__vertex_count;
             total_vertices += vertex_count;
             ITER_PROPS(attr, node_attrs) {
-                if (attr.startsWith("__")) {
-                    continue;
-                }
-                var items = node_attrs[attr];
-                var type_size = items.length / vertex_count;
-                if (!all_attrs[attr]) {
-                    all_attrs[attr] = type_size;
-                }
-                else if (all_attrs[attr] !== type_size) {
-                    var message = "Mismatched attribute array data types.";
-                    message += "  Cannot build static scene.";
-                    throw new Error(message);
+                if (!attr.startsWith("__")) {
+                    var type_size = node_types[attr];
+                    if (!all_attrs[attr]) {
+                        all_attrs[attr] = type_size;
+                    }
+                    else if (all_attrs[attr] !== type_size) {
+                        var message = "Mismatched attribute array data types.";
+                        message += "  Cannot build static scene.";
+                        throw new Error(message);
+                    }
                 }
             }
         }
@@ -102,13 +101,14 @@ please.StaticDrawNode.prototype.__combine_vbos = function (flat) {
             ITER_PROPS(attr, attr_data) {
                 var type = all_attrs[attr];
                 var size = vertex_count * type;
+                var start = offset * type;
                 if (node_attrs[attr]) {
                     for (var i=0; i<size; i+=1) {
-                        attr_data[attr][offset+i] = node_attrs[attr][i];
+                        attr_data[attr][start+i] = node_attrs[attr][i];
                     }
                 }
                 else {
-                    for (var i=offset; i<offset+size; i+=1) {
+                    for (var i=start; i<start+size; i+=1) {
                         attr_data[attr][i] = 0;
                     }
                 }
@@ -203,16 +203,14 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
 //  Apply a world matrix to an array of vertex positions.
 //
 please.StaticDrawNode.prototype.__apply_matrix = function (mesh_data, matrix) {
-    var vertex_count = mesh_data.__vertex_count;
     var old_coords = mesh_data.position;
-    var new_coords = [];
-    
-    ITER(i, vertex_count) {
+    var new_coords = new Float32Array(old_coords.length);
+  
+    RANGE(i, mesh_data.__vertex_count) {
         var seek = i*3;
-        var coord = old_coords.slice(seek, seek+3);
-        var morph = [0,0,0];
-        vec3.transform(morph, coord, matrix);
-        new_coords = new_coords.concat(morph);
+        var view = new_coords.subarray(seek, seek+3);
+        var coord = old_coords.subarray(seek, seek+3);
+        vec3.transformMat4(view, coord, matrix);
     };
     
     mesh_data.position = new_coords;

@@ -689,10 +689,11 @@ please.GraphNode.prototype = {
             else {
                 var long_data = {};
                 var vbo_data = this.__buffers.vbo.reference.data;
-                ITER_PROPS(attr, vbo_data) {
-                    long_data[attr] = Array.apply(null, vbo_data[attr]);
-                }
+                long_data.__types = this.__buffers.vbo.reference.type;
                 long_data.__vertex_count = vbo.reference.size;
+                ITER_PROPS(attr, vbo_data) {
+                    long_data[attr] = vbo_data[attr];
+                }
                 return long_data;
             }
         }

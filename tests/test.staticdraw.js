@@ -27,7 +27,30 @@ lazy_bind("sample_graph", function () {
 });
 
 
+
+
+
 
+test["static draw node: apply matrix"] = function () {
+    var proto = please.StaticDrawNode.prototype;
+    var child = sample_graph.children[1];
+    var mesh_data = child.mesh_data();
+    var matrix = child.shader.world_matrix;
+    var new_data = proto.__apply_matrix(mesh_data, matrix);
+
+    var types = new_data.__types;
+    var size = new_data.__vertex_count;
+
+    please.prop_map(new_data, function (attr, buffer) {
+        if (!attr.startsWith("__")) {
+            assert(buffer.length == types[attr] * size);
+            assert(buffer.indexOf(0) == -1);
+        }
+    });
+};
+
+
+    
 test["static draw node: flatten graph"] = function () {
     var proto = please.StaticDrawNode.prototype;
     var flat = proto.__flatten_graph(sample_graph);
@@ -38,14 +61,31 @@ test["static draw node: flatten graph"] = function () {
     assert(keys.length == 1);
     assert(keys[0] == "::");
 
-    assert(groups["::"].length == 2);
-    var foo = groups["::"][0];
-    var bar = groups["::"][1];
-    
+    assert(groups["::"].length == 2);    
     groups["::"].map(function (chunk) {
         var size = chunk.data.__vertex_count;
         please.prop_map(chunk.data.__types, function (attr, type) {
             assert(chunk.data[attr].length == size * type);
+            assert(chunk.data[attr].indexOf(0) == -1);
         });
+    });
+
+    assert(bindings["::"]["diffuse_texture"] === null);
+};
+
+
+    
+test["static draw node: combine_vbos"] = function () {
+    var proto = please.StaticDrawNode.prototype;
+    var flat = proto.__flatten_graph(sample_graph);
+    var vbo = proto.__combine_vbos(flat);
+
+    var types = vbo.reference.type;
+    var buffers = vbo.reference.data;
+    var vertices = vbo.reference.size;
+
+    please.prop_map(buffers, function(attr, buffer) {
+        assert(buffer.length == types[attr] * vertices);
+        assert(buffer.indexOf(0) == -1);
     });
 };
