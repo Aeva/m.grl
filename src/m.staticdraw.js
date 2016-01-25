@@ -46,19 +46,31 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
 //        "prog.vars.world_matrix = this.shader.world_matrix",
         "this.__static_vbo.bind();",
     ];
-    
+
+    var offset = 0;
     ITER(ki, flat.cache_keys) {
         var key = flat.cache_keys[ki];
         var samplers = flat.sampler_bindings[key];
         ITER_PROPS(var_name, samplers) {
             calls.push("prog.samplers['"+var_name+"'] = '"+samplers[var_name]+"';");
-            // TODO: also upload uniform values
-            // TODO: draw the range for this texture group
         }
+        
+        // TODO: also upload uniform values
+        // TODO: draw the range for this texture group
+
+        var range = 0;
+        var draw_set = flat.groups[key];
+        ITER(d, draw_set) {
+            var chunk = draw_set[d];
+            range += chunk.data.__vertex_count;
+        }
+
+        var call_args = ["gl.TRIANGLES", offset, range];
+        calls.push("gl.drawArrays(" + call_args.join(", ") + ")");
+        offset += range;
     }
 
     // wrong
-    calls.push("gl.drawArrays(gl.TRIANGLES, 0, " + this.__static_vbo.reference.size +")");
 
     var src = calls.join("\n");
     return new Function(src);
