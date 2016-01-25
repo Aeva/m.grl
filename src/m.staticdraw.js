@@ -20,6 +20,7 @@
  */
 please.StaticDrawNode = function (graph_node) {
     please.GraphNode.call(this);
+    this.__drawable = true;
 
     var flattened = this.__flatten_graph(graph_node);
     flattened.cache_keys.sort();
@@ -27,10 +28,9 @@ please.StaticDrawNode = function (graph_node) {
     // generate the static vbo
     var vbo = this.__combine_vbos(flattened);
     this.__static_vbo = vbo;
-    this.__last_vbo = vbo;
 
     // generate the draw callback
-    this.__draw = this.__generate_draw_callback(flattened);
+    this.draw = this.__generate_draw_callback(flattened);
 };
 please.StaticDrawNode.prototype = Object.create(please.GraphNode.prototype);
 
@@ -39,14 +39,28 @@ please.StaticDrawNode.prototype = Object.create(please.GraphNode.prototype);
 // Generate a branchless draw function for the static draw set.
 //
 please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
+    //flat.sampler_bindings[flat.cache_keys[0]
     var calls = [
         "if (!this.visible) { return; }",
-        "this.__static_vbo.bind()",
-
-        // wrong
-        "gl.drawArrays(gl.TRIANGLES, 0, " + this.__static_vbo.reference.size +")",
+        "var prog = please.gl.get_program();",
+//        "prog.vars.world_matrix = this.shader.world_matrix",
+        "this.__static_vbo.bind();",
     ];
-    src = calls.join("\n");
+    
+    ITER(ki, flat.cache_keys) {
+        var key = flat.cache_keys[ki];
+        var samplers = flat.sampler_bindings[key];
+        ITER_PROPS(var_name, samplers) {
+            calls.push("prog.samplers['"+var_name+"'] = '"+samplers[var_name]+"';");
+            // TODO: also upload uniform values
+            // TODO: draw the range for this texture group
+        }
+    }
+
+    // wrong
+    calls.push("gl.drawArrays(gl.TRIANGLES, 0, " + this.__static_vbo.reference.size +")");
+
+    var src = calls.join("\n");
     return new Function(src);
 };
 
