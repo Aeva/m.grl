@@ -25,6 +25,10 @@ please.StaticDrawNode = function (graph_node) {
     var flattened = this.__flatten_graph(graph_node);
     flattened.cache_keys.sort();
 
+    ITER_PROPS(name, flattened.uniforms.universal) {
+        this.shader[name] = flattened.uniforms.universal[name];
+    }
+
     // generate the static vbo
     var vbo = this.__combine_vbos(flattened);
     this.__static_vbo = vbo;
@@ -39,14 +43,20 @@ please.StaticDrawNode.prototype = Object.create(please.GraphNode.prototype);
 // Generate a branchless draw function for the static draw set.
 //
 please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
-    //flat.sampler_bindings[flat.cache_keys[0]
     var calls = [
         "if (!this.visible) { return; }",
         "var prog = please.gl.get_program();",
-//        "prog.vars.world_matrix = this.shader.world_matrix",
         "this.__static_vbo.bind();",
     ];
 
+    var last_state = {};
+    var UNASSIGNED = {};
+    ITER(i, flat.uniforms.dynamic) {
+        var name = flat.uniforms.dynamic[i];
+        // can't just use null here because that is a valid value to upload
+        last_state[name] = UNASSIGNED;
+    }
+    
     var offset = 0;
     ITER(ki, flat.cache_keys) {
         var key = flat.cache_keys[ki];
@@ -54,26 +64,72 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
         ITER_PROPS(var_name, samplers) {
             calls.push("prog.samplers['"+var_name+"'] = '"+samplers[var_name]+"';");
         }
-        
-        // TODO: also upload uniform values
-        // TODO: draw the range for this texture group
+
+        var add_draw_command = function (range) {
+            var call_args = ["gl.TRIANGLES", offset, range];
+            calls.push("gl.drawArrays(" + call_args.join(", ") + ")");
+            offset += range;
+        };
+
+        var add_state_change = function (name, value) {
+            var out;
+            var type = value.constructor.name;
+            if (type === "Array") {
+                out = value.toSource();
+            }
+            else if (type.indexOf("Array") !== -1) {
+                // object is a typed array
+                var data = Array.apply(null, value).toSource();
+                out = "new "+type+"(" + data + ")";
+            }
+            else {
+                // object probably doesn't need any fancy processing
+                out = value;
+            }
+            calls.push("prog.vars['"+name+"'] = " + out + ";");
+        };
 
         var range = 0;
         var draw_set = flat.groups[key];
         ITER(d, draw_set) {
             var chunk = draw_set[d];
+
+            var changed = [];
+            ITER(i, flat.uniforms.dynamic) {
+                var name = flat.uniforms.dynamic[i];
+                var old_value = last_state[name];
+                var new_value = chunk.uniforms[name];
+                if (new_value !== old_value) {
+                    changed.push(name);
+                }
+            }
+            if (changed.length > 0) {
+                if (range > 0) {
+                    add_draw_command(range);
+                    range = 0;
+                }
+                ITER(i, changed) {
+                    var name = changed[i];
+                    var value = chunk.uniforms[name];
+                    add_state_change(name, value);
+                    last_state[name] = value;
+                }
+            }
             range += chunk.data.__vertex_count;
         }
-
-        var call_args = ["gl.TRIANGLES", offset, range];
-        calls.push("gl.drawArrays(" + call_args.join(", ") + ")");
-        offset += range;
+        if (range > 0) {
+            add_draw_command(range);
+        }
     }
 
-    // wrong
-
     var src = calls.join("\n");
-    return new Function(src);
+    try {
+        return new Function(src);
+    }
+    catch (error) {
+        console.error("FAILED TO BUILD STATIC DRAW FUNCTION");
+        throw error;
+    }
 };
 
 
@@ -157,11 +213,30 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
     var prog = please.gl.get_program();
     var samplers = prog.sampler_list;
     var uniforms = [];
+
+    var ignore = [
+        "projection_matrix",
+        "normal_matrix",
+        "world_matrix",
+        "view_matrix",
+    ];
+    
     ITER(i, prog.uniform_list) {
         var test = prog.uniform_list[i];
-        if (samplers.indexOf(test) == -1 && test.indexOf("matrix") == -1) {
+        if (samplers.indexOf(test) == -1 && ignore.indexOf(test) == -1 && !test.startsWith("mgrl_")) {
             uniforms.push(test);
         }
+    }
+
+    // Uniform delta tracks how often a uniform is changed for each
+    // draw.  Uniform states tracks how many unique states the uniform
+    // has.
+    var uniform_delta = {};
+    var uniform_states = {};
+    ITER(i, uniforms) {
+        var name = uniforms[i];
+        uniform_delta[name] = 0;
+        uniform_states[name] = [];
     }
 
     var groups = {};
@@ -183,7 +258,13 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
             
             ITER(i, uniforms) {
                 var name = uniforms[i];
-                chunk.uniforms[name] = inspect.shader[name];
+                var value = inspect.shader[name];
+                chunk.uniforms[name] = value
+
+                if (uniform_states[name].indexOf(value) == -1) {
+                    uniform_states[name].push(value);
+                    uniform_delta[name] += 1;
+                }
             }
 
             // create a cache key from sampler settings to determine
@@ -217,10 +298,30 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
         }
     }.bind(this));
 
+    // these variables keep track of which uniform variables change
+    // many times when the graph is drawn vs which only are set once
+    var dynamic_uniforms = [];
+    var universal_uniforms = {};
+    ITER(i, uniforms) {
+        var name = uniforms[i];
+        var delta = uniform_delta[name];
+        if (delta > 1) {
+            dynamic_uniforms.push(name);
+        }
+        else if (delta == 1) {
+            universal_uniforms[name] = uniform_states[name][0];
+        }
+    }
+
     return {
         "groups" : groups,
         "cache_keys" : cache_keys,
         "sampler_bindings" : sampler_bindings,
+        "uniforms" : {
+            "delta" : uniform_delta,
+            "dynamic" : dynamic_uniforms,
+            "universal" : universal_uniforms,
+        },
     };
 };
 
