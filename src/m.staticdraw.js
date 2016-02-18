@@ -22,12 +22,20 @@ please.StaticDrawNode = function (graph_node) {
     please.GraphNode.call(this);
     this.__drawable = true;
 
+    // generate data like ranges and uniforms per object in the graph,
+    // sort into texture groups
     var flattened = this.__flatten_graph(graph_node);
     flattened.cache_keys.sort();
 
+    // uniform vars that remain constant accross the entire group are
+    // set as the defaults for this resulting object's shader object
     ITER_PROPS(name, flattened.uniforms.universal) {
         this.shader[name] = flattened.uniforms.universal[name];
     }
+
+    // reorganize the objects within texture groups to attempt to
+    // minimize uniform state changes
+    this.__uniform_sort(flattened);
 
     // generate the static vbo
     var vbo = this.__combine_vbos(flattened);
@@ -201,6 +209,76 @@ please.StaticDrawNode.prototype.__combine_vbos = function (flat) {
 
     // create the composite VBO
     return please.gl.vbo(total_vertices, attr_data);
+};
+
+
+//
+//  Sort the objects within the flattened graph's texture groups to
+//  attempt to minimize uniform state changes.
+//
+please.StaticDrawNode.prototype.__uniform_sort = function (flat) {
+    var UNASSIGNED = new (function UNASSIGNED () {});
+    ITER(ki, flat.cache_keys) {
+        var key = flat.cache_keys[ki];
+        var draw_set = flat.groups[key];
+
+        // a simple comparison function to be used by the larger
+        // comparison function below
+        var simple_cmp = function (lhs, rhs) {
+            if (lhs < rhs) {
+                return -1;
+            }
+            else if (lhs > rhs) {
+                return 1;
+            }
+            else {
+                return 0;
+            }
+        };
+
+        // attempt to lower the number of state changes by sorting the
+        // objects in the texture group by their uniform values
+        draw_set.sort(function (lhs, rhs) {
+            ITER(i, flat.uniforms.dynamic) {
+                var name = flat.uniforms.dynamic[i];
+                var a = lhs.uniforms[name];
+                var b = rhs.uniforms[name];
+                DEFAULT(a, UNASSIGNED);
+                DEFAULT(b, UNASSIGNED);
+                var type = a.constructor;
+                var ret = 0;
+                
+                if (a.constructor !== b.constructor) {
+                    // lexical sort on constructor name when the two
+                    // objects aren't the same type
+                    ret = simple_cmp(a.constructor.name, a.constructor.name);
+                }
+                else if (type.name == "Array") {
+                    // lexical sort of coerced string values for arrays
+                    ret = simple_cmp(a.toSource(), b.toSource());
+                }
+                else if (type.name.indexOf("Array") !== -1) {
+                    // lexical sort of coerced string values for typed arrays
+                    ret = simple_cmp(
+                        Array.apply(null, a).toSource(),
+                        Array.apply(null, b).toSource());
+                }
+                else {
+                    // value sort for numbers, lexical for strings
+                    ret = simple_cmp(a, b);
+                }
+                
+                if (ret == 0) {
+                    // if the two values come up equal, compaire the
+                    // next uniform
+                    continue;
+                }
+                else {
+                    return ret;
+                }
+            }
+        });
+    }
 };
 
 
