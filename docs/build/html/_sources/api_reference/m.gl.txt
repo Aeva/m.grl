@@ -9,8 +9,12 @@ please.gl.set_context
 
 This function is used for setting the current rendering context (which
 canvas element M.GRL will be drawing to), as well as creating the "gl"
-namespace, which is used extensively by M.GRL, and therefor this
-function is usually the first thing your program should call.
+namespace (window.gl, not please.gl), which is used extensively by
+M.GRL, and therefor this function is usually the first thing your
+program should call.
+
+Please note that this method can only be called once, and if it is
+called, please.dom.set\_context may not be used.
 
 The "options" paramater is an object which is passed to the
 canvas.getContext function, but may be omitted if you do not wish to

@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>m.qa.js &mdash; M.GRL version zero documentation</title>
+    <title>m.staticdraw.js &mdash; M.GRL version zero documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -28,8 +28,8 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
     <link rel="up" title="API Reference" href="index.html" />
-    <link rel="next" title="m.staticdraw.js" href="m.staticdraw.html" />
-    <link rel="prev" title="m.prefab.js" href="m.prefab.html" /> 
+    <link rel="next" title="m.struct.js" href="m.struct.html" />
+    <link rel="prev" title="m.qa.js" href="m.qa.html" /> 
   </head>
   <body>
     <div class="related">
@@ -39,10 +39,10 @@
           <a href="../genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="m.staticdraw.html" title="m.staticdraw.js"
+          <a href="m.struct.html" title="m.struct.js"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="m.prefab.html" title="m.prefab.js"
+          <a href="m.qa.html" title="m.qa.js"
              accesskey="P">previous</a> |</li>
         <li><a href="../index.html">Contents</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
@@ -54,21 +54,14 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="m-qa-js">
-<h1>m.qa.js<a class="headerlink" href="#m-qa-js" title="Permalink to this headline">¶</a></h1>
-<p>This part of m.grl runs to check for features and/or browser behavior
-that is absolutely required for m.grl to function properly. If something
-is missing, then a page should be displayed to the end user informing
-them that their browser of choice lacks critical functionality, and that
-they should consider trying firefox or chrome.</p>
-<div class="section" id="please-qa-failed">
-<h2>please.qa_failed<a class="headerlink" href="#please-qa-failed" title="Permalink to this headline">¶</a></h2>
-<p><em>please.qa_failed</em> <strong>()</strong></p>
-<p>This is called automatically when the browser is missing some critical
-functionality that cannot be polyfilled. It should display some kind of
-message to the user. You can override this method to provide your own
-behavior for this.</p>
-</div>
+  <div class="section" id="m-staticdraw-js">
+<h1>m.staticdraw.js<a class="headerlink" href="#m-staticdraw-js" title="Permalink to this headline">¶</a></h1>
+<p>This part of M.GRL implements the StaticDrawNode functionality. Static
+nodes are used to freeze instanced assets into a singular object which
+can be drawn with only a few GL calls and no special processing.</p>
+<p>Where GraphNodes are useful for applying dynamic behavior to a small
+number of objects, StaticDrawNodes are intended to allow large numbers
+of objects to be rendered as quickly as possible.</p>
 </div>
 
 
@@ -77,23 +70,15 @@ behavior for this.</p>
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="../index.html">Table Of Contents</a></h3>
-  <ul>
-<li><a class="reference internal" href="#">m.qa.js</a><ul>
-<li><a class="reference internal" href="#please-qa-failed">please.qa_failed</a></li>
-</ul>
-</li>
-</ul>
-
   <h4>Previous topic</h4>
-  <p class="topless"><a href="m.prefab.html"
-                        title="previous chapter">m.prefab.js</a></p>
+  <p class="topless"><a href="m.qa.html"
+                        title="previous chapter">m.qa.js</a></p>
   <h4>Next topic</h4>
-  <p class="topless"><a href="m.staticdraw.html"
-                        title="next chapter">m.staticdraw.js</a></p>
+  <p class="topless"><a href="m.struct.html"
+                        title="next chapter">m.struct.js</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
-    <li><a href="../_sources/api_reference/m.qa.txt"
+    <li><a href="../_sources/api_reference/m.staticdraw.txt"
            rel="nofollow">Show Source</a></li>
   </ul>
 <div id="searchbox" style="display: none">
@@ -120,10 +105,10 @@ behavior for this.</p>
           <a href="../genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="m.staticdraw.html" title="m.staticdraw.js"
+          <a href="m.struct.html" title="m.struct.js"
              >next</a> |</li>
         <li class="right" >
-          <a href="m.prefab.html" title="m.prefab.js"
+          <a href="m.qa.html" title="m.qa.js"
              >previous</a> |</li>
         <li><a href="../index.html">Contents</a> &raquo;</li>
           <li><a href="index.html" >API Reference</a> &raquo;</li> 

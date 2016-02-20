@@ -86,6 +86,14 @@ article <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Globa
 for more information.
 
 
+please.array_hash
+-----------------
+*please.array\_hash* **(array, digits)**
+
+Returns a string that represents the array. This is mainly used for
+comparing two arrays.
+
+
 please.random\_of
 -----------------
 *please.random\_of* **(array)**

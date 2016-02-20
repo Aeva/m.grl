@@ -89,3 +89,11 @@ the animation via WebGL. The buffer objects are saved upon the animation
 object.
 
 
+please.gani.sprite\_to\_html
+----------------------------
+*please.gani.sprite\_to\_html* **(ani\_object, sprite\_id, x, y)**
+
+Generates an html string that will render a particular gani sprite
+instance.
+
+
