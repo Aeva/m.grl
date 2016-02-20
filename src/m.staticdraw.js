@@ -321,6 +321,12 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
     var groups = {};
     var cache_keys = [];
     var sampler_bindings = {};
+    var array_store = {};
+
+    var is_array = function (obj) {
+        return obj.constructor.name.indexOf("Array") !== -1;
+    };
+    
     graph_node.propogate(function (inspect) {
         if (inspect.__is_static_draw_node) {
             throw new Error(
@@ -342,7 +348,21 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
             ITER(i, uniforms) {
                 var name = uniforms[i];
                 var value = inspect.shader[name];
-                chunk.uniforms[name] = value
+
+                // This will coerce all identical arrays to be the
+                // same object, so that anything based on indexOf or
+                // tests for equality should work correctly.
+                if (is_array(value)) {
+                    var hash = please.array_hash(value, 4);
+                    if (!array_store[hash]) {
+                        array_store[hash] = value;
+                    }
+                    else {
+                        value = array_store[hash];
+                    }
+                }
+                
+                chunk.uniforms[name] = value;
 
                 if (uniform_states[name].indexOf(value) == -1) {
                     uniform_states[name].push(value);
