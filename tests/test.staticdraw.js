@@ -160,3 +160,16 @@ test["static draw node: complex integration"] = function () {
         "})";
     assert(draw_fn === expected);
 };
+
+
+    
+test["static draw node: dissallow instancing from another sdn"] = function () {
+    var error_thrown = false;
+    var meep = new please.StaticDrawNode(sample_graph);
+    try {
+        var rawr = new please.StaticDrawNode(meep);
+    } catch (error) {
+        error_thrown = true;
+    }
+    assert(error_thrown);
+};

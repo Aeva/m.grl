@@ -20,6 +20,7 @@
  */
 please.StaticDrawNode = function (graph_node) {
     please.GraphNode.call(this);
+    this.__is_static_draw_node = true;
     this.__drawable = true;
 
     // generate data like ranges and uniforms per object in the graph,
@@ -321,6 +322,10 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
     var cache_keys = [];
     var sampler_bindings = {};
     graph_node.propogate(function (inspect) {
+        if (inspect.__is_static_draw_node) {
+            throw new Error(
+                "Static Draw Nodes cannot be made from other Static Draw Nodes");
+        }
         if (inspect.__drawable && inspect.visible) {
             var mesh_data = inspect.mesh_data();
             if (mesh_data == null) {
