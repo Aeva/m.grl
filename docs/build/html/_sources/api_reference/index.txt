@@ -9,6 +9,7 @@ API Reference
     m.camera.rst
     m.compositing.rst
     m.defs.rst
+    m.dom.rst
     m.effects.rst
     m.gani.rst
     m.gl.ast.rst
@@ -24,5 +25,6 @@ API Reference
     m.particles.rst
     m.prefab.rst
     m.qa.rst
+    m.staticdraw.rst
     m.struct.rst
     m.time.rst

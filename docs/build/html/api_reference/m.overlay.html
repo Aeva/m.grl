@@ -60,10 +60,10 @@
 overlays on top of the 3D canvas. These overlays can have their
 positions locked to appear over the screen position of any GraphNode in
 use.</p>
-<p>The #mgrl_overlay div is created when the OpenGL rendering context is
+<p>The #mgrl_overlay div is created when the rendering context is
 established. While you can interact with this directly if you like, it
 is generally advised to use the overlay API to add and destroy widgets
-intended to function seamlessly with the WebGL content.</p>
+intended to function seamlessly with the animated content.</p>
 <p>Please note that the overlay currently sets the &#8220;pointer-events&#8221; css
 property to &#8220;none&#8221; on the div element itself. To receive pointer events
 on divs that have mgrl_overlay as an ancestor, the property must be
