@@ -131,6 +131,34 @@ please.split_params = function (line, delim) {
 please.get_properties = Object.getOwnPropertyNames;
 
 
+// [+] please.array_hash(array, digits)
+// 
+// Returns a string that represents the array.  This is mainly used
+// for comparing two arrays.
+// 
+please.array_hash = function(array, decimal_places) {
+    DEFAULT(decimal_places, 4)
+    var num, hash = array.constructor.name + ":";
+    if (hash.indexOf("Array") == -1) {
+        throw new TypeError(
+            "The Array argument must be either an Array or a typed array.");
+    }
+    ITER(i, array) {
+        num = array[i];
+        if (decimal_places >= 1) {
+            hash += num.toFixed(decimal_places);
+        }
+        else {
+            hash += num.toString();
+        }
+        if (i < array.length-1) {
+            hash += ",";
+        }
+    };
+    return hash;
+};
+
+
 // [+] please.random\_of(array)
 //
 // Returns a random element from a given array.

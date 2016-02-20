@@ -290,6 +290,32 @@ please.split_params = function (line, delim) {
 // for more information.
 //
 please.get_properties = Object.getOwnPropertyNames;
+// [+] please.array_hash(array, digits)
+// 
+// Returns a string that represents the array.  This is mainly used
+// for comparing two arrays.
+// 
+please.array_hash = function(array, decimal_places) {
+    if (decimal_places === undefined) { decimal_places = 4; }
+    var num, hash = array.constructor.name + ":";
+    if (hash.indexOf("Array") == -1) {
+        throw new TypeError(
+            "The Array argument must be either an Array or a typed array.");
+    }
+    for (var i=0; i<array.length; i+=1) {
+        num = array[i];
+        if (decimal_places >= 1) {
+            hash += num.toFixed(decimal_places);
+        }
+        else {
+            hash += num.toString();
+        }
+        if (i < array.length-1) {
+            hash += ",";
+        }
+    };
+    return hash;
+};
 // [+] please.random\_of(array)
 //
 // Returns a random element from a given array.
@@ -1963,6 +1989,10 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         var node = new please.GraphNode();
         node.vbo = data.vbo;
         node.ibo = data.ibo;
+        node.__buffers = {
+            'vbo' : data.vbo,
+            'ibo' : data.ibo,
+        };
         node.ext = {};
         node.vars = {};
         node.__drawable = true;
@@ -3752,7 +3782,16 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             "size" : null,
             "average" : null,
         },
+        "reference" : {
+            "size" : vertex_count,
+            "data" : attr_map,
+            "type" : {},
+            "options" : opt,
+        },
     };
+    for (var attr in attr_map) if (attr_map.hasOwnProperty(attr)) {
+        vbo.reference.type[attr] = attr_map[attr].length / vertex_count;
+    }
     if (attr_map.position !== undefined) {
         var point, sum = null;
         var channels = attr_map.position.length / vertex_count;
@@ -3934,11 +3973,43 @@ please.gl.ibo = function (data, options) {
                 total = face_count;
             }
             gl.drawElements(opt.mode, total, opt.type, start*data.BYTES_PER_ELEMENT);
-        }
+        },
+        "reference" : {
+            "data" : data,
+            "options" : opt,
+        },
     };
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.id);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
     return ibo;
+};
+/* [+] please.gl.decode_buffers(vbo, ibo)
+ * 
+ * Takes a VBO and an IBO and returns the raw mesh data.
+ * 
+ */
+please.gl.decode_buffers = function (vbo, ibo) {
+    var long_data = {};
+    var ibo_data = ibo.reference.data;
+    var vbo_data = vbo.reference.data;
+    var vbo_type = vbo.reference.type;
+    var vertex_count = ibo_data.length;
+    for (var attr in vbo_data) if (vbo_data.hasOwnProperty(attr)) {
+        var buffer = vbo_data[attr];
+        var type_size = vbo_type[attr];
+        var output = new Float32Array(vertex_count * type_size);
+        for (var i=0; i<ibo_data.length; i+=1) {
+            var seek = ibo_data[i] * type_size;
+            var write = i * type_size;
+            for (var channel = 0; channel<type_size; channel +=1) {
+                output[write+channel] = buffer[seek+channel]
+            }
+        }
+        long_data[attr] = output;
+    }
+    long_data.__vertex_count = vertex_count;
+    long_data.__types = vbo_type;
+    return long_data;
 };
 // [+] please.gl.blank_texture(options)
 //
@@ -5885,6 +5956,10 @@ please.gl.__jta_model = function (src, uri) {
                             model.ibo.draw(group.start, group.count);
                         };
                     };
+                    node.__buffers = {
+                        "vbo" : model.vbo,
+                        "ibo" : model.ibo,
+                    };
                 }
                 if (entity.bone_name) {
                     node.is_bone = true;
@@ -7680,6 +7755,8 @@ please.GraphNode = function () {
     this.__last_vbo = null; // stores the vbo that was bound last draw
     this.__manual_cache_invalidation = false;
     this.cast_shadows = true;
+    // should either be null or an object with properties "ibo" and "vbo"
+    this.__buffers = null;
     // some event handles
     this.on_mousemove = null;
     this.on_mousedown = null;
@@ -7869,6 +7946,30 @@ please.GraphNode.prototype = {
             mat4.create(), screen_matrix, this.shader.world_matrix);
         var position = vec3.transformMat4(vec3.create(), this.location, matrix);
         this.__z_depth = position[2];
+    },
+    "mesh_data" : function () {
+        // Return arrays of raw mesh data.  Automatically decodes
+        // index buffer array data.  Returns null if there is no
+        // relevant mesh data.
+        if (this.__buffers !== null && this.__buffers.vbo) {
+            if (this.__buffers.ibo) {
+                return please.gl.decode_buffers(
+                    this.__buffers.vbo, this.__buffers.ibo);
+            }
+            else {
+                var long_data = {};
+                var vbo_data = this.__buffers.vbo.reference.data;
+                long_data.__types = this.__buffers.vbo.reference.type;
+                long_data.__vertex_count = vbo.reference.size;
+                for (var attr in vbo_data) if (vbo_data.hasOwnProperty(attr)) {
+                    long_data[attr] = vbo_data[attr];
+                }
+                return long_data;
+            }
+        }
+        else {
+            return null;
+        }
     },
     "__bind" : function (prog) {
         // calls this.bind if applicable.
@@ -8664,6 +8765,408 @@ please.StereoCamera.prototype._create_subcamera = function (position) {
     // FIXME dummy this property out entirely somehow
     eye.look_at = [null, null, null];
     return eye;
+};
+// - m.staticdraw.js ----------------------------------------------------- //
+/* [+]
+ * 
+ * This part of M.GRL implements the StaticDrawNode functionality.
+ * Static nodes are used to freeze instanced assets into a singular
+ * object which can be drawn with only a few GL calls and no special
+ * processing.
+ *
+ * Where GraphNodes are useful for applying dynamic behavior to a
+ * small number of objects, StaticDrawNodes are intended to allow
+ * large numbers of objects to be rendered as quickly as possible.
+ * 
+ */
+/* [+] please.StaticDrawNode(graph_node)
+ * 
+ * Create a static draw node from a graph node and its children.
+ * 
+ */
+please.StaticDrawNode = function (graph_node) {
+    please.GraphNode.call(this);
+    this.__is_static_draw_node = true;
+    this.__drawable = true;
+    // generate data like ranges and uniforms per object in the graph,
+    // sort into texture groups
+    var flattened = this.__flatten_graph(graph_node);
+    flattened.cache_keys.sort();
+    // uniform vars that remain constant accross the entire group are
+    // set as the defaults for this resulting object's shader object
+    for (var name in flattened.uniforms.universal) if (flattened.uniforms.universal.hasOwnProperty(name)) {
+        this.shader[name] = flattened.uniforms.universal[name];
+    }
+    // reorganize the objects within texture groups to attempt to
+    // minimize uniform state changes
+    this.__uniform_sort(flattened);
+    // generate the static vbo
+    var vbo = this.__combine_vbos(flattened);
+    this.__static_vbo = vbo;
+    // generate the draw callback
+    this.draw = this.__generate_draw_callback(flattened);
+};
+please.StaticDrawNode.prototype = Object.create(please.GraphNode.prototype);
+//
+// Generate a branchless draw function for the static draw set.
+//
+please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
+    var calls = [
+        "if (!this.visible) { return; }",
+        "var prog = please.gl.get_program();",
+        "this.__static_vbo.bind();",
+    ];
+    var last_state = {};
+    var UNASSIGNED = {};
+    for (var i=0; i<flat.uniforms.dynamic.length; i+=1) {
+        var name = flat.uniforms.dynamic[i];
+        // can't just use null here because that is a valid value to upload
+        last_state[name] = UNASSIGNED;
+    }
+    var offset = 0;
+    for (var ki=0; ki<flat.cache_keys.length; ki+=1) {
+        var key = flat.cache_keys[ki];
+        var samplers = flat.sampler_bindings[key];
+        for (var var_name in samplers) if (samplers.hasOwnProperty(var_name)) {
+            calls.push("prog.samplers['"+var_name+"'] = '"+samplers[var_name]+"';");
+        }
+        var add_draw_command = function (range) {
+            var call_args = ["gl.TRIANGLES", offset, range];
+            calls.push("gl.drawArrays(" + call_args.join(", ") + ");");
+            offset += range;
+        };
+        var add_state_change = function (name, value) {
+            var out;
+            var type = value.constructor.name;
+            if (type === "Array") {
+                out = value.toSource();
+            }
+            else if (type.indexOf("Array") !== -1) {
+                // object is a typed array
+                var data = Array.apply(null, value).toSource();
+                out = "new "+type+"(" + data + ")";
+            }
+            else {
+                // object probably doesn't need any fancy processing
+                out = value;
+            }
+            calls.push("prog.vars['"+name+"'] = " + out + ";");
+        };
+        var range = 0;
+        var draw_set = flat.groups[key];
+        for (var d=0; d<draw_set.length; d+=1) {
+            var chunk = draw_set[d];
+            var changed = [];
+            for (var i=0; i<flat.uniforms.dynamic.length; i+=1) {
+                var name = flat.uniforms.dynamic[i];
+                var old_value = last_state[name];
+                var new_value = chunk.uniforms[name];
+                if (new_value !== old_value) {
+                    changed.push(name);
+                }
+            }
+            if (changed.length > 0) {
+                if (range > 0) {
+                    add_draw_command(range);
+                    range = 0;
+                }
+                for (var i=0; i<changed.length; i+=1) {
+                    var name = changed[i];
+                    var value = chunk.uniforms[name];
+                    add_state_change(name, value);
+                    last_state[name] = value;
+                }
+            }
+            range += chunk.data.__vertex_count;
+        }
+        if (range > 0) {
+            add_draw_command(range);
+        }
+    }
+    var src = calls.join("\n");
+    try {
+        return new Function(src);
+    }
+    catch (error) {
+        console.error("FAILED TO BUILD STATIC DRAW FUNCTION");
+        throw error;
+    }
+};
+//
+//  Generate the new vertex buffer object
+//
+please.StaticDrawNode.prototype.__combine_vbos = function (flat) {
+    var all_attrs = {}; // a map from attribute names to expected data type
+    var total_vertices = 0;
+    // determine all attribute names needed for the new vbo
+    for (var ki=0; ki<flat.cache_keys.length; ki+=1) {
+        var key = flat.cache_keys[ki];
+        var nodes = flat.groups[key];
+        for (var n=0; n<nodes.length; n+=1) {
+            var node_attrs = nodes[n].data;
+            var node_types = node_attrs.__types;
+            var vertex_count = node_attrs.__vertex_count;
+            total_vertices += vertex_count;
+            for (var attr in node_attrs) if (node_attrs.hasOwnProperty(attr)) {
+                if (!attr.startsWith("__")) {
+                    var type_size = node_types[attr];
+                    if (!all_attrs[attr]) {
+                        all_attrs[attr] = type_size;
+                    }
+                    else if (all_attrs[attr] !== type_size) {
+                        var message = "Mismatched attribute array data types.";
+                        message += "  Cannot build static scene.";
+                        throw new Error(message);
+                    }
+                }
+            }
+        }
+    }
+    // build the empty arrays
+    var attr_data = {}; // the data for the vbo
+    for (var attr in all_attrs) if (all_attrs.hasOwnProperty(attr)) {
+        attr_data[attr] = new Float32Array(total_vertices * all_attrs[attr]);
+    }
+    // loop over the mesh data objects and concatinate them together
+    // into one array
+    var offset = 0;
+    for (var ki=0; ki<flat.cache_keys.length; ki+=1) {
+        var key = flat.cache_keys[ki];
+        var nodes = flat.groups[key];
+        for (var n=0; n<nodes.length; n+=1) {
+            var node_attrs = nodes[n].data;
+            var vertex_count = node_attrs.__vertex_count;
+            for (var attr in attr_data) if (attr_data.hasOwnProperty(attr)) {
+                var type = all_attrs[attr];
+                var size = vertex_count * type;
+                var start = offset * type;
+                if (node_attrs[attr]) {
+                    for (var i=0; i<size; i+=1) {
+                        attr_data[attr][start+i] = node_attrs[attr][i];
+                    }
+                }
+                else {
+                    for (var i=start; i<start+size; i+=1) {
+                        attr_data[attr][i] = 0;
+                    }
+                }
+            }
+            offset += vertex_count;
+        }
+    }
+    // create the composite VBO
+    return please.gl.vbo(total_vertices, attr_data);
+};
+//
+//  Sort the objects within the flattened graph's texture groups to
+//  attempt to minimize uniform state changes.
+//
+please.StaticDrawNode.prototype.__uniform_sort = function (flat) {
+    var UNASSIGNED = new (function UNASSIGNED () {});
+    for (var ki=0; ki<flat.cache_keys.length; ki+=1) {
+        var key = flat.cache_keys[ki];
+        var draw_set = flat.groups[key];
+        // a simple comparison function to be used by the larger
+        // comparison function below
+        var simple_cmp = function (lhs, rhs) {
+            if (lhs < rhs) {
+                return -1;
+            }
+            else if (lhs > rhs) {
+                return 1;
+            }
+            else {
+                return 0;
+            }
+        };
+        // attempt to lower the number of state changes by sorting the
+        // objects in the texture group by their uniform values
+        draw_set.sort(function (lhs, rhs) {
+            for (var i=0; i<flat.uniforms.dynamic.length; i+=1) {
+                var name = flat.uniforms.dynamic[i];
+                var a = lhs.uniforms[name];
+                var b = rhs.uniforms[name];
+                if (a === undefined) { a = UNASSIGNED; };
+                if (b === undefined) { b = UNASSIGNED; };
+                var type = a.constructor;
+                var ret = 0;
+                if (a.constructor !== b.constructor) {
+                    // lexical sort on constructor name when the two
+                    // objects aren't the same type
+                    ret = simple_cmp(a.constructor.name, a.constructor.name);
+                }
+                else if (type.name == "Array") {
+                    // lexical sort of coerced string values for arrays
+                    ret = simple_cmp(a.toSource(), b.toSource());
+                }
+                else if (type.name.indexOf("Array") !== -1) {
+                    // lexical sort of coerced string values for typed arrays
+                    ret = simple_cmp(
+                        Array.apply(null, a).toSource(),
+                        Array.apply(null, b).toSource());
+                }
+                else {
+                    // value sort for numbers, lexical for strings
+                    ret = simple_cmp(a, b);
+                }
+                if (ret == 0) {
+                    // if the two values come up equal, compaire the
+                    // next uniform
+                    continue;
+                }
+                else {
+                    return ret;
+                }
+            }
+        });
+    }
+};
+//
+//  Take a graph node and it's children, freeze the values for shader
+//  variables, generate mesh data with world matrix applied, and sort
+//  into texture groups.
+//
+please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
+    var prog = please.gl.get_program();
+    var samplers = prog.sampler_list;
+    var uniforms = [];
+    var ignore = [
+        "projection_matrix",
+        "normal_matrix",
+        "world_matrix",
+        "view_matrix",
+    ];
+    for (var i=0; i<prog.uniform_list.length; i+=1) {
+        var test = prog.uniform_list[i];
+        if (samplers.indexOf(test) == -1 && ignore.indexOf(test) == -1 && !test.startsWith("mgrl_")) {
+            uniforms.push(test);
+        }
+    }
+    // Uniform delta tracks how often a uniform is changed for each
+    // draw.  Uniform states tracks how many unique states the uniform
+    // has.
+    var uniform_delta = {};
+    var uniform_states = {};
+    for (var i=0; i<uniforms.length; i+=1) {
+        var name = uniforms[i];
+        uniform_delta[name] = 0;
+        uniform_states[name] = [];
+    }
+    var groups = {};
+    var cache_keys = [];
+    var sampler_bindings = {};
+    var array_store = {};
+    var is_array = function (obj) {
+        try {
+            return obj.constructor.name.indexOf("Array") !== -1;
+        } catch (err) {
+            return false;
+        }
+    };
+    graph_node.propogate(function (inspect) {
+        if (inspect.__is_static_draw_node) {
+            throw new Error(
+                "Static Draw Nodes cannot be made from other Static Draw Nodes");
+        }
+        if (inspect.__drawable && inspect.visible) {
+            var mesh_data = inspect.mesh_data();
+            if (mesh_data == null) {
+                console.warn("unable to use object for static draw:", inspect);
+                return;
+            }
+            var matrix = inspect.shader.world_matrix;
+            var chunk = {
+                "data" : this.__apply_matrix(mesh_data, matrix),
+                "uniforms" : {},
+            };
+            for (var i=0; i<uniforms.length; i+=1) {
+                var name = uniforms[i];
+                var value = inspect.shader[name];
+                // This will coerce all identical arrays to be the
+                // same object, so that anything based on indexOf or
+                // tests for equality should work correctly.
+                if (is_array(value)) {
+                    var hash = please.array_hash(value, 4);
+                    if (!array_store[hash]) {
+                        array_store[hash] = value;
+                    }
+                    else {
+                        value = array_store[hash];
+                    }
+                }
+                chunk.uniforms[name] = value;
+                if (uniform_states[name].indexOf(value) == -1) {
+                    uniform_states[name].push(value);
+                    uniform_delta[name] += 1;
+                }
+            }
+            // create a cache key from sampler settings to determine
+            // which texture group this object belongs in
+            var cache_key = ["::"];
+            for (var i=0; i<samplers.length; i+=1) {
+                var name = samplers[i];
+                var uri = inspect.shader[name];
+                if (uri) {
+                    cache_key.push(uri);
+                }
+            }
+            var delim = String.fromCharCode(29);
+            cache_key = cache_key.join(delim);
+            // create a new cache group if necessary and populate the
+            // sampler settings for that group
+            if (!groups[cache_key]) {
+                groups[cache_key] = [];
+                sampler_bindings[cache_key] = {};
+                cache_keys.push(cache_key);
+                for (var i=0; i<samplers.length; i+=1) {
+                    var name = samplers[i];
+                    var uri = inspect.shader[name];
+                    sampler_bindings[cache_key][name] = uri;
+                }
+            }
+            // add the object to a texture group
+            groups[cache_key].push(chunk);
+        }
+    }.bind(this));
+    // these variables keep track of which uniform variables change
+    // many times when the graph is drawn vs which only are set once
+    var dynamic_uniforms = [];
+    var universal_uniforms = {};
+    for (var i=0; i<uniforms.length; i+=1) {
+        var name = uniforms[i];
+        var delta = uniform_delta[name];
+        if (delta > 1) {
+            dynamic_uniforms.push(name);
+        }
+        else if (delta == 1) {
+            universal_uniforms[name] = uniform_states[name][0];
+        }
+    }
+    return {
+        "groups" : groups,
+        "cache_keys" : cache_keys,
+        "sampler_bindings" : sampler_bindings,
+        "uniforms" : {
+            "delta" : uniform_delta,
+            "dynamic" : dynamic_uniforms,
+            "universal" : universal_uniforms,
+        },
+    };
+};
+//
+//  Apply a world matrix to an array of vertex positions.
+//
+please.StaticDrawNode.prototype.__apply_matrix = function (mesh_data, matrix) {
+    var old_coords = mesh_data.position;
+    var new_coords = new Float32Array(old_coords.length);
+    for (var i=0; i<mesh_data.__vertex_count; i+=1) {
+        var seek = i*3;
+        var view = new_coords.subarray(seek, seek+3);
+        var coord = old_coords.subarray(seek, seek+3);
+        vec3.transformMat4(view, coord, matrix);
+    };
+    mesh_data.position = new_coords;
+    return mesh_data;
 };
 // - m.builder.js -------------------------------------------------------- //
 /* [+]

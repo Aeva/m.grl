@@ -105,10 +105,14 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(camera);
     camera.activate();
 
-    // Draw the objects in our scene:
+    // Objects to be drawn in this scene.
     var tile_model = please.access("flip_tile.jta");
     var char_model = please.access("psycho.jta");
 
+    // The background tiles are going to be accumulated in a single
+    // graph node, which is going to be passed into a StaticDrawNode,
+    // so as to allow the data to be rendered much more efficiently.
+    var tile_set = new please.GraphNode();
     for (var y=-5; y<=5; y+=1) {
         for (var x=-5; x<=5; x+=1) {
             var tile = tile_model.instance();
@@ -120,10 +124,12 @@ addEventListener("mgrl_media_ready", please.once(function () {
             if (x%2) {
                 tile.rotation_x += 180;
             }
-            graph.add(tile);
+            tile_set.add(tile);
             tile.use_manual_cache_invalidation();
         }
     }
+    demo.tile_bake = new please.StaticDrawNode(tile_set);
+    graph.add(demo.tile_bake);
 
     var player = demo.main.player = new please.GraphNode();
     var model = char_model.instance();

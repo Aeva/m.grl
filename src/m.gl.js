@@ -971,7 +971,17 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             "size" : null,
             "average" : null,
         },
+        "reference" : {
+            "size" : vertex_count,
+            "data" : attr_map,
+            "type" : {},
+            "options" : opt,
+        },
     };
+
+    ITER_PROPS(attr, attr_map) {
+        vbo.reference.type[attr] = attr_map[attr].length / vertex_count;
+    }
 
     if (attr_map.position !== undefined) {
         var point, sum = null;
@@ -1170,11 +1180,46 @@ please.gl.ibo = function (data, options) {
                 total = face_count;
             }
             gl.drawElements(opt.mode, total, opt.type, start*data.BYTES_PER_ELEMENT);
-        }
+        },
+        "reference" : {
+            "data" : data,
+            "options" : opt,
+        },
     };
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.id);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
     return ibo;
+};
+
+
+/* [+] please.gl.decode_buffers(vbo, ibo)
+ * 
+ * Takes a VBO and an IBO and returns the raw mesh data.
+ * 
+ */
+please.gl.decode_buffers = function (vbo, ibo) {
+    var long_data = {};
+    var ibo_data = ibo.reference.data;
+    var vbo_data = vbo.reference.data;
+    var vbo_type = vbo.reference.type;
+    var vertex_count = ibo_data.length;
+    
+    ITER_PROPS(attr, vbo_data) {
+        var buffer = vbo_data[attr];
+        var type_size = vbo_type[attr];
+        var output = new Float32Array(vertex_count * type_size);
+        ITER(i, ibo_data) {
+            var seek = ibo_data[i] * type_size;
+            var write = i * type_size;
+            for (var channel = 0; channel<type_size; channel +=1) {
+                output[write+channel] = buffer[seek+channel]
+            }
+        }
+        long_data[attr] = output;
+    }
+    long_data.__vertex_count = vertex_count;
+    long_data.__types = vbo_type;
+    return long_data;
 };
 
 
