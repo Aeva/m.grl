@@ -75,7 +75,7 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
 
         var add_draw_command = function (range) {
             var call_args = ["gl.TRIANGLES", offset, range];
-            calls.push("gl.drawArrays(" + call_args.join(", ") + ")");
+            calls.push("gl.drawArrays(" + call_args.join(", ") + ");");
             offset += range;
         };
 
