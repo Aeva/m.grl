@@ -105,10 +105,13 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(camera);
     camera.activate();
 
-    // Draw the objects in our scene:
+    // Objects to be drawn in this scene.
     var tile_model = please.access("flip_tile.jta");
     var char_model = please.access("psycho.jta");
 
+    // The background tiles are going to be accumulated in a single
+    // graph node, which is going to be passed into a StaticDrawNode,
+    // so as to allow the data to be rendered much more efficiently.
     var tile_set = new please.GraphNode();
     for (var y=-5; y<=5; y+=1) {
         for (var x=-5; x<=5; x+=1) {
