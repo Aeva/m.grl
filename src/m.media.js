@@ -579,6 +579,10 @@ please.media.__image_instance = function (center, scale, x, y, width, height, al
         var node = new please.GraphNode();
         node.vbo = data.vbo;
         node.ibo = data.ibo;
+        node.__buffers = {
+            'vbo' : data.vbo,
+            'ibo' : data.ibo,
+        };
         node.ext = {};
         node.vars = {};
         node.__drawable = true;

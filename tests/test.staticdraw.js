@@ -175,3 +175,11 @@ test["static draw node: dissallow instancing from another sdn"] = function () {
     }
     assert(error_thrown);
 };
+
+
+    
+test["static draw node: instancing with images"] = function () {
+    var img = please.access("girl_with_headphones.png").instance();
+    var sdn =  new please.StaticDrawNode(img);
+    assert(sdn.__static_vbo.count > 0);
+};
