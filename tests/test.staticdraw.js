@@ -27,7 +27,40 @@ lazy_bind("sample_graph", function () {
 });
 
 
+
+lazy_bind("complex_graph", function () {
+    var root = new please.GraphNode();
 
+    var nodes = [
+        new please.GraphNode(),
+        new please.GraphNode(),
+        new please.GraphNode(),
+        new please.GraphNode(),
+        new please.GraphNode()];
+    
+    nodes.map(function (node) {
+        node.__drawable = true;
+        node.__buffers = {
+            // these buffers are defined in test.gl.js
+            "vbo" : window.sample_indexed_vbo,
+            "ibo" : window.sample_ibo,
+        };
+        root.add(node);
+    });
+
+    nodes[0].shader.diffuse_texture = "texture_a.png"
+    nodes[1].shader.diffuse_texture = "texture_a.png"
+    nodes[2].shader.diffuse_texture = "texture_b.png"
+    nodes[3].shader.diffuse_texture = "texture_b.png"
+    nodes[4].shader.diffuse_texture = "texture_b.png"
+
+    // this is to give these two different values for the
+    // billboard_mode uniform variable
+    nodes[1].billboard = "tree";
+    nodes[3].billboard = "particle";
+    
+    return root;
+});
 
 
 
@@ -88,4 +121,42 @@ test["static draw node: combine_vbos"] = function () {
         assert(buffer.length == types[attr] * vertices);
         assert(buffer.indexOf(0) == -1);
     });
+};
+
+
+    
+test["static draw node: simple integration"] = function () {
+    var node = new please.StaticDrawNode(sample_graph);
+    var draw_fn = node.draw.toSource();
+    var expected = "(function anonymous() {\n" +
+        "if (!this.visible) { return; }\n" +
+        "var prog = please.gl.get_program();\n" +
+        "this.__static_vbo.bind();\n" +
+        "prog.samplers['diffuse_texture'] = 'null';\n" +
+        "gl.drawArrays(gl.TRIANGLES, 0, 12);\n" +
+        "})";
+    assert(draw_fn === expected);
+};
+
+
+    
+test["static draw node: complex integration"] = function () {
+    var node = new please.StaticDrawNode(complex_graph);
+    var draw_fn = node.draw.toSource();
+    var expected = "(function anonymous() {\n" +
+        "if (!this.visible) { return; }\n" +
+        "var prog = please.gl.get_program();\n" +
+        "this.__static_vbo.bind();\n" +
+        "prog.samplers['diffuse_texture'] = 'texture_a.png';\n" +
+        "prog.vars['billboard_mode'] = 0;\n" +
+        "gl.drawArrays(gl.TRIANGLES, 0, 6);\n" +
+        "prog.vars['billboard_mode'] = 1;\n" +
+        "gl.drawArrays(gl.TRIANGLES, 6, 6);\n" +
+        "prog.samplers['diffuse_texture'] = 'texture_b.png';\n" +
+        "prog.vars['billboard_mode'] = 0;\n" +
+        "gl.drawArrays(gl.TRIANGLES, 12, 12);\n" +
+        "prog.vars['billboard_mode'] = 2;\n" +
+        "gl.drawArrays(gl.TRIANGLES, 24, 6);\n" +
+        "})";
+    assert(draw_fn === expected);
 };
