@@ -29,6 +29,15 @@ window.test = {};
 window._results = {};
 window._hints = [];
 window._lazy_cache = {};
+window._manifest = ["test_shader.frag"];
+
+
+var require_asset = function(uri) {
+    if (window._manifest.indexOf(uri) === -1) {
+        window._manifest.push(uri);
+    }
+}
+
 
 var lazy_bind = function(name, setter) {
     window._lazy_cache[name] = null;
@@ -154,12 +163,16 @@ console.assert = assert;
         } catch (error) {
             verbose(error, "test runner gl setup", null);
         }
+        please.set_search_path("glsl", "assets/glsl/");
+        please.set_search_path("gani", "assets/gani/");
+        please.set_search_path("img", "assets/img/");
+        please.set_search_path("jta", "assets/jta/");
     };
 
-    addEventListener("load", function() {
-        _results.failed = 0;
-        change_status("Running tests...");
-        gl_setup();
+    var media_ready = function () {
+        var prog = please.glsl("default", "simple.vert", "test_shader.frag");
+        prog.activate();
+        
         please.prop_map(window.test, run_test);
         if (_results.failed == 0) {
             change_status("Done.  All tests passed!");
@@ -167,5 +180,13 @@ console.assert = assert;
         else {
             change_status("Done.  Tests failed.");
         }
+    };
+
+    addEventListener("load", function() {
+        _results.failed = 0;
+        change_status("Running tests...");
+        gl_setup();
+        window._manifest.map(please.load);
+        addEventListener("mgrl_media_ready", please.once(media_ready));
     });
 })();

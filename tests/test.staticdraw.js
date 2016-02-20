@@ -45,6 +45,7 @@ lazy_bind("complex_graph", function () {
             "vbo" : window.sample_indexed_vbo,
             "ibo" : window.sample_ibo,
         };
+        node.shader.tint = new Float32Array([1.0, 1.0, 1.0]);
         root.add(node);
     });
 
@@ -56,8 +57,8 @@ lazy_bind("complex_graph", function () {
 
     // this is to give these two different values for the
     // billboard_mode uniform variable
-    nodes[1].billboard = "tree";
-    nodes[3].billboard = "particle";
+    nodes[1].shader.tint = new Float32Array([0.0, 1.0, 1.0]);
+    nodes[3].shader.tint = [0.0, 1.0, 1.0];
     
     return root;
 });
@@ -148,14 +149,15 @@ test["static draw node: complex integration"] = function () {
         "var prog = please.gl.get_program();\n" +
         "this.__static_vbo.bind();\n" +
         "prog.samplers['diffuse_texture'] = 'texture_a.png';\n" +
-        "prog.vars['billboard_mode'] = 0;\n" +
+        "prog.vars['tint'] = new Float32Array([0, 1, 1]);\n" +
         "gl.drawArrays(gl.TRIANGLES, 0, 6);\n" +
-        "prog.vars['billboard_mode'] = 1;\n" +
+        "prog.vars['tint'] = new Float32Array([1, 1, 1]);\n" +
         "gl.drawArrays(gl.TRIANGLES, 6, 6);\n" +
         "prog.samplers['diffuse_texture'] = 'texture_b.png';\n" +
-        "prog.vars['billboard_mode'] = 0;\n" +
-        "gl.drawArrays(gl.TRIANGLES, 12, 12);\n" +
-        "prog.vars['billboard_mode'] = 2;\n" +
+        "gl.drawArrays(gl.TRIANGLES, 12, 6);\n" +
+        "prog.vars['tint'] = [0, 1, 1];\n" +
+        "gl.drawArrays(gl.TRIANGLES, 18, 6);\n" +
+        "prog.vars['tint'] = new Float32Array([1, 1, 1]);\n" +
         "gl.drawArrays(gl.TRIANGLES, 24, 6);\n" +
         "})";
     assert(draw_fn === expected);

@@ -324,7 +324,11 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
     var array_store = {};
 
     var is_array = function (obj) {
-        return obj.constructor.name.indexOf("Array") !== -1;
+        try {
+            return obj.constructor.name.indexOf("Array") !== -1;
+        } catch (err) {
+            return false;
+        }
     };
     
     graph_node.propogate(function (inspect) {
