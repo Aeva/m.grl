@@ -7839,6 +7839,12 @@ please.GraphNode.prototype = {
             }
         }
     },
+    "add_static" : function (entity) {
+        // Convinience method for adding StaticDrawNode objects to the
+        // graph.
+        var frozen = new please.StaticDrawNode(entity);
+        this.add(frozen);
+    },
     "use_automatic_cache_invalidation" : function () {
         // Sets the object to use automatic cache invalidation mode.
         // Driver functions will be evaluated once per frame.  This is
@@ -8828,7 +8834,10 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
         var key = flat.cache_keys[ki];
         var samplers = flat.sampler_bindings[key];
         for (var var_name in samplers) if (samplers.hasOwnProperty(var_name)) {
-            calls.push("prog.samplers['"+var_name+"'] = '"+samplers[var_name]+"';");
+            var uri = samplers[var_name];
+            if (uri) {
+                calls.push("prog.samplers['"+var_name+"'] = '"+uri+"';");
+            }
         }
         var add_draw_command = function (range) {
             var call_args = ["gl.TRIANGLES", offset, range];
