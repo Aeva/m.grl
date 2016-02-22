@@ -567,6 +567,12 @@ please.GraphNode.prototype = {
             }
         }
     },
+    "add_static" : function (entity) {
+        // Convinience method for adding StaticDrawNode objects to the
+        // graph.
+        var frozen = new please.StaticDrawNode(entity);
+        this.add(frozen);
+    },
     "use_automatic_cache_invalidation" : function () {
         // Sets the object to use automatic cache invalidation mode.
         // Driver functions will be evaluated once per frame.  This is
