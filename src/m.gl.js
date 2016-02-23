@@ -1046,7 +1046,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
     var static_prebind = function (prog) {
         var src = "";
         for (var name in prog.attrs) {
-            var enabled = attr_names.indexOf(name) === -1;
+            var enabled = attr_names.indexOf(name) !== -1;
             src += "prog.attrs['"+name+"'].enabled = "+enabled+";\n";
         }
         for (var name in vbo.stats) {
@@ -1168,11 +1168,18 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         }
         vbo.static_bind = function (prog) {
             var src = static_prebind(prog);
-            src += please.format_invocation(
-                "gl.vertexAttribPointer",
-                "prog.attrs['" + attr + "'].loc",
-                item_size, opt.type, false, stride*4, offset*4);
-            return src;
+            for (var i=0; i<bind_order.length; i+=1) {
+                var attr = bind_order[i];
+                var offset = bind_offset[i];
+                var item_size = item_sizes[attr];
+                if (prog.attrs[attr]) {
+                    src += "\n" + please.format_invocation(
+                        "gl.vertexAttribPointer",
+                        "prog.attrs['" + attr + "'].loc",
+                        item_size, opt.type, false, stride*4, offset*4);
+                }
+            }
+            return src.trim();
         };
     }
     return vbo;
@@ -1228,9 +1235,15 @@ please.gl.ibo = function (data, options) {
             "gl.bindBuffer", "gl.ELEMENT_ARRAY_BUFFER",
             "please.gl.__ibo_lookup["+local_id+"].id"
         ),
-        "static_draw" : please.format_invocation(
-            "gl.drawElements", opt.mode, face_count, opt.type, 0
-        ),
+        "static_draw" : function (start, total) {
+            if (start === undefined || total === undefined) {
+                start = 0;
+                total = face_count;
+            }
+            return please.format_invocation(
+                "gl.drawElements", opt.mode, total, opt.type,
+                start*data.BYTES_PER_ELEMENT);
+        },
         "reference" : {
             "data" : data,
             "options" : opt,

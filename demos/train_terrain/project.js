@@ -149,7 +149,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var builder = new please.GraphNode();
 
     // make it terrain
-    builder.add(hex_grid(50, 50, 2.0));
+    builder.add(hex_grid(20, 20, 2.0));
     
     // setup the scene graph
     var graph = demo.graph = new please.SceneGraph();

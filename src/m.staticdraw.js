@@ -71,8 +71,17 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
             calls.push(buffer.vbo.static_bind(prog));
             if (buffer.ibo) {
                 calls.push(buffer.ibo.static_bind);
-                add_draw_command = function () {
-                    calls.push(buffer.ibo.static_draw);
+                add_draw_command = function (chunk) {
+                    if (chunk.draw_params) {
+                        ITER(p, chunk.draw_params) {
+                            var param_set = chunk.draw_params[p];
+                            calls.push(
+                                buffer.ibo.static_draw.apply(null, param_set));
+                        }
+                    }
+                    else {
+                        calls.push(buffer.ibo.static_draw());
+                    }
                 };
             }
             else {
@@ -128,7 +137,7 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
                 add_state_change(name, value);
                 last_state[name] = value;
             }
-            add_draw_command();
+            add_draw_command(chunk);
         }
     }
 
@@ -271,7 +280,14 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
         if (inspect.__drawable && inspect.visible) {
             var chunk = {
                 "uniforms" : {},
+                "draw_params" : null,
             };
+            if (inspect.__draw_params) {
+                var params = inspect.__draw_params();
+                if (params.length > 0) {
+                    chunk.draw_params = params;
+                }
+            }
 
             // uniform stats / uniform delta stuff
             ITER(i, uniforms) {

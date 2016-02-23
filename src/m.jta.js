@@ -193,6 +193,14 @@ please.gl.__jta_model = function (src, uri) {
                             model.ibo.draw(group.start, group.count);
                         };
                     };
+                    node.__draw_params = function () {
+                        var draw_params = [];
+                        ITER_PROPS(group_name, model.groups) {
+                            var group = model.groups[group_name];
+                            draw_params.push([group.start, group.count]);
+                        };
+                        return draw_params;
+                    };
                     node.__buffers = {
                         "vbo" : model.vbo,
                         "ibo" : model.ibo,
