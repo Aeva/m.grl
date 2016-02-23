@@ -93,35 +93,9 @@ test["static draw node: flatten graph"] = function () {
     var bindings = flat.sampler_bindings;
 
     assert(keys.length == 1);
-    assert(keys[0] == "::");
-
-    assert(groups["::"].length == 2);    
-    groups["::"].map(function (chunk) {
-        var size = chunk.data.__vertex_count;
-        please.prop_map(chunk.data.__types, function (attr, type) {
-            assert(chunk.data[attr].length == size * type);
-            assert(chunk.data[attr].indexOf(0) == -1);
-        });
-    });
-
-    assert(bindings["::"]["diffuse_texture"] === null);
-};
-
-
-    
-test["static draw node: combine_vbos"] = function () {
-    var proto = please.StaticDrawNode.prototype;
-    var flat = proto.__flatten_graph(sample_graph);
-    var vbo = proto.__combine_vbos(flat);
-
-    var types = vbo.reference.type;
-    var buffers = vbo.reference.data;
-    var vertices = vbo.reference.size;
-
-    please.prop_map(buffers, function(attr, buffer) {
-        assert(buffer.length == types[attr] * vertices);
-        assert(buffer.indexOf(0) == -1);
-    });
+    assert(keys[0] == "vbo1::");
+    assert(groups["vbo1::"].length == 2);
+    assert(bindings["vbo1::"]["diffuse_texture"] === null);
 };
 
 
@@ -180,6 +154,6 @@ test["static draw node: dissallow instancing from another sdn"] = function () {
     
 test["static draw node: instancing with images"] = function () {
     var img = please.access("girl_with_headphones.png").instance();
-    var sdn =  new please.StaticDrawNode(img);
-    assert(sdn.__static_vbo.count > 0);
+    var sdn = new please.StaticDrawNode(img);
+    console.warn(sdn.draw.toSource());
 };

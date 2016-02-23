@@ -943,6 +943,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 // Create a VBO from attribute array data.
 //
 please.gl.__last_vbo = null;
+please.gl.__last_vbo_local_id = 0;
+please.gl.__vbo_lookup = {};
 please.gl.vbo = function (vertex_count, attr_map, options) {
     var opt = {
         "type" : gl.FLOAT,
@@ -957,7 +959,9 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         });
     }
 
+    var local_id = please.gl.__last_vbo_local_id += 1;
     var vbo = {
+        "local_id" : local_id,
         "id" : null,
         "opt" : opt,
         "count" : vertex_count,
@@ -965,6 +969,10 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         "draw" : function () {
             gl.drawArrays(opt.mode, 0, this.count);
         },
+        "static_bind" : null,
+        "static_draw" : please.format_invocation(
+            "gl.drawArrays", opt.mode, 0, this.count
+        ),
         "stats" : {
             "min" : null,
             "max" : null,
@@ -978,6 +986,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             "options" : opt,
         },
     };
+    please.gl.__vbo_lookup[local_id] = vbo;
 
     ITER_PROPS(attr, attr_map) {
         vbo.reference.type[attr] = attr_map[attr].length / vertex_count;
@@ -1029,13 +1038,28 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
     // when neccesary
     var setup_attrs = function (prog) {
         for (var name in prog.attrs) {
-            if (attr_names.indexOf(name) === -1) {
-                prog.attrs[name].enabled = false;
-            }
-            else {
-                prog.attrs[name].enabled = true;
+            prog.attrs[name].enabled = attr_names.indexOf(name) !== -1;
+        }
+    };
+
+    // Common functionality used by both vbo.static_bind versions
+    var static_prebind = function (prog) {
+        var src = "";
+        for (var name in prog.attrs) {
+            var enabled = attr_names.indexOf(name) === -1;
+            src += "prog.attrs['"+name+"'].enabled = "+enabled+";\n";
+        }
+        for (var name in vbo.stats) {
+            var glsl_name = "mgrl_model_local_" + name;
+            if (prog.vars.hasOwnProperty(glsl_name)) {
+                src += "prog.vars['"+glsl_name+"'] = "+vbo.stats[name]+";\n";
             }
         }
+        src += please.format_invocation(
+            "gl.bindBuffer",
+            "gl.ARRAY_BUFFER",
+            "please.gl.__vbo_lookup[" + local_id + "].id");
+        return src + "\n";
     };
 
     if (attr_names.length === 1) {
@@ -1065,7 +1089,14 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 }
             }
         };
-
+        vbo.static_bind = function (prog) {
+            var src = static_prebind(prog);
+            src += please.format_invocation(
+                "gl.vertexAttribPointer",
+                "prog.attrs['" + attr + "'].loc",
+                item_size, opt.type, false, 0, 0);
+            return src;
+        };
     }
     else {
         // ---- create an interlaced VBO
@@ -1135,6 +1166,14 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 }
             }
         }
+        vbo.static_bind = function (prog) {
+            var src = static_prebind(prog);
+            src += please.format_invocation(
+                "gl.vertexAttribPointer",
+                "prog.attrs['" + attr + "'].loc",
+                item_size, opt.type, false, stride*4, offset*4);
+            return src;
+        };
     }
     return vbo;
 };
@@ -1145,6 +1184,8 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
 // Create a IBO.
 //
 please.gl.__last_ibo = null;
+please.gl.__last_ibo_local_id = 0;
+please.gl.__ibo_lookup = {};
 please.gl.ibo = function (data, options) {
     var opt = {
         "type" : gl.UNSIGNED_SHORT,
@@ -1166,7 +1207,9 @@ please.gl.ibo = function (data, options) {
     }
     var poly_size = 3; // fixme this should be determined by opt.mode
     var face_count = data.length;
+    var local_id = please.gl.__last_ibo_local_id += 1;
     var ibo = {
+        "local_id" : local_id,
         "id" : gl.createBuffer(),
         "bind" : function () {
             if (please.gl.__last_ibo !== this) {
@@ -1181,11 +1224,19 @@ please.gl.ibo = function (data, options) {
             }
             gl.drawElements(opt.mode, total, opt.type, start*data.BYTES_PER_ELEMENT);
         },
+        "static_bind" : please.format_invocation(
+            "gl.bindBuffer", "gl.ELEMENT_ARRAY_BUFFER",
+            "please.gl.__ibo_lookup["+local_id+"].id"
+        ),
+        "static_draw" : please.format_invocation(
+            "gl.drawElements", opt.mode, face_count, opt.type, 0
+        ),
         "reference" : {
             "data" : data,
             "options" : opt,
         },
     };
+    please.gl.__ibo_lookup[local_id] = ibo;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.id);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
     return ibo;

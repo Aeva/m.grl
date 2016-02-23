@@ -1027,3 +1027,15 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
         target[prop] = initial;
     }
 };
+
+
+// [+] please.format_invocation(method, arg1, arg2, etc)
+// 
+// Returns a string containing what is hopefully valid JS source code
+// for calling the specified method with hardcoded arguments.
+//
+please.format_invocation = function (method_string) {
+    var args = Array.apply(null, arguments).slice(1);
+    var cmd = "" + method_string + "(" + args.join(", ") + ");";
+    return cmd;
+};

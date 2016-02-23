@@ -38,10 +38,6 @@ please.StaticDrawNode = function (graph_node) {
     // minimize uniform state changes
     this.__uniform_sort(flattened);
 
-    // generate the static vbo
-    var vbo = this.__combine_vbos(flattened);
-    this.__static_vbo = vbo;
-
     // generate the draw callback
     this.draw = this.__generate_draw_callback(flattened);
 };
@@ -52,12 +48,13 @@ please.StaticDrawNode.prototype = Object.create(please.GraphNode.prototype);
 // Generate a branchless draw function for the static draw set.
 //
 please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
+    var prog = please.gl.get_program();
     var calls = [
         "if (!this.visible) { return; }",
         "var prog = please.gl.get_program();",
-        "this.__static_vbo.bind();",
     ];
 
+    var last_buffer = null;
     var last_state = {};
     var UNASSIGNED = {};
     ITER(i, flat.uniforms.dynamic) {
@@ -66,9 +63,26 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
         last_state[name] = UNASSIGNED;
     }
     
-    var offset = 0;
     ITER(ki, flat.cache_keys) {
         var key = flat.cache_keys[ki];
+        var buffer = flat.mesh_bindings[key];
+        var add_draw_command;
+        if (buffer !== last_buffer) {
+            calls.push(buffer.vbo.static_bind(prog));
+            if (buffer.ibo) {
+                calls.push(buffer.ibo.static_bind);
+                add_draw_command = function () {
+                    calls.push(buffer.ibo.static_draw);
+                };
+            }
+            else {
+                add_draw_command = function () {
+                    calls.push(buffer.vbo.static_draw);
+                };
+            }
+            last_buffer = buffer;
+        }
+        
         var samplers = flat.sampler_bindings[key];
         ITER_PROPS(var_name, samplers) {
             var uri = samplers[var_name];
@@ -77,21 +91,15 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
             }
         }
 
-        var add_draw_command = function (range) {
-            var call_args = ["gl.TRIANGLES", offset, range];
-            calls.push("gl.drawArrays(" + call_args.join(", ") + ");");
-            offset += range;
-        };
-
         var add_state_change = function (name, value) {
             var out;
             var type = value.constructor.name;
             if (type === "Array") {
-                out = value.toSource();
+                out = "[" + value.toString() + "]";
             }
             else if (type.indexOf("Array") !== -1) {
                 // object is a typed array
-                var data = Array.apply(null, value).toSource();
+                var data = "[" + Array.apply(null, value).toString() + "]";
                 out = "new "+type+"(" + data + ")";
             }
             else {
@@ -101,7 +109,6 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
             calls.push("prog.vars['"+name+"'] = " + out + ";");
         };
 
-        var range = 0;
         var draw_set = flat.groups[key];
         ITER(d, draw_set) {
             var chunk = draw_set[d];
@@ -115,22 +122,13 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
                     changed.push(name);
                 }
             }
-            if (changed.length > 0) {
-                if (range > 0) {
-                    add_draw_command(range);
-                    range = 0;
-                }
-                ITER(i, changed) {
-                    var name = changed[i];
-                    var value = chunk.uniforms[name];
-                    add_state_change(name, value);
-                    last_state[name] = value;
-                }
+            ITER(i, changed) {
+                var name = changed[i];
+                var value = chunk.uniforms[name];
+                add_state_change(name, value);
+                last_state[name] = value;
             }
-            range += chunk.data.__vertex_count;
-        }
-        if (range > 0) {
-            add_draw_command(range);
+            add_draw_command();
         }
     }
 
@@ -142,77 +140,6 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
         console.error("FAILED TO BUILD STATIC DRAW FUNCTION");
         throw error;
     }
-};
-
-
-//
-//  Generate the new vertex buffer object
-//
-please.StaticDrawNode.prototype.__combine_vbos = function (flat) {
-    var all_attrs = {}; // a map from attribute names to expected data type
-    var total_vertices = 0;
-
-    // determine all attribute names needed for the new vbo
-    ITER(ki, flat.cache_keys) {
-        var key = flat.cache_keys[ki];
-        var nodes = flat.groups[key];
-        ITER(n, nodes) {
-            var node_attrs = nodes[n].data;
-            var node_types = node_attrs.__types;
-            var vertex_count = node_attrs.__vertex_count;
-            total_vertices += vertex_count;
-            ITER_PROPS(attr, node_attrs) {
-                if (!attr.startsWith("__")) {
-                    var type_size = node_types[attr];
-                    if (!all_attrs[attr]) {
-                        all_attrs[attr] = type_size;
-                    }
-                    else if (all_attrs[attr] !== type_size) {
-                        var message = "Mismatched attribute array data types.";
-                        message += "  Cannot build static scene.";
-                        throw new Error(message);
-                    }
-                }
-            }
-        }
-    }
-
-    // build the empty arrays
-    var attr_data = {}; // the data for the vbo
-    ITER_PROPS(attr, all_attrs) {
-        attr_data[attr] = new Float32Array(total_vertices * all_attrs[attr]);
-    }
-
-    // loop over the mesh data objects and concatinate them together
-    // into one array
-    var offset = 0;
-    ITER(ki, flat.cache_keys) {
-        var key = flat.cache_keys[ki];
-        var nodes = flat.groups[key];
-        ITER(n, nodes) {
-            var node_attrs = nodes[n].data;
-            var vertex_count = node_attrs.__vertex_count;
-            ITER_PROPS(attr, attr_data) {
-                var type = all_attrs[attr];
-                var size = vertex_count * type;
-                var start = offset * type;
-                if (node_attrs[attr]) {
-                    for (var i=0; i<size; i+=1) {
-                        attr_data[attr][start+i] = node_attrs[attr][i];
-                    }
-                }
-                else {
-                    for (var i=start; i<start+size; i+=1) {
-                        attr_data[attr][i] = 0;
-                    }
-                }
-            }
-            offset += vertex_count;
-        }
-    }
-
-    // create the composite VBO
-    return please.gl.vbo(total_vertices, attr_data);
 };
 
 
@@ -264,8 +191,8 @@ please.StaticDrawNode.prototype.__uniform_sort = function (flat) {
                 else if (type.name.indexOf("Array") !== -1) {
                     // lexical sort of coerced string values for typed arrays
                     ret = simple_cmp(
-                        Array.apply(null, a).toSource(),
-                        Array.apply(null, b).toSource());
+                        please.array_hash(a),
+                        please.array_hash(b));
                 }
                 else {
                     // value sort for numbers, lexical for strings
@@ -299,7 +226,7 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
     var ignore = [
         "projection_matrix",
         "normal_matrix",
-        "world_matrix",
+//        "world_matrix",
         "view_matrix",
     ];
     
@@ -322,7 +249,9 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
     }
 
     var groups = {};
+    var buffers = {};
     var cache_keys = [];
+    var mesh_bindings = {};
     var sampler_bindings = {};
     var array_store = {};
 
@@ -340,18 +269,11 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
                 "Static Draw Nodes cannot be made from other Static Draw Nodes");
         }
         if (inspect.__drawable && inspect.visible) {
-            var mesh_data = inspect.mesh_data();
-            if (mesh_data == null) {
-                console.warn("unable to use object for static draw:", inspect);
-                return;
-            }
-
-            var matrix = inspect.shader.world_matrix;
             var chunk = {
-                "data" : this.__apply_matrix(mesh_data, matrix),
                 "uniforms" : {},
             };
-            
+
+            // uniform stats / uniform delta stuff
             ITER(i, uniforms) {
                 var name = uniforms[i];
                 var value = inspect.shader[name];
@@ -377,9 +299,15 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
                 }
             }
 
+            // create a cache key for the corresponding buffer object
+            var buffer_key = "vbo" + inspect.__buffers.vbo.local_id;
+            if (!buffers[buffer_key]) {
+                buffers[buffer_key] = inspect.__buffers;
+            }
+
             // create a cache key from sampler settings to determine
             // which texture group this object belongs in
-            var cache_key = ["::"];
+            var cache_key = [buffer_key + "::"];
             ITER(i, samplers) {
                 var name = samplers[i];
                 var uri = inspect.shader[name];
@@ -394,6 +322,7 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
             // sampler settings for that group
             if (!groups[cache_key]) {
                 groups[cache_key] = [];
+                mesh_bindings[cache_key] = buffers[buffer_key];
                 sampler_bindings[cache_key] = {};
                 cache_keys.push(cache_key);
                 ITER(i, samplers) {
@@ -426,6 +355,7 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
     return {
         "groups" : groups,
         "cache_keys" : cache_keys,
+        "mesh_bindings" : mesh_bindings,
         "sampler_bindings" : sampler_bindings,
         "uniforms" : {
             "delta" : uniform_delta,
