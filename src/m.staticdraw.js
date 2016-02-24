@@ -38,6 +38,8 @@ please.StaticDrawNode = function (graph_node) {
     // minimize uniform state changes
     this.__uniform_sort(flattened);
 
+    this.__setup_instancing(flattened);
+
     // generate the draw callback
     this.draw = this.__generate_draw_callback(flattened);
 };
@@ -52,6 +54,7 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
     var calls = [
         "if (!this.visible) { return; }",
         "var prog = please.gl.get_program();",
+        "prog.vars.instanced_drawing = false;",
     ];
 
     var last_buffer = null;
@@ -118,26 +121,32 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
             calls.push("prog.vars['"+name+"'] = " + out + ";");
         };
 
-        var draw_set = flat.groups[key];
-        ITER(d, draw_set) {
-            var chunk = draw_set[d];
+        
+        if (flat.instance_groups[key]) {
+            calls.push(flat.instance_groups[key]);
+        }
+        else {
+            var draw_set = flat.groups[key];
+            ITER(d, draw_set) {
+                var chunk = draw_set[d];
 
-            var changed = [];
-            ITER(i, flat.uniforms.dynamic) {
-                var name = flat.uniforms.dynamic[i];
-                var old_value = last_state[name];
-                var new_value = chunk.uniforms[name];
-                if (new_value !== old_value) {
-                    changed.push(name);
+                var changed = [];
+                ITER(i, flat.uniforms.dynamic) {
+                    var name = flat.uniforms.dynamic[i];
+                    var old_value = last_state[name];
+                    var new_value = chunk.uniforms[name];
+                    if (new_value !== old_value) {
+                        changed.push(name);
+                    }
                 }
+                ITER(i, changed) {
+                    var name = changed[i];
+                    var value = chunk.uniforms[name];
+                    add_state_change(name, value);
+                    last_state[name] = value;
+                }
+                add_draw_command(chunk);
             }
-            ITER(i, changed) {
-                var name = changed[i];
-                var value = chunk.uniforms[name];
-                add_state_change(name, value);
-                last_state[name] = value;
-            }
-            add_draw_command(chunk);
         }
     }
 
@@ -148,6 +157,73 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
     catch (error) {
         console.error("FAILED TO BUILD STATIC DRAW FUNCTION");
         throw error;
+    }
+};
+
+
+//
+//  
+//
+please.StaticDrawNode.prototype.__setup_instancing = function (flat) {
+    var prog = please.gl.get_program();
+    flat.instance_groups = {};
+    ITER(ki, flat.cache_keys) {
+        var key = flat.cache_keys[ki];
+        var draw_set = flat.groups[key];
+
+        var attr_names = [
+            "world_matrix_a",
+            "world_matrix_b",
+            "world_matrix_c",
+            "world_matrix_d"
+        ];
+            
+        var attrs = {};
+        ITER(a, attr_names) {
+            attrs[attr_names[a]] = new Float32Array(draw_set.length * 4);
+        }
+
+        var offset = 0;
+        var populate = function (matrix) {
+            var parts = [
+                matrix.slice(0,4),
+                matrix.slice(4,8),
+                matrix.slice(8,12),
+                matrix.slice(12,16)];
+            for (var i=0; i<4; i+=1) {
+                var view = attrs[attr_names[i]].subarray(offset*4);
+                for (var m=0; m<4; m+=1) {
+                    view[m] = parts[i][m];
+                }
+            }
+            offset += 1;
+        };
+        
+        ITER(d, draw_set) {
+            var chunk = draw_set[d];
+            populate(chunk.uniforms.world_matrix);
+        }
+
+        // buffer object for our instancing attributes
+        var buffer = please.gl.vbo(draw_set.length, attrs);
+
+        // generate calls needed to draw the instanced objects
+        var calls = [];
+        calls.push("prog.vars.instanced_drawing = true;");
+        var draw_params = draw_set[0].draw_params;
+        // bind call
+        calls.push(buffer.static_instance_bind(prog));
+        // draw call(s)
+        var ibo = flat.mesh_bindings[key].ibo;
+        ITER(p, draw_params) {
+            var params = draw_params[p];
+            params.push(draw_set.length); // add 'instances' arg
+            calls.push(ibo.static_draw.apply(null, params));
+        }
+        calls.push("prog.vars.instanced_drawing = false;");
+        var draw_command = calls.join("\n");
+        flat.instance_groups[key] = draw_command;
+        console.info(draw_command);
     }
 };
 
@@ -237,6 +313,7 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
         "normal_matrix",
 //        "world_matrix",
         "view_matrix",
+        "instanced_drawing",
     ];
     
     ITER(i, prog.uniform_list) {

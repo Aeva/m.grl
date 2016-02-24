@@ -83,6 +83,7 @@ please.gl.set_context = function (canvas_id, options) {
             'WEBGL_draw_buffers',
             'WEBGL_color_buffer_float',
             'WEBGL_color_buffer_half_float',
+            'ANGLE_instanced_arrays',
         ];
         for (var i=0; i<search.length; i+=1) {
             var name = search[i];
@@ -970,6 +971,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             gl.drawArrays(opt.mode, 0, this.count);
         },
         "static_bind" : null,
+        "static_instance_bind" : null,
         "static_draw" : please.format_invocation(
             "gl.drawArrays", opt.mode, 0, this.count
         ),
@@ -1061,6 +1063,34 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             "please.gl.__vbo_lookup[" + local_id + "].id");
         return src + "\n";
     };
+    var static_instance_prebind = function (prog) {
+        var src = "";
+        ITER (a, attr_names) {
+            var name = attr_names[a];
+            if (prog.attrs[name]) {
+                src += "prog.attrs['"+name+"'].enabled = true;\n";
+            }
+        }
+        src += please.format_invocation(
+            "gl.bindBuffer",
+            "gl.ARRAY_BUFFER",
+            "please.gl.__vbo_lookup[" + local_id + "].id");
+        return src;
+    };
+    var static_instance_post = function (prog) {
+        var ext = "please.gl.ext.ANGLE_instanced_arrays";
+        var src = "";
+        ITER (a, attr_names) {
+            var name = attr_names[a];
+            if (prog.attrs[name]) {
+                src += "\n" + please.format_invocation(
+                    ext+".vertexAttribDivisorANGLE",
+                    "prog.attrs['" + name + "'].loc", 1);
+            }
+        }
+        
+        return src;
+    };
 
     if (attr_names.length === 1) {
         // ---- create a monolithic VBO
@@ -1095,6 +1125,15 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 "gl.vertexAttribPointer",
                 "prog.attrs['" + attr + "'].loc",
                 item_size, opt.type, false, 0, 0);
+            return src;
+        };
+        vbo.static_instance_bind = function (prog) {
+            var src = static_instance_prebind(prog).trim();
+            src += please.format_invocation(
+                "gl.vertexAttribPointer",
+                "prog.attrs['" + attr + "'].loc",
+                item_size, opt.type, false, 0, 0);
+            src += static_instance_post(prog);
             return src;
         };
     }
@@ -1167,7 +1206,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             }
         }
         vbo.static_bind = function (prog) {
-            var src = static_prebind(prog);
+            var src = static_prebind(prog).trim();
             for (var i=0; i<bind_order.length; i+=1) {
                 var attr = bind_order[i];
                 var offset = bind_offset[i];
@@ -1179,7 +1218,23 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                         item_size, opt.type, false, stride*4, offset*4);
                 }
             }
-            return src.trim();
+            return src;
+        };
+        vbo.static_instance_bind = function (prog) {
+            var src = static_instance_prebind(prog).trim();
+            for (var i=0; i<bind_order.length; i+=1) {
+                var attr = bind_order[i];
+                var offset = bind_offset[i];
+                var item_size = item_sizes[attr];
+                if (prog.attrs[attr]) {
+                    src += "\n" + please.format_invocation(
+                        "gl.vertexAttribPointer",
+                        "prog.attrs['" + attr + "'].loc",
+                        item_size, opt.type, false, stride*4, offset*4);
+                }
+            }
+            src += static_instance_post(prog);
+            return src;
         };
     }
     return vbo;
@@ -1235,14 +1290,26 @@ please.gl.ibo = function (data, options) {
             "gl.bindBuffer", "gl.ELEMENT_ARRAY_BUFFER",
             "please.gl.__ibo_lookup["+local_id+"].id"
         ),
-        "static_draw" : function (start, total) {
+        "static_draw" : function (start, total, instances) {
             if (start === undefined || total === undefined) {
                 start = 0;
                 total = face_count;
             }
-            return please.format_invocation(
-                "gl.drawElements", opt.mode, total, opt.type,
-                start*data.BYTES_PER_ELEMENT);
+            if (instances === undefined) {
+                instances = 0;
+            }
+            if (instances > 0) {
+                var ext = "please.gl.ext.ANGLE_instanced_arrays";
+                return please.format_invocation(
+                    ext + ".drawElementsInstancedANGLE",
+                    opt.mode, total, opt.type, start*data.BYTES_PER_ELEMENT,
+                    instances);
+            }
+            else {
+                return please.format_invocation(
+                    "gl.drawElements", opt.mode, total, opt.type,
+                    start*data.BYTES_PER_ELEMENT);
+            }
         },
         "reference" : {
             "data" : data,
