@@ -10,10 +10,8 @@ please.gl.__buffers = {
 
 // Register the buffer so that it can be looked up later by index.
 please.gl.__register_buffer = function (buffer) {
-    please.gl.__buffers.push(buffer);
-    var buffer_index = please.gl.__buffers.length -1;
-    buffer.buffer_index = buffer_index;
-    return buffer_id;
+    please.gl.__buffers.all.push(buffer);
+    return buffer.buffer_index = please.gl.__buffers.length -1;
 };
 
 
@@ -124,7 +122,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
     // false.
     var common_bind = function () {
         var prog = please.gl.__cache.current;
-        if (prog && please.gl.__buffers.last_vbo !== this) {
+        if (prog && please.gl.__buffers.last_vbo !== vbo) {
             please.gl.__buffers.last_vbo = this;
             for (var name in vbo.stats) {
                 var glsl_name = "mgrl_model_local_" + name;
@@ -207,6 +205,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
 
         vbo.bind = function () {
             if (common_bind()) {
+                var prog = please.gl.__cache.current;
                 gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
                 for (var i=0; i<bind_order.length; i+=1) {
                     var attr = bind_order[i];
@@ -337,8 +336,8 @@ please.gl.ibo = function (data, options) {
     var ibo = {
         "id" : gl.createBuffer(),
         "bind" : function () {
-            if (please.gl.__last_ibo !== this) {
-                please.gl.__last_ibo = this
+            if (please.gl.__buffers.last_ibo !== this) {
+                please.gl.__buffers.last_ibo = this;
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.id);
             }
         },
