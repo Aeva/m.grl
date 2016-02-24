@@ -71,7 +71,7 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
         var buffer = flat.mesh_bindings[key];
         var add_draw_command;
         if (buffer !== last_buffer) {
-            calls.push(buffer.vbo.static_bind(prog));
+            calls.push(buffer.vbo.static_bind);
             if (buffer.ibo) {
                 calls.push(buffer.ibo.static_bind);
                 add_draw_command = function (chunk) {
@@ -201,7 +201,7 @@ please.StaticDrawNode.prototype.__setup_instancing = function (flat) {
         
         ITER(d, draw_set) {
             var chunk = draw_set[d];
-            populate(chunk.uniforms.world_matrix);
+            populate(chunk.world_matrix);
         }
 
         // buffer object for our instancing attributes
@@ -212,7 +212,7 @@ please.StaticDrawNode.prototype.__setup_instancing = function (flat) {
         calls.push("prog.vars.instanced_drawing = true;");
         var draw_params = draw_set[0].draw_params;
         // bind call
-        calls.push(buffer.static_instance_bind(prog));
+        calls.push(buffer.static_instance_bind);
         // draw call(s)
         var ibo = flat.mesh_bindings[key].ibo;
         ITER(p, draw_params) {
@@ -223,7 +223,6 @@ please.StaticDrawNode.prototype.__setup_instancing = function (flat) {
         calls.push("prog.vars.instanced_drawing = false;");
         var draw_command = calls.join("\n");
         flat.instance_groups[key] = draw_command;
-        console.info(draw_command);
     }
 };
 
@@ -311,7 +310,7 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
     var ignore = [
         "projection_matrix",
         "normal_matrix",
-//        "world_matrix",
+        "world_matrix",
         "view_matrix",
         "instanced_drawing",
     ];
@@ -334,12 +333,12 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
         uniform_states[name] = [];
     }
 
-    var groups = {};
-    var buffers = {};
-    var cache_keys = [];
-    var mesh_bindings = {};
-    var sampler_bindings = {};
-    var array_store = {};
+    var groups = {}; // texture/buffer groups -> list of drawables
+    var buffers = {}; // buffer key -> vbo/ibo geometry buffer
+    var cache_keys = []; // list of texture/buffer cache keys
+    var mesh_bindings = {}; // texture/buffer -> vbo/ibo geometry buffer
+    var sampler_bindings = {}; // texture/buffer -> sampler name -> uri
+    var array_store = {}; // used to coerce identical arrays to same object
 
     var is_array = function (obj) {
         try {
@@ -357,7 +356,8 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
         if (inspect.__drawable && inspect.visible) {
             var chunk = {
                 "uniforms" : {},
-                "draw_params" : null,
+                "world_matrix" : inspect.shader.world_matrix,
+                "draw_params" : null, // this should be stored elsewhere
             };
             if (inspect.__draw_params) {
                 var params = inspect.__draw_params();

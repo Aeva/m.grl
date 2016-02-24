@@ -11,7 +11,7 @@ please.gl.__buffers = {
 // Register the buffer so that it can be looked up later by index.
 please.gl.__register_buffer = function (buffer) {
     please.gl.__buffers.all.push(buffer);
-    return buffer.buffer_index = please.gl.__buffers.length -1;
+    return buffer.buffer_index = please.gl.__buffers.all.length -1;
 };
 
 
@@ -259,7 +259,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         src += please.format_invocation(
             "gl.bindBuffer",
             "gl.ARRAY_BUFFER",
-            "please.gl.__buffers.all[" + vbo.buffer_id + "].id") + "\n";
+            "please.gl.__buffers.all[" + vbo.buffer_index + "].id") + "\n";
 
         if (attr_names.length === 1) {
             // single attribute buffer binding
@@ -376,7 +376,7 @@ please.gl.ibo = function (data, options) {
 
     ibo.static_bind = please.format_invocation(
         "gl.bindBuffer", "gl.ELEMENT_ARRAY_BUFFER",
-        "please.gl.__ibo_lookup["+ibo.buffer_id+"].id"
+        "please.gl.__buffers.all[" + ibo.buffer_index + "].id"
     );
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.id);
