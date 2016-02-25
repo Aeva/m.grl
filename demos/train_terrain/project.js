@@ -36,24 +36,29 @@ var demo = {
 
 
 var get_height = function(x, y) {
-    var img = please.access("heightmap_128x128.png");
     if (x<0 || x>1 || y<0 || y>1) {
         throw new Error("Invalid range.  Expected 0 <= N <= 1 for both args.");
     }
+
     y = 1.0-y;
     
     if (!demo.heightmap) {
+        var img = please.access("heightmap_128x128.png");        
         var canvas = document.createElement("canvas");
         canvas.width = img.width;
         canvas.height = img.height;
         var ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0);
-        demo.heightmap = ctx;
-        document.body.appendChild(canvas);
+        demo.heightmap = {
+            "ctx" : ctx,
+            "width" : img.width,
+            "height" : img.height,
+        };
     }
-    var sx = (img.width-1) * x;
-    var sy = (img.height-1) * y;
-    var sample = demo.heightmap.getImageData(sx, sy, sx+1, sy+1).data[0]/255;
+    var map = demo.heightmap;
+    var sx = (map.width-1) * x;
+    var sy = (map.height-1) * y;
+    var sample = map.ctx.getImageData(sx, sy, sx+1, sy+1).data[0]/255;
     
     return sample * demo.height_range;
 };
@@ -149,13 +154,13 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var builder = new please.GraphNode();
 
     // make it terrain
-    builder.add(hex_grid(20, 20, 2.0));
+    builder.add(hex_grid(50, 50, 2.0));
     
     // setup the scene graph
     var graph = demo.graph = new please.SceneGraph();
     var camera = demo.camera = new please.CameraNode();
     camera.look_at = [0, -2, 0];
-    camera.location = [0, -50, 80];
+    //camera.location = [0, -50, 80];
     camera.far = 300;
     camera.fov = 75;
     
@@ -168,6 +173,15 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // add objects to the graph
     graph.add_static(builder);
+
+    var camera_pivot = demo.pivot = new please.GraphNode();
+    var camera_proxy = new please.GraphNode();
+    camera_pivot.add(camera_proxy);
+    camera.location = camera_proxy;
+    camera_proxy.location = [0, -50, 80];
+    camera_pivot.rotation_z = please.repeating_driver(0, 360, 50000);
+    
+    graph.add(camera_pivot);
     graph.add(camera);
     
     // add a renderer using the default shader
