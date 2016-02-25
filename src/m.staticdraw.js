@@ -52,8 +52,7 @@ please.StaticDrawNode.prototype = Object.create(please.GraphNode.prototype);
 please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
     var prog = please.gl.get_program();
     var calls = [
-        "if (!this.visible) { return; }",
-        "var prog = please.gl.get_program();",
+        "var prog = please.gl.__cache.current;",
         "prog.vars.instanced_drawing = false;",
     ];
 
@@ -170,6 +169,7 @@ please.StaticDrawNode.prototype.__setup_instancing = function (flat) {
     ITER(ki, flat.cache_keys) {
         var key = flat.cache_keys[ki];
         var draw_set = flat.groups[key];
+        var geometry = flat.mesh_bindings[key];
 
         var attr_names = [
             "world_matrix_a",
@@ -206,19 +206,21 @@ please.StaticDrawNode.prototype.__setup_instancing = function (flat) {
 
         // buffer object for our instancing attributes
         var buffer = please.gl.vbo(draw_set.length, attrs);
+        buffer.generate_static_bindings(prog);
 
         // generate calls needed to draw the instanced objects
         var calls = [];
         calls.push("prog.vars.instanced_drawing = true;");
         var draw_params = draw_set[0].draw_params;
+
         // bind call
         calls.push(buffer.static_instance_bind);
-        // draw call(s)
-        var ibo = flat.mesh_bindings[key].ibo;
+
+        // draw calls
         ITER(p, draw_params) {
             var params = draw_params[p];
             params.push(draw_set.length); // add 'instances' arg
-            calls.push(ibo.static_draw.apply(null, params));
+            calls.push(geometry.ibo.static_draw.apply(null, params));
         }
         calls.push("prog.vars.instanced_drawing = false;");
         var draw_command = calls.join("\n");
@@ -366,6 +368,9 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
                 }
             }
 
+            // generate the code needed to bind the arrays for this object
+            inspect.__buffers.vbo.generate_static_bindings(prog);
+
             // uniform stats / uniform delta stuff
             ITER(i, uniforms) {
                 var name = uniforms[i];
@@ -393,7 +398,7 @@ please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
             }
 
             // create a cache key for the corresponding buffer object
-            var buffer_key = "vbo" + inspect.__buffers.vbo.local_id;
+            var buffer_key = "vbo" + inspect.__buffers.vbo.buffer_index;
             if (!buffers[buffer_key]) {
                 buffers[buffer_key] = inspect.__buffers;
             }
