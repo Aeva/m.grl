@@ -92,7 +92,7 @@ var hex_grid = function(x_count, y_count, scale) {
             var z_offset = get_height(sample_x, sample_y);
 
             var tile = asset.instance();
-            tile.scale = [scale, scale, scale];
+            tile.scale = [scale, scale, 1.0];
             tile.location = [x_offset, y_offset, z_offset];
             tile.shader.diffuse_texture = "gavroche_hall:gavroches.jpg";
             map.add(tile);
@@ -154,7 +154,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var builder = new please.GraphNode();
 
     // make it terrain
-    builder.add(hex_grid(50, 50, 2.0));
+    builder.add(hex_grid(100, 100, 1.0));
     
     // setup the scene graph
     var graph = demo.graph = new please.SceneGraph();
@@ -179,7 +179,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     camera_pivot.add(camera_proxy);
     camera.location = camera_proxy;
     camera_proxy.location = [0, -50, 80];
-    camera_pivot.rotation_z = please.repeating_driver(0, 360, 50000);
+    camera_pivot.rotation_z = please.repeating_driver(0, 360, 100000);
     
     graph.add(camera_pivot);
     graph.add(camera);
