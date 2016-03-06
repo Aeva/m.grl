@@ -193,3 +193,14 @@ test["error on contradictory globals after includes"] = function () {
     };
     assert(raised);
 };
+
+
+test["allow global variables without extra qualifiers"] = function () {
+    var src = '';
+    src += 'float meep;\n';
+    src += 'vec2 goom;\n';
+    src += 'vec3 whee;\n';
+
+    var tree = please.gl.glsl_to_ast(src);
+    assert(tree.globals.length === 3);
+};
