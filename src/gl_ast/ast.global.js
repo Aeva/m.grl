@@ -117,8 +117,8 @@ please.gl.__identify_global = (function() {
     var mode_pattern = "(" + format_option(modes) + ")? ?";
     var precision_pattern = "(" + format_option(precisions) + ")? ?";
     var type_pattern = "([a-zA-Z_][a-zA-Z0-9_]+)";
-    var name_pattern = "((?:[a-zA-Z_][a-zA-Z0-9_]+)(?:, ?[a-zA-Z_][a-zA-Z0-9_]+)*)";
-    var size_pattern = "(\\[[0-9]+\\])?";
+    var names_pattern = "((?:[a-zA-Z_][a-zA-Z0-9_]+(?:\\[[0-9]+\\])?)" +
+        "(?:, ?[a-zA-Z_][a-zA-Z0-9_]+(?:\\[[0-9]+\\])?)*)";
     var assign_pattern = "(;|=)";
 
     var regex = new RegExp(
@@ -126,11 +126,13 @@ please.gl.__identify_global = (function() {
         mode_pattern +
         precision_pattern +
         type_pattern + " " +
-        name_pattern +
-        size_pattern +
+        names_pattern +
         assign_pattern +
         "$");
 
+    var name_regex = new RegExp("([a-zA-Z_][a-zA-Z0-9_]+)(\\[[0-9]+\\])?");
+
+    
     var assign_name = function (value) {
         return value === undefined ? null : value.trim();
     }
@@ -174,14 +176,14 @@ please.gl.__identify_global = (function() {
                 }
                 var tokens = stream.slice(start, end+1);
                 ITER(n, names) {
-                    var name = names[n];
+                    var name = names[n].match(name_regex);
                     found.push({
                         "mode" : assign_name(match[1]),
                         "type" : match[3],
-                        "name" : name,
-                        "size" : assign_number(match[5]),
+                        "name" : name[1],
+                        "size" : assign_number(name[2]),
                         "precision" : assign_name(match[2]),
-                        "assignment" : match[6] == "=",
+                        "assignment" : match[5] == "=",
                         "tokens" : tokens,
                     });
                 }
