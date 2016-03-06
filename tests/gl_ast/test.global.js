@@ -200,6 +200,9 @@ test["allow global variables without extra qualifiers"] = function () {
     src += 'float meep;\n';
     src += 'vec2 goom;\n';
     src += 'vec3 whee;\n';
+    src += 'void main() {\n';
+    src += '  meep = 10;\n';
+    src += '}\n';
 
     var tree = please.gl.glsl_to_ast(src);
     assert(tree.globals.length === 3);
