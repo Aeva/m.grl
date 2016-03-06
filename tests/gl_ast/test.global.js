@@ -198,12 +198,23 @@ test["error on contradictory globals after includes"] = function () {
 test["allow global variables without extra qualifiers"] = function () {
     var src = '';
     src += 'float meep;\n';
-    src += 'vec2 goom;\n';
+    src += 'vec2 goom = vec2(10.0, 10.0);\n';
     src += 'vec3 whee;\n';
     src += 'void main() {\n';
-    src += '  meep = 10;\n';
+    src += '  meep = 10.0;\n';
     src += '}\n';
 
     var tree = please.gl.glsl_to_ast(src);
+    var expected = '' +
+        '// Generated and hoisted function prototypes follow:\n' +
+        'void main();\n' +
+        'float meep;\n' +
+        'vec2 goom = vec2(10.0,10.0);\n' +
+        'vec3 whee;\n' +
+        'void main() {\n' +
+        '  meep=10.0;\n' +
+        '}';
+    
     assert(tree.globals.length === 3);
+    assert(tree.print().trim() == expected);
 };
