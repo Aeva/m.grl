@@ -96,7 +96,7 @@ console.assert = assert;
         out += "<div class='section'>traceback:</div>";
 
 
-        if (error.constructor == Error) {
+        if (error.constructor.name.indexOf("Error") !== -1) {
             var stack = error.stack.split("\n");
             for (var i=stack.length-1; i>=0; i-=1) {
                 if (stack[i].startsWith("run_test@"+document.location)) {

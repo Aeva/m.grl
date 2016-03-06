@@ -71,7 +71,10 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
         var key = flat.cache_keys[ki];
         var samplers = flat.sampler_bindings[key];
         ITER_PROPS(var_name, samplers) {
-            calls.push("prog.samplers['"+var_name+"'] = '"+samplers[var_name]+"';");
+            var uri = samplers[var_name];
+            if (uri) {
+                calls.push("prog.samplers['"+var_name+"'] = '"+uri+"';");
+            }
         }
 
         var add_draw_command = function (range) {

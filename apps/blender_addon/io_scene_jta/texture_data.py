@@ -52,6 +52,10 @@ class TextureStore(object):
         image is to be packed and has not yet been referenced, this
         will also pack the image.
         """
+
+        if len(model.mesh.materials) == 0:
+            return None
+        
         renderer = bpy.context.scene.render.engine
         if renderer == "CYCLES":
             image = self.__cycles_refcode_target(model)

@@ -4589,13 +4589,28 @@ please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro
     this.macro = macro;
     this.rewrite = null;
     this.qualifier = qualifier;
-    if (mode === "const") {
-        this.value = value;
+    this.value = null;
+    if (value) {
+        this.value = "";
+        for (var t=0; t<value.length; t+=1) {
+            var token = value[t];
+            if (token.constructor == String) {
+                this.value += token;
+            }
+            else if (token.print) {
+                this.value += token.print();
+            }
+            else {
+                throw new Error("Unable to print token: " + token);
+            }
+        }
     }
 };
 please.gl.ast.Global.prototype.print = function () {
     var out = "";
-    out += this.mode + " ";
+    if (this.mode) {
+        out += this.mode + " ";
+    }
     if (this.qualifier !== null) {
         out += this.qualifier + " ";
     }
@@ -4604,7 +4619,7 @@ please.gl.ast.Global.prototype.print = function () {
     if (this.size) {
         out += "[" + this.size + "]";
     }
-    if (this.mode === "const") {
+    if (this.value) {
         out += " = " + this.value;
     }
     out += ";\n";
@@ -4636,129 +4651,179 @@ please.gl.__clean_globals = function (globals) {
     });
     return revised;
 };
+// This method takes a list of tokens and the desired starting index
+// and returns a list of objects containing valid arguments to the
+// Global constructor if the first token represent a valid global
+// variable declaration, otherwise this method returns null.  If a
+// global is detected, this function also reports how many tokens it
+// would consume.
+//
+// The following should be valid token streams:
+// - ['uniform lowp float test', ';']
+// - ['uniform float foo', '[', '16', ']', ';']
+// - ['const vec2 foo', '=', 'vec2', '(', '1.0', ',', '2.0', ')', ';']
+// - ['uniform float foo', ',', 'bar', ';'];
+please.gl.__identify_global = (function() {
+    var modes = [
+        "uniform", "attribute", "varying", "const",
+        "uniform curve",
+    ];
+    var precisions = ["lowp", "mediump", "highp"];
+    var format_option = function (set) {
+        return set.map(function (str) { return str+" "; }).join("|");
+    };
+    var mode_pattern = "(" + format_option(modes) + ")? ?";
+    var precision_pattern = "(" + format_option(precisions) + ")? ?";
+    var type_pattern = "([a-zA-Z_][a-zA-Z0-9_]+)";
+    var names_pattern = "((?:[a-zA-Z_][a-zA-Z0-9_]+(?:\\[[0-9]+\\])?)" +
+        "(?:, ?[a-zA-Z_][a-zA-Z0-9_]+(?:\\[[0-9]+\\])?)*)";
+    var assign_pattern = "(;|=)";
+    var regex = new RegExp(
+        "^" +
+        mode_pattern +
+        precision_pattern +
+        type_pattern + " " +
+        names_pattern +
+        assign_pattern +
+        "$");
+    var name_regex = new RegExp("([a-zA-Z_][a-zA-Z0-9_]+)(\\[[0-9]+\\])?");
+    var assign_name = function (value) {
+        return value === undefined ? null : value.trim();
+    }
+    var assign_number = function (value) {
+        return value === undefined ? null : Number(value.slice(1,-1));
+    }
+    return function (stream, start) {
+        var found = [];
+        var token = stream[start];
+        if (token.constructor == String && token != ";") {
+            var next_token = "";
+            for (var n=start+1; n<stream.length; n+=1) {
+                if (stream[n].constructor == please.gl.ast.Comment) {
+                    continue;
+                }
+                else if (stream[n].constructor == String) {
+                    next_token += stream[n];
+                    if (stream[n] == ";" || stream[n] == "=") {
+                        break;
+                    }
+                }
+                else {
+                    break;
+                }
+            }
+            var match = (token + next_token).match(regex);
+            if (match) {
+                var name_line = match[4];
+                var names = null;;
+                if (name_line.indexOf(",") > -1) {
+                    names = name_line.split(",").map(String.trim);
+                }
+                else {
+                    names = [name_line];
+                }
+                for (var end=start+1; end<stream.length; end+=1) {
+                    if (stream[end] == ";") {
+                        break;
+                    }
+                }
+                var tokens = stream.slice(start, end+1);
+                for (var n=0; n<names.length; n+=1) {
+                    var name = names[n].match(name_regex);
+                    found.push({
+                        "mode" : assign_name(match[1]),
+                        "type" : match[3],
+                        "name" : name[1],
+                        "size" : assign_number(name[2]),
+                        "precision" : assign_name(match[2]),
+                        "assignment" : match[5] == "=",
+                        "tokens" : tokens,
+                    });
+                }
+            }
+        }
+        return found;
+    }
+})();
 // This method takes a stream of tokens and parses out the glsl
 // globals from them.  Returns two lists, the first containing all of
 // the Global ast items that were extracted, the second is a list of
 // the remaining stream with the Globals removed.
 please.gl.__parse_globals = function (stream) {
-    var modes = ["uniform", "attribute", "varying", "const"];
     var globals = [];
     var chaff = [];
     // Iterate through the stream of tokens and look for one that
-    // denotes a global eg 'uniform'.  If found, invoke
+    // denotes a global variable eg a uniform var.  If found, invoke
     // please.gl.__create_global with the stream from the 'mode' token
     // up to the first semicolon and add the result to the 'globals'
     // list and increment i.
     for (var i=0; i<stream.length; i+=1) {
-        var token = stream[i];
-        if (token.constructor == String) {
-            var mode = null;
-            for (var m=0; m<modes.length; m+=1) {
-                var test = modes[m];
-                if (token.startsWith(test)) {
-                    mode = test;
-                    break;
-                }
-            }
-            if (mode) {
-                for (var end=i+1; end<stream.length; end+=1) {
-                    if (stream[end] == ";") {
-                        break;
-                    }
-                }
-                var created = please.gl.__create_global(stream.slice(i, end));
-                for (var g=0; g<created.length; g+=1) {
-                    globals.push(created[g]);
-                }
-                i = end;
-                continue;
+        var found = please.gl.__identify_global(stream, i);
+        if (found.length > 0) {
+            i += found[0].tokens.length-1;
+            for (var g=0; g<found.length; g+=1) {
+                var global_info = found[g];
+                globals.push(please.gl.__create_global(global_info));
             }
         }
-        chaff.push(token);
+        else {
+            chaff.push(stream[i]);
+        }
     }
     return [globals, chaff];
 };
-// Takes a stream of tokens and produces a Global AST object from it.
-// Input tokens are delimited by symbols, but not by spaces.
-// For example:
-// - ['uniform lowp float test']
-// - ['uniform float foo', '[', '16', ']']
-// - ['const vec2 foo', '=', 'vec2', '(', '1.0', ',', '2.0', ')']
-// - ['uniform float foo', ',', 'bar'];
-please.gl.__create_global = function (tokens) {
-    var find = function (keywords, words) {
-        var keyword = null;
-        for (var w=0; w<words.length; w+=1) {
-            for (var k=0; k<keywords.length; k+=1) {
-                if (words[w] == keywords[k]) {
-                    keyword = keywords[k];
-                    break;
-                }
-            }
+// This method takes a "global_info" object generated by the
+// __identify_global method in this file, and returns an ast object.
+please.gl.__create_global = function (info_dict) {
+    // info_dict property names are as follows:
+    // info, type, name, size, precision, assignment, tokens
+    // determine if a macro or mode are available
+    var macro = null;
+    var mode = null;
+    if (info_dict.mode) {
+        var mode_parts = info_dict.mode.split(" ");
+        if (mode_parts.length == 2) {
+            mode = mode_parts[0];
+            macro = mode_parts[1];
         }
-        return keyword;
-    }
-    var split = function (delim, tokens) {
-        var parts = [];
-        var acc = [];
-        for (var i=0; i<tokens.length; i+=1) {
-            var token = tokens[i];
-            if (token == delim) {
-                parts.push(acc);
-                acc = [];
-                continue
-            }
-            else {
-                acc.push(token);
-            }
+        else if (mode_parts.length == 1) {
+            mode = mode_parts[0];
         }
-        if (acc.length > 0) {
-            parts.push(acc);
-        }
-        return parts;
-    };
-    var macros = ["curve"];
-    var precisions = ["highp", "mediump", "lowp"];
-    var tokens = please.gl.__identify_parentheticals(tokens);
-    var words = tokens[0].split(' ');
-    var mode = words[0];
-    var meta = tokens[0].meta;
-    var macro = find(macros, words);
-    var precision = find(precisions, words);
-    var qualifiers = (!!macro) + (!!precision); // produces an integer
-    for (var i=0; i<qualifiers; i+=1) {
-        var test = words[i+1];
-        if (macros.concat(precision).indexOf(test) == -1) {
+        else if (mode_parts.length > 2) {
             throw new Error("Malformed global");
         }
     }
-    var remainder = words.slice(qualifiers+1).concat(tokens.slice(1));
-    var type = remainder.shift();
-    var names = split(',', remainder);
-    var created = [];
-    for (var i=0; i<names.length; i+=1) {
-        var def = names[i];
-        var name = def[0];
-        var size = null;
-        var value = null;
-        var parts = split('=', def);
-        var lhs = parts[0];
-        var rhs = parts.slice(1)[0];
-        if (rhs && rhs.length > 0) {
-            value = please.gl.ast.flatten(rhs);
+    // determine what is being assigned to the global, if anything
+    var assignment = null;
+    if (info_dict.assignment) {
+        if (mode == "uniform" || mode == "attribute" || mode == "varying") {
+            throw new Error(
+                "Definitions for "+mode+" variables can't be assgined a value.");
         }
-        if (lhs[1] !== undefined) {
-            console.assert(lhs[1].constructor == please.gl.ast.Parenthetical);
-            console.assert(lhs[1].type == "square");
-            console.assert(lhs[1].data.length == 1);
-            size = parseInt(lhs[1].data[0]);
+        var tokens = info_dict.tokens;
+        var start = null;
+        for (var i=0; i<tokens.length; i+=1) {
+            if (tokens[i] == "=") {
+                start = i+1;
+                break;
+            }
         }
-        var global = new please.gl.ast.Global(
-            mode, type, name, value, size, precision, macro);
-        global.meta = tokens[0].meta;
-        created.push(global);
+        assignment = tokens.slice(start, -1);
     }
-    return created;
+    else if (mode == "const") {
+        throw new Error("Const global should be assigned a value.");
+    }
+    // create and return the new ast object:
+    var global = new please.gl.ast.Global(
+        mode,
+        info_dict.type,
+        info_dict.name,
+        assignment,
+        info_dict.size,
+        info_dict.precision,
+        macro);
+    global.meta = info_dict.tokens[0].meta;
+    return global;
 };
 // - gl_alst/ast.block.js ------------------------------------------------ //
 /* [+] please.gl.ast.Block(stream, type)
@@ -5707,10 +5772,10 @@ please.gl.__stream_to_ast = function (tokens, start) {
         i+=1;
     }
     if (start === 0) {
+        tree = please.gl.__remove_precision(tree);
         var extract = please.gl.__parse_globals(tree);
         var globals = please.gl.__clean_globals(extract[0]);
         var remainder = extract[1];
-        remainder = please.gl.__remove_precision(remainder);
         remainder = please.gl.__identify_hexcodes(remainder);
         remainder = please.gl.__identify_parentheticals(remainder);
         remainder = please.gl.__identify_functions(remainder);
@@ -7839,6 +7904,12 @@ please.GraphNode.prototype = {
             }
         }
     },
+    "add_static" : function (entity) {
+        // Convinience method for adding StaticDrawNode objects to the
+        // graph.
+        var frozen = new please.StaticDrawNode(entity);
+        this.add(frozen);
+    },
     "use_automatic_cache_invalidation" : function () {
         // Sets the object to use automatic cache invalidation mode.
         // Driver functions will be evaluated once per frame.  This is
@@ -8828,7 +8899,10 @@ please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
         var key = flat.cache_keys[ki];
         var samplers = flat.sampler_bindings[key];
         for (var var_name in samplers) if (samplers.hasOwnProperty(var_name)) {
-            calls.push("prog.samplers['"+var_name+"'] = '"+samplers[var_name]+"';");
+            var uri = samplers[var_name];
+            if (uri) {
+                calls.push("prog.samplers['"+var_name+"'] = '"+uri+"';");
+            }
         }
         var add_draw_command = function (range) {
             var call_args = ["gl.TRIANGLES", offset, range];
