@@ -55,10 +55,21 @@ float illumination(vec3 _position, float _depth) {
 }
 
 
+swappable vec2 texture_coordinates() {
+  return local_tcoords;
+}
+
+
+swappable vec4 diffuse_color() {
+  vec2 tcoords = texture_coordinates();
+  return texture2D(diffuse_texture, tcoords);
+}
+
+
 void main(void) {
   if (shader_pass == 0) {
     // g-buffer pass
-    vec4 diffuse = texture2D(diffuse_texture, local_tcoords);
+    vec4 diffuse = diffuse_color();
     if (diffuse.a < 0.5) {
       discard;
     }
