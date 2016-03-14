@@ -686,7 +686,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         // data.type -> built in gl type enum
         // data.size -> array size
 
-        // binding_name is usually data.name, but differs for array
+        // binding_name is usually data.name, but differs for arrays
+        // and also in the event that the uniform is being aliased.
+        // data.name is the 'raw' name specified in the shader.
 
         // vectors and matricies are expressed in their type
         // vars with a size >1 are arrays.
