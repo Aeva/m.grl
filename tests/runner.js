@@ -147,7 +147,6 @@ console.assert = assert;
 
     var run_test = function (name, test) {
         var named_test = decodeURIComponent(window.location.hash.slice(1));
-        console.info(named_test);
         if (named_test == name || named_test.length == 0) {
             var passed = true;
             window._hints = [];
