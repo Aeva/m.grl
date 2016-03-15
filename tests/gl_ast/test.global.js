@@ -268,12 +268,14 @@ test["binding context syntax"] = function () {
 test["binding context metadata"] = function () {
     var src = '' +
         'binding_context GraphNode {\n' +
+        '  // comments are ok here\n' +
         '  uniform mat4 world_matrix;\n' +
         '}';
     
     var expected = '' +
         '// Generated and hoisted function prototypes follow:\n' +
-        'uniform mat4 world_matrix;';
+        'uniform mat4 world_matrix;\n' +
+        '// comments are ok here';
     
     var tree = please.gl.glsl_to_ast(src);
     assert(tree.globals.length == 1);
@@ -355,6 +357,38 @@ test["binding error reporting for bs context"] = function () {
     var src = '' +
         'binding_context blorf {\n' +
         '  uniform mat4 world_matrix;\n' +
+        '}\n';
+        var raised = false;
+
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["binding error reporting for invalid 'global' types"] = function () {
+    var src = '' +
+        'binding_context GraphNode() {\n' +
+        '  const mat4 whatever;\n' +
+        '}\n';
+        var raised = false;
+
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["binding error reporting for inappropriate block contents"] = function () {
+    var src = '' +
+        'binding_context GraphNode() {\n' +
+        '  void main() {}\n' +
         '}\n';
         var raised = false;
 
