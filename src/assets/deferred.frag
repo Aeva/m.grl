@@ -16,7 +16,11 @@ varying vec3 world_position;
 varying float linear_depth;
 
 // samplers
-uniform sampler2D diffuse_texture;
+binding_context GraphNode {
+  uniform sampler2D diffuse_texture;
+}
+
+// samplers
 uniform sampler2D spatial_texture;
 uniform sampler2D light_texture;
 

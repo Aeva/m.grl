@@ -252,9 +252,17 @@ please.gl.__parse_globals = (function () {
                     // ok looks good, lets create some globals
                     var found = please.gl.__parse_globals(block.data);
                     if (found[1].length > 0) {
-                        please.gl.ast.error(
-                            found[1][0],
-                            "Invalid token in binding_context block.");
+                        ITER(f, found[1]) {
+                            var check = found[1][f];
+                            if (check.constructor !== please.gl.ast.Comment) {
+                                please.gl.ast.error(
+                                    check,
+                                    "Invalid token in binding_context block.");
+                            }
+                            else {
+                                chaff.push(check);
+                            }
+                        }
                     }
                     if (found[0].length > 0) {
                         found = found[0];

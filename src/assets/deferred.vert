@@ -1,8 +1,17 @@
 
+
+binding_context GraphNode {
+  // object matrices
+  uniform mat4 world_matrix;
+  uniform mat4 particle_matrix;
+
+  // billboard sprites enabler
+  uniform float billboard_mode;
+}
+
+
 // matrices
 uniform mat4 view_matrix;
-uniform mat4 world_matrix;
-uniform mat4 particle_matrix;
 uniform mat4 projection_matrix;
 
 // vertex data
@@ -13,9 +22,6 @@ attribute vec2 tcoords;
 // misc adjustments
 uniform float mgrl_orthographic_scale;
 
-// billboard sprites enabler
-uniform float billboard_mode;
-
 // interpolated vertex data in various transformations
 varying vec3 local_position;
 varying vec3 local_normal;
@@ -24,7 +30,7 @@ varying vec3 world_position;
 varying vec3 screen_position;
 varying float linear_depth;
 
-// uniform
+// whether or not the render pass is a graph or a splat
 uniform bool geometry_pass;
 
 

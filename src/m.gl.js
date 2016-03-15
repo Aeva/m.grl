@@ -470,6 +470,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "uniform_list" : [], // immutable, canonical list of uniform var names
         "sampler_list" : [], // immutable, canonical list of sampler var names
         "binding_info" : {}, // lookup reference for variable bindings
+        "binding_ctx" : {}, // lists of uniforms associated with contexts
         "__cache" : {
             // the cache records the last value set,
             "vars" : {},
@@ -542,6 +543,12 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
         },
     };
+
+    // create empty context lists
+    ITER(c, please.gl.__binding_contexts) {
+        var ctx = please.gl.__binding_contexts[c];
+        prog.binding_ctx[ctx] = [];
+    }
 
     // sort through the shaders passed to this function
     var errors = [];
@@ -889,6 +896,20 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         // store this data so that we can introspect elsewhere
         prog.binding_info[uniform_data.name, binding_name] = uniform_data;
     }
+
+    // populate binding context lists
+    please.prop_map(ast_ref, function (shader_type, ast) {
+        ITER(c, please.gl.__binding_contexts) {
+            var ctx = please.gl.__binding_contexts[c];
+            ITER(g, ast.globals) {
+                var global = ast.globals[g];
+                if (global.binding_ctx[ctx]) {
+                    prog.binding_ctx[ctx].push(global);
+                }
+            }
+
+        }
+    });
 
     // create handlers for available attributes + getter/setter for
     // enabling/disabling them
