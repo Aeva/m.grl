@@ -65,8 +65,9 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
                 globals[global.name] = global;
             }
             else {
-                please.gl.__check_for_contradicting_globals(
+                var composite = please.gl.__check_for_contradicting_globals(
                     globals[global.name], global);
+                globals[global.name] = composite;
             }
         };
         
