@@ -245,7 +245,7 @@ test["allow global variables without extra qualifiers"] = function () {
 };
 
 
-test["binding integration"] = function () {
+test["binding context syntax"] = function () {
     var src = '' +
         'binding_context GraphNode {\n' +
         '  attribute vec3 position;\n' +
@@ -262,4 +262,51 @@ test["binding integration"] = function () {
     var tree = please.gl.glsl_to_ast(src);
     assert(tree.globals.length == 3);
     assert(tree.print().trim() == expected);
+};
+
+
+test["binding error reporting for bs context"] = function () {
+    var src = '' +
+        'binding_context blorf {\n' +
+        '  uniform mat4 world_matrix;\n' +
+        '}\n';
+        var raised = false;
+
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["binding error reporting for extra tokens"] = function () {
+    var src = '' +
+        'binding_context GraphNode() {\n' +
+        '  uniform mat4 world_matrix;\n' +
+        '}\n';
+        var raised = false;
+
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["binding error reporting for missing block"] = function () {
+    var src = '' +
+        'binding_context GraphNode;\n' +
+        'uniform mat4 world_matrix;\n';
+        var raised = false;
+
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
 };

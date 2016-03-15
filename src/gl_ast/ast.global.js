@@ -24,7 +24,7 @@ please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro
     this.rewrite = null;
     this.qualifier = qualifier;
     this.value = null;
-    this.binding_ctx = {};
+    this.binding_contexts = {};
     if (value) {
         this.value = "";
         ITER(t, value) {
@@ -212,16 +212,8 @@ please.gl.__parse_globals = (function () {
         // up to the first semicolon and add the result to the 'globals'
         // list and increment i.
         ITER(i, stream) {
-            var found = please.gl.__identify_global(stream, i);
             var context_match = stream[i].match ? stream[i].match(context_pattern) : null;
-            if (found.length > 0) {
-                i += found[0].tokens.length-1;
-                ITER(g, found) {
-                    var global_info = found[g];
-                    globals.push(please.gl.__create_global(global_info));
-                }
-            }
-            else if (context_match) {
+            if (context_match) {
                 var context = context_match[1];
                 var block = stream[i+1];
                 if (context !== "GraphNode") {
@@ -231,7 +223,7 @@ please.gl.__parse_globals = (function () {
                 else if (!block || block.constructor !== please.gl.ast.Block) {
                     please.gl.ast.error(
                         stream[i],
-                        "Expected '{' to after binding_context declaration.");
+                        "Expected '{' after binding_context declaration.");
                 }
                 else if (block.type !== null) {
                     please.gl.ast.error(
@@ -266,7 +258,17 @@ please.gl.__parse_globals = (function () {
                 }
             }
             else {
-                chaff.push(stream[i]);
+                var found = please.gl.__identify_global(stream, i);
+                if (found.length > 0) {
+                    i += found[0].tokens.length-1;
+                    ITER(g, found) {
+                        var global_info = found[g];
+                        globals.push(please.gl.__create_global(global_info));
+                    }
+                }
+                else {
+                    chaff.push(stream[i]);
+                }
             }
         }
         return [globals, chaff];
