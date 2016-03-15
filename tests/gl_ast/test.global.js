@@ -247,15 +247,14 @@ test["allow global variables without extra qualifiers"] = function () {
 
 test["binding integration"] = function () {
     var src = '' +
-        'binding_contex GraphNode {\n' +
+        'binding_context GraphNode {\n' +
         '  attribute vec3 position;\n' +
         '  uniform mat4 world_matrix;\n' +
         '}\n' +
-        'uniform bool some_switch;\n' +
-        'void main () {\n' +
-        '}\n';
+        'uniform bool some_switch;';
 
     var expected = '' +
+        '// Generated and hoisted function prototypes follow:\n' +
         'attribute vec3 position;\n' +
         'uniform mat4 world_matrix;\n' +
         'uniform bool some_switch;';
