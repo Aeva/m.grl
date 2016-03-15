@@ -265,6 +265,45 @@ test["binding context syntax"] = function () {
 };
 
 
+test["binding context metadata"] = function () {
+    var src = '' +
+        'binding_context GraphNode {\n' +
+        '  uniform mat4 world_matrix;\n' +
+        '}';
+    
+    var expected = '' +
+        '// Generated and hoisted function prototypes follow:\n' +
+        'uniform mat4 world_matrix;';
+    
+    var tree = please.gl.glsl_to_ast(src);
+    assert(tree.globals.length == 1);
+    assert(tree.print().trim() == expected);
+    assert(tree.globals[0].binding_ctx["GraphNode"] === true);
+};
+
+
+test["binding context combined metadata"] = function () {
+    var src = '' +
+        'uniform mat4 world_matrix;\n' +
+        
+        'binding_context GraphNode {\n' +
+        '  uniform mat4 world_matrix;\n' +
+        '}\n' +
+        
+        '  uniform mat4 world_matrix;';
+    
+    var expected = '' +
+        '// Generated and hoisted function prototypes follow:\n' +
+        'uniform mat4 world_matrix;';
+    
+    var tree = please.gl.glsl_to_ast(src);
+    assert(tree.globals.length == 1);
+    assert(tree.print().trim() == expected);
+    assert(tree.globals[0].binding_ctx["GraphNode"] === true);
+};
+
+
+
 test["binding error reporting for bs context"] = function () {
     var src = '' +
         'binding_context blorf {\n' +
@@ -301,6 +340,22 @@ test["binding error reporting for missing block"] = function () {
     var src = '' +
         'binding_context GraphNode;\n' +
         'uniform mat4 world_matrix;\n';
+        var raised = false;
+
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["binding error reporting for bs context"] = function () {
+    var src = '' +
+        'binding_context blorf {\n' +
+        '  uniform mat4 world_matrix;\n' +
+        '}\n';
         var raised = false;
 
     try {

@@ -24,7 +24,12 @@ please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro
     this.rewrite = null;
     this.qualifier = qualifier;
     this.value = null;
-    this.binding_contexts = {};
+    this.binding_ctx = {};
+
+    ITER(c, please.gl.__binding_contexts) {
+        var ctx = please.gl.__binding_contexts[c];
+        this.binding_ctx[ctx] = false;
+    }
     if (value) {
         this.value = "";
         ITER(t, value) {
@@ -64,11 +69,23 @@ please.gl.ast.Global.prototype.print = function () {
 
 // Throw an error when two globals contradict one another.
 please.gl.__check_for_contradicting_globals = function (lhs, rhs) {
+    if (!lhs) {
+        return rhs;
+    }
     if (lhs.print() != rhs.print()) {
         var msg = "Contradicting definitions for global '" + name + "':\n";
         msg += "definition 1: " + please.gl.ast.format_metadata(lhs) + "\n";
         msg += "definition 2: " + please.gl.ast.format_metadata(rhs) + "\n";
         throw new Error(msg);
+    }
+    else {
+        // compare the binding contexts
+        ITER(c, please.gl.__binding_contexts) {
+            var ctx = please.gl.__binding_contexts[c];
+            var state = lhs.binding_ctx[ctx] || rhs.binding_ctx[ctx];
+            rhs.binding_ctx[ctx] = state;
+        }
+        return rhs;
     }
 };
 
@@ -81,12 +98,12 @@ please.gl.__clean_globals = function (globals) {
     globals.map(function (global) {
         if (!by_name[global.name]) {
             by_name[global.name] = [];
-            revised.push(global);
         }
         by_name[global.name].push(global);
     });
     please.prop_map(by_name, function (name, set) {
-        set.reduce(please.gl.__check_for_contradicting_globals);
+        var result = set.reduce(please.gl.__check_for_contradicting_globals);
+        revised.push(result);
     });
     return revised;
 };
@@ -249,7 +266,8 @@ please.gl.__parse_globals = (function () {
                                     "Only uniform and attribute variables may be given a binding context.");
                             }
                             else {
-                                // TODO add context before adding to globals
+                                // add context before adding to globals
+                                bind.binding_ctx[context] = true;
                                 globals.push(bind);
                             }
                         }
