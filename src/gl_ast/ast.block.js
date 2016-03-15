@@ -387,11 +387,15 @@ please.gl.__identify_functions = function (ast) {
     var remainder = [];
     var recording_for = null;
 
+    // misnomer, just means these indicate the scanned token is not a
+    // function-block
     var non_blocks = [
         "enum",
         "for",
         "if",
         "else",
+        "struct",
+        "binding_context",
     ];
 
     var collapse = function (block, cache) {
@@ -405,7 +409,7 @@ please.gl.__identify_functions = function (ast) {
                 break;
             }
         }
-        if (is_block) {
+        if (is_block && cache.length > 1) {
             block.make_function(cache);
         }
     };
