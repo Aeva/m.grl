@@ -687,6 +687,16 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     console.info("enums:");
     console.info(enums);
 
+    var size_lookup = {};
+    size_lookup[gl.FLOAT_VEC2] = 2;
+    size_lookup[gl.FLOAT_VEC3] = 3;
+    size_lookup[gl.FLOAT_VEC4] = 4;
+    size_lookup[gl.FLOAT_MAT2] = 4;
+    size_lookup[gl.FLOAT_MAT3] = 9;
+    size_lookup[gl.FLOAT_MAT4] = 16;
+
+    var type_reference = {};
+        
     // create helper functions for uniform vars
     var bind_uniform = function (data, binding_name) {
         // data.name -> variable name
@@ -706,6 +716,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         var is_array = data.size > 1;
         var binding_name = rewrites[data.name] || binding_name;
         var strings = enums[binding_name] || null;
+
+        // size of array to be uploaded.  eg vec3 == 3, mat4 == 16
+        var vec_size = (size_lookup[data.type] || 1) * data.size;
+        type_reference[binding_name] = vec_size;
 
         // FIXME - set defaults per data type
         prog.__cache.vars[binding_name] = null;
@@ -897,6 +911,20 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         prog.binding_info[uniform_data.name, binding_name] = uniform_data;
     }
 
+    // add a mechanism to lookup uniform type size
+    prog.__uniform_initial_value = function (uniform_name) {
+        var size = type_reference[uniform_name] || null;
+        if (size === null) {
+            return null;
+        }
+        else if (size === 1) {
+            return 0;
+        }
+        else {
+            return new Float32Array(size);
+        }
+    };
+    
     // populate binding context lists
     please.prop_map(ast_ref, function (shader_type, ast) {
         ITER(c, please.gl.__binding_contexts) {
@@ -904,7 +932,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             ITER(g, ast.globals) {
                 var global = ast.globals[g];
                 if (global.binding_ctx[ctx]) {
-                    prog.binding_ctx[ctx].push(global);
+                    prog.binding_ctx[ctx].push(global.name);
                 }
             }
 
