@@ -414,7 +414,7 @@ test["binding context for swappables"] = function () {
         '}';
 
     var tree = please.gl.glsl_to_ast(src);
-    tree.print();
+    var output = tree.print();
     assert(tree.globals.length == 1);
     var global = tree.globals[0];
     assert(global.name == "_mgrl_switch_some_function");
@@ -425,4 +425,5 @@ test["binding context for swappables"] = function () {
     //assert(global.enum.length > 0);
     assert(tree.enums["some_function"].length == 2);
     assert(tree.rewrite["_mgrl_switch_some_function"] == "some_function");
+    assert(output.lastIndexOf(global.name) == output.indexOf(global.name));
 };
