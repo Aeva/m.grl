@@ -694,7 +694,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     size_lookup[gl.FLOAT_MAT2] = 4;
     size_lookup[gl.FLOAT_MAT3] = 9;
     size_lookup[gl.FLOAT_MAT4] = 16;
-
+    
     var type_reference = {};
         
     // create helper functions for uniform vars
@@ -719,7 +719,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 
         // size of array to be uploaded.  eg vec3 == 3, mat4 == 16
         var vec_size = (size_lookup[data.type] || 1) * data.size;
-        type_reference[binding_name] = vec_size;
+        type_reference[binding_name] = {
+            "size" : vec_size,
+            "hint" : data.type,
+        };
 
         // FIXME - set defaults per data type
         prog.__cache.vars[binding_name] = null;
@@ -913,15 +916,31 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 
     // add a mechanism to lookup uniform type size
     prog.__uniform_initial_value = function (uniform_name) {
-        var size = type_reference[uniform_name] || null;
-        if (size === null) {
-            return null;
-        }
-        else if (size === 1) {
-            return 0;
+        var ref = type_reference[uniform_name] || null;
+        if (ref) {
+            var size = ref.size;
+            var hint = ref.hint;
+            if (size === null) {
+                return null;
+            }
+            else if (size === 1) {
+                return 0;
+            }
+            else if (hint == gl.FLOAT_MAT2) {
+                return mat2.create();
+            }
+            else if (hint == gl.FLOAT_MAT3) {
+                return mat3.create();
+            }
+            else if (hint == gl.FLOAT_MAT4) {
+                return mat4.create();
+            }
+            else {
+                return new Float32Array(size);
+            }
         }
         else {
-            return new Float32Array(size);
+            return null;
         }
     };
     
