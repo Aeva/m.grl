@@ -265,7 +265,8 @@ please.gl.ast.Block.prototype.make_function = function (invocation) {
 
     if (this.macro == "swappable") {
         var handle = new please.gl.ast.Global(
-            "uniform", "int", "_mgrl_switch_" + this.name,
+            "uniform", "int",
+            please.gl.__swap_handle_for_function_name(this.name),
             null, null, null, "swappable");
         handle.meta = this.meta;
         handle.enum = this;

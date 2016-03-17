@@ -399,3 +399,30 @@ test["binding error reporting for inappropriate block contents"] = function () {
     };
     assert(raised);
 };
+
+
+test["binding context for swappables"] = function () {
+    var src = '' +
+        'binding_context GraphNode {\n' +
+        '  mode_switch some_function;\n' +
+        '}\n' +
+        'plugin float foo() {\n' +
+        '  return 20.0;\n' +
+        '}\n' +
+        'swappable float some_function() {\n' +
+        '  return 10.0;\n' +
+        '}';
+
+    var tree = please.gl.glsl_to_ast(src);
+    tree.print();
+    assert(tree.globals.length == 1);
+    var global = tree.globals[0];
+    assert(global.name == "_mgrl_switch_some_function");
+    assert(global.rewrite == "some_function");
+    assert(global.type == "int");
+    assert(global.binding_ctx.GraphNode);
+    // the enums prop on global ast objects might be dead code
+    //assert(global.enum.length > 0);
+    assert(tree.enums["some_function"].length == 2);
+    assert(tree.rewrite["_mgrl_switch_some_function"] == "some_function");
+};

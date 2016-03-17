@@ -26,6 +26,14 @@ please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro
     this.value = null;
     this.binding_ctx = {};
 
+    if (type == "mode_switch") {
+        this.rewrite = name;
+        this.name = please.gl.__swap_handle_for_function_name(name);
+        this.mode = "uniform";
+        this.type = "int";
+        this.macro = "null";
+    }
+
     ITER(c, please.gl.__binding_contexts) {
         var ctx = please.gl.__binding_contexts[c];
         this.binding_ctx[ctx] = false;
@@ -67,6 +75,12 @@ please.gl.ast.Global.prototype.print = function () {
 };
 
 
+// generate the name of the global variable for controlling swappables
+please.gl.__swap_handle_for_function_name = function (name) {
+    return "_mgrl_switch_" + name;
+};
+
+
 // Throw an error when two globals contradict one another.
 please.gl.__check_for_contradicting_globals = function (lhs, rhs) {
     if (!lhs) {
@@ -84,6 +98,12 @@ please.gl.__check_for_contradicting_globals = function (lhs, rhs) {
             var ctx = please.gl.__binding_contexts[c];
             var state = lhs.binding_ctx[ctx] || rhs.binding_ctx[ctx];
             rhs.binding_ctx[ctx] = state;
+        }
+        // copy over new enums
+        ITER(e, lhs.enum) {
+            if (rhs.enum.indexOf(lhs.enum[e])) {
+                rhs.enum.push(lhs.enum[e]);
+            }
         }
         return rhs;
     }
@@ -124,7 +144,7 @@ please.gl.__clean_globals = function (globals) {
 please.gl.__identify_global = (function() {
     var modes = [
         "uniform", "attribute", "varying", "const",
-        "uniform curve",
+        "uniform curve", "mode_switch"
     ];
     var precisions = ["lowp", "mediump", "highp"];
 
