@@ -951,7 +951,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             ITER(g, ast.globals) {
                 var global = ast.globals[g];
                 if (global.binding_ctx[ctx]) {
-                    prog.binding_ctx[ctx].push(global.name);
+                    var name = ast.rewrite[global.name] || global.name;
+                    prog.binding_ctx[ctx].push(name);
                 }
             }
 

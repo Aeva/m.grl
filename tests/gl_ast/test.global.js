@@ -425,5 +425,6 @@ test["binding context for swappables"] = function () {
     //assert(global.enum.length > 0);
     assert(tree.enums["some_function"].length == 2);
     assert(tree.rewrite["_mgrl_switch_some_function"] == "some_function");
-    assert(output.lastIndexOf(global.name) == output.indexOf(global.name));
+    var search = "uniform int " + global.name;
+    assert(output.lastIndexOf(search) == output.indexOf(search));
 };

@@ -153,7 +153,17 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
                     this.enums[name] = check.enumerate_plugins(methods);
                 }
             }
-            out += global.print();
+            var found = null;
+            ITER(s, this.globals) {
+                if (this.globals[s].name == global.name) {
+                    this.globals[s] = please.gl.__check_for_contradicting_globals(this.globals[s], global);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                out += global.print();
+            }
         };
     }
 
