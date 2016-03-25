@@ -119,8 +119,14 @@ please.RenderNode = function (prog, options) {
         // skip variables that start with mgrl_ as those values are
         // set elsewhere automatically.
         if (!name.startsWith("mgrl_")) {
-            type = prog.binding_info[name].type;
-            value = defaults.hasOwnProperty(type) ? defaults[type] : null;
+            var binding = prog.binding_info[name];
+            if (binding) {
+                type = prog.binding_info[name].type;
+                value = defaults.hasOwnProperty(type) ? defaults[type] : null;
+            }
+            else {
+                value = null;
+            }
             please.make_animatable(this, name, value, this.shader);
         }
     }
