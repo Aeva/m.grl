@@ -149,10 +149,22 @@ please.overlay.remove_element = function (el) {
             }
         }
         else {
+            var removed = false;
             try {
                 overlay.removeChild(el);
+                removed = true;
             } catch (err) {
-                console.warn(err);
+                try {
+                    overlay.removeChild(el[0]);
+                    removed = true;
+                } catch (err) {
+                    if (!removed) {
+                        console.warn(err);
+                    }
+                };
+                if (!removed) {
+                    console.warn(err);
+                }
             }
             var binding_index = please.overlay.__bindings.indexOf(el);
             if (binding_index >= 0) {
