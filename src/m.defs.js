@@ -672,7 +672,7 @@ else {
 please.decode_buffer = function(blob) {
     // FIXME, correct for local endianness
 
-    var raw = atob(blob);
+    var raw = atob(blob.replace(/\s/g, ''));
     var buffer = new ArrayBuffer(raw.length);
     var data = new DataView(buffer);
     for (var i=0; i<raw.length; i+=1) {
