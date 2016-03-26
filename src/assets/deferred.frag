@@ -18,6 +18,8 @@ varying float linear_depth;
 // samplers
 binding_context GraphNode {
   uniform sampler2D diffuse_texture;
+  mode_switch diffuse_color_function;
+  mode_switch texture_coordinate_function;
 }
 
 // samplers
@@ -28,11 +30,14 @@ uniform sampler2D light_texture;
 uniform int shader_pass;
 
 
+include("normalize_screen_coord.glsl");
+
+
 /* NOTES:
 
    Pass 0, the g-buffer pass, the "diffuse_texture" describes the
    color of an individual object, and is accessed via the
-   "diffuse_color" swappable.
+   "diffuse_color_function" swappable.
 
    Pass 1 renders from each light's perspective.
 
@@ -50,7 +55,15 @@ uniform int shader_pass;
  */
 
 
-include("normalize_screen_coord.glsl");
+swappable vec2 texture_coordinate_function() {
+  return local_tcoords;
+}
+
+
+swappable vec4 diffuse_color_function() {
+  vec2 tcoords = texture_coordinate_function();
+  return texture2D(diffuse_texture, tcoords);
+}
 
 
 float illumination(vec3 _position, float _depth) {
@@ -81,21 +94,10 @@ float illumination(vec3 _position, float _depth) {
 }
 
 
-swappable vec2 texture_coordinates() {
-  return local_tcoords;
-}
-
-
-swappable vec4 diffuse_color() {
-  vec2 tcoords = texture_coordinates();
-  return texture2D(diffuse_texture, tcoords);
-}
-
-
 void main(void) {
   if (shader_pass == 0) {
     // g-buffer pass
-    vec4 diffuse = diffuse_color();
+    vec4 diffuse = diffuse_color_function();
     if (diffuse.a < 0.5) {
       discard;
     }
