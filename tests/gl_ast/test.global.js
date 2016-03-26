@@ -243,3 +243,188 @@ test["allow global variables without extra qualifiers"] = function () {
     assert(tree.globals.length === 3);
     assert(tree.print().trim() == expected);
 };
+
+
+test["binding context syntax"] = function () {
+    var src = '' +
+        'binding_context GraphNode {\n' +
+        '  attribute vec3 position;\n' +
+        '  uniform mat4 world_matrix;\n' +
+        '}\n' +
+        'uniform bool some_switch;';
+
+    var expected = '' +
+        '// Generated and hoisted function prototypes follow:\n' +
+        'attribute vec3 position;\n' +
+        'uniform mat4 world_matrix;\n' +
+        'uniform bool some_switch;';
+
+    var tree = please.gl.glsl_to_ast(src);
+    assert(tree.globals.length == 3);
+    assert(tree.print().trim() == expected);
+};
+
+
+test["binding context metadata"] = function () {
+    var src = '' +
+        'binding_context GraphNode {\n' +
+        '  // comments are ok here\n' +
+        '  uniform mat4 world_matrix;\n' +
+        '}';
+    
+    var expected = '' +
+        '// Generated and hoisted function prototypes follow:\n' +
+        'uniform mat4 world_matrix;\n' +
+        '// comments are ok here';
+    
+    var tree = please.gl.glsl_to_ast(src);
+    assert(tree.globals.length == 1);
+    assert(tree.print().trim() == expected);
+    assert(tree.globals[0].binding_ctx["GraphNode"] === true);
+};
+
+
+test["binding context combined metadata"] = function () {
+    var src = '' +
+        'uniform mat4 world_matrix;\n' +
+        
+        'binding_context GraphNode {\n' +
+        '  uniform mat4 world_matrix;\n' +
+        '}\n' +
+        
+        'uniform mat4 world_matrix;';
+    
+    var expected = '' +
+        '// Generated and hoisted function prototypes follow:\n' +
+        'uniform mat4 world_matrix;';
+    
+    var tree = please.gl.glsl_to_ast(src);
+    assert(tree.globals.length == 1);
+    assert(tree.print().trim() == expected);
+    assert(tree.globals[0].binding_ctx["GraphNode"] === true);
+};
+
+
+
+test["binding error reporting for bs context"] = function () {
+    var src = '' +
+        'binding_context blorf {\n' +
+        '  uniform mat4 world_matrix;\n' +
+        '}\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["binding error reporting for extra tokens"] = function () {
+    var src = '' +
+        'binding_context GraphNode() {\n' +
+        '  uniform mat4 world_matrix;\n' +
+        '}\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["binding error reporting for missing block"] = function () {
+    var src = '' +
+        'binding_context GraphNode;\n' +
+        'uniform mat4 world_matrix;\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["binding error reporting for bs context"] = function () {
+    var src = '' +
+        'binding_context blorf {\n' +
+        '  uniform mat4 world_matrix;\n' +
+        '}\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["binding error reporting for invalid 'global' types"] = function () {
+    var src = '' +
+        'binding_context GraphNode() {\n' +
+        '  const mat4 whatever;\n' +
+        '}\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["binding error reporting for inappropriate block contents"] = function () {
+    var src = '' +
+        'binding_context GraphNode() {\n' +
+        '  void main() {}\n' +
+        '}\n';
+
+    var raised = false;
+    try {
+        var tree = please.gl.glsl_to_ast(src);
+    } catch (err) {
+        raised = true;
+    };
+    assert(raised);
+};
+
+
+test["binding context for swappables"] = function () {
+    var src = '' +
+        'binding_context GraphNode {\n' +
+        '  mode_switch some_function;\n' +
+        '}\n' +
+        'plugin float foo() {\n' +
+        '  return 20.0;\n' +
+        '}\n' +
+        'swappable float some_function() {\n' +
+        '  return 10.0;\n' +
+        '}';
+
+    var tree = please.gl.glsl_to_ast(src);
+    var output = tree.print();
+    assert(tree.globals.length == 1);
+    var global = tree.globals[0];
+    assert(global.name == "_mgrl_switch_some_function");
+    assert(global.rewrite == "some_function");
+    assert(global.type == "int");
+    assert(global.binding_ctx.GraphNode);
+    // the enums prop on global ast objects might be dead code
+    //assert(global.enum.length > 0);
+    assert(tree.enums["some_function"].length == 2);
+    assert(tree.rewrite["_mgrl_switch_some_function"] == "some_function");
+    var search = "uniform int " + global.name;
+    assert(output.lastIndexOf(search) == output.indexOf(search));
+};

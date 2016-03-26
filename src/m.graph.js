@@ -440,7 +440,11 @@ please.GraphNode = function () {
             for (var name, i=0; i<prog.uniform_list.length; i+=1) {
                 name = prog.uniform_list[i];
                 if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
-                    please.make_animatable(this, name, null, this.shader);
+                    var initial_value = null;
+                    if (prog.binding_ctx["GraphNode"].indexOf(name) > -1) {
+                        initial_value = prog.__uniform_initial_value(name);
+                    }
+                    please.make_animatable(this, name, initial_value, this.shader);
                 }
             }
 

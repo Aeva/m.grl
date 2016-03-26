@@ -24,6 +24,20 @@ please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro
     this.rewrite = null;
     this.qualifier = qualifier;
     this.value = null;
+    this.binding_ctx = {};
+
+    if (type == "mode_switch") {
+        this.rewrite = name;
+        this.name = please.gl.__swap_handle_for_function_name(name);
+        this.mode = "uniform";
+        this.type = "int";
+        this.macro = "null";
+    }
+
+    ITER(c, please.gl.__binding_contexts) {
+        var ctx = please.gl.__binding_contexts[c];
+        this.binding_ctx[ctx] = false;
+    }
     if (value) {
         this.value = "";
         ITER(t, value) {
@@ -61,13 +75,37 @@ please.gl.ast.Global.prototype.print = function () {
 };
 
 
+// generate the name of the global variable for controlling swappables
+please.gl.__swap_handle_for_function_name = function (name) {
+    return "_mgrl_switch_" + name;
+};
+
+
 // Throw an error when two globals contradict one another.
 please.gl.__check_for_contradicting_globals = function (lhs, rhs) {
+    if (!lhs) {
+        return rhs;
+    }
     if (lhs.print() != rhs.print()) {
         var msg = "Contradicting definitions for global '" + name + "':\n";
         msg += "definition 1: " + please.gl.ast.format_metadata(lhs) + "\n";
         msg += "definition 2: " + please.gl.ast.format_metadata(rhs) + "\n";
         throw new Error(msg);
+    }
+    else {
+        // compare the binding contexts
+        ITER(c, please.gl.__binding_contexts) {
+            var ctx = please.gl.__binding_contexts[c];
+            var state = lhs.binding_ctx[ctx] || rhs.binding_ctx[ctx];
+            rhs.binding_ctx[ctx] = state;
+        }
+        // copy over new enums
+        ITER(e, lhs.enum) {
+            if (rhs.enum.indexOf(lhs.enum[e])) {
+                rhs.enum.push(lhs.enum[e]);
+            }
+        }
+        return rhs;
     }
 };
 
@@ -80,12 +118,12 @@ please.gl.__clean_globals = function (globals) {
     globals.map(function (global) {
         if (!by_name[global.name]) {
             by_name[global.name] = [];
-            revised.push(global);
         }
         by_name[global.name].push(global);
     });
     please.prop_map(by_name, function (name, set) {
-        set.reduce(please.gl.__check_for_contradicting_globals);
+        var result = set.reduce(please.gl.__check_for_contradicting_globals);
+        revised.push(result);
     });
     return revised;
 };
@@ -106,7 +144,7 @@ please.gl.__clean_globals = function (globals) {
 please.gl.__identify_global = (function() {
     var modes = [
         "uniform", "attribute", "varying", "const",
-        "uniform curve",
+        "uniform curve", "mode_switch"
     ];
     var precisions = ["lowp", "mediump", "highp"];
 
@@ -198,30 +236,90 @@ please.gl.__identify_global = (function() {
 // globals from them.  Returns two lists, the first containing all of
 // the Global ast items that were extracted, the second is a list of
 // the remaining stream with the Globals removed.
-please.gl.__parse_globals = function (stream) {
-    var globals = [];
-    var chaff = [];
+please.gl.__parse_globals = (function () {
+    var context_pattern = new RegExp("^binding_context (.+)$");
 
-    // Iterate through the stream of tokens and look for one that
-    // denotes a global variable eg a uniform var.  If found, invoke
-    // please.gl.__create_global with the stream from the 'mode' token
-    // up to the first semicolon and add the result to the 'globals'
-    // list and increment i.
-    ITER(i, stream) {
-        var found = please.gl.__identify_global(stream, i);
-        if (found.length > 0) {
-            i += found[0].tokens.length-1;
-            ITER(g, found) {
-                var global_info = found[g];
-                globals.push(please.gl.__create_global(global_info));
+    return function (stream) {
+        var globals = [];
+        var chaff = [];
+        
+        // Iterate through the stream of tokens and look for one that
+        // denotes a global variable eg a uniform var.  If found, invoke
+        // please.gl.__create_global with the stream from the 'mode' token
+        // up to the first semicolon and add the result to the 'globals'
+        // list and increment i.
+        ITER(i, stream) {
+            var context_match = stream[i].match ? stream[i].match(context_pattern) : null;
+            if (context_match) {
+                var context = context_match[1];
+                var block = stream[i+1];
+                if (context !== "GraphNode") {
+                    please.gl.ast.error(
+                        stream[i], "Invalid binding context: " + context);
+                }
+                else if (!block || block.constructor !== please.gl.ast.Block) {
+                    please.gl.ast.error(
+                        stream[i],
+                        "Expected '{' after binding_context declaration.");
+                }
+                else if (block.type !== null) {
+                    please.gl.ast.error(
+                        stream[i],
+                        "Expected unknown block ast object, got '" +
+                            block.type + "' instead.");
+                }
+                else {
+                    // ok looks good, lets create some globals
+                    var found = please.gl.__parse_globals(block.data);
+                    if (found[1].length > 0) {
+                        ITER(f, found[1]) {
+                            var check = found[1][f];
+                            if (check.constructor !== please.gl.ast.Comment) {
+                                please.gl.ast.error(
+                                    check,
+                                    "Invalid token in binding_context block.");
+                            }
+                            else {
+                                chaff.push(check);
+                            }
+                        }
+                    }
+                    if (found[0].length > 0) {
+                        found = found[0];
+                        ITER(b, found) {
+                            var bind = found[b];
+                            if (bind.mode !== "attribute" && bind.mode !== "uniform") {
+                                please.gl.ast.error(
+                                    bind,
+                                    "Only uniform and attribute variables may be given a binding context.");
+                            }
+                            else {
+                                // add context before adding to globals
+                                bind.binding_ctx[context] = true;
+                                globals.push(bind);
+                            }
+                        }
+                    }
+                    i += 1; // increment to skip over the block
+                }
+            }
+            else {
+                var found = please.gl.__identify_global(stream, i);
+                if (found.length > 0) {
+                    i += found[0].tokens.length-1;
+                    ITER(g, found) {
+                        var global_info = found[g];
+                        globals.push(please.gl.__create_global(global_info));
+                    }
+                }
+                else {
+                    chaff.push(stream[i]);
+                }
             }
         }
-        else {
-            chaff.push(stream[i]);
-        }
-    }
-    return [globals, chaff];
-};
+        return [globals, chaff];
+    };
+})();
 
 
 // This method takes a "global_info" object generated by the

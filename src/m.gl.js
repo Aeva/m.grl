@@ -470,6 +470,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "uniform_list" : [], // immutable, canonical list of uniform var names
         "sampler_list" : [], // immutable, canonical list of sampler var names
         "binding_info" : {}, // lookup reference for variable bindings
+        "binding_ctx" : {}, // lists of uniforms associated with contexts
         "__cache" : {
             // the cache records the last value set,
             "vars" : {},
@@ -542,6 +543,12 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
         },
     };
+
+    // create empty context lists
+    ITER(c, please.gl.__binding_contexts) {
+        var ctx = please.gl.__binding_contexts[c];
+        prog.binding_ctx[ctx] = [];
+    }
 
     // sort through the shaders passed to this function
     var errors = [];
@@ -680,13 +687,25 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     console.info("enums:");
     console.info(enums);
 
+    var size_lookup = {};
+    size_lookup[gl.FLOAT_VEC2] = 2;
+    size_lookup[gl.FLOAT_VEC3] = 3;
+    size_lookup[gl.FLOAT_VEC4] = 4;
+    size_lookup[gl.FLOAT_MAT2] = 4;
+    size_lookup[gl.FLOAT_MAT3] = 9;
+    size_lookup[gl.FLOAT_MAT4] = 16;
+    
+    var type_reference = {};
+        
     // create helper functions for uniform vars
     var bind_uniform = function (data, binding_name) {
         // data.name -> variable name
         // data.type -> built in gl type enum
         // data.size -> array size
 
-        // binding_name is usually data.name, but differs for array
+        // binding_name is usually data.name, but differs for arrays
+        // and also in the event that the uniform is being aliased.
+        // data.name is the 'raw' name specified in the shader.
 
         // vectors and matricies are expressed in their type
         // vars with a size >1 are arrays.
@@ -697,6 +716,13 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         var is_array = data.size > 1;
         var binding_name = rewrites[data.name] || binding_name;
         var strings = enums[binding_name] || null;
+
+        // size of array to be uploaded.  eg vec3 == 3, mat4 == 16
+        var vec_size = (size_lookup[data.type] || 1) * data.size;
+        type_reference[binding_name] = {
+            "size" : vec_size,
+            "hint" : data.type,
+        };
 
         // FIXME - set defaults per data type
         prog.__cache.vars[binding_name] = null;
@@ -887,6 +913,54 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         // store this data so that we can introspect elsewhere
         prog.binding_info[uniform_data.name, binding_name] = uniform_data;
     }
+
+    // add a mechanism to lookup uniform type size
+    prog.__uniform_initial_value = function (uniform_name) {
+        if (prog.sampler_list.indexOf(uniform_name) !== -1) {
+            return null;
+        }
+        var ref = type_reference[uniform_name] || null;
+        if (ref) {
+            var size = ref.size;
+            var hint = ref.hint;
+            if (size === null) {
+                return null;
+            }
+            else if (size === 1) {
+                return 0;
+            }
+            else if (hint == gl.FLOAT_MAT2) {
+                return mat2.create();
+            }
+            else if (hint == gl.FLOAT_MAT3) {
+                return mat3.create();
+            }
+            else if (hint == gl.FLOAT_MAT4) {
+                return mat4.create();
+            }
+            else {
+                return new Float32Array(size);
+            }
+        }
+        else {
+            return null;
+        }
+    };
+    
+    // populate binding context lists
+    please.prop_map(ast_ref, function (shader_type, ast) {
+        ITER(c, please.gl.__binding_contexts) {
+            var ctx = please.gl.__binding_contexts[c];
+            ITER(g, ast.globals) {
+                var global = ast.globals[g];
+                if (global.binding_ctx[ctx]) {
+                    var name = ast.rewrite[global.name] || global.name;
+                    prog.binding_ctx[ctx].push(name);
+                }
+            }
+
+        }
+    });
 
     // create handlers for available attributes + getter/setter for
     // enabling/disabling them

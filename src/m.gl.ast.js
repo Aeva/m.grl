@@ -16,6 +16,12 @@ please.gl.__symbols = [
     ",", ";",
 ];
 
+
+// valid binding contexts
+please.gl.__binding_contexts = [
+    "GraphNode",
+];
+
 #include "gl_ast/ast.common.js"
 #include "gl_ast/ast.comment.js"
 #include "gl_ast/ast.global.js"

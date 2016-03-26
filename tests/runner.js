@@ -95,11 +95,12 @@ console.assert = assert;
         }
         out += "<div class='section'>traceback:</div>";
 
+        var hashless_location = String(document.location).replace(document.location.hash, "");
 
         if (error.constructor.name.indexOf("Error") !== -1) {
             var stack = error.stack.split("\n");
             for (var i=stack.length-1; i>=0; i-=1) {
-                if (stack[i].startsWith("run_test@"+document.location)) {
+                if (stack[i].startsWith("run_test@"+hashless_location)) {
                     stack = stack.slice(0, i);
                     break;
                 }
@@ -145,16 +146,19 @@ console.assert = assert;
 
 
     var run_test = function (name, test) {
-        var passed = true;
-        window._hints = [];
-        try {
-            test();
-        } catch(error) {
-            _results.failed += 1;
-            passed = false;
-            verbose(error, name, test);
+        var named_test = decodeURIComponent(window.location.hash.slice(1));
+        if (named_test == name || named_test.length == 0) {
+            var passed = true;
+            window._hints = [];
+            try {
+                test();
+            } catch(error) {
+                _results.failed += 1;
+                passed = false;
+                verbose(error, name, test);
+            }
+            add_mark(passed);
         }
-        add_mark(passed);
     };
 
     var gl_setup = function () {

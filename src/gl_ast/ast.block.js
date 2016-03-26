@@ -65,8 +65,9 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
                 globals[global.name] = global;
             }
             else {
-                please.gl.__check_for_contradicting_globals(
+                var composite = please.gl.__check_for_contradicting_globals(
                     globals[global.name], global);
+                globals[global.name] = composite;
             }
         };
         
@@ -152,7 +153,17 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
                     this.enums[name] = check.enumerate_plugins(methods);
                 }
             }
-            out += global.print();
+            var found = null;
+            ITER(s, this.globals) {
+                if (this.globals[s].name == global.name) {
+                    this.globals[s] = please.gl.__check_for_contradicting_globals(this.globals[s], global);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                out += global.print();
+            }
         };
     }
 
@@ -264,7 +275,8 @@ please.gl.ast.Block.prototype.make_function = function (invocation) {
 
     if (this.macro == "swappable") {
         var handle = new please.gl.ast.Global(
-            "uniform", "int", "_mgrl_switch_" + this.name,
+            "uniform", "int",
+            please.gl.__swap_handle_for_function_name(this.name),
             null, null, null, "swappable");
         handle.meta = this.meta;
         handle.enum = this;
@@ -387,11 +399,15 @@ please.gl.__identify_functions = function (ast) {
     var remainder = [];
     var recording_for = null;
 
+    // misnomer, just means these indicate the scanned token is not a
+    // function-block
     var non_blocks = [
         "enum",
         "for",
         "if",
         "else",
+        "struct",
+        "binding_context",
     ];
 
     var collapse = function (block, cache) {
@@ -405,7 +421,7 @@ please.gl.__identify_functions = function (ast) {
                 break;
             }
         }
-        if (is_block) {
+        if (is_block && cache.length > 1) {
             block.make_function(cache);
         }
     };
