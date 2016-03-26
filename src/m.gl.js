@@ -916,6 +916,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
 
     // add a mechanism to lookup uniform type size
     prog.__uniform_initial_value = function (uniform_name) {
+        if (prog.sampler_list.indexOf(uniform_name) !== -1) {
+            return null;
+        }
         var ref = type_reference[uniform_name] || null;
         if (ref) {
             var size = ref.size;
