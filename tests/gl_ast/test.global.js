@@ -292,7 +292,7 @@ test["binding context combined metadata"] = function () {
         '  uniform mat4 world_matrix;\n' +
         '}\n' +
         
-        '  uniform mat4 world_matrix;';
+        'uniform mat4 world_matrix;';
     
     var expected = '' +
         '// Generated and hoisted function prototypes follow:\n' +
@@ -311,8 +311,8 @@ test["binding error reporting for bs context"] = function () {
         'binding_context blorf {\n' +
         '  uniform mat4 world_matrix;\n' +
         '}\n';
-        var raised = false;
 
+    var raised = false;
     try {
         var tree = please.gl.glsl_to_ast(src);
     } catch (err) {
@@ -327,8 +327,8 @@ test["binding error reporting for extra tokens"] = function () {
         'binding_context GraphNode() {\n' +
         '  uniform mat4 world_matrix;\n' +
         '}\n';
-        var raised = false;
 
+    var raised = false;
     try {
         var tree = please.gl.glsl_to_ast(src);
     } catch (err) {
@@ -342,8 +342,8 @@ test["binding error reporting for missing block"] = function () {
     var src = '' +
         'binding_context GraphNode;\n' +
         'uniform mat4 world_matrix;\n';
-        var raised = false;
 
+    var raised = false;
     try {
         var tree = please.gl.glsl_to_ast(src);
     } catch (err) {
@@ -358,8 +358,8 @@ test["binding error reporting for bs context"] = function () {
         'binding_context blorf {\n' +
         '  uniform mat4 world_matrix;\n' +
         '}\n';
-        var raised = false;
 
+    var raised = false;
     try {
         var tree = please.gl.glsl_to_ast(src);
     } catch (err) {
@@ -374,8 +374,8 @@ test["binding error reporting for invalid 'global' types"] = function () {
         'binding_context GraphNode() {\n' +
         '  const mat4 whatever;\n' +
         '}\n';
-        var raised = false;
 
+    var raised = false;
     try {
         var tree = please.gl.glsl_to_ast(src);
     } catch (err) {
@@ -390,8 +390,8 @@ test["binding error reporting for inappropriate block contents"] = function () {
         'binding_context GraphNode() {\n' +
         '  void main() {}\n' +
         '}\n';
-        var raised = false;
 
+    var raised = false;
     try {
         var tree = please.gl.glsl_to_ast(src);
     } catch (err) {
