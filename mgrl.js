@@ -3336,6 +3336,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "uniform_list" : [], // immutable, canonical list of uniform var names
         "sampler_list" : [], // immutable, canonical list of sampler var names
         "binding_info" : {}, // lookup reference for variable bindings
+        "binding_ctx" : {}, // lists of uniforms associated with contexts
         "__cache" : {
             // the cache records the last value set,
             "vars" : {},
@@ -3403,6 +3404,11 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
         },
     };
+    // create empty context lists
+    for (var c=0; c<please.gl.__binding_contexts.length; c+=1) {
+        var ctx = please.gl.__binding_contexts[c];
+        prog.binding_ctx[ctx] = [];
+    }
     // sort through the shaders passed to this function
     var errors = [];
     var ast_ref = prog.final_ast = {
@@ -3531,12 +3537,22 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     console.info(rewrites);
     console.info("enums:");
     console.info(enums);
+    var size_lookup = {};
+    size_lookup[gl.FLOAT_VEC2] = 2;
+    size_lookup[gl.FLOAT_VEC3] = 3;
+    size_lookup[gl.FLOAT_VEC4] = 4;
+    size_lookup[gl.FLOAT_MAT2] = 4;
+    size_lookup[gl.FLOAT_MAT3] = 9;
+    size_lookup[gl.FLOAT_MAT4] = 16;
+    var type_reference = {};
     // create helper functions for uniform vars
     var bind_uniform = function (data, binding_name) {
         // data.name -> variable name
         // data.type -> built in gl type enum
         // data.size -> array size
-        // binding_name is usually data.name, but differs for array
+        // binding_name is usually data.name, but differs for arrays
+        // and also in the event that the uniform is being aliased.
+        // data.name is the 'raw' name specified in the shader.
         // vectors and matricies are expressed in their type
         // vars with a size >1 are arrays.
         var pointer = gl.getUniformLocation(prog.id, data.name);
@@ -3545,6 +3561,12 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         var is_array = data.size > 1;
         var binding_name = rewrites[data.name] || binding_name;
         var strings = enums[binding_name] || null;
+        // size of array to be uploaded.  eg vec3 == 3, mat4 == 16
+        var vec_size = (size_lookup[data.type] || 1) * data.size;
+        type_reference[binding_name] = {
+            "size" : vec_size,
+            "hint" : data.type,
+        };
         // FIXME - set defaults per data type
         prog.__cache.vars[binding_name] = null;
         prog.uniform_list.push(binding_name);
@@ -3721,6 +3743,51 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         // store this data so that we can introspect elsewhere
         prog.binding_info[uniform_data.name, binding_name] = uniform_data;
     }
+    // add a mechanism to lookup uniform type size
+    prog.__uniform_initial_value = function (uniform_name) {
+        if (prog.sampler_list.indexOf(uniform_name) !== -1) {
+            return null;
+        }
+        var ref = type_reference[uniform_name] || null;
+        if (ref) {
+            var size = ref.size;
+            var hint = ref.hint;
+            if (size === null) {
+                return null;
+            }
+            else if (size === 1) {
+                return 0;
+            }
+            else if (hint == gl.FLOAT_MAT2) {
+                return mat2.create();
+            }
+            else if (hint == gl.FLOAT_MAT3) {
+                return mat3.create();
+            }
+            else if (hint == gl.FLOAT_MAT4) {
+                return mat4.create();
+            }
+            else {
+                return new Float32Array(size);
+            }
+        }
+        else {
+            return null;
+        }
+    };
+    // populate binding context lists
+    please.prop_map(ast_ref, function (shader_type, ast) {
+        for (var c=0; c<please.gl.__binding_contexts.length; c+=1) {
+            var ctx = please.gl.__binding_contexts[c];
+            for (var g=0; g<ast.globals.length; g+=1) {
+                var global = ast.globals[g];
+                if (global.binding_ctx[ctx]) {
+                    var name = ast.rewrite[global.name] || global.name;
+                    prog.binding_ctx[ctx].push(name);
+                }
+            }
+        }
+    });
     // create handlers for available attributes + getter/setter for
     // enabling/disabling them
     var bind_attribute = function(attr) {
@@ -4339,6 +4406,10 @@ please.gl.__symbols = [
     "<", ">", "=", "&",
     ",", ";",
 ];
+// valid binding contexts
+please.gl.__binding_contexts = [
+    "GraphNode",
+];
 // - gl_alst/ast.common.js ----------------------------------------------- //
 /* [+] please.gl.ast.mixin(obj)
  * 
@@ -4602,6 +4673,18 @@ please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro
     this.rewrite = null;
     this.qualifier = qualifier;
     this.value = null;
+    this.binding_ctx = {};
+    if (type == "mode_switch") {
+        this.rewrite = name;
+        this.name = please.gl.__swap_handle_for_function_name(name);
+        this.mode = "uniform";
+        this.type = "int";
+        this.macro = "null";
+    }
+    for (var c=0; c<please.gl.__binding_contexts.length; c+=1) {
+        var ctx = please.gl.__binding_contexts[c];
+        this.binding_ctx[ctx] = false;
+    }
     if (value) {
         this.value = "";
         for (var t=0; t<value.length; t+=1) {
@@ -4637,13 +4720,35 @@ please.gl.ast.Global.prototype.print = function () {
     out += ";\n";
     return out;
 };
+// generate the name of the global variable for controlling swappables
+please.gl.__swap_handle_for_function_name = function (name) {
+    return "_mgrl_switch_" + name;
+};
 // Throw an error when two globals contradict one another.
 please.gl.__check_for_contradicting_globals = function (lhs, rhs) {
+    if (!lhs) {
+        return rhs;
+    }
     if (lhs.print() != rhs.print()) {
         var msg = "Contradicting definitions for global '" + name + "':\n";
         msg += "definition 1: " + please.gl.ast.format_metadata(lhs) + "\n";
         msg += "definition 2: " + please.gl.ast.format_metadata(rhs) + "\n";
         throw new Error(msg);
+    }
+    else {
+        // compare the binding contexts
+        for (var c=0; c<please.gl.__binding_contexts.length; c+=1) {
+            var ctx = please.gl.__binding_contexts[c];
+            var state = lhs.binding_ctx[ctx] || rhs.binding_ctx[ctx];
+            rhs.binding_ctx[ctx] = state;
+        }
+        // copy over new enums
+        for (var e=0; e<lhs.enum.length; e+=1) {
+            if (rhs.enum.indexOf(lhs.enum[e])) {
+                rhs.enum.push(lhs.enum[e]);
+            }
+        }
+        return rhs;
     }
 };
 // Call on a list of Globals to remove redundant declarations and
@@ -4654,12 +4759,12 @@ please.gl.__clean_globals = function (globals) {
     globals.map(function (global) {
         if (!by_name[global.name]) {
             by_name[global.name] = [];
-            revised.push(global);
         }
         by_name[global.name].push(global);
     });
     please.prop_map(by_name, function (name, set) {
-        set.reduce(please.gl.__check_for_contradicting_globals);
+        var result = set.reduce(please.gl.__check_for_contradicting_globals);
+        revised.push(result);
     });
     return revised;
 };
@@ -4678,7 +4783,7 @@ please.gl.__clean_globals = function (globals) {
 please.gl.__identify_global = (function() {
     var modes = [
         "uniform", "attribute", "varying", "const",
-        "uniform curve",
+        "uniform curve", "mode_switch"
     ];
     var precisions = ["lowp", "mediump", "highp"];
     var format_option = function (set) {
@@ -4761,29 +4866,88 @@ please.gl.__identify_global = (function() {
 // globals from them.  Returns two lists, the first containing all of
 // the Global ast items that were extracted, the second is a list of
 // the remaining stream with the Globals removed.
-please.gl.__parse_globals = function (stream) {
-    var globals = [];
-    var chaff = [];
-    // Iterate through the stream of tokens and look for one that
-    // denotes a global variable eg a uniform var.  If found, invoke
-    // please.gl.__create_global with the stream from the 'mode' token
-    // up to the first semicolon and add the result to the 'globals'
-    // list and increment i.
-    for (var i=0; i<stream.length; i+=1) {
-        var found = please.gl.__identify_global(stream, i);
-        if (found.length > 0) {
-            i += found[0].tokens.length-1;
-            for (var g=0; g<found.length; g+=1) {
-                var global_info = found[g];
-                globals.push(please.gl.__create_global(global_info));
+please.gl.__parse_globals = (function () {
+    var context_pattern = new RegExp("^binding_context (.+)$");
+    return function (stream) {
+        var globals = [];
+        var chaff = [];
+        // Iterate through the stream of tokens and look for one that
+        // denotes a global variable eg a uniform var.  If found, invoke
+        // please.gl.__create_global with the stream from the 'mode' token
+        // up to the first semicolon and add the result to the 'globals'
+        // list and increment i.
+        for (var i=0; i<stream.length; i+=1) {
+            var context_match = stream[i].match ? stream[i].match(context_pattern) : null;
+            if (context_match) {
+                var context = context_match[1];
+                var block = stream[i+1];
+                if (context !== "GraphNode") {
+                    please.gl.ast.error(
+                        stream[i], "Invalid binding context: " + context);
+                }
+                else if (!block || block.constructor !== please.gl.ast.Block) {
+                    please.gl.ast.error(
+                        stream[i],
+                        "Expected '{' after binding_context declaration.");
+                }
+                else if (block.type !== null) {
+                    please.gl.ast.error(
+                        stream[i],
+                        "Expected unknown block ast object, got '" +
+                            block.type + "' instead.");
+                }
+                else {
+                    // ok looks good, lets create some globals
+                    var found = please.gl.__parse_globals(block.data);
+                    if (found[1].length > 0) {
+                        for (var f=0; f<found[1].length; f+=1) {
+                            var check = found[1][f];
+                            if (check.constructor !== please.gl.ast.Comment) {
+                                please.gl.ast.error(
+                                    check,
+                                    "Invalid token in binding_context block.");
+                            }
+                            else {
+                                chaff.push(check);
+                            }
+                        }
+                    }
+                    if (found[0].length > 0) {
+                        found = found[0];
+                        for (var b=0; b<found.length; b+=1) {
+                            var bind = found[b];
+                            if (bind.mode !== "attribute" && bind.mode !== "uniform") {
+                                please.gl.ast.error(
+                                    bind,
+                                    "Only uniform and attribute variables may be given a binding context.");
+                            }
+                            else {
+                                // add context before adding to globals
+                                bind.binding_ctx[context] = true;
+                                globals.push(bind);
+                            }
+                        }
+                    }
+                    i += 1; // increment to skip over the block
+                }
+            }
+            else {
+                var found = please.gl.__identify_global(stream, i);
+                if (found.length > 0) {
+                    i += found[0].tokens.length-1;
+                    for (var g=0; g<found.length; g+=1) {
+                        var global_info = found[g];
+                        globals.push(please.gl.__create_global(global_info));
+                    }
+                }
+                else {
+                    chaff.push(stream[i]);
+                }
             }
         }
-        else {
-            chaff.push(stream[i]);
-        }
-    }
-    return [globals, chaff];
-};
+        return [globals, chaff];
+    };
+})();
 // This method takes a "global_info" object generated by the
 // __identify_global method in this file, and returns an ast object.
 please.gl.__create_global = function (info_dict) {
@@ -4892,8 +5056,9 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
                 globals[global.name] = global;
             }
             else {
-                please.gl.__check_for_contradicting_globals(
+                var composite = please.gl.__check_for_contradicting_globals(
                     globals[global.name], global);
+                globals[global.name] = composite;
             }
         };
         for (var i=0; i<imports.length; i+=1) {
@@ -4970,7 +5135,17 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
                     this.enums[name] = check.enumerate_plugins(methods);
                 }
             }
-            out += global.print();
+            var found = null;
+            for (var s=0; s<this.globals.length; s+=1) {
+                if (this.globals[s].name == global.name) {
+                    this.globals[s] = please.gl.__check_for_contradicting_globals(this.globals[s], global);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                out += global.print();
+            }
         };
     }
     // Now, append the contents of this ast tree sans globals and
@@ -5069,7 +5244,8 @@ please.gl.ast.Block.prototype.make_function = function (invocation) {
     this.output = prefix[0]; // return type eg 'float'
     if (this.macro == "swappable") {
         var handle = new please.gl.ast.Global(
-            "uniform", "int", "_mgrl_switch_" + this.name,
+            "uniform", "int",
+            please.gl.__swap_handle_for_function_name(this.name),
             null, null, null, "swappable");
         handle.meta = this.meta;
         handle.enum = this;
@@ -5178,11 +5354,15 @@ please.gl.__identify_functions = function (ast) {
     var cache = [];
     var remainder = [];
     var recording_for = null;
+    // misnomer, just means these indicate the scanned token is not a
+    // function-block
     var non_blocks = [
         "enum",
         "for",
         "if",
         "else",
+        "struct",
+        "binding_context",
     ];
     var collapse = function (block, cache) {
         recording_for = null;
@@ -5194,7 +5374,7 @@ please.gl.__identify_functions = function (ast) {
                 break;
             }
         }
-        if (is_block) {
+        if (is_block && cache.length > 1) {
             block.make_function(cache);
         }
     };
@@ -7797,7 +7977,11 @@ please.GraphNode = function () {
             for (var name, i=0; i<prog.uniform_list.length; i+=1) {
                 name = prog.uniform_list[i];
                 if (ignore.indexOf(name) === -1 && !this.shader.hasOwnProperty(name)) {
-                    please.make_animatable(this, name, null, this.shader);
+                    var initial_value = null;
+                    if (prog.binding_ctx["GraphNode"].indexOf(name) > -1) {
+                        initial_value = prog.__uniform_initial_value(name);
+                    }
+                    please.make_animatable(this, name, initial_value, this.shader);
                 }
             }
             // restore old values that were wiped out
@@ -10434,7 +10618,7 @@ addEventListener("mgrl_gl_context_created", function () {
 });
 // - bundled glsl shader assets --------------------------------------------- //
 (function () {
-    please.__bundled_glsl = {"picture_in_picture.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl93aWR0\naDsKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl9oZWlnaHQ7Cgp1bmlmb3JtIHZlYzIgcGlwX3Np\nemU7CnVuaWZvcm0gdmVjMiBwaXBfY29vcmQ7CnVuaWZvcm0gZmxvYXQgcGlwX2FscGhhOwp1bmlm\nb3JtIHNhbXBsZXIyRCBtYWluX3RleHR1cmU7CnVuaWZvcm0gc2FtcGxlcjJEIHBpcF90ZXh0dXJl\nOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2\nb2lkKSB7CiAgdmVjMiBzY3JlZW5fY29vcmQgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0Zy\nYWdDb29yZC54eSk7CiAgdmVjNCBjb2xvciA9IHRleHR1cmUyRChtYWluX3RleHR1cmUsIHNjcmVl\nbl9jb29yZCk7CgogIC8vIHNjYWxlIHRoZSBzY3JlZW5fY29vcmQgdG8gcmVwcmVzZW50IGEgcGVy\nY2VudAogIHNjcmVlbl9jb29yZCAqPSAxMDAuMDsKICB2ZWMyIHBpcF90ZXN0ID0gc2NyZWVuX2Nv\nb3JkIC0gcGlwX2Nvb3JkOwogIGlmIChwaXBfdGVzdC54ID49IDAuMCAmJiBwaXBfdGVzdC55ID49\nIDAuMCAmJiBwaXBfdGVzdC54IDw9IHBpcF9zaXplLnggJiYgcGlwX3Rlc3QueSA8PSBwaXBfc2l6\nZS55KSB7CiAgICB2ZWM0IHBpcF9jb2xvciA9IHRleHR1cmUyRChwaXBfdGV4dHVyZSwgcGlwX3Rl\nc3QgLyBwaXBfc2l6ZSk7CiAgICBjb2xvciA9IG1peChjb2xvciwgcGlwX2NvbG9yLCBwaXBfY29s\nb3IuYSAvIHBpcF9hbHBoYSk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "splat.vert": "CnVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7CnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5p\nZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4OwphdHRyaWJ1dGUgdmVjMyBwb3NpdGlvbjsKCgp2\nb2lkIG1haW4odm9pZCkgewogIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2aWV3\nX21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7Cn0K\n", "simple.vert": "Ci8vIG1hdHJpY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2pl\nY3Rpb25fbWF0cml4OwoKLy8gdmVydGV4IGRhdGEKYXR0cmlidXRlIHZlYzMgcG9zaXRpb247CmF0\ndHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZlYzIgdGNvb3JkczsKCi8vIG1pc2MgYWRq\ndXN0bWVudHMKdW5pZm9ybSBmbG9hdCBtZ3JsX29ydGhvZ3JhcGhpY19zY2FsZTsKCi8vIGJpbGxi\nb2FyZCBzcHJpdGVzIGVuYWJsZXIKdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKCi8vIGlu\ndGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBpbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5n\nIHZlYzMgbG9jYWxfcG9zaXRpb247CnZhcnlpbmcgdmVjMyBsb2NhbF9ub3JtYWw7CnZhcnlpbmcg\ndmVjMiBsb2NhbF90Y29vcmRzOwp2YXJ5aW5nIHZlYzMgd29ybGRfcG9zaXRpb247CnZhcnlpbmcg\ndmVjMyB3b3JsZF9ub3JtYWw7CnZhcnlpbmcgdmVjMyBzY3JlZW5fbm9ybWFsOwp2YXJ5aW5nIGZs\nb2F0IGxpbmVhcl9kZXB0aDsKCgp2b2lkIG1haW4odm9pZCkgewogIC8vIHBhc3MgYWxvbmcgdG8g\ndGhlIGZyYWdtZW50IHNoYWRlcgogIGxvY2FsX3Bvc2l0aW9uID0gcG9zaXRpb24gKiBtZ3JsX29y\ndGhvZ3JhcGhpY19zY2FsZTsKICBsb2NhbF9ub3JtYWwgPSBub3JtYWw7CiAgbG9jYWxfdGNvb3Jk\ncyA9IHRjb29yZHM7CgogIC8vIGNhbGN1bGF0ZSBtb2RlbHZpZXcgbWF0cml4CiAgbWF0NCBtb2Rl\nbF92aWV3ID0gdmlld19tYXRyaXggKiB3b3JsZF9tYXRyaXg7CiAgaWYgKGJpbGxib2FyZF9tb2Rl\nID4gMC4wKSB7CiAgICAvLyBjbGVhciBvdXQgcm90YXRpb24gaW5mb3JtYXRpb24KICAgIG1vZGVs\nX3ZpZXdbMF0ueHl6ID0gd29ybGRfbWF0cml4WzBdLnh5ejsKICAgIG1vZGVsX3ZpZXdbMl0ueHl6\nID0gd29ybGRfbWF0cml4WzJdLnh5ejsKICAgIGlmIChiaWxsYm9hcmRfbW9kZSA9PSAyLjApIHsK\nICAgICAgbW9kZWxfdmlld1sxXS54eXogPSB3b3JsZF9tYXRyaXhbMV0ueHl6OwogICAgfQogIH0K\nCiAgLy8gdmFyaW91cyBjb29yZGluYXRlIHRyYW5zZm9ybXMKICB2ZWM0IGZpbmFsX3Bvc2l0aW9u\nID0gcHJvamVjdGlvbl9tYXRyaXggKiBtb2RlbF92aWV3ICogdmVjNChsb2NhbF9wb3NpdGlvbiwg\nMS4wKTsKICB3b3JsZF9wb3NpdGlvbiA9ICh3b3JsZF9tYXRyaXggKiB2ZWM0KGxvY2FsX3Bvc2l0\naW9uLCAxLjApKS54eXo7CiAgd29ybGRfbm9ybWFsID0gbm9ybWFsaXplKG1hdDMod29ybGRfbWF0\ncml4KSAqIG5vcm1hbCkueHl6OwogIHNjcmVlbl9ub3JtYWwgPSBub3JtYWxpemUobWF0Myhwcm9q\nZWN0aW9uX21hdHJpeCAqIG1vZGVsX3ZpZXcpICogbm9ybWFsKS54eXo7CiAgbGluZWFyX2RlcHRo\nID0gbGVuZ3RoKG1vZGVsX3ZpZXcgKiB2ZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApKTsKICBnbF9Q\nb3NpdGlvbiA9IGZpbmFsX3Bvc2l0aW9uOwp9Cg==\n", "color_curve.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gY3VydmUgZmxvYXQgdmFsdWVfY3VydmVbMTZdOwp1bmlmb3Jt\nIGN1cnZlIGZsb2F0IHJlZF9jdXJ2ZVsxNl07CnVuaWZvcm0gY3VydmUgZmxvYXQgZ3JlZW5fY3Vy\ndmVbMTZdOwp1bmlmb3JtIGN1cnZlIGZsb2F0IGJsdWVfY3VydmVbMTZdOwoKCmluY2x1ZGUoIm5v\ncm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCmZsb2F0IHZhbHVlKHZlYzMgY29sb3IpIHsK\nICByZXR1cm4gbWF4KGNvbG9yLnIsIG1heChjb2xvci5nLCBjb2xvci5iKSk7Cn0KCgp2b2lkIG1h\naW4odm9pZCkgewogIHZlYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJh\nZ0Nvb3JkLnh5KTsKICB2ZWMzIGNvbG9yID0gdGV4dHVyZTJEKGlucHV0X3RleHR1cmUsIHRjb29y\nZHMpLnJnYjsKCiAgZmxvYXQgdjEgPSB2YWx1ZShjb2xvcik7CiAgZmxvYXQgdjIgPSBzYW1wbGVf\nY3VydmUodmFsdWVfY3VydmUsIHYxKTsKICBmbG9hdCBzY2FsZSA9IDEuMCAvIHYxOwogIGNvbG9y\nID0gY29sb3IgKiBzY2FsZSAqIHYyOwogIAogIGNvbG9yLnIgPSBzYW1wbGVfY3VydmUocmVkX2N1\ncnZlLCBjb2xvci5yKTsKICBjb2xvci5nID0gc2FtcGxlX2N1cnZlKGdyZWVuX2N1cnZlLCBjb2xv\nci5nKTsKICBjb2xvci5iID0gc2FtcGxlX2N1cnZlKGJsdWVfY3VydmUsIGNvbG9yLmIpOwogIGds\nX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIDEuMCk7Cn0K\n", "diffuse.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0\ndXJlOwoKdW5pZm9ybSBmbG9hdCBhbHBoYTsKdW5pZm9ybSBib29sIGlzX3Nwcml0ZTsKdW5pZm9y\nbSBib29sIGlzX3RyYW5zcGFyZW50OwoKdmFyeWluZyB2ZWMzIGxvY2FsX3Bvc2l0aW9uOwp2YXJ5\naW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2YXJ5aW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWlu\nZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwoKCnZvaWQgbWFpbih2b2lkKSB7CiAgdmVjNCBkaWZmdXNl\nID0gdGV4dHVyZTJEKGRpZmZ1c2VfdGV4dHVyZSwgbG9jYWxfdGNvb3Jkcyk7CiAgaWYgKGlzX3Nw\ncml0ZSkgewogICAgZmxvYXQgY3V0b2ZmID0gaXNfdHJhbnNwYXJlbnQgPyAwLjEgOiAxLjA7CiAg\nICBpZiAoZGlmZnVzZS5hIDwgY3V0b2ZmKSB7CiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgfQogIGRp\nZmZ1c2UuYSAqPSBhbHBoYTsKICBnbF9GcmFnQ29sb3IgPSBkaWZmdXNlOwp9Cg==\n", "stereo.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnVuaWZvcm0gdmVjNCBtZ3Js\nX2NsZWFyX2NvbG9yOwp1bmlmb3JtIGZsb2F0IG1ncmxfZnJhbWVfc3RhcnQ7CnVuaWZvcm0gZmxv\nYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfaGVpZ2h0OwoK\ndW5pZm9ybSBzYW1wbGVyMkQgbGVmdF9leWVfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgcmln\naHRfZXllX3RleHR1cmU7Cgp1bmlmb3JtIGJvb2wgc3RlcmVvX3NwbGl0Owp1bmlmb3JtIHZlYzMg\nbGVmdF9jb2xvcjsKdW5pZm9ybSB2ZWMzIHJpZ2h0X2NvbG9yOwoKdmVjNCBzYW1wbGVfb3JfY2xl\nYXIoc2FtcGxlcjJEIHNhbXBsZXIsIHZlYzIgY29vcmQpIHsKICB2ZWM0IGNvbG9yID0gdGV4dHVy\nZTJEKHNhbXBsZXIsIGNvb3JkKTsKICBpZiAoY29sb3IuYSA9PSAwLjApIHsKICAgIGNvbG9yID0g\nbWdybF9jbGVhcl9jb2xvcjsKICB9CiAgcmV0dXJuIGNvbG9yOwp9Cgp2b2lkIG1haW4odm9pZCkg\newogIHZlYzIgY29vcmQgPSBnbF9GcmFnQ29vcmQueHkgLyB2ZWMyKG1ncmxfYnVmZmVyX3dpZHRo\nLCBtZ3JsX2J1ZmZlcl9oZWlnaHQpOwogIHZlYzQgY29sb3I7CgogIGlmIChzdGVyZW9fc3BsaXQp\nIHsKICAgIC8vIEZJWE1FOiBhcHBseSBkaXN0b3J0aW9uIGVmZmVjdCBuZWVkZWQgZm9yIFZSIGds\nYXNzZXMKICAgIGlmIChjb29yZC54IDwgMC41KSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKGxl\nZnRfZXllX3RleHR1cmUsIHZlYzIoY29vcmQueCoyLjAsIGNvb3JkLnkpKTsKICAgIH0KICAgIGVs\nc2UgewogICAgICBjb2xvciA9IHRleHR1cmUyRChyaWdodF9leWVfdGV4dHVyZSwgdmVjMigoY29v\ncmQueCAtIDAuNSkqMi4wLCBjb29yZC55KSk7CiAgICB9CiAgfQoKICBlbHNlIHsKICAgIHZlYzMg\nbGVmdCA9IHNhbXBsZV9vcl9jbGVhcihsZWZ0X2V5ZV90ZXh0dXJlLCBjb29yZCkucmdiICogbGVm\ndF9jb2xvcjsKICAgIHZlYzMgcmlnaHQgPSBzYW1wbGVfb3JfY2xlYXIocmlnaHRfZXllX3RleHR1\ncmUsIGNvb3JkKS5yZ2IgKiByaWdodF9jb2xvcjsKICAgIGNvbG9yID0gdmVjNCgobGVmdCtyaWdo\ndCksIDEuMCk7CiAgfQogIAogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "curve_template.glsl": "Ly8gIERvIG5vdCBjYWxsIGluY2x1ZGUgb24gY3VydmVfdGVtcGxhdGUuZ2xzbCBpbiB5b3VyIHNv\ndXJjZSBmaWxlcy4KLy8gIFVzZSB0aGUgY3VydmUgbWFjcm8gaW5zdGVhZCEhIQoKR0xfVFlQRSBz\nYW1wbGVfY3VydmUoR0xfVFlQRSBzYW1wbGVzW0FSUkFZX0xFTl0sIGZsb2F0IGFscGhhKSB7CiAg\nZmxvYXQgcGljayA9IChBUlJBWV9MRU4uMCAtIDEuMCkgKiBhbHBoYTsKICBpbnQgbG93ID0gaW50\nKGZsb29yKHBpY2spKTsKICBpbnQgaGlnaCA9IGludChjZWlsKHBpY2spKTsKICBmbG9hdCBiZXRh\nID0gZnJhY3QocGljayk7CgogIEdMX1RZUEUgbG93X3NhbXBsZTsKICBHTF9UWVBFIGhpZ2hfc2Ft\ncGxlOwoKICAvLyB3b3JrYXJvdW5kIGJlY2F1c2UgZ2xzbCBkb2VzIG5vdCBhbGxvdyBmb3IgcmFu\nZG9tIGFjY2VzcyBvbiBhcnJheXMgPjpPCiAgZm9yIChpbnQgaT0wOyBpPEFSUkFZX0xFTjsgaSs9\nMSkgewogICAgaWYgKGkgPT0gbG93KSB7CiAgICAgIGxvd19zYW1wbGUgPSBzYW1wbGVzW2ldOwog\nICAgfQogICAgaWYgKGkgPT0gaGlnaCkgewogICAgICBoaWdoX3NhbXBsZSA9IHNhbXBsZXNbaV07\nCiAgICB9CiAgfQogIAogIHJldHVybiBtaXgobG93X3NhbXBsZSwgaGlnaF9zYW1wbGUsIGJldGEp\nOwp9Cg==\n", "diagonal_wipe.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBibHVyX3JhZGl1czsKdW5pZm9ybSBib29sIGZsaXBfYXhpczsK\ndW5pZm9ybSBib29sIGZsaXBfZGlyZWN0aW9uOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2b2lkKSB7CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFs\naXplX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkpOwogIGZsb2F0IHNsb3BlID0gbWdybF9i\ndWZmZXJfaGVpZ2h0IC8gbWdybF9idWZmZXJfd2lkdGg7CiAgaWYgKGZsaXBfYXhpcykgewogICAg\nc2xvcGUgKj0gLTEuMDsKICB9CiAgZmxvYXQgaGFsZl9oZWlnaHQgPSBtZ3JsX2J1ZmZlcl9oZWln\naHQgKiAwLjU7CiAgZmxvYXQgaGlnaF9wb2ludCA9IG1ncmxfYnVmZmVyX2hlaWdodCArIGhhbGZf\naGVpZ2h0ICsgYmx1cl9yYWRpdXMgKyAxLjA7CiAgZmxvYXQgbG93X3BvaW50ID0gKGhhbGZfaGVp\nZ2h0ICogLTEuMCkgLSBibHVyX3JhZGl1cyAtIDEuMDsKICBmbG9hdCBtaWRwb2ludCA9IG1peCho\naWdoX3BvaW50LCBsb3dfcG9pbnQsIGZsaXBfZGlyZWN0aW9uID8gMS4wIC0gcHJvZ3Jlc3MgOiBw\ncm9ncmVzcyk7CiAgZmxvYXQgdGVzdCA9ICgoZ2xfRnJhZ0Nvb3JkLnggLSBtZ3JsX2J1ZmZlcl93\naWR0aC8yLjApICogc2xvcGUpICsgbWlkcG9pbnQ7CgogIHZlYzQgY29sb3I7CiAgZmxvYXQgZGlz\ndCA9IGdsX0ZyYWdDb29yZC55IC0gdGVzdDsKICBpZiAoZGlzdCA8PSBibHVyX3JhZGl1cyAmJiBk\naXN0ID49IChibHVyX3JhZGl1cyotMS4wKSkgewogICAgdmVjNCBjb2xvcl9hID0gdGV4dHVyZTJE\nKHRleHR1cmVfYSwgdGNvb3Jkcyk7CiAgICB2ZWM0IGNvbG9yX2IgPSB0ZXh0dXJlMkQodGV4dHVy\nZV9iLCB0Y29vcmRzKTsKICAgIGZsb2F0IGJsZW5kID0gKGRpc3QgKyBibHVyX3JhZGl1cykgLyAo\nYmx1cl9yYWRpdXMqMi4wKTsKICAgIGNvbG9yID0gbWl4KGNvbG9yX2EsIGNvbG9yX2IsIGZsaXBf\nZGlyZWN0aW9uID8gMS4wIC0gYmxlbmQgOiBibGVuZCk7CiAgfQogIGVsc2UgewogICAgaWYgKChn\nbF9GcmFnQ29vcmQueSA8IHRlc3QgJiYgIWZsaXBfZGlyZWN0aW9uKSB8fCAoZ2xfRnJhZ0Nvb3Jk\nLnkgPiB0ZXN0ICYmIGZsaXBfZGlyZWN0aW9uKSkgewogICAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2EsIHRjb29yZHMpOwogICAgfQogICAgZWxzZSB7CiAgICAgIGNvbG9yID0gdGV4dHVy\nZTJEKHRleHR1cmVfYiwgdGNvb3Jkcyk7CiAgICB9CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9y\nOwp9Cg==\n", "normalize_screen_coord.glsl": "CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZm\nZXJfaGVpZ2h0OwoKLy8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0Zy\nYWdDb29yZC54eSwgd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNj\ncmVlbiBjb29yZGluYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0\nZSB0aGF0IGlzIG5vcm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0\nbyAxLjAuCi8vCnZlYzIgbm9ybWFsaXplX3NjcmVlbl9jb29yZCh2ZWMyIGNvb3JkKSB7CiAgcmV0\ndXJuIHZlYzIoY29vcmQueC9tZ3JsX2J1ZmZlcl93aWR0aCwgY29vcmQueS9tZ3JsX2J1ZmZlcl9o\nZWlnaHQpOwp9Cgo=\n", "deferred.vert": "Ci8vIG1hdHJpY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2pl\nY3Rpb25fbWF0cml4OwoKLy8gdmVydGV4IGRhdGEKYXR0cmlidXRlIHZlYzMgcG9zaXRpb247CmF0\ndHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZlYzIgdGNvb3JkczsKCi8vIG1pc2MgYWRq\ndXN0bWVudHMKdW5pZm9ybSBmbG9hdCBtZ3JsX29ydGhvZ3JhcGhpY19zY2FsZTsKCi8vIGJpbGxi\nb2FyZCBzcHJpdGVzIGVuYWJsZXIKdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKCi8vIGlu\ndGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBpbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5n\nIHZlYzMgbG9jYWxfcG9zaXRpb247CnZhcnlpbmcgdmVjMyBsb2NhbF9ub3JtYWw7CnZhcnlpbmcg\ndmVjMiBsb2NhbF90Y29vcmRzOwp2YXJ5aW5nIHZlYzMgd29ybGRfcG9zaXRpb247CnZhcnlpbmcg\ndmVjMyBzY3JlZW5fcG9zaXRpb247CnZhcnlpbmcgZmxvYXQgbGluZWFyX2RlcHRoOwoKLy8gdW5p\nZm9ybQp1bmlmb3JtIGJvb2wgZ2VvbWV0cnlfcGFzczsKCgp2b2lkIG1haW4odm9pZCkgewogIGlm\nIChnZW9tZXRyeV9wYXNzKSB7CiAgICAvLyBwYXNzIGFsb25nIHRvIHRoZSBmcmFnbWVudCBzaGFk\nZXIKICAgIGxvY2FsX3Bvc2l0aW9uID0gcG9zaXRpb24gKiBtZ3JsX29ydGhvZ3JhcGhpY19zY2Fs\nZTsKICAgIGxvY2FsX25vcm1hbCA9IG5vcm1hbDsKICAgIGxvY2FsX3Rjb29yZHMgPSB0Y29vcmRz\nOwoKICAgIC8vIGNhbGN1bGF0ZSBtb2RlbHZpZXcgbWF0cml4CiAgICBtYXQ0IG1vZGVsX3ZpZXcg\nPSB2aWV3X21hdHJpeCAqIHdvcmxkX21hdHJpeDsKICAgIGlmIChiaWxsYm9hcmRfbW9kZSA+IDAu\nMCkgewogICAgICAvLyBjbGVhciBvdXQgcm90YXRpb24gaW5mb3JtYXRpb24KICAgICAgbW9kZWxf\ndmlld1swXS54eXogPSB3b3JsZF9tYXRyaXhbMF0ueHl6OwogICAgICBtb2RlbF92aWV3WzJdLnh5\neiA9IHdvcmxkX21hdHJpeFsyXS54eXo7CiAgICAgIGlmIChiaWxsYm9hcmRfbW9kZSA9PSAyLjAp\nIHsKICAgICAgICBtb2RlbF92aWV3WzFdLnh5eiA9IHdvcmxkX21hdHJpeFsxXS54eXo7CiAgICAg\nIH0KICAgIH0KCiAgICAvLyB2YXJpb3VzIGNvb3JkaW5hdGUgdHJhbnNmb3JtcwogICAgdmVjNCBm\naW5hbF9wb3NpdGlvbiA9IHByb2plY3Rpb25fbWF0cml4ICogbW9kZWxfdmlldyAqIHZlYzQobG9j\nYWxfcG9zaXRpb24sIDEuMCk7CiAgICB3b3JsZF9wb3NpdGlvbiA9ICh3b3JsZF9tYXRyaXggKiB2\nZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApKS54eXo7CiAgICBzY3JlZW5fcG9zaXRpb24gPSBmaW5h\nbF9wb3NpdGlvbi54eXo7CiAgICBsaW5lYXJfZGVwdGggPSBsZW5ndGgoKG1vZGVsX3ZpZXcgKiB2\nZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApKSk7CiAgICBnbF9Qb3NpdGlvbiA9IGZpbmFsX3Bvc2l0\naW9uOwogIH0KICBlbHNlIHsKICAgIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2\naWV3X21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7CiAgfQp9Cg==\n", "disintegrate.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBweF9zaXplOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCi8vIGh0dHBzOi8vc3RhY2tvdmVyZmxvdy5jb20vcXVlc3Rpb25zLzEy\nOTY0Mjc5L3doYXRzLXRoZS1vcmlnaW4tb2YtdGhpcy1nbHNsLXJhbmQtb25lLWxpbmVyCmZsb2F0\nIHJhbmRvbV9zZWVkKHZlYzIgY28pIHsKICByZXR1cm4gZnJhY3Qoc2luKGRvdChjby54eSAsdmVj\nMigxMi45ODk4LDc4LjIzMykpKSAqIDQzNzU4LjU0NTMpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsK\nICB2ZWMyIGdyaWQgPSBnbF9GcmFnQ29vcmQueHkgLyBweF9zaXplOwogIHZlYzIgb2Zmc2V0ID0g\nZnJhY3QoZ3JpZCkqMC41OwogIGZsb2F0IHJhbmRvbSA9IChyYW5kb21fc2VlZChmbG9vcihncmlk\nICsgb2Zmc2V0KSkqMC45KSArIDAuMTsKICByYW5kb20gKj0gKDEuMCAtIHByb2dyZXNzKTsKICB2\nZWMyIHRjb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAg\ndmVjNCBjb2xvcjsKICBpZiAocmFuZG9tIDwgMC4xKSB7CiAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2IsIHRjb29yZHMpOwogIH0KICBlbHNlIHsKICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYSwgdGNvb3Jkcyk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "deferred.frag": "I2V4dGVuc2lvbiBHTF9FWFRfZHJhd19idWZmZXJzIDogcmVxdWlyZQpwcmVjaXNpb24gbWVkaXVt\ncCBmbG9hdDsKCi8vIG1ncmwgYnVpbHRpbnMKdW5pZm9ybSB2ZWM0IG1ncmxfY2xlYXJfY29sb3I7\nCnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZm\nZXJfaGVpZ2h0OwoKLy8gZm9yIGxpZ2h0aW5nCnVuaWZvcm0gbWF0NCBsaWdodF9wcm9qZWN0aW9u\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IGxpZ2h0X3ZpZXdfbWF0cml4OwoKLy8gdmFyeWluZwp2YXJ5\naW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2YXJ5\naW5nIGZsb2F0IGxpbmVhcl9kZXB0aDsKCi8vIHNhbXBsZXJzCnVuaWZvcm0gc2FtcGxlcjJEIGRp\nZmZ1c2VfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgc3BhdGlhbF90ZXh0dXJlOwp1bmlmb3Jt\nIHNhbXBsZXIyRCBsaWdodF90ZXh0dXJlOwoKLy8gbW9kZSBzd2l0Y2hpbmcKdW5pZm9ybSBpbnQg\nc2hhZGVyX3Bhc3M7CgoKLyogTk9URVM6CgogICBQYXNzIDAsIHRoZSBnLWJ1ZmZlciBwYXNzLCB0\naGUgImRpZmZ1c2VfdGV4dHVyZSIgZGVzY3JpYmVzIHRoZQogICBjb2xvciBvZiBhbiBpbmRpdmlk\ndWFsIG9iamVjdCwgYW5kIGlzIGFjY2Vzc2VkIHZpYSB0aGUKICAgImRpZmZ1c2VfY29sb3IiIHN3\nYXBwYWJsZS4KCiAgIFBhc3MgMSByZW5kZXJzIGZyb20gZWFjaCBsaWdodCdzIHBlcnNwZWN0aXZl\nLgoKICAgUGFzcyAyIGFjY3VtdWxhdGVzIHRoZSByZXN1bHQgZnJvbSBwYXNzIDIuICAic3BhdGlh\nbF90ZXh0dXJlIiBpcwogICB1c2VkIHRvIHJlYWQgdGhlIHJlc3VsdHMgZnJvbSBwYXNzIDEuICBB\nbGwgYWRkaXRpb25hbCBsaWdodGluZwogICBsb2dpYyBzaG91bGQgaGFwcGVuIGluIHBhc3MgMi4g\nIFRoZSByZXN1bHQgaXMgYSBzY3JlZW5zcGFjZQogICBsaWdodG1hcC4KCiAgIFBhc3MgMyBjb21i\naW5lcyB0aGUgc2NyZWVuc3BhY2UgbGlnaHRtYXAgd2l0aCB0aGUgcmVuZGVyIHJlc3VsdHMKICAg\nZnJvbSBwYXNzIDAgdG8gY3JlYXRlIHRoZSBmaW5hbCBvdXRwdXQuICBJbiB0aGlzIGNhc2UsCiAg\nICJkaWZmdXNlX3RleHR1cmUiIHJlcHJlc2VudHMgdGhlIGRpZmZ1c2UgZy1idWZmZXIsIG5vdCBh\nbnkKICAgaW5kaXZpZHVhbCBvYmplY3QuICAibGlnaHRtYXAiIHJlcHJlc2VudHMgdGhlIGZpbmFs\nIG91dHB1dCBvZiBwYXNzCiAgIDIuCgogKi8KCgppbmNsdWRlKCJub3JtYWxpemVfc2NyZWVuX2Nv\nb3JkLmdsc2wiKTsKCgpmbG9hdCBpbGx1bWluYXRpb24odmVjMyBfcG9zaXRpb24sIGZsb2F0IF9k\nZXB0aCkgewogIC8vIHRyYW5zZm9ybSB0aGUgd29ybGQgY29vcmRpbmF0ZSBpbnRvIHRoZSBsaWdo\ndCdzIHZpZXcgc3BhY2UgIAogIHZlYzMgcG9zaXRpb24gPSAobGlnaHRfdmlld19tYXRyaXggKiB2\nZWM0KF9wb3NpdGlvbiwgMS4wKSkueHl6OwoKICAvLyBhcHBseSB0aGUgbGlnaHQncyBwcm9qZWN0\naW9uIG1hdHJpeAogIHZlYzQgbGlnaHRfcHJvamVjdGVkID0gbGlnaHRfcHJvamVjdGlvbl9tYXRy\naXggKiB2ZWM0KHBvc2l0aW9uLCAxLjApOwogIAogIC8vIGRldGVybWluZSB0aGUgdmVjdG9yIGZy\nb20gdGhlIGxpZ2h0IHNvdXJjZSB0byB0aGUgZnJhZ21lbnQKICB2ZWMyIGxpZ2h0X25vcm1hbCA9\nIGxpZ2h0X3Byb2plY3RlZC54eS9saWdodF9wcm9qZWN0ZWQudzsKICB2ZWMyIGxpZ2h0X3V2ID0g\nbGlnaHRfbm9ybWFsKjAuNSswLjU7CgogIGlmIChsaWdodF91di54IDwgMC4wIHx8IGxpZ2h0X3V2\nLnkgPCAwLjAgfHwgbGlnaHRfdXYueCA+IDEuMCB8fCBsaWdodF91di55ID4gMS4wKSB7CiAgICBy\nZXR1cm4gMC4wOwogIH0KCiAgaWYgKGxlbmd0aChsaWdodF9ub3JtYWwpIDw9MS4wKSB7CiAgICBm\nbG9hdCBiaWFzID0gMC4wOwogICAgZmxvYXQgbGlnaHRfZGVwdGhfMSA9IHRleHR1cmUyRChsaWdo\ndF90ZXh0dXJlLCBsaWdodF91dikucjsKICAgIGZsb2F0IGxpZ2h0X2RlcHRoXzIgPSBsZW5ndGgo\ncG9zaXRpb24pOwogICAgZmxvYXQgaWxsdW1pbmF0ZWQgPSBzdGVwKGxpZ2h0X2RlcHRoXzIsIGxp\nZ2h0X2RlcHRoXzEgKyBiaWFzKTsKICAgIHJldHVybiBpbGx1bWluYXRlZCAqIDAuNjsKICB9CiAg\nZWxzZSB7CiAgICByZXR1cm4gMC4wOwogIH0KfQoKCnN3YXBwYWJsZSB2ZWMyIHRleHR1cmVfY29v\ncmRpbmF0ZXMoKSB7CiAgcmV0dXJuIGxvY2FsX3Rjb29yZHM7Cn0KCgpzd2FwcGFibGUgdmVjNCBk\naWZmdXNlX2NvbG9yKCkgewogIHZlYzIgdGNvb3JkcyA9IHRleHR1cmVfY29vcmRpbmF0ZXMoKTsK\nICByZXR1cm4gdGV4dHVyZTJEKGRpZmZ1c2VfdGV4dHVyZSwgdGNvb3Jkcyk7Cn0KCgp2b2lkIG1h\naW4odm9pZCkgewogIGlmIChzaGFkZXJfcGFzcyA9PSAwKSB7CiAgICAvLyBnLWJ1ZmZlciBwYXNz\nCiAgICB2ZWM0IGRpZmZ1c2UgPSBkaWZmdXNlX2NvbG9yKCk7CiAgICBpZiAoZGlmZnVzZS5hIDwg\nMC41KSB7CiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgICBnbF9GcmFnRGF0YVswXSA9IGRpZmZ1c2U7\nCiAgICBnbF9GcmFnRGF0YVsxXSA9IHZlYzQod29ybGRfcG9zaXRpb24sIGxpbmVhcl9kZXB0aCk7\nCiAgfQogIGVsc2UgaWYgKHNoYWRlcl9wYXNzID09IDEpIHsKICAgIGZsb2F0IGRlcHRoID0gbGlu\nZWFyX2RlcHRoOwogICAgZ2xfRnJhZ0RhdGFbMF0gPSB2ZWM0KGRlcHRoLCBkZXB0aCwgZGVwdGgs\nIDEuMCk7CiAgfQogIGVsc2UgaWYgKHNoYWRlcl9wYXNzID09IDIpIHsKICAgIC8vIGxpZ2h0IHBl\ncnNwZWN0aXZlIHBhc3MKICAgIHZlYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQo\nZ2xfRnJhZ0Nvb3JkLnh5KTsKICAgIHZlYzQgc3BhY2UgPSB0ZXh0dXJlMkQoc3BhdGlhbF90ZXh0\ndXJlLCB0Y29vcmRzKTsKICAgIGlmIChzcGFjZS53ID09IC0xLjApIHsKICAgICAgZGlzY2FyZDsK\nICAgIH0KICAgIGVsc2UgewogICAgICBmbG9hdCBsaWdodCA9IGlsbHVtaW5hdGlvbihzcGFjZS54\neXosIHNwYWNlLncpOwogICAgICBnbF9GcmFnRGF0YVswXSA9IHZlYzQobGlnaHQsIGxpZ2h0LCBs\naWdodCwgMS4wKTsKICAgIH0KICB9CiAgZWxzZSBpZiAoc2hhZGVyX3Bhc3MgPT0gMykgewogICAg\nLy8gY29tYmluZSB0aGUgbGlnaHRpbmcgYW5kIGRpZmZ1c2UgcGFzc2VzIGFuZCBkaXNwbGF5CiAg\nICB2ZWMyIHRjb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7\nCiAgICB2ZWM0IGRpZmZ1c2UgPSB0ZXh0dXJlMkQoZGlmZnVzZV90ZXh0dXJlLCB0Y29vcmRzKTsK\nICAgIGlmIChkaWZmdXNlLncgPT0gLTEuMCkgewogICAgICBkaXNjYXJkOwogICAgfQogICAgdmVj\nNCBsaWdodG1hcCA9IHRleHR1cmUyRChsaWdodF90ZXh0dXJlLCB0Y29vcmRzKTsKICAgIHZlYzMg\nc2hhZG93ID0gZGlmZnVzZS5yZ2IgKiAwLjI7CiAgICB2ZWMzIGNvbG9yID0gbWl4KHNoYWRvdywg\nZGlmZnVzZS5yZ2IsIGxpZ2h0bWFwLnJnYik7CiAgICBnbF9GcmFnRGF0YVswXSA9IHZlYzQoY29s\nb3IsIDEuMCk7CiAgfQp9Cg==\n", "picking.frag": "CnZhcnlpbmcgdmVjMyBsb2NhbF9wb3NpdGlvbjsKdW5pZm9ybSB2ZWMzIG9iamVjdF9pbmRleDsK\ndW5pZm9ybSBib29sIG1ncmxfc2VsZWN0X21vZGU7CnVuaWZvcm0gdmVjMyBtZ3JsX21vZGVsX2xv\nY2FsX21pbjsKdW5pZm9ybSB2ZWMzIG1ncmxfbW9kZWxfbG9jYWxfc2l6ZTsKCgp2b2lkIG1haW4o\ndm9pZCkgewogIGlmIChtZ3JsX3NlbGVjdF9tb2RlKSB7CiAgICBnbF9GcmFnQ29sb3IgPSB2ZWM0\nKG9iamVjdF9pbmRleCwgMS4wKTsKICB9CiAgZWxzZSB7CiAgICB2ZWMzIHNoaWZ0ZWQgPSBsb2Nh\nbF9wb3NpdGlvbiAtIG1ncmxfbW9kZWxfbG9jYWxfbWluOwogICAgdmVjMyBzY2FsZWQgPSBzaGlm\ndGVkIC8gbWdybF9tb2RlbF9sb2NhbF9zaXplOwogICAgZ2xfRnJhZ0NvbG9yID0gdmVjNChzY2Fs\nZWQsIDEuMCk7CiAgfTsKfQo=\n", "scatter_blur.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gZmxvYXQgYmx1cl9yYWRpdXM7CnVuaWZvcm0gZmxvYXQgc2Ft\ncGxlczsKCmNvbnN0IGZsb2F0IG1heF9zYW1wbGVzID0gMzIuMDsKY29uc3QgZmxvYXQgdHdvX3Bp\nID0gNi4yODMxODUzMDcxODsKCgppbmNsdWRlKCJub3JtYWxpemVfc2NyZWVuX2Nvb3JkLmdsc2wi\nKTsKCgp2ZWMyIHNjcmVlbl9jbGFtcCh2ZWMyIGNvb3JkKSB7CiAgcmV0dXJuIGNsYW1wKGNvb3Jk\nLCB2ZWMyKDAuMCwgMC4wKSwgZ2xfRnJhZ0Nvb3JkLnh5KTsKfQoKCnZlYzIgcHJuZyh2ZWMyIGNv\nKSB7CiAgdmVjMiBhID0gZnJhY3QoY28ueXggKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7CiAgdmVj\nMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSArIGRvdChh\nLnl4LCBiKTsKICAvL3JldHVybiBmcmFjdChjLnggKiBjLnkgKiA5NS40MzM3KTsKICByZXR1cm4g\nZnJhY3QodmVjMihjLngqYy55Kjk1LjQzMzcsIGMueCpjLnkqOTcuNTk3KSk7Cn0KCgpmbG9hdCBw\ncm5nKGZsb2F0IG4pewogIHZlYzIgYSA9IGZyYWN0KG4gKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7\nCiAgdmVjMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSAr\nIGRvdChhLnl4LCBiKTsKICByZXR1cm4gZnJhY3QoYy54ICogYy55ICogOTUuNDMzNyk7Cn0KCgp2\nb2lkIG1haW4odm9pZCkgewogIGZsb2F0IGNvdW50ID0gMC4wOwogIHZlYzQgY29sb3IgPSB2ZWM0\nKDAuMCwgMC4wLCAwLjAsIDAuMCk7CgogIGZsb2F0IHgsIHksIHJhZGl1czsKICBmbG9hdCBhbmds\nZSA9IHR3b19waSAqIHBybmcoZ2xfRnJhZ0Nvb3JkLnh5KS54OwogIGZsb2F0IGFuZ2xlX3N0ZXAg\nPSB0d29fcGkgLyBzYW1wbGVzOwogIAogIGZvciAoZmxvYXQgaT0wLjA7IGk8bWF4X3NhbXBsZXM7\nIGkrPTEuMCkgewogICAgcmFkaXVzID0gYmx1cl9yYWRpdXMgKiBwcm5nKGFuZ2xlKTsKICAgIHgg\nPSBnbF9GcmFnQ29vcmQueCArIGNvcyhhbmdsZSkqcmFkaXVzOwogICAgeSA9IGdsX0ZyYWdDb29y\nZC55ICsgc2luKGFuZ2xlKSpyYWRpdXM7CiAgICBhbmdsZSArPSBhbmdsZV9zdGVwOwogICAgaWYg\nKHggPCAwLjAgfHwgeSA8IDAuMCB8fCB4ID49IG1ncmxfYnVmZmVyX3dpZHRoIHx8IHkgPj0gbWdy\nbF9idWZmZXJfaGVpZ2h0KSB7CiAgICAgIGNvbnRpbnVlOwogICAgfQogICAgY29sb3IgKz0gdGV4\ndHVyZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQodmVjMih4LCB5KSkp\nOwogICAgY291bnQgKz0gMS4wOwogICAgaWYgKGNvdW50ID49IHNhbXBsZXMpIHsKICAgICAgYnJl\nYWs7CiAgICB9CiAgfQogIAogIGlmIChjb3VudCA9PSAwLjApIHsKICAgIGNvbG9yID0gdGV4dHVy\nZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nvb3JkLnh5\nKSk7CiAgICBjb3VudCA9IDEuMDsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3IgLyBjb3VudDsK\nfQo=\n"};
+    please.__bundled_glsl = {"picture_in_picture.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl93aWR0\naDsKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl9oZWlnaHQ7Cgp1bmlmb3JtIHZlYzIgcGlwX3Np\nemU7CnVuaWZvcm0gdmVjMiBwaXBfY29vcmQ7CnVuaWZvcm0gZmxvYXQgcGlwX2FscGhhOwp1bmlm\nb3JtIHNhbXBsZXIyRCBtYWluX3RleHR1cmU7CnVuaWZvcm0gc2FtcGxlcjJEIHBpcF90ZXh0dXJl\nOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2\nb2lkKSB7CiAgdmVjMiBzY3JlZW5fY29vcmQgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0Zy\nYWdDb29yZC54eSk7CiAgdmVjNCBjb2xvciA9IHRleHR1cmUyRChtYWluX3RleHR1cmUsIHNjcmVl\nbl9jb29yZCk7CgogIC8vIHNjYWxlIHRoZSBzY3JlZW5fY29vcmQgdG8gcmVwcmVzZW50IGEgcGVy\nY2VudAogIHNjcmVlbl9jb29yZCAqPSAxMDAuMDsKICB2ZWMyIHBpcF90ZXN0ID0gc2NyZWVuX2Nv\nb3JkIC0gcGlwX2Nvb3JkOwogIGlmIChwaXBfdGVzdC54ID49IDAuMCAmJiBwaXBfdGVzdC55ID49\nIDAuMCAmJiBwaXBfdGVzdC54IDw9IHBpcF9zaXplLnggJiYgcGlwX3Rlc3QueSA8PSBwaXBfc2l6\nZS55KSB7CiAgICB2ZWM0IHBpcF9jb2xvciA9IHRleHR1cmUyRChwaXBfdGV4dHVyZSwgcGlwX3Rl\nc3QgLyBwaXBfc2l6ZSk7CiAgICBjb2xvciA9IG1peChjb2xvciwgcGlwX2NvbG9yLCBwaXBfY29s\nb3IuYSAvIHBpcF9hbHBoYSk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "splat.vert": "CnVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7CnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5p\nZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4OwphdHRyaWJ1dGUgdmVjMyBwb3NpdGlvbjsKCgp2\nb2lkIG1haW4odm9pZCkgewogIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2aWV3\nX21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7Cn0K\n", "simple.vert": "Ci8vIG1hdHJpY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2pl\nY3Rpb25fbWF0cml4OwoKLy8gdmVydGV4IGRhdGEKYXR0cmlidXRlIHZlYzMgcG9zaXRpb247CmF0\ndHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZlYzIgdGNvb3JkczsKCi8vIG1pc2MgYWRq\ndXN0bWVudHMKdW5pZm9ybSBmbG9hdCBtZ3JsX29ydGhvZ3JhcGhpY19zY2FsZTsKCi8vIGJpbGxi\nb2FyZCBzcHJpdGVzIGVuYWJsZXIKdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKCi8vIGlu\ndGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBpbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5n\nIHZlYzMgbG9jYWxfcG9zaXRpb247CnZhcnlpbmcgdmVjMyBsb2NhbF9ub3JtYWw7CnZhcnlpbmcg\ndmVjMiBsb2NhbF90Y29vcmRzOwp2YXJ5aW5nIHZlYzMgd29ybGRfcG9zaXRpb247CnZhcnlpbmcg\ndmVjMyB3b3JsZF9ub3JtYWw7CnZhcnlpbmcgdmVjMyBzY3JlZW5fbm9ybWFsOwp2YXJ5aW5nIGZs\nb2F0IGxpbmVhcl9kZXB0aDsKCgp2b2lkIG1haW4odm9pZCkgewogIC8vIHBhc3MgYWxvbmcgdG8g\ndGhlIGZyYWdtZW50IHNoYWRlcgogIGxvY2FsX3Bvc2l0aW9uID0gcG9zaXRpb24gKiBtZ3JsX29y\ndGhvZ3JhcGhpY19zY2FsZTsKICBsb2NhbF9ub3JtYWwgPSBub3JtYWw7CiAgbG9jYWxfdGNvb3Jk\ncyA9IHRjb29yZHM7CgogIC8vIGNhbGN1bGF0ZSBtb2RlbHZpZXcgbWF0cml4CiAgbWF0NCBtb2Rl\nbF92aWV3ID0gdmlld19tYXRyaXggKiB3b3JsZF9tYXRyaXg7CiAgaWYgKGJpbGxib2FyZF9tb2Rl\nID4gMC4wKSB7CiAgICAvLyBjbGVhciBvdXQgcm90YXRpb24gaW5mb3JtYXRpb24KICAgIG1vZGVs\nX3ZpZXdbMF0ueHl6ID0gd29ybGRfbWF0cml4WzBdLnh5ejsKICAgIG1vZGVsX3ZpZXdbMl0ueHl6\nID0gd29ybGRfbWF0cml4WzJdLnh5ejsKICAgIGlmIChiaWxsYm9hcmRfbW9kZSA9PSAyLjApIHsK\nICAgICAgbW9kZWxfdmlld1sxXS54eXogPSB3b3JsZF9tYXRyaXhbMV0ueHl6OwogICAgfQogIH0K\nCiAgLy8gdmFyaW91cyBjb29yZGluYXRlIHRyYW5zZm9ybXMKICB2ZWM0IGZpbmFsX3Bvc2l0aW9u\nID0gcHJvamVjdGlvbl9tYXRyaXggKiBtb2RlbF92aWV3ICogdmVjNChsb2NhbF9wb3NpdGlvbiwg\nMS4wKTsKICB3b3JsZF9wb3NpdGlvbiA9ICh3b3JsZF9tYXRyaXggKiB2ZWM0KGxvY2FsX3Bvc2l0\naW9uLCAxLjApKS54eXo7CiAgd29ybGRfbm9ybWFsID0gbm9ybWFsaXplKG1hdDMod29ybGRfbWF0\ncml4KSAqIG5vcm1hbCkueHl6OwogIHNjcmVlbl9ub3JtYWwgPSBub3JtYWxpemUobWF0Myhwcm9q\nZWN0aW9uX21hdHJpeCAqIG1vZGVsX3ZpZXcpICogbm9ybWFsKS54eXo7CiAgbGluZWFyX2RlcHRo\nID0gbGVuZ3RoKG1vZGVsX3ZpZXcgKiB2ZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApKTsKICBnbF9Q\nb3NpdGlvbiA9IGZpbmFsX3Bvc2l0aW9uOwp9Cg==\n", "color_curve.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gY3VydmUgZmxvYXQgdmFsdWVfY3VydmVbMTZdOwp1bmlmb3Jt\nIGN1cnZlIGZsb2F0IHJlZF9jdXJ2ZVsxNl07CnVuaWZvcm0gY3VydmUgZmxvYXQgZ3JlZW5fY3Vy\ndmVbMTZdOwp1bmlmb3JtIGN1cnZlIGZsb2F0IGJsdWVfY3VydmVbMTZdOwoKCmluY2x1ZGUoIm5v\ncm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCmZsb2F0IHZhbHVlKHZlYzMgY29sb3IpIHsK\nICByZXR1cm4gbWF4KGNvbG9yLnIsIG1heChjb2xvci5nLCBjb2xvci5iKSk7Cn0KCgp2b2lkIG1h\naW4odm9pZCkgewogIHZlYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJh\nZ0Nvb3JkLnh5KTsKICB2ZWMzIGNvbG9yID0gdGV4dHVyZTJEKGlucHV0X3RleHR1cmUsIHRjb29y\nZHMpLnJnYjsKCiAgZmxvYXQgdjEgPSB2YWx1ZShjb2xvcik7CiAgZmxvYXQgdjIgPSBzYW1wbGVf\nY3VydmUodmFsdWVfY3VydmUsIHYxKTsKICBmbG9hdCBzY2FsZSA9IDEuMCAvIHYxOwogIGNvbG9y\nID0gY29sb3IgKiBzY2FsZSAqIHYyOwogIAogIGNvbG9yLnIgPSBzYW1wbGVfY3VydmUocmVkX2N1\ncnZlLCBjb2xvci5yKTsKICBjb2xvci5nID0gc2FtcGxlX2N1cnZlKGdyZWVuX2N1cnZlLCBjb2xv\nci5nKTsKICBjb2xvci5iID0gc2FtcGxlX2N1cnZlKGJsdWVfY3VydmUsIGNvbG9yLmIpOwogIGds\nX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIDEuMCk7Cn0K\n", "diffuse.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKLy8gc2FtcGxlcnMKYmluZGluZ19jb250ZXh0IEdy\nYXBoTm9kZSB7CiAgdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0dXJlOwogIHVuaWZvcm0g\nZmxvYXQgYWxwaGE7CiAgdW5pZm9ybSBib29sIGlzX3Nwcml0ZTsKICB1bmlmb3JtIGJvb2wgaXNf\ndHJhbnNwYXJlbnQ7CgogIG1vZGVfc3dpdGNoIGRpZmZ1c2VfY29sb3JfZnVuY3Rpb247CiAgbW9k\nZV9zd2l0Y2ggdGV4dHVyZV9jb29yZGluYXRlX2Z1bmN0aW9uOwp9CgoKdmFyeWluZyB2ZWMzIGxv\nY2FsX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2YXJ5aW5nIHZlYzIgbG9j\nYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwoKCnN3YXBwYWJsZSB2ZWMy\nIHRleHR1cmVfY29vcmRpbmF0ZV9mdW5jdGlvbigpIHsKICByZXR1cm4gbG9jYWxfdGNvb3JkczsK\nfQoKCnN3YXBwYWJsZSB2ZWM0IGRpZmZ1c2VfY29sb3JfZnVuY3Rpb24oKSB7CiAgdmVjMiB0Y29v\ncmRzID0gdGV4dHVyZV9jb29yZGluYXRlX2Z1bmN0aW9uKCk7CiAgcmV0dXJuIHRleHR1cmUyRChk\naWZmdXNlX3RleHR1cmUsIHRjb29yZHMpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsKICB2ZWM0IGRp\nZmZ1c2UgPSBkaWZmdXNlX2NvbG9yX2Z1bmN0aW9uKCk7CiAgaWYgKGlzX3Nwcml0ZSkgewogICAg\nZmxvYXQgY3V0b2ZmID0gaXNfdHJhbnNwYXJlbnQgPyAwLjEgOiAxLjA7CiAgICBpZiAoZGlmZnVz\nZS5hIDwgY3V0b2ZmKSB7CiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgfQogIGRpZmZ1c2UuYSAqPSBh\nbHBoYTsKICBnbF9GcmFnQ29sb3IgPSBkaWZmdXNlOwp9Cg==\n", "stereo.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnVuaWZvcm0gdmVjNCBtZ3Js\nX2NsZWFyX2NvbG9yOwp1bmlmb3JtIGZsb2F0IG1ncmxfZnJhbWVfc3RhcnQ7CnVuaWZvcm0gZmxv\nYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfaGVpZ2h0OwoK\ndW5pZm9ybSBzYW1wbGVyMkQgbGVmdF9leWVfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgcmln\naHRfZXllX3RleHR1cmU7Cgp1bmlmb3JtIGJvb2wgc3RlcmVvX3NwbGl0Owp1bmlmb3JtIHZlYzMg\nbGVmdF9jb2xvcjsKdW5pZm9ybSB2ZWMzIHJpZ2h0X2NvbG9yOwoKdmVjNCBzYW1wbGVfb3JfY2xl\nYXIoc2FtcGxlcjJEIHNhbXBsZXIsIHZlYzIgY29vcmQpIHsKICB2ZWM0IGNvbG9yID0gdGV4dHVy\nZTJEKHNhbXBsZXIsIGNvb3JkKTsKICBpZiAoY29sb3IuYSA9PSAwLjApIHsKICAgIGNvbG9yID0g\nbWdybF9jbGVhcl9jb2xvcjsKICB9CiAgcmV0dXJuIGNvbG9yOwp9Cgp2b2lkIG1haW4odm9pZCkg\newogIHZlYzIgY29vcmQgPSBnbF9GcmFnQ29vcmQueHkgLyB2ZWMyKG1ncmxfYnVmZmVyX3dpZHRo\nLCBtZ3JsX2J1ZmZlcl9oZWlnaHQpOwogIHZlYzQgY29sb3I7CgogIGlmIChzdGVyZW9fc3BsaXQp\nIHsKICAgIC8vIEZJWE1FOiBhcHBseSBkaXN0b3J0aW9uIGVmZmVjdCBuZWVkZWQgZm9yIFZSIGds\nYXNzZXMKICAgIGlmIChjb29yZC54IDwgMC41KSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKGxl\nZnRfZXllX3RleHR1cmUsIHZlYzIoY29vcmQueCoyLjAsIGNvb3JkLnkpKTsKICAgIH0KICAgIGVs\nc2UgewogICAgICBjb2xvciA9IHRleHR1cmUyRChyaWdodF9leWVfdGV4dHVyZSwgdmVjMigoY29v\ncmQueCAtIDAuNSkqMi4wLCBjb29yZC55KSk7CiAgICB9CiAgfQoKICBlbHNlIHsKICAgIHZlYzMg\nbGVmdCA9IHNhbXBsZV9vcl9jbGVhcihsZWZ0X2V5ZV90ZXh0dXJlLCBjb29yZCkucmdiICogbGVm\ndF9jb2xvcjsKICAgIHZlYzMgcmlnaHQgPSBzYW1wbGVfb3JfY2xlYXIocmlnaHRfZXllX3RleHR1\ncmUsIGNvb3JkKS5yZ2IgKiByaWdodF9jb2xvcjsKICAgIGNvbG9yID0gdmVjNCgobGVmdCtyaWdo\ndCksIDEuMCk7CiAgfQogIAogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "curve_template.glsl": "Ly8gIERvIG5vdCBjYWxsIGluY2x1ZGUgb24gY3VydmVfdGVtcGxhdGUuZ2xzbCBpbiB5b3VyIHNv\ndXJjZSBmaWxlcy4KLy8gIFVzZSB0aGUgY3VydmUgbWFjcm8gaW5zdGVhZCEhIQoKR0xfVFlQRSBz\nYW1wbGVfY3VydmUoR0xfVFlQRSBzYW1wbGVzW0FSUkFZX0xFTl0sIGZsb2F0IGFscGhhKSB7CiAg\nZmxvYXQgcGljayA9IChBUlJBWV9MRU4uMCAtIDEuMCkgKiBhbHBoYTsKICBpbnQgbG93ID0gaW50\nKGZsb29yKHBpY2spKTsKICBpbnQgaGlnaCA9IGludChjZWlsKHBpY2spKTsKICBmbG9hdCBiZXRh\nID0gZnJhY3QocGljayk7CgogIEdMX1RZUEUgbG93X3NhbXBsZTsKICBHTF9UWVBFIGhpZ2hfc2Ft\ncGxlOwoKICAvLyB3b3JrYXJvdW5kIGJlY2F1c2UgZ2xzbCBkb2VzIG5vdCBhbGxvdyBmb3IgcmFu\nZG9tIGFjY2VzcyBvbiBhcnJheXMgPjpPCiAgZm9yIChpbnQgaT0wOyBpPEFSUkFZX0xFTjsgaSs9\nMSkgewogICAgaWYgKGkgPT0gbG93KSB7CiAgICAgIGxvd19zYW1wbGUgPSBzYW1wbGVzW2ldOwog\nICAgfQogICAgaWYgKGkgPT0gaGlnaCkgewogICAgICBoaWdoX3NhbXBsZSA9IHNhbXBsZXNbaV07\nCiAgICB9CiAgfQogIAogIHJldHVybiBtaXgobG93X3NhbXBsZSwgaGlnaF9zYW1wbGUsIGJldGEp\nOwp9Cg==\n", "diagonal_wipe.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBibHVyX3JhZGl1czsKdW5pZm9ybSBib29sIGZsaXBfYXhpczsK\ndW5pZm9ybSBib29sIGZsaXBfZGlyZWN0aW9uOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2b2lkKSB7CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFs\naXplX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkpOwogIGZsb2F0IHNsb3BlID0gbWdybF9i\ndWZmZXJfaGVpZ2h0IC8gbWdybF9idWZmZXJfd2lkdGg7CiAgaWYgKGZsaXBfYXhpcykgewogICAg\nc2xvcGUgKj0gLTEuMDsKICB9CiAgZmxvYXQgaGFsZl9oZWlnaHQgPSBtZ3JsX2J1ZmZlcl9oZWln\naHQgKiAwLjU7CiAgZmxvYXQgaGlnaF9wb2ludCA9IG1ncmxfYnVmZmVyX2hlaWdodCArIGhhbGZf\naGVpZ2h0ICsgYmx1cl9yYWRpdXMgKyAxLjA7CiAgZmxvYXQgbG93X3BvaW50ID0gKGhhbGZfaGVp\nZ2h0ICogLTEuMCkgLSBibHVyX3JhZGl1cyAtIDEuMDsKICBmbG9hdCBtaWRwb2ludCA9IG1peCho\naWdoX3BvaW50LCBsb3dfcG9pbnQsIGZsaXBfZGlyZWN0aW9uID8gMS4wIC0gcHJvZ3Jlc3MgOiBw\ncm9ncmVzcyk7CiAgZmxvYXQgdGVzdCA9ICgoZ2xfRnJhZ0Nvb3JkLnggLSBtZ3JsX2J1ZmZlcl93\naWR0aC8yLjApICogc2xvcGUpICsgbWlkcG9pbnQ7CgogIHZlYzQgY29sb3I7CiAgZmxvYXQgZGlz\ndCA9IGdsX0ZyYWdDb29yZC55IC0gdGVzdDsKICBpZiAoZGlzdCA8PSBibHVyX3JhZGl1cyAmJiBk\naXN0ID49IChibHVyX3JhZGl1cyotMS4wKSkgewogICAgdmVjNCBjb2xvcl9hID0gdGV4dHVyZTJE\nKHRleHR1cmVfYSwgdGNvb3Jkcyk7CiAgICB2ZWM0IGNvbG9yX2IgPSB0ZXh0dXJlMkQodGV4dHVy\nZV9iLCB0Y29vcmRzKTsKICAgIGZsb2F0IGJsZW5kID0gKGRpc3QgKyBibHVyX3JhZGl1cykgLyAo\nYmx1cl9yYWRpdXMqMi4wKTsKICAgIGNvbG9yID0gbWl4KGNvbG9yX2EsIGNvbG9yX2IsIGZsaXBf\nZGlyZWN0aW9uID8gMS4wIC0gYmxlbmQgOiBibGVuZCk7CiAgfQogIGVsc2UgewogICAgaWYgKChn\nbF9GcmFnQ29vcmQueSA8IHRlc3QgJiYgIWZsaXBfZGlyZWN0aW9uKSB8fCAoZ2xfRnJhZ0Nvb3Jk\nLnkgPiB0ZXN0ICYmIGZsaXBfZGlyZWN0aW9uKSkgewogICAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2EsIHRjb29yZHMpOwogICAgfQogICAgZWxzZSB7CiAgICAgIGNvbG9yID0gdGV4dHVy\nZTJEKHRleHR1cmVfYiwgdGNvb3Jkcyk7CiAgICB9CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9y\nOwp9Cg==\n", "normalize_screen_coord.glsl": "CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZm\nZXJfaGVpZ2h0OwoKLy8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0Zy\nYWdDb29yZC54eSwgd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNj\ncmVlbiBjb29yZGluYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0\nZSB0aGF0IGlzIG5vcm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0\nbyAxLjAuCi8vCnZlYzIgbm9ybWFsaXplX3NjcmVlbl9jb29yZCh2ZWMyIGNvb3JkKSB7CiAgcmV0\ndXJuIHZlYzIoY29vcmQueC9tZ3JsX2J1ZmZlcl93aWR0aCwgY29vcmQueS9tZ3JsX2J1ZmZlcl9o\nZWlnaHQpOwp9Cgo=\n", "deferred.vert": "CgpiaW5kaW5nX2NvbnRleHQgR3JhcGhOb2RlIHsKICAvLyBvYmplY3QgbWF0cmljZXMKICB1bmlm\nb3JtIG1hdDQgd29ybGRfbWF0cml4OwogIHVuaWZvcm0gbWF0NCBwYXJ0aWNsZV9tYXRyaXg7Cgog\nIC8vIGJpbGxib2FyZCBzcHJpdGVzIGVuYWJsZXIKICB1bmlmb3JtIGZsb2F0IGJpbGxib2FyZF9t\nb2RlOwp9CgoKLy8gbWF0cmljZXMKdW5pZm9ybSBtYXQ0IHZpZXdfbWF0cml4Owp1bmlmb3JtIG1h\ndDQgcHJvamVjdGlvbl9tYXRyaXg7CgovLyB2ZXJ0ZXggZGF0YQphdHRyaWJ1dGUgdmVjMyBwb3Np\ndGlvbjsKYXR0cmlidXRlIHZlYzMgbm9ybWFsOwphdHRyaWJ1dGUgdmVjMiB0Y29vcmRzOwoKLy8g\nbWlzYyBhZGp1c3RtZW50cwp1bmlmb3JtIGZsb2F0IG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwoK\nLy8gaW50ZXJwb2xhdGVkIHZlcnRleCBkYXRhIGluIHZhcmlvdXMgdHJhbnNmb3JtYXRpb25zCnZh\ncnlpbmcgdmVjMyBsb2NhbF9wb3NpdGlvbjsKdmFyeWluZyB2ZWMzIGxvY2FsX25vcm1hbDsKdmFy\neWluZyB2ZWMyIGxvY2FsX3Rjb29yZHM7CnZhcnlpbmcgdmVjMyB3b3JsZF9wb3NpdGlvbjsKdmFy\neWluZyB2ZWMzIHNjcmVlbl9wb3NpdGlvbjsKdmFyeWluZyBmbG9hdCBsaW5lYXJfZGVwdGg7Cgov\nLyB3aGV0aGVyIG9yIG5vdCB0aGUgcmVuZGVyIHBhc3MgaXMgYSBncmFwaCBvciBhIHNwbGF0CnVu\naWZvcm0gYm9vbCBnZW9tZXRyeV9wYXNzOwoKCnZvaWQgbWFpbih2b2lkKSB7CiAgaWYgKGdlb21l\ndHJ5X3Bhc3MpIHsKICAgIC8vIHBhc3MgYWxvbmcgdG8gdGhlIGZyYWdtZW50IHNoYWRlcgogICAg\nbG9jYWxfcG9zaXRpb24gPSBwb3NpdGlvbiAqIG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwogICAg\nbG9jYWxfbm9ybWFsID0gbm9ybWFsOwogICAgbG9jYWxfdGNvb3JkcyA9IHRjb29yZHM7CgogICAg\nLy8gY2FsY3VsYXRlIG1vZGVsdmlldyBtYXRyaXgKICAgIG1hdDQgbW9kZWxfdmlldyA9IHZpZXdf\nbWF0cml4ICogd29ybGRfbWF0cml4OwogICAgaWYgKGJpbGxib2FyZF9tb2RlID4gMC4wKSB7CiAg\nICAgIC8vIGNsZWFyIG91dCByb3RhdGlvbiBpbmZvcm1hdGlvbgogICAgICBtb2RlbF92aWV3WzBd\nLnh5eiA9IHdvcmxkX21hdHJpeFswXS54eXo7CiAgICAgIG1vZGVsX3ZpZXdbMl0ueHl6ID0gd29y\nbGRfbWF0cml4WzJdLnh5ejsKICAgICAgaWYgKGJpbGxib2FyZF9tb2RlID09IDIuMCkgewogICAg\nICAgIG1vZGVsX3ZpZXdbMV0ueHl6ID0gd29ybGRfbWF0cml4WzFdLnh5ejsKICAgICAgfQogICAg\nfQoKICAgIC8vIHZhcmlvdXMgY29vcmRpbmF0ZSB0cmFuc2Zvcm1zCiAgICB2ZWM0IGZpbmFsX3Bv\nc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiBtb2RlbF92aWV3ICogdmVjNChsb2NhbF9wb3Np\ndGlvbiwgMS4wKTsKICAgIHdvcmxkX3Bvc2l0aW9uID0gKHdvcmxkX21hdHJpeCAqIHZlYzQobG9j\nYWxfcG9zaXRpb24sIDEuMCkpLnh5ejsKICAgIHNjcmVlbl9wb3NpdGlvbiA9IGZpbmFsX3Bvc2l0\naW9uLnh5ejsKICAgIGxpbmVhcl9kZXB0aCA9IGxlbmd0aCgobW9kZWxfdmlldyAqIHZlYzQobG9j\nYWxfcG9zaXRpb24sIDEuMCkpKTsKICAgIGdsX1Bvc2l0aW9uID0gZmluYWxfcG9zaXRpb247CiAg\nfQogIGVsc2UgewogICAgZ2xfUG9zaXRpb24gPSBwcm9qZWN0aW9uX21hdHJpeCAqIHZpZXdfbWF0\ncml4ICogd29ybGRfbWF0cml4ICogdmVjNChwb3NpdGlvbiwgMS4wKTsKICB9Cn0K\n", "disintegrate.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBweF9zaXplOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCi8vIGh0dHBzOi8vc3RhY2tvdmVyZmxvdy5jb20vcXVlc3Rpb25zLzEy\nOTY0Mjc5L3doYXRzLXRoZS1vcmlnaW4tb2YtdGhpcy1nbHNsLXJhbmQtb25lLWxpbmVyCmZsb2F0\nIHJhbmRvbV9zZWVkKHZlYzIgY28pIHsKICByZXR1cm4gZnJhY3Qoc2luKGRvdChjby54eSAsdmVj\nMigxMi45ODk4LDc4LjIzMykpKSAqIDQzNzU4LjU0NTMpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsK\nICB2ZWMyIGdyaWQgPSBnbF9GcmFnQ29vcmQueHkgLyBweF9zaXplOwogIHZlYzIgb2Zmc2V0ID0g\nZnJhY3QoZ3JpZCkqMC41OwogIGZsb2F0IHJhbmRvbSA9IChyYW5kb21fc2VlZChmbG9vcihncmlk\nICsgb2Zmc2V0KSkqMC45KSArIDAuMTsKICByYW5kb20gKj0gKDEuMCAtIHByb2dyZXNzKTsKICB2\nZWMyIHRjb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAg\ndmVjNCBjb2xvcjsKICBpZiAocmFuZG9tIDwgMC4xKSB7CiAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2IsIHRjb29yZHMpOwogIH0KICBlbHNlIHsKICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYSwgdGNvb3Jkcyk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "deferred.frag": "I2V4dGVuc2lvbiBHTF9FWFRfZHJhd19idWZmZXJzIDogcmVxdWlyZQpwcmVjaXNpb24gbWVkaXVt\ncCBmbG9hdDsKCi8vIG1ncmwgYnVpbHRpbnMKdW5pZm9ybSB2ZWM0IG1ncmxfY2xlYXJfY29sb3I7\nCnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZm\nZXJfaGVpZ2h0OwoKLy8gZm9yIGxpZ2h0aW5nCnVuaWZvcm0gbWF0NCBsaWdodF9wcm9qZWN0aW9u\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IGxpZ2h0X3ZpZXdfbWF0cml4OwoKLy8gdmFyeWluZwp2YXJ5\naW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2YXJ5\naW5nIGZsb2F0IGxpbmVhcl9kZXB0aDsKCi8vIHNhbXBsZXJzCmJpbmRpbmdfY29udGV4dCBHcmFw\naE5vZGUgewogIHVuaWZvcm0gc2FtcGxlcjJEIGRpZmZ1c2VfdGV4dHVyZTsKICBtb2RlX3N3aXRj\naCBkaWZmdXNlX2NvbG9yX2Z1bmN0aW9uOwogIG1vZGVfc3dpdGNoIHRleHR1cmVfY29vcmRpbmF0\nZV9mdW5jdGlvbjsKfQoKLy8gc2FtcGxlcnMKdW5pZm9ybSBzYW1wbGVyMkQgc3BhdGlhbF90ZXh0\ndXJlOwp1bmlmb3JtIHNhbXBsZXIyRCBsaWdodF90ZXh0dXJlOwoKLy8gbW9kZSBzd2l0Y2hpbmcK\ndW5pZm9ybSBpbnQgc2hhZGVyX3Bhc3M7CgoKaW5jbHVkZSgibm9ybWFsaXplX3NjcmVlbl9jb29y\nZC5nbHNsIik7CgoKLyogTk9URVM6CgogICBQYXNzIDAsIHRoZSBnLWJ1ZmZlciBwYXNzLCB0aGUg\nImRpZmZ1c2VfdGV4dHVyZSIgZGVzY3JpYmVzIHRoZQogICBjb2xvciBvZiBhbiBpbmRpdmlkdWFs\nIG9iamVjdCwgYW5kIGlzIGFjY2Vzc2VkIHZpYSB0aGUKICAgImRpZmZ1c2VfY29sb3JfZnVuY3Rp\nb24iIHN3YXBwYWJsZS4KCiAgIFBhc3MgMSByZW5kZXJzIGZyb20gZWFjaCBsaWdodCdzIHBlcnNw\nZWN0aXZlLgoKICAgUGFzcyAyIGFjY3VtdWxhdGVzIHRoZSByZXN1bHQgZnJvbSBwYXNzIDIuICAi\nc3BhdGlhbF90ZXh0dXJlIiBpcwogICB1c2VkIHRvIHJlYWQgdGhlIHJlc3VsdHMgZnJvbSBwYXNz\nIDEuICBBbGwgYWRkaXRpb25hbCBsaWdodGluZwogICBsb2dpYyBzaG91bGQgaGFwcGVuIGluIHBh\nc3MgMi4gIFRoZSByZXN1bHQgaXMgYSBzY3JlZW5zcGFjZQogICBsaWdodG1hcC4KCiAgIFBhc3Mg\nMyBjb21iaW5lcyB0aGUgc2NyZWVuc3BhY2UgbGlnaHRtYXAgd2l0aCB0aGUgcmVuZGVyIHJlc3Vs\ndHMKICAgZnJvbSBwYXNzIDAgdG8gY3JlYXRlIHRoZSBmaW5hbCBvdXRwdXQuICBJbiB0aGlzIGNh\nc2UsCiAgICJkaWZmdXNlX3RleHR1cmUiIHJlcHJlc2VudHMgdGhlIGRpZmZ1c2UgZy1idWZmZXIs\nIG5vdCBhbnkKICAgaW5kaXZpZHVhbCBvYmplY3QuICAibGlnaHRtYXAiIHJlcHJlc2VudHMgdGhl\nIGZpbmFsIG91dHB1dCBvZiBwYXNzCiAgIDIuCgogKi8KCgpzd2FwcGFibGUgdmVjMiB0ZXh0dXJl\nX2Nvb3JkaW5hdGVfZnVuY3Rpb24oKSB7CiAgcmV0dXJuIGxvY2FsX3Rjb29yZHM7Cn0KCgpzd2Fw\ncGFibGUgdmVjNCBkaWZmdXNlX2NvbG9yX2Z1bmN0aW9uKCkgewogIHZlYzIgdGNvb3JkcyA9IHRl\neHR1cmVfY29vcmRpbmF0ZV9mdW5jdGlvbigpOwogIHJldHVybiB0ZXh0dXJlMkQoZGlmZnVzZV90\nZXh0dXJlLCB0Y29vcmRzKTsKfQoKCmZsb2F0IGlsbHVtaW5hdGlvbih2ZWMzIF9wb3NpdGlvbiwg\nZmxvYXQgX2RlcHRoKSB7CiAgLy8gdHJhbnNmb3JtIHRoZSB3b3JsZCBjb29yZGluYXRlIGludG8g\ndGhlIGxpZ2h0J3MgdmlldyBzcGFjZSAgCiAgdmVjMyBwb3NpdGlvbiA9IChsaWdodF92aWV3X21h\ndHJpeCAqIHZlYzQoX3Bvc2l0aW9uLCAxLjApKS54eXo7CgogIC8vIGFwcGx5IHRoZSBsaWdodCdz\nIHByb2plY3Rpb24gbWF0cml4CiAgdmVjNCBsaWdodF9wcm9qZWN0ZWQgPSBsaWdodF9wcm9qZWN0\naW9uX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7CiAgCiAgLy8gZGV0ZXJtaW5lIHRoZSB2\nZWN0b3IgZnJvbSB0aGUgbGlnaHQgc291cmNlIHRvIHRoZSBmcmFnbWVudAogIHZlYzIgbGlnaHRf\nbm9ybWFsID0gbGlnaHRfcHJvamVjdGVkLnh5L2xpZ2h0X3Byb2plY3RlZC53OwogIHZlYzIgbGln\naHRfdXYgPSBsaWdodF9ub3JtYWwqMC41KzAuNTsKCiAgaWYgKGxpZ2h0X3V2LnggPCAwLjAgfHwg\nbGlnaHRfdXYueSA8IDAuMCB8fCBsaWdodF91di54ID4gMS4wIHx8IGxpZ2h0X3V2LnkgPiAxLjAp\nIHsKICAgIHJldHVybiAwLjA7CiAgfQoKICBpZiAobGVuZ3RoKGxpZ2h0X25vcm1hbCkgPD0xLjAp\nIHsKICAgIGZsb2F0IGJpYXMgPSAwLjA7CiAgICBmbG9hdCBsaWdodF9kZXB0aF8xID0gdGV4dHVy\nZTJEKGxpZ2h0X3RleHR1cmUsIGxpZ2h0X3V2KS5yOwogICAgZmxvYXQgbGlnaHRfZGVwdGhfMiA9\nIGxlbmd0aChwb3NpdGlvbik7CiAgICBmbG9hdCBpbGx1bWluYXRlZCA9IHN0ZXAobGlnaHRfZGVw\ndGhfMiwgbGlnaHRfZGVwdGhfMSArIGJpYXMpOwogICAgcmV0dXJuIGlsbHVtaW5hdGVkICogMC42\nOwogIH0KICBlbHNlIHsKICAgIHJldHVybiAwLjA7CiAgfQp9CgoKdm9pZCBtYWluKHZvaWQpIHsK\nICBpZiAoc2hhZGVyX3Bhc3MgPT0gMCkgewogICAgLy8gZy1idWZmZXIgcGFzcwogICAgdmVjNCBk\naWZmdXNlID0gZGlmZnVzZV9jb2xvcl9mdW5jdGlvbigpOwogICAgaWYgKGRpZmZ1c2UuYSA8IDAu\nNSkgewogICAgICBkaXNjYXJkOwogICAgfQogICAgZ2xfRnJhZ0RhdGFbMF0gPSBkaWZmdXNlOwog\nICAgZ2xfRnJhZ0RhdGFbMV0gPSB2ZWM0KHdvcmxkX3Bvc2l0aW9uLCBsaW5lYXJfZGVwdGgpOwog\nIH0KICBlbHNlIGlmIChzaGFkZXJfcGFzcyA9PSAxKSB7CiAgICBmbG9hdCBkZXB0aCA9IGxpbmVh\ncl9kZXB0aDsKICAgIGdsX0ZyYWdEYXRhWzBdID0gdmVjNChkZXB0aCwgZGVwdGgsIGRlcHRoLCAx\nLjApOwogIH0KICBlbHNlIGlmIChzaGFkZXJfcGFzcyA9PSAyKSB7CiAgICAvLyBsaWdodCBwZXJz\ncGVjdGl2ZSBwYXNzCiAgICB2ZWMyIHRjb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGds\nX0ZyYWdDb29yZC54eSk7CiAgICB2ZWM0IHNwYWNlID0gdGV4dHVyZTJEKHNwYXRpYWxfdGV4dHVy\nZSwgdGNvb3Jkcyk7CiAgICBpZiAoc3BhY2UudyA9PSAtMS4wKSB7CiAgICAgIGRpc2NhcmQ7CiAg\nICB9CiAgICBlbHNlIHsKICAgICAgZmxvYXQgbGlnaHQgPSBpbGx1bWluYXRpb24oc3BhY2UueHl6\nLCBzcGFjZS53KTsKICAgICAgZ2xfRnJhZ0RhdGFbMF0gPSB2ZWM0KGxpZ2h0LCBsaWdodCwgbGln\naHQsIDEuMCk7CiAgICB9CiAgfQogIGVsc2UgaWYgKHNoYWRlcl9wYXNzID09IDMpIHsKICAgIC8v\nIGNvbWJpbmUgdGhlIGxpZ2h0aW5nIGFuZCBkaWZmdXNlIHBhc3NlcyBhbmQgZGlzcGxheQogICAg\ndmVjMiB0Y29vcmRzID0gbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkpOwog\nICAgdmVjNCBkaWZmdXNlID0gdGV4dHVyZTJEKGRpZmZ1c2VfdGV4dHVyZSwgdGNvb3Jkcyk7CiAg\nICBpZiAoZGlmZnVzZS53ID09IC0xLjApIHsKICAgICAgZGlzY2FyZDsKICAgIH0KICAgIHZlYzQg\nbGlnaHRtYXAgPSB0ZXh0dXJlMkQobGlnaHRfdGV4dHVyZSwgdGNvb3Jkcyk7CiAgICB2ZWMzIHNo\nYWRvdyA9IGRpZmZ1c2UucmdiICogMC4yOwogICAgdmVjMyBjb2xvciA9IG1peChzaGFkb3csIGRp\nZmZ1c2UucmdiLCBsaWdodG1hcC5yZ2IpOwogICAgZ2xfRnJhZ0RhdGFbMF0gPSB2ZWM0KGNvbG9y\nLCAxLjApOwogIH0KfQo=\n", "picking.frag": "CnZhcnlpbmcgdmVjMyBsb2NhbF9wb3NpdGlvbjsKdW5pZm9ybSB2ZWMzIG9iamVjdF9pbmRleDsK\ndW5pZm9ybSBib29sIG1ncmxfc2VsZWN0X21vZGU7CnVuaWZvcm0gdmVjMyBtZ3JsX21vZGVsX2xv\nY2FsX21pbjsKdW5pZm9ybSB2ZWMzIG1ncmxfbW9kZWxfbG9jYWxfc2l6ZTsKCgp2b2lkIG1haW4o\ndm9pZCkgewogIGlmIChtZ3JsX3NlbGVjdF9tb2RlKSB7CiAgICBnbF9GcmFnQ29sb3IgPSB2ZWM0\nKG9iamVjdF9pbmRleCwgMS4wKTsKICB9CiAgZWxzZSB7CiAgICB2ZWMzIHNoaWZ0ZWQgPSBsb2Nh\nbF9wb3NpdGlvbiAtIG1ncmxfbW9kZWxfbG9jYWxfbWluOwogICAgdmVjMyBzY2FsZWQgPSBzaGlm\ndGVkIC8gbWdybF9tb2RlbF9sb2NhbF9zaXplOwogICAgZ2xfRnJhZ0NvbG9yID0gdmVjNChzY2Fs\nZWQsIDEuMCk7CiAgfTsKfQo=\n", "scatter_blur.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gZmxvYXQgYmx1cl9yYWRpdXM7CnVuaWZvcm0gZmxvYXQgc2Ft\ncGxlczsKCmNvbnN0IGZsb2F0IG1heF9zYW1wbGVzID0gMzIuMDsKY29uc3QgZmxvYXQgdHdvX3Bp\nID0gNi4yODMxODUzMDcxODsKCgppbmNsdWRlKCJub3JtYWxpemVfc2NyZWVuX2Nvb3JkLmdsc2wi\nKTsKCgp2ZWMyIHNjcmVlbl9jbGFtcCh2ZWMyIGNvb3JkKSB7CiAgcmV0dXJuIGNsYW1wKGNvb3Jk\nLCB2ZWMyKDAuMCwgMC4wKSwgZ2xfRnJhZ0Nvb3JkLnh5KTsKfQoKCnZlYzIgcHJuZyh2ZWMyIGNv\nKSB7CiAgdmVjMiBhID0gZnJhY3QoY28ueXggKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7CiAgdmVj\nMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSArIGRvdChh\nLnl4LCBiKTsKICAvL3JldHVybiBmcmFjdChjLnggKiBjLnkgKiA5NS40MzM3KTsKICByZXR1cm4g\nZnJhY3QodmVjMihjLngqYy55Kjk1LjQzMzcsIGMueCpjLnkqOTcuNTk3KSk7Cn0KCgpmbG9hdCBw\ncm5nKGZsb2F0IG4pewogIHZlYzIgYSA9IGZyYWN0KG4gKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7\nCiAgdmVjMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSAr\nIGRvdChhLnl4LCBiKTsKICByZXR1cm4gZnJhY3QoYy54ICogYy55ICogOTUuNDMzNyk7Cn0KCgp2\nb2lkIG1haW4odm9pZCkgewogIGZsb2F0IGNvdW50ID0gMC4wOwogIHZlYzQgY29sb3IgPSB2ZWM0\nKDAuMCwgMC4wLCAwLjAsIDAuMCk7CgogIGZsb2F0IHgsIHksIHJhZGl1czsKICBmbG9hdCBhbmds\nZSA9IHR3b19waSAqIHBybmcoZ2xfRnJhZ0Nvb3JkLnh5KS54OwogIGZsb2F0IGFuZ2xlX3N0ZXAg\nPSB0d29fcGkgLyBzYW1wbGVzOwogIAogIGZvciAoZmxvYXQgaT0wLjA7IGk8bWF4X3NhbXBsZXM7\nIGkrPTEuMCkgewogICAgcmFkaXVzID0gYmx1cl9yYWRpdXMgKiBwcm5nKGFuZ2xlKTsKICAgIHgg\nPSBnbF9GcmFnQ29vcmQueCArIGNvcyhhbmdsZSkqcmFkaXVzOwogICAgeSA9IGdsX0ZyYWdDb29y\nZC55ICsgc2luKGFuZ2xlKSpyYWRpdXM7CiAgICBhbmdsZSArPSBhbmdsZV9zdGVwOwogICAgaWYg\nKHggPCAwLjAgfHwgeSA8IDAuMCB8fCB4ID49IG1ncmxfYnVmZmVyX3dpZHRoIHx8IHkgPj0gbWdy\nbF9idWZmZXJfaGVpZ2h0KSB7CiAgICAgIGNvbnRpbnVlOwogICAgfQogICAgY29sb3IgKz0gdGV4\ndHVyZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQodmVjMih4LCB5KSkp\nOwogICAgY291bnQgKz0gMS4wOwogICAgaWYgKGNvdW50ID49IHNhbXBsZXMpIHsKICAgICAgYnJl\nYWs7CiAgICB9CiAgfQogIAogIGlmIChjb3VudCA9PSAwLjApIHsKICAgIGNvbG9yID0gdGV4dHVy\nZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nvb3JkLnh5\nKSk7CiAgICBjb3VudCA9IDEuMDsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3IgLyBjb3VudDsK\nfQo=\n"};
     please.prop_map(please.__bundled_glsl, function (name, src) {
         addEventListener("mgrl_gl_context_created", function () {
             // see m.media.js's please.media.handlers.glsl for reference:
