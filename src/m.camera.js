@@ -240,7 +240,9 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
         return this.__view_matrix_cache;
     }
     else {
-        return this.__world_matrix_driver();
+        // theoretically, __world_matrix_driver should be what we want
+        // here, but that doesn't actually work right >_>
+        throw new Error("Manually orienting cameras is not yet supported :(");
     }
 };
 

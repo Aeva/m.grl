@@ -375,9 +375,7 @@ please.GraphNode = function () {
 
     // Called after the animatable property's setter to 
     var rotation_hook = function (target, prop, obj) {
-        console.info("rotation hook triggered");
         if (prop !== rotation_mode) {
-            console.info("contradiction found");
             rotation_mode = prop;
             clear_caches();
             if (prop === "rotation") {
