@@ -879,9 +879,14 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
     var target = proxy ? proxy : obj;
 
     // Create the cache object if it does not yet exist.
-    please.__setup_ani_data(obj);    
-    var cache = obj.__ani_cache;
-    var store = obj.__ani_store;
+    please.__setup_ani_data(obj);
+
+    // HACK: originally these define statements just set 'cache' and 'store'
+    // to equal 'obj.__ani_cache' and 'obj.__ani_store', but
+    // store==obj.__ani_store is false now when evaluated in the
+    // getter/setters.  I have *no idea why this is*.
+#define cache obj.__ani_cache
+#define store obj.__ani_store
 
     // Determine the swizzle handles.
     if (!swizzle) {
@@ -1026,4 +1031,6 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
     if (initial) {
         target[prop] = initial;
     }
+#undef cache
+#undef store
 };
