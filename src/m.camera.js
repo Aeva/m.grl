@@ -82,6 +82,12 @@ please.CameraNode = function () {
     please.GraphNode.call(this);
     this.__is_camera = true;
 
+    // These variables are used by the __view_matrix_driver function
+    // defined a ways below.  They are defined here so they do not
+    // need to be reallocated every frame.
+    this.__view_matrix_cache = mat4.create();
+    this.__virtual_location = vec3.create();
+
 #ifdef WEBGL
     if (please.renderer.name === "gl") {
         // code specific to the webgl renderer
@@ -148,6 +154,16 @@ please.CameraNode.prototype.__focal_distance = function () {
 };
 
 
+// sets the look_at channels to null, so that the camera may be
+// manually oriented
+please.CameraNode.prototype.unfocus = function () {
+    this.look_at = [null, null, null];
+    var rotation = mat3.fromMat4(
+        mat3.create(), demo.main.camera.__view_matrix_cache);
+    this.quaternion = quat.fromMat3(quat.create(), rotation)
+};
+
+
 please.CameraNode.prototype.has_focal_point = function () {
     return this.look_at[0] !== null || this.look_at[1] !== null || this.look_at[2] !== null;
 };
@@ -196,39 +212,39 @@ please.CameraNode.prototype.set_orthographic = function() {
 };
 
 
+// This overrides the standard worldmatrix driver with camera-specific
+// behavior.
 please.CameraNode.prototype.__view_matrix_driver = function () {
-    var local_matrix = mat4.create();
-    var world_matrix = mat4.create();
-
-    var location = this.location;
-    var look_at = this.look_at;
-    var up_vector = this.up_vector;
+    var parent = this.parent;
 
     if (this.has_focal_point()) {
+        var location;
+        var look_at = this.look_at;
+        var up_vector = this.up_vector;
+        
+        if (parent) {
+            location = vec3.transformMat4(
+                this.__virtual_location, this.location, parent.shader.world_matrix);
+        }
+        else {
+            location = this.location;
+        }
+
         mat4.lookAt(
-            local_matrix,
+            this.__view_matrix_cache,
             location,
             look_at,
             up_vector);
+
+        this.__view_matrix_cache.dirty = true;
+        return this.__view_matrix_cache;
     }
     else {
-        if (!(parent && parent.is_bone)) {
-            mat4.fromRotationTranslation(
-                local_matrix, this.quaternion, this.location);            
-        }
-        // mat4.translate(local_matrix, local_matrix, this.location);
-        // mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
-        // mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
-        // mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
-        mat4.scale(local_matrix, local_matrix, this.scale);
+        // theoretically, __world_matrix_driver should be what we want
+        // here, but that doesn't actually work right >_>
+        throw new Error("Manually orienting cameras is not yet supported :(");
     }
-    var parent = this.parent;
-    var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
-    mat4.multiply(world_matrix, parent_matrix, local_matrix);
-    world_matrix.dirty = true;
-    return world_matrix;
 };
-
 
 
 please.CameraNode.prototype.update_camera = function () {

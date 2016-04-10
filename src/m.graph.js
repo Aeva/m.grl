@@ -420,6 +420,8 @@ please.GraphNode = function () {
             var old_data = this.__ani_store;
             this.__ani_store = {};
             this.shader = {};
+            this.__local_matrix_cache = mat4.create();
+            this.__world_matrix_cache = mat4.create();
             please.make_animatable(
                 this, "world_matrix", this.__world_matrix_driver, this.shader, true);
             please.make_animatable(
@@ -617,15 +619,21 @@ please.GraphNode.prototype = {
     },
     "__world_matrix_driver" : function () {
         var parent = this.parent;
-        var local_matrix = mat4.create();
-        var world_matrix = mat4.create();
+        var local_matrix = mat4.identity(this.__local_matrix_cache);
         mat4.fromRotationTranslation(
             local_matrix, this.quaternion, this.location);
         mat4.scale(local_matrix, local_matrix, this.scale);
-        var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
-        mat4.multiply(world_matrix, parent_matrix, local_matrix);
-        world_matrix.dirty = true;
-        return world_matrix;
+        if (parent) {
+            var world_matrix = mat4.identity(this.__world_matrix_cache);
+            var parent_matrix = parent.shader.world_matrix;
+            mat4.multiply(world_matrix, parent_matrix, local_matrix);
+            world_matrix.dirty = true;
+            return world_matrix;
+        }
+        else {
+            local_matrix.dirty = true;
+            return local_matrix;
+        }
     },
     "__normal_matrix_driver" : function () {
         var normal_matrix = mat3.create();

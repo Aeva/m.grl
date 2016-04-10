@@ -970,8 +970,10 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
     var target = proxy ? proxy : obj;
     // Create the cache object if it does not yet exist.
     please.__setup_ani_data(obj);
-    var cache = obj.__ani_cache;
-    var store = obj.__ani_store;
+    // HACK: originally these define statements just set 'cache' and 'store'
+    // to equal 'obj.__ani_cache' and 'obj.__ani_store', but
+    // store==obj.__ani_store is false now when evaluated in the
+    // getter/setters.  I have *no idea why this is*.
     // Determine the swizzle handles.
     if (!swizzle) {
         swizzle = "xyz";
@@ -985,8 +987,8 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
     for (var i=0; i<cache_lines.length; i+=1) {
         // Add cache lines for this property set.
         var line_name = cache_lines[i];
-        if (!cache[line_name]) {
-            Object.defineProperty(cache, line_name, {
+        if (!obj.__ani_cache[line_name]) {
+            Object.defineProperty(obj.__ani_cache, line_name, {
                 enumerable: true,
                 writable: true,
                 value: null,
@@ -997,15 +999,15 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
     var last_focus = 0;
     var last_channel = [0, 0, 0];
     // Local data stores.
-    if (!store[prop + "_" + swizzle]) {
-        Object.defineProperty(store, prop+"_"+swizzle, {
+    if (!obj.__ani_store[prop + "_" + swizzle]) {
+        Object.defineProperty(obj.__ani_store, prop+"_"+swizzle, {
             enumerable: true,
             writable: true,
             value: [0, 0, 0],
         });
     }
-    if (!store[prop + "_focus"]) {
-        Object.defineProperty(store, prop+"_focus", {
+    if (!obj.__ani_store[prop + "_focus"]) {
+        Object.defineProperty(obj.__ani_store, prop+"_focus", {
             enumerable: true,
             writable: true,
             value: null,
@@ -1014,36 +1016,36 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
     // Add getters and setters for the individual channels.
     var channel_getter = function (i) {
         return function () {
-            if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
+            if (obj.__ani_store[prop+"_focus"] && typeof(obj.__ani_store[prop+"_focus"]) === "function") {
                 return target[prop][i];
             }
-            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("world_location")) {
-                return store[prop+"_focus"].world_location[i];
+            else if (obj.__ani_store[prop+"_focus"] && obj.__ani_store[prop+"_focus"].hasOwnProperty("world_location")) {
+                return obj.__ani_store[prop+"_focus"].world_location[i];
             }
             else {
-                if (typeof(store[prop+"_"+swizzle][i]) === "function") {
+                if (typeof(obj.__ani_store[prop+"_"+swizzle][i]) === "function") {
                     // determine if the cached value is too old
-                    if (cache[handles[i]] === null || please.pipeline.__framestart > last_channel[i]) {
-                        cache[handles[i]] = store[prop+"_"+swizzle][i].call(obj);
+                    if (obj.__ani_cache[handles[i]] === null || please.pipeline.__framestart > last_channel[i]) {
+                        obj.__ani_cache[handles[i]] = obj.__ani_store[prop+"_"+swizzle][i].call(obj);
                         last_channel[i] = please.pipeline.__framestart;
                     }
-                    return cache[handles[i]];
+                    return obj.__ani_cache[handles[i]];
                 }
                 else {
-                    return store[prop+"_"+swizzle][i];
+                    return obj.__ani_store[prop+"_"+swizzle][i];
                 }
             }
         };
     };
     var channel_setter = function (i) {
         return function(value) {
-            cache[prop] = null;
-            cache[handles[i]] = null;
-            store[prop+"_"+swizzle][i] = value;
+            obj.__ani_cache[prop] = null;
+            obj.__ani_cache[handles[i]] = null;
+            obj.__ani_store[prop+"_"+swizzle][i] = value;
             if (typeof(write_hook) === "function") {
                 write_hook(target, prop, obj);
             }
-            if (store[prop+"_focus"]) {
+            if (obj.__ani_store[prop+"_focus"]) {
                 console.warn("A driver has been set to this multi-channel property already, so no changes will be visible until it is canceled by setting the property to null.");
             }
             return value;
@@ -1060,15 +1062,15 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
     Object.defineProperty(target, prop, {
         enumerable : true,
         get : function () {
-            if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
-                if (cache[prop] === null || please.pipeline.__framestart > last_focus) {
-                    cache[prop] = store[prop+"_focus"].call(obj);
+            if (obj.__ani_store[prop+"_focus"] && typeof(obj.__ani_store[prop+"_focus"]) === "function") {
+                if (obj.__ani_cache[prop] === null || please.pipeline.__framestart > last_focus) {
+                    obj.__ani_cache[prop] = obj.__ani_store[prop+"_focus"].call(obj);
                     last_focus = please.pipeline.__framestart
                 }
-                return cache[prop];
+                return obj.__ani_cache[prop];
             }
-            else if (store[prop+"_focus"] && store[prop+"_focus"].hasOwnProperty("world_location")) {
-                return store[prop+"_focus"].world_location;
+            else if (obj.__ani_store[prop+"_focus"] && obj.__ani_store[prop+"_focus"].hasOwnProperty("world_location")) {
+                return obj.__ani_store[prop+"_focus"].world_location;
             }
             else {
                 var out = [];
@@ -1082,18 +1084,18 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
             }
         },
         set : function (value) {
-            cache[prop] = null;
+            obj.__ani_cache[prop] = null;
             if (value === null || value === undefined) {
-                store[prop+"_focus"] = null;
+                obj.__ani_store[prop+"_focus"] = null;
             }
             else if (typeof(value) === "function") {
-                store[prop+"_focus"] = value;
+                obj.__ani_store[prop+"_focus"] = value;
             }
             else if (value.hasOwnProperty("location")) {
-                store[prop+"_focus"] = value;
+                obj.__ani_store[prop+"_focus"] = value;
             }
             else if (value.length) {
-                store[prop+"_focus"] = null;
+                obj.__ani_store[prop+"_focus"] = null;
                 for (var i=0; i<value.length; i+=1) {
                     target[handles[i]] = value[i];
                 }
@@ -7958,6 +7960,8 @@ please.GraphNode = function () {
             var old_data = this.__ani_store;
             this.__ani_store = {};
             this.shader = {};
+            this.__local_matrix_cache = mat4.create();
+            this.__world_matrix_cache = mat4.create();
             please.make_animatable(
                 this, "world_matrix", this.__world_matrix_driver, this.shader, true);
             please.make_animatable(
@@ -8146,15 +8150,21 @@ please.GraphNode.prototype = {
     },
     "__world_matrix_driver" : function () {
         var parent = this.parent;
-        var local_matrix = mat4.create();
-        var world_matrix = mat4.create();
+        var local_matrix = mat4.identity(this.__local_matrix_cache);
         mat4.fromRotationTranslation(
             local_matrix, this.quaternion, this.location);
         mat4.scale(local_matrix, local_matrix, this.scale);
-        var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
-        mat4.multiply(world_matrix, parent_matrix, local_matrix);
-        world_matrix.dirty = true;
-        return world_matrix;
+        if (parent) {
+            var world_matrix = mat4.identity(this.__world_matrix_cache);
+            var parent_matrix = parent.shader.world_matrix;
+            mat4.multiply(world_matrix, parent_matrix, local_matrix);
+            world_matrix.dirty = true;
+            return world_matrix;
+        }
+        else {
+            local_matrix.dirty = true;
+            return local_matrix;
+        }
     },
     "__normal_matrix_driver" : function () {
         var normal_matrix = mat3.create();
@@ -8735,6 +8745,11 @@ addEventListener("mgrl_gl_context_created", function (event) {
 please.CameraNode = function () {
     please.GraphNode.call(this);
     this.__is_camera = true;
+    // These variables are used by the __view_matrix_driver function
+    // defined a ways below.  They are defined here so they do not
+    // need to be reallocated every frame.
+    this.__view_matrix_cache = mat4.create();
+    this.__virtual_location = vec3.create();
     if (please.renderer.name === "gl") {
         // code specific to the webgl renderer
         please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
@@ -8785,6 +8800,14 @@ please.CameraNode.prototype.__focal_distance = function () {
     // the distance between "look_at" and "location"
     return vec3.distance(this.location, this.look_at);
 };
+// sets the look_at channels to null, so that the camera may be
+// manually oriented
+please.CameraNode.prototype.unfocus = function () {
+    this.look_at = [null, null, null];
+    var rotation = mat3.fromMat4(
+        mat3.create(), demo.main.camera.__view_matrix_cache);
+    this.quaternion = quat.fromMat3(quat.create(), rotation)
+};
 please.CameraNode.prototype.has_focal_point = function () {
     return this.look_at[0] !== null || this.look_at[1] !== null || this.look_at[2] !== null;
 };
@@ -8821,35 +8844,34 @@ please.CameraNode.prototype.set_orthographic = function() {
     this.__projection_mode = "orthographic";
     this.mark_dirty();
 };
+// This overrides the standard worldmatrix driver with camera-specific
+// behavior.
 please.CameraNode.prototype.__view_matrix_driver = function () {
-    var local_matrix = mat4.create();
-    var world_matrix = mat4.create();
-    var location = this.location;
-    var look_at = this.look_at;
-    var up_vector = this.up_vector;
+    var parent = this.parent;
     if (this.has_focal_point()) {
+        var location;
+        var look_at = this.look_at;
+        var up_vector = this.up_vector;
+        if (parent) {
+            location = vec3.transformMat4(
+                this.__virtual_location, this.location, parent.shader.world_matrix);
+        }
+        else {
+            location = this.location;
+        }
         mat4.lookAt(
-            local_matrix,
+            this.__view_matrix_cache,
             location,
             look_at,
             up_vector);
+        this.__view_matrix_cache.dirty = true;
+        return this.__view_matrix_cache;
     }
     else {
-        if (!(parent && parent.is_bone)) {
-            mat4.fromRotationTranslation(
-                local_matrix, this.quaternion, this.location);
-        }
-        // mat4.translate(local_matrix, local_matrix, this.location);
-        // mat4.rotateX(local_matrix, local_matrix, please.radians(this.rotation_x));
-        // mat4.rotateY(local_matrix, local_matrix, please.radians(this.rotation_y));
-        // mat4.rotateZ(local_matrix, local_matrix, please.radians(this.rotation_z));
-        mat4.scale(local_matrix, local_matrix, this.scale);
+        // theoretically, __world_matrix_driver should be what we want
+        // here, but that doesn't actually work right >_>
+        throw new Error("Manually orienting cameras is not yet supported :(");
     }
-    var parent = this.parent;
-    var parent_matrix = parent ? parent.shader.world_matrix : mat4.create();
-    mat4.multiply(world_matrix, parent_matrix, local_matrix);
-    world_matrix.dirty = true;
-    return world_matrix;
 };
 please.CameraNode.prototype.update_camera = function () {
     // Calculate the arguments common to both projection functions.
