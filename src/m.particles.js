@@ -181,7 +181,7 @@ please.ParticleEmitter.prototype.draw = function () {
     var prog = please.gl.get_program();
     var tracker = this.__tracker;
     var particle = tracker.view;
-    var now = please.pipeline.__framestart;
+    var now = please.time.__framestart;
     var delta = now - tracker.last;
     var age;
     tracker.last = now;

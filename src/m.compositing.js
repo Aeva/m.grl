@@ -51,6 +51,7 @@
 please.RenderNode = function (prog, options) {
     console.assert(this !== window);
     prog = typeof(prog) === "string" ? please.gl.get_program(prog) : prog;
+    this.__is_render_node = true;
 
     // UUID, used to provide a uri handle for indirect rendering.
     Object.defineProperty(this, "__id", {
@@ -157,12 +158,30 @@ please.RenderNode.prototype = {
 };
 
 
+// [+] please.set_viewport(render_node)
+//
+// Designate a particular RenderNode to be the rendering output.  You
+// can pass null to disable this mechanism if you want to override
+// m.grl's rendering management system, which you probably don't want
+// to do.
+//
+please.__compositing_viewport = null;
+please.set_viewport = function (node) {
+    if (!!node && node.__is_render_node) {
+        please.__compositing_viewport = node;
+    }
+    else {
+        please.__compositing_viewport = null;
+    }
+};
+
+
 // [+] please.render(node)
 //
 // Renders the compositing tree.
 //
 please.render = function(node) {
-    var expire = arguments[1] || please.pipeline.__framestart;
+    var expire = arguments[1] || please.time.__framestart;
     var stack = arguments[2] || [];
     if (stack.indexOf(node)>=0) {
         throw new Error("M.GRL doesn't currently suport render graph cycles.");
@@ -177,7 +196,7 @@ please.render = function(node) {
         return node.__cached;
     }
     else {
-        node.__last_framestart = please.pipeline.__framestart;
+        node.__last_framestart = please.time.__framestart;
     }
 
     // peek method on the render node can be used to allow the node to exclude

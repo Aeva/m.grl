@@ -42,63 +42,6 @@
  * are always evaluated.  If such a driver function attempts to read
  * from another driver function, then that driver is evaluated (and
  * cached, so the value doesn't change again this frame), and so on.
- *
- * ```
- * // A scene graph instance
- * var scene_graph = new please.SceneGraph();
- *
- * // A drawable graph node.  You can instance gani and image files, too!
- * var character_model = please.access("alice.jta").instance();
- * character_model.rotation_z = function () { return performance.now()/100; };
- * 
- * // The focal point of the camera
- * var camera_target = new please.GraphNode();
- * camera_target.location_z = 2;
- * 
- * // An empty that has the previous two graph nodes as its children
- * // The game logic would move this node.
- * var character_base = new please.GraphNode();
- *
- * // Populate the graph
- * scene_graph.add(character_base);
- * character_base.add(character_model);
- * character_base.add(camera_target);
- *
- * // Add a camera object that automatically points at particular
- * // graph node.  If is more than one camera in the graph, then you
- * // will need to explicitly call the camera's "activate" method to
- * // have predictable behavior.
- * var camera = new please.CameraNode();
- * graph.add(camera);
- * camera.look_at = camera_target;
- * camera.location = [10, -10, 10];
- *
- * // Register a render pass with the scheduler (see m.multipass.js)
- * please.pipeline.add(10, "graph_demo/draw", function () {
- *    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
- *
- *    // This line may be called repeatedly to draw the current
- *    // snapshot of the graph multiple times the same way.
- *    scene_graph.draw();
- *
- * });
- *
- * // Register a second render pass that will also draw the scene_graph
- * please.pipeline.add(20, "graph_demo/fancy", function () {
- *
- *    // You can call .draw() as many times as you like per frame.
- *    // Both of these pipeline stages are in the same "frame".  You
- *    // can take advantage of this to do post processing effects with
- *    // the stencil buffer, shaders, and/or indirect rendering
- *    // targets!
- *
- *    scene_graph.draw();
- *
- * });
- *
- * // Start the render loop
- * please.pipeline.start();
- * ```
  */
 
 
@@ -783,13 +726,6 @@ please.GraphNode.prototype = {
 // called as many times as you like per frame.  Normally the usage of
 // this will look something like the following example:
 //
-// ```
-// please.pipeline.add(10, "graph_demo/draw", function () {
-//    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-//    scene_graph.draw();
-// });
-// ```
-//
 please.SceneGraph = function () {
     please.GraphNode.call(this);
     please.graph_index.roots.push(this);
@@ -880,7 +816,7 @@ please.SceneGraph = function () {
     
 #ifdef WEBGL
     var gl_tick = function () {
-        this.__last_framestart = please.pipeline.__framestart;
+        this.__last_framestart = please.time.__framestart;
 
         // nodes in the z-sorting path
         this.__alpha = [];
@@ -914,7 +850,7 @@ please.SceneGraph = function () {
     };
 
     var gl_draw = function (exclude_test) {
-        if (this.__last_framestart < please.pipeline.__framestart) {
+        if (this.__last_framestart < please.time.__framestart) {
             // note, this.__last_framestart can be null, but
             // null<positive_number will evaluate to true anyway.
             this.tick();
@@ -981,10 +917,10 @@ please.SceneGraph = function () {
     
 #ifdef DOM
     var dom_draw = function () {
-        if (this.__last_framestart < please.pipeline.__framestart) {
+        if (this.__last_framestart < please.time.__framestart) {
             // note, this.__last_framestart can be null, but
             // null<positive_number will evaluate to true anyway.
-            this.__last_framestart = please.pipeline.__framestart;
+            this.__last_framestart = please.time.__framestart;
         }
         if (this.camera) {
             this.camera.update_camera();

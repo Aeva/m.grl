@@ -345,7 +345,7 @@ please.CameraNode.prototype.update_camera = function () {
 // Ideally, the StereoCamera object should be the object that you
 // orient to change the viewpoint of both cameras, and that the sub
 // cameras themselves are what is activated for the purpose of saving
-// color buffers.  A simple pipeline can be constructed from this to
+// color buffers.
 //
 // If the StereoCamera's "look_at" value is set to something other
 // than [null, null, null], the child CameraNode objects will
@@ -359,33 +359,6 @@ please.CameraNode.prototype.update_camera = function () {
 // Take care that camera.focal_distance never gets too low, or you can
 // cause uneccesary eye strain on your viewer and make your program
 // inaccessible to users with convergence insufficiency.
-//
-// Further usage:
-// ```
-// var camera = new please.StereoCamera();
-//
-// // ...
-//
-// please.pipeline.add(10, "vr/left_eye", function () {
-//     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-//     camera.left.activate();
-//     graph.draw();
-// }).as_texture({width: 1024, height: 1024});
-//
-// please.pipeline.add(10, "vr/right_eye", function () {
-//     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-//     camera.right.activate();
-//     graph.draw();
-// }).as_texture({width: 1024, height: 1024});
-//
-// please.pipeline.add(20, "vr/display", function () {
-//     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-//     prog.samplers.left_eye = "vr/left_eye";
-//     prog.samplers.right_eye = "vr/right_eye";
-//     prog.vars.mode = 1.0; // to indicate between color split & other modes
-//     please.gl.splat();
-// });
-// ```
 //
 please.StereoCamera = function () {
     please.CameraNode.call(this);
