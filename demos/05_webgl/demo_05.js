@@ -20,6 +20,38 @@
 
  Have a nice day! ^_^
 
+*/
+
+/*
+
+
+
+
+  ---> WARNING:
+
+  This code is very old.  It is not representative of how programs
+  should utilize M.GRL anymore.  It is strongly advised that you do
+  not use this as a reference for how your code should be written.
+
+  APIs used in the code below may be deprecated, and this demo might
+  be either re-written or removed entirely in the future.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
  */
 
 
@@ -95,11 +127,16 @@ addEventListener("mgrl_media_ready", function () {
     var cube = create_cube();
 
     /*
-      Last is to register a render pass with the scheduler, and start
-      the scheduler.
-    */
-  
-    please.pipeline.add(1, "demo_05/draw", function () {
+      Last, we want to draw something every frame.  The mechanism
+      shown below overrides M.GRL's compositing system.  In practice,
+      you really shouldn't schedule events this way, and that you
+      should use a RenderNode with please.set_viewport.
+
+      If you really want to eschew all the nice highlevel
+      functionality provided by M.GRL, this is the way to do it :P
+     */
+    
+    please.time.__frame.register(1, "demo_05/draw", function () {
         // -- calculate a rotation value based on the elapsed time:
         var mark = performance.now();
         var rotation = mark/8; // every 8ms = 1degree
@@ -134,8 +171,6 @@ addEventListener("mgrl_media_ready", function () {
         //     attribute_var, data period/size, type, "normalized", stride, start_index)
         // gl.drawElements(draw_type, element_count, data_type, start_index)
     });
-
-    please.pipeline.start();
 });
 
 

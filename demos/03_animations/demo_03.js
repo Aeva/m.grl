@@ -21,6 +21,38 @@
 
  */
 
+/*
+
+
+
+
+  ---> WARNING:
+
+  This code is very old.  It is not representative of how programs
+  should utilize M.GRL anymore.  It is strongly advised that you do
+  not use this as a reference for how your code should be written.
+
+  APIs used in the code below may be deprecated, and this demo might
+  be either re-written or removed entirely in the future.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ */
+
 
 var write = function (msg) {
     document.getElementById("console").innerHTML += msg + "<br/>";
@@ -201,7 +233,6 @@ addEventListener("mgrl_media_ready", function () {
 
 
 addEventListener("load", function () {
-    please.pipeline.start();
     please.set_search_path("img", "../lpc_assets/sprites/");
     please.set_search_path("gani", "../lpc_assets/keyframes/");
     please.set_search_path("audio", "../lpc_assets/sounds/");

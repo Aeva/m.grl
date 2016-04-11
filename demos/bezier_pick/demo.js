@@ -48,7 +48,8 @@ addEventListener("load", function() {
     please.load("gavroche.jta");
     please.load("floor_lamp.jta");
 
-    show_progress();
+    // add a loading screen
+    please.set_viewport(new please.LoadingScreen());
 });
 
 
@@ -75,13 +76,10 @@ addEventListener("mgrl_fps", function (event) {
 
 
 addEventListener("mgrl_media_ready", please.once(function () {
-    // Clear loading screen, show canvas
-    document.getElementById("loading_screen").style.display = "none";
-    document.getElementById("demo_area").style.display = "block";
-
     // Build the custom shader used by this demo
-    var prog = please.glsl("demo", "demo.vert", "demo.frag");
+    var prog = please.glsl("custom", "demo.vert", "demo.frag");
     prog.activate();
+
     
     // access model data
     var lamp_model = please.access("floor_lamp.jta");
@@ -204,18 +202,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
 
     // add a RenderNode for displaying things
-    demo.viewport = new please.RenderNode("demo");
-    demo.viewport.graph = demo.graph;
-    demo.viewport.shader.light_direction = light_direction;
-    
-
-    // register a render pass with the scheduler
-    please.pipeline.add(10, "project/draw", function () {
-        please.render(demo.viewport);
-    }).skip_when(function () { return demo.viewport === null; });
-
-    // start the drawing loop
-    please.pipeline.start();
+    var renderer = new please.RenderNode("custom");
+    renderer.graph = demo.graph;
+    renderer.shader.light_direction = light_direction;
+    please.set_viewport(renderer);
 }));
 
 

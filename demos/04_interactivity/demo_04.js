@@ -22,6 +22,38 @@
 
  */
 
+/*
+
+
+
+
+  ---> WARNING:
+
+  This code is very old.  It is not representative of how programs
+  should utilize M.GRL anymore.  It is strongly advised that you do
+  not use this as a reference for how your code should be written.
+
+  APIs used in the code below may be deprecated, and this demo might
+  be either re-written or removed entirely in the future.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ */
+
 
 addEventListener("mgrl_fps", function (event) {
     document.getElementById("fps").innerHTML = event.detail;
@@ -438,7 +470,6 @@ addEventListener('mgrl_media_ready', function () {
 
 
 addEventListener("load", function () {
-    please.pipeline.start();
     please.media.search_paths.img = "../lpc_assets/sprites/";
     please.media.search_paths.gani = "../lpc_assets/keyframes/";
     please.media.search_paths.audio = "../lpc_assets/sounds/";

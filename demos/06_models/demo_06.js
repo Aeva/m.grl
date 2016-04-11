@@ -26,6 +26,9 @@ addEventListener("load", function() {
     // create the rendering context
     please.gl.set_context("gl_canvas");
 
+    // setup opengl state    
+    gl.enable(gl.CULL_FACE);
+
     // setup asset search paths
     please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "../gl_assets/img/");
@@ -49,25 +52,9 @@ addEventListener("load", function() {
     please.load("mr_squeegee_feet.jta");
     please.load("anitest2.jta");
 
-    show_progress();
+    // add a loading screen
+    please.set_viewport(new please.LoadingScreen());
 });
-
-
-function show_progress() {
-    if (please.media.pending.length > 0) {
-        var progress = please.media.get_progress();
-        if (progress.all > -1) {
-            var bar = document.getElementById("progress_bar");
-            var label = document.getElementById("percent");
-            bar.style.width = "" + progress.all + "%";
-            label.innerHTML = "" + Math.round(progress.all) + "%";
-            var files = please.get_properties(progress.files);
-            var info = document.getElementById("progress_info");
-            info.innerHTML = "" + files.length + " file(s)";
-        }
-        setTimeout(show_progress, 100);
-    }
-};
 
 
 addEventListener("mgrl_fps", function (event) {
@@ -75,41 +62,29 @@ addEventListener("mgrl_fps", function (event) {
 });
 
 
-addEventListener("mgrl_media_ready", function () {
-    // Clear loading screen, show canvas
-    document.getElementById("loading_screen").style.display = "none";
-    document.getElementById("demo_area").style.display = "block";
-
+addEventListener("mgrl_media_ready", please.once(function () {
     // Create GL context, build shader pair
-    var prog = please.glsl("default", "simple.vert", "simple.frag");
+    var prog = please.glsl("custom", "simple.vert", "simple.frag");
     prog.activate();
 
-    // setup opengl state    
-    gl.enable(gl.CULL_FACE);
-    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
+    // Create the renderer
+    var renderer = window.renderer = new please.RenderNode("custom");
+    renderer.clear_color = [0.0, 0.0, 0.0, 0.0];
+    please.set_viewport(renderer);
 
-    // enable alpha blending
-    // gl.enable(gl.BLEND);
-    // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    // set up a directional light
+    var light_direction = vec3.fromValues(.25, -1.0, -.4);
+    vec3.normalize(light_direction, light_direction);
+    vec3.scale(light_direction, light_direction, -1);
+    renderer.shader.light_direction = light_direction;
+
+    // Create the scene graph
+    var graph = window.graph = renderer.graph = new please.SceneGraph();
     
     // access model data
     var gav_model = please.access("gavroche.jta");
     var lamp_model = please.access("floor_lamp.jta");
     var test_model = please.access("mr_squeegee_feet.jta");
-    //var test_model = please.access("graph_test.jta");
-
-    // display licensing meta_data info, where applicable
-    // [gav_model, lamp_model].map(function (scene) {
-    //     var target = document.getElementById("attribution_area");
-    //     target.style.display = "block";
-    //     var div = scene.get_license_html();
-    //     if (div) {
-    //         target.appendChild(div);
-    //     }
-    // });
-
-    // build the scene graph
-    var graph = window.graph = new please.SceneGraph();
 
     // add a bunch of rotating objects
     var rotatoe = new please.GraphNode();
@@ -188,25 +163,7 @@ addEventListener("mgrl_media_ready", function () {
     // only one so it doesn't matter, BUT it is generally good
     // practice to activate the camera you want to use before drawing.
     camera.activate();
-
-    // set up a directional light
-    var light_direction = vec3.fromValues(.25, -1.0, -.4);
-    vec3.normalize(light_direction, light_direction);
-    vec3.scale(light_direction, light_direction, -1);
-    
-    // register a render pass with the scheduler
-    please.pipeline.add(1, "demo_06/draw", function () {
-        // -- update uniforms
-        prog.vars.light_direction = light_direction;
-
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        // -- draw geometry
-        graph.draw();
-    });
-    please.pipeline.start();
-});
+}));
 
 
 var FloorNode = function () {
