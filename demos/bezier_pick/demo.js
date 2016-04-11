@@ -53,23 +53,6 @@ addEventListener("load", function() {
 });
 
 
-function show_progress() {
-    if (please.media.pending.length > 0) {
-        var progress = please.media.get_progress();
-        if (progress.all > -1) {
-            var bar = document.getElementById("progress_bar");
-            var label = document.getElementById("percent");
-            bar.style.width = "" + progress.all + "%";
-            label.innerHTML = "" + Math.round(progress.all) + "%";
-            var files = please.get_properties(progress.files);
-            var info = document.getElementById("progress_info");
-            info.innerHTML = "" + files.length + " file(s)";
-        }
-        setTimeout(show_progress, 100);
-    }
-};
-
-
 addEventListener("mgrl_fps", function (event) {
     document.getElementById("fps").innerHTML = event.detail;
 });
@@ -79,17 +62,14 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // Build the custom shader used by this demo
     var prog = please.glsl("custom", "demo.vert", "demo.frag");
     prog.activate();
-
     
     // access model data
     var lamp_model = please.access("floor_lamp.jta");
     var char_model = please.access("psycho.jta");
     var gavroche_model = please.access("gavroche.jta");
-
     
     // this variable we use to store what is currently selected
     var selected = null;
-
     
     // build the scene graph
     var graph = demo.graph = new please.SceneGraph();
@@ -163,7 +143,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // bezier curve formed by the control point positions
     var bezier_path = please.bezier_path(controls);
 
-
     // add a character to move along the path
     var avatar = please.access("psycho.jta").instance();
     var player = window.player = new please.GraphNode();
@@ -194,12 +173,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
         blobs.push(blob);
     }
 
-
     // set up a directional light
     var light_direction = vec3.fromValues(.25, -1.0, -.4);
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
-
 
     // add a RenderNode for displaying things
     var renderer = new please.RenderNode("custom");

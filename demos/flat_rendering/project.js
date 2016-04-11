@@ -119,14 +119,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
     add_char(0,0);
     add_char(1,1);
     
-
-
     // Transition from the loading screen prefab to our renderer
     //demo.viewport.raise_curtains(demo.main.renderer);
-    please.pipeline.add(10, "project/draw", function () {
+    please.time.__frame.register(10, "project/draw", function () {
         graph.draw();
     })
-
-    // start the rendering pipeline
-    please.pipeline.start();
 }));

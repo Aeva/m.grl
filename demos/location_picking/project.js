@@ -23,8 +23,6 @@
 // local namespace
 var demo = {
     "loading_screen" : null, // loading screen compositing node
-    "viewport" : null, // the render pass that will be rendered
-    "main" : {}, // used for main demo
 };
 
 
@@ -51,18 +49,11 @@ addEventListener("load", function() {
     // the maximum height of said canvas element.  You are responsible
     // for providing the css needed to upsample the canvas, though
     // this project template accomplishes that for you.  See "ui.css".
-    please.pipeline.add_autoscale();
-
-    // register a render pass with the scheduler
-    please.pipeline.add(10, "project/draw", function () {
-        please.render(demo.viewport);
-    }).skip_when(function () { return demo.viewport === null; });
-
-    // start the rendering pipeline
-    please.pipeline.start();
+    please.add_autoscale();
 
     // Show a loading screen
-    demo.viewport = demo.loading_screen = new please.LoadingScreen();
+    demo.loading_screen = new please.LoadingScreen();
+    please.set_viewport(demo.loading_screen);
 });
 
 
@@ -88,13 +79,13 @@ addEventListener("mgrl_media_ready", please.once(function () {
         
     // Initialize a scene graph object, which serves as the container
     // for everything that we want to render in a particular scene.
-    var graph = demo.main.graph = new please.SceneGraph();
+    var graph = demo.graph = new please.SceneGraph();
 
     // Lets define a camera.  In this demo, the camera is going to use
     // orthographic projection, which is useful for creating 2D games.
     // Because everything uses a common rendering system, you can mix
     // 2D and 3D assets.
-    var camera = demo.main.camera = new please.CameraNode();
+    var camera = demo.camera = new please.CameraNode();
     camera.look_at = [2, -2, 2];
     camera.location = [5, -5, 6];
     
@@ -131,7 +122,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     demo.tile_bake = new please.StaticDrawNode(tile_set);
     graph.add(demo.tile_bake);
 
-    var player = demo.main.player = new please.GraphNode();
+    var player = demo.player = new please.GraphNode();
     var model = char_model.instance();
     model.rotation_z = please.repeating_driver(360, 0, 1000);
     model.location_z = please.oscillating_driver(0, .5, 800);
@@ -140,7 +131,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(player);
 
     // add a "gameplay" hint
-    var label = demo.main.label = please.overlay.new_element("text_label");
+    var label = demo.label = please.overlay.new_element("text_label");
     label.hide_when = function () { return demo.loading_screen.is_active; };
     label.innerHTML = "" +
         "Click somewhere in the tiled<br/>" +
@@ -179,10 +170,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // loading screen to it
 
     // Add a renderer using the default shader.
-    var renderer = demo.main.renderer = new please.RenderNode("default");
+    var renderer = demo.renderer = new please.RenderNode("default");
     renderer.clear_color = [.15, .15, .15, 1];
     renderer.graph = graph;
 
     // Transition from the loading screen prefab to our renderer
-    demo.viewport.raise_curtains(demo.main.renderer);
+    please.set_viewport(demo.renderer);
 }));

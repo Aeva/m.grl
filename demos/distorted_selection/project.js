@@ -21,11 +21,7 @@
 
 
 // local namespace
-var demo = {
-    "viewport" : null, // the render pass that will be rendered
-    "loading" : {}, // used by loading screen
-    "main" : {}, // used for main demo
-};
+var demo = {};
 
 
 addEventListener("load", function() {
@@ -58,18 +54,10 @@ addEventListener("load", function() {
     // the maximum height of said canvas element.  You are responsible
     // for providing the css needed to upsample the canvas, though
     // this project template accomplishes that for you.  See "ui.css".
-    please.pipeline.add_autoscale();
-
-    // register a render pass with the scheduler
-    please.pipeline.add(10, "project/draw", function () {
-        please.render(demo.viewport);
-    }).skip_when(function () { return demo.viewport === null; });
-
-    // start the rendering pipeline
-    please.pipeline.start();
+    please.add_autoscale();
 
     // Show a loading screen
-    demo.viewport = new please.LoadingScreen();
+    please.set_viewport(new please.LoadingScreen());
 });
 
 
@@ -95,13 +83,13 @@ addEventListener("mgrl_media_ready", please.once(function () {
         
     // Initialize a scene graph object, which serves as the container
     // for everything that we want to render in a particular scene.
-    var graph = demo.main.graph = new please.SceneGraph();
+    var graph = demo.graph = new please.SceneGraph();
 
     // Lets define a camera.  In this demo, the camera is going to use
     // orthographic projection, which is useful for creating 2D games.
     // Because everything uses a common rendering system, you can mix
     // 2D and 3D assets.
-    var camera = demo.main.camera = new please.CameraNode();
+    var camera = demo.camera = new please.CameraNode();
     camera.look_at = [0, 0, 2];
     camera.location = [0, -8, 2];
     
@@ -187,9 +175,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
     pick_warp.shader.splat_texture = graph.picking.compositing_root;
 
     // Set the render pass to be our main renderer
-    demo.main.renderer = screen_warp;
+    demo.renderer = screen_warp;
     graph.picking.compositing_root = pick_warp;
 
     // Transition from the loading screen prefab to our renderer
-    demo.viewport.raise_curtains(demo.main.renderer);
+    please.set_viewport(demo.renderer);
 }));

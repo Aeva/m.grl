@@ -21,10 +21,7 @@
 
 
 // local namespace
-var demo = {
-    "viewport" : null, // the render pass that will be rendered
-    "main" : {}, // used for main demo
-};
+var demo = {};
 
 
 addEventListener("load", function() {
@@ -59,18 +56,10 @@ addEventListener("load", function() {
     // the maximum height of said canvas element.  You are responsible
     // for providing the css needed to upsample the canvas, though
     // this project template accomplishes that for you.  See "ui.css".
-    please.pipeline.add_autoscale();
-
-    // register a render pass with the scheduler
-    please.pipeline.add(10, "project/draw", function () {
-        please.render(demo.viewport);
-    }).skip_when(function () { return demo.viewport === null; });
-
-    // start the rendering pipeline
-    please.pipeline.start();
+    please.add_autoscale();
 
     // Show a loading screen
-    demo.viewport = new please.LoadingScreen();
+    please.set_viewport(new please.LoadingScreen());
 });
 
 
@@ -88,10 +77,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
     prog.activate();
         
     // Scere Graph object
-    var graph = demo.main.graph = new please.SceneGraph();
+    var graph = demo.graph = new please.SceneGraph();
 
     // Add a camera
-    var camera = demo.main.camera = new please.CameraNode();
+    var camera = demo.camera = new please.CameraNode();
     // camera.look_at = [5, 0, 8];
     // camera.location = [-13.47, -18.97, .9];
     camera.look_at = [5, 0, 7];
@@ -108,7 +97,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // Add a fixture in the middle of the floor
     var lamp = please.access("lamp_post.jta").instance();
     graph.add(lamp);
-    demo.main.lamp = lamp;
+    demo.lamp = lamp;
     lamp.shader.is_floor = false;
     lamp.use_manual_cache_invalidation();
 
@@ -117,15 +106,15 @@ addEventListener("mgrl_media_ready", please.once(function () {
     fountain.scale = [1.5, 1.5, 1.5];
     fountain.max_fps = 24.0;
     graph.add(fountain);
-    demo.main.fountain = fountain;
+    demo.fountain = fountain;
     
     // Add a renderer using the default shader.
-    var renderer = demo.main.renderer = new please.RenderNode("default");
+    var renderer = demo.renderer = new please.RenderNode("default");
     renderer.clear_color = [.15, .15, .15, 1];
     renderer.graph = graph;
 
     // Transition from the loading screen prefab to our renderer
-    demo.viewport.raise_curtains(demo.main.renderer);
+    please.set_viewport(demo.renderer);
 }));
 
 
