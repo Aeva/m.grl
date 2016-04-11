@@ -167,8 +167,15 @@ please.RenderNode.prototype = {
 //
 please.__compositing_viewport = null;
 please.set_viewport = function (node) {
+    var old_node = please.__compositing_viewport;
     if (!!node && node.__is_render_node) {
-        please.__compositing_viewport = node;
+        // special case for loading screens
+        if (old_node && old_node.raise_curtains && !old_node.__curtains_up) {
+            old_node.raise_curtains(node);
+        }
+        else {
+            please.__compositing_viewport = node;
+        }
     }
     else {
         please.__compositing_viewport = null;

@@ -118,7 +118,9 @@ please.LoadingScreen = function (transition_effect) {
     }
     
     transition.reset_to(effect);
+    transition.__curtains_up = false;
     transition.raise_curtains = function (target) {
+        transition.__curtains_up = true;
         window.setTimeout(function () {
             please.overlay.remove_element_of_class("loading_screen");
             transition.blend_to(target, 1500);
@@ -134,8 +136,3 @@ please.LoadingScreen = function (transition_effect) {
        
     return transition;
 };
-
-
-// [+] please.StereoSplit
-//
-//

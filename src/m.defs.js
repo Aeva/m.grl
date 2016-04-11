@@ -783,7 +783,7 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
     var target = proxy ? proxy : obj;
 
     // Create the cache object if it does not yet exist.
-    please.__setup_ani_data(obj);    
+    please.__setup_ani_data(obj);
     var cache = obj.__ani_cache;
     var store = obj.__ani_store;
 
@@ -821,8 +821,8 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
         }
     };
     var setter = function (value) {
-        cache[prop] = null;
-        store[prop] = value;
+        obj.__ani_cache[prop] = null;
+        obj.__ani_store[prop] = value;
         if (typeof(write_hook) === "function") {
             write_hook(target, prop, obj);
         }
