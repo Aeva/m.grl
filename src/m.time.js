@@ -103,7 +103,7 @@ please.time.__update_fps = function () {
         if (this.__fps_samples.length > 100) {
             var samples = this.__fps_samples;
             var displacement = samples[samples.length-1] - samples[0];
-            var fps = (samples.length-1) * (1000/displacement);
+            var fps = please.time.fps = (samples.length-1) * (1000/displacement);
             window.dispatchEvent(new CustomEvent(
                 "mgrl_fps", {"detail":Math.round(fps)}));
             this.__fps_samples = [];
