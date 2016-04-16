@@ -142,8 +142,7 @@ please.CameraNode = function () {
 
     please.make_animatable(
         this, "view_matrix", this.__view_matrix_driver, this, true);
-    // HAAAAAAAAAAAAAAAAAAAAAAAAACK
-    this.__ani_store.world_matrix = this.__view_matrix_driver;
+    this.__ani_store.world_matrix = this.__camera_world_matrix_driver;
 };
 please.CameraNode.prototype = Object.create(please.GraphNode.prototype);
 
@@ -212,8 +211,7 @@ please.CameraNode.prototype.set_orthographic = function() {
 };
 
 
-// This overrides the standard worldmatrix driver with camera-specific
-// behavior.
+// This is the view matrix driver.
 please.CameraNode.prototype.__view_matrix_driver = function () {
     var parent = this.parent;
 
@@ -257,6 +255,32 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
 
         this.__view_matrix_cache.dirty = true;
         return this.__view_matrix_cache;
+    }
+};
+
+
+// Provides a world matrix for parented objects.
+please.CameraNode.prototype.__camera_world_matrix_driver = function () {
+    var parent = this.parent;
+    var local_matrix = mat4.identity(this.__local_matrix_cache);
+    var quaternion = this.quaternion;
+    if (this.has_focal_point()) {
+        // special case for look-at camera
+        var rotation_matrix = mat3.fromMat4(mat3.create(), this.view_matrix);
+        quaternion = quat.fromMat3(quat.create(), rotation_matrix);
+    }
+    mat4.fromRotationTranslation(local_matrix, quaternion, this.location);
+    mat4.scale(local_matrix, local_matrix, this.scale);
+    if (parent) {
+        var world_matrix = mat4.identity(this.__world_matrix_cache);
+        var parent_matrix = parent.shader.world_matrix;
+        mat4.multiply(world_matrix, parent_matrix, local_matrix);
+        world_matrix.dirty = true;
+        return world_matrix;
+    }
+    else {
+        local_matrix.dirty = true;
+        return local_matrix;
     }
 };
 
