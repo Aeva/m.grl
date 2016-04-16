@@ -239,10 +239,24 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
         this.__view_matrix_cache.dirty = true;
         return this.__view_matrix_cache;
     }
+    else if (parent && parent.is_bone) {
+        // parenting a camera to a rig
+        throw new Error("Parenting a camera to a rig is not supported yet");
+    }
     else {
-        // theoretically, __world_matrix_driver should be what we want
-        // here, but that doesn't actually work right >_>
-        throw new Error("Manually orienting cameras is not yet supported :(");
+        // camera w/ free transformation
+        var local_matrix = parent ? mat4.create() : this.__view_matrix_cache;
+        mat4.fromRotationTranslation(
+            local_matrix, this.quaternion, this.location);
+        mat4.scale(local_matrix, local_matrix, this.scale);
+
+        if (parent) {
+            var parent_matrix = parent.shader.world_matrix;
+            mat4.multiply(this.__view_matrix_cache, parent_matrix, local_matrix);
+        }
+
+        this.__view_matrix_cache.dirty = true;
+        return this.__view_matrix_cache;
     }
 };
 
@@ -359,33 +373,6 @@ please.CameraNode.prototype.update_camera = function () {
 // Take care that camera.focal_distance never gets too low, or you can
 // cause uneccesary eye strain on your viewer and make your program
 // inaccessible to users with convergence insufficiency.
-//
-// Further usage:
-// ```
-// var camera = new please.StereoCamera();
-//
-// // ...
-//
-// please.pipeline.add(10, "vr/left_eye", function () {
-//     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-//     camera.left.activate();
-//     graph.draw();
-// }).as_texture({width: 1024, height: 1024});
-//
-// please.pipeline.add(10, "vr/right_eye", function () {
-//     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-//     camera.right.activate();
-//     graph.draw();
-// }).as_texture({width: 1024, height: 1024});
-//
-// please.pipeline.add(20, "vr/display", function () {
-//     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-//     prog.samplers.left_eye = "vr/left_eye";
-//     prog.samplers.right_eye = "vr/right_eye";
-//     prog.vars.mode = 1.0; // to indicate between color split & other modes
-//     please.gl.splat();
-// });
-// ```
 //
 please.StereoCamera = function () {
     please.CameraNode.call(this);
