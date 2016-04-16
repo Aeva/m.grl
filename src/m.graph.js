@@ -798,7 +798,6 @@ please.SceneGraph = function () {
     this.__bind = null;
     this.__draw = null;
     this.camera = null;
-    this.local_matrix = mat4.create();
     this.__last_framestart = null;
 
     // Alpha blending and state sorted draw passes.

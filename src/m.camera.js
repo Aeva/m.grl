@@ -156,9 +156,9 @@ please.CameraNode.prototype.__focal_distance = function () {
 // sets the look_at channels to null, so that the camera may be
 // manually oriented
 please.CameraNode.prototype.unfocus = function () {
-    this.look_at = [null, null, null];
     var rotation = mat3.fromMat4(
-        mat3.create(), demo.main.camera.__view_matrix_cache);
+        mat3.create(), demo.main.camera.view_matrix);
+    this.look_at = [null, null, null];
     this.quaternion = quat.fromMat3(quat.create(), rotation)
 };
 
@@ -213,7 +213,7 @@ please.CameraNode.prototype.set_orthographic = function() {
 
 // This is the view matrix driver.
 please.CameraNode.prototype.__view_matrix_driver = function () {
-    var parent = this.parent;
+    var parent = parent && parent != this.graph_root ? this.parent : null;
 
     if (this.has_focal_point()) {
         var location;
@@ -243,16 +243,19 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
     }
     else {
         // camera w/ free transformation
-        var local_matrix = parent ? mat4.create() : this.__view_matrix_cache;
-        mat4.fromRotationTranslation(
-            local_matrix, this.quaternion, this.location);
-        mat4.scale(local_matrix, local_matrix, this.scale);
+        // var local_matrix = parent ? mat4.create() : this.__view_matrix_cache;
+        // mat4.fromRotationTranslation(
+        //     local_matrix, this.quaternion, this.location);
+        // mat4.scale(local_matrix, local_matrix, this.scale);
 
-        if (parent) {
-            var parent_matrix = parent.shader.world_matrix;
-            mat4.multiply(this.__view_matrix_cache, parent_matrix, local_matrix);
-        }
+        // if (parent) {
+        //     var parent_matrix = parent.shader.world_matrix;
+        //     mat4.multiply(this.__view_matrix_cache, parent_matrix, local_matrix);
+        // }
+        
+        //this.__view_matrix_cache.dirty = true;
 
+        mat4.copy(this.__view_matrix_cache, this.shader.world_matrix);
         this.__view_matrix_cache.dirty = true;
         return this.__view_matrix_cache;
     }
@@ -261,7 +264,7 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
 
 // Provides a world matrix for parented objects.
 please.CameraNode.prototype.__camera_world_matrix_driver = function () {
-    var parent = this.parent;
+    var parent = parent && parent != this.graph_root ? this.parent : null;
     var local_matrix = mat4.identity(this.__local_matrix_cache);
     var quaternion = this.quaternion;
     if (this.has_focal_point()) {
