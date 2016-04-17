@@ -142,7 +142,6 @@ please.CameraNode = function () {
 
     please.make_animatable(
         this, "view_matrix", this.__view_matrix_driver, this, true);
-    this.__ani_store.world_matrix = this.__camera_world_matrix_driver;
 };
 please.CameraNode.prototype = Object.create(please.GraphNode.prototype);
 
@@ -150,6 +149,11 @@ please.CameraNode.prototype = Object.create(please.GraphNode.prototype);
 please.CameraNode.prototype.__focal_distance = function () {
     // the distance between "look_at" and "location"
     return vec3.distance(this.location, this.look_at);
+};
+
+
+please.CameraNode.prototype.add = function () {
+    throw new Error("You cannot add an object to a CameraNode.");
 };
 
 
@@ -262,32 +266,6 @@ please.CameraNode.prototype.__view_matrix_driver = function () {
 };
 
 
-// Provides a world matrix for parented objects.
-please.CameraNode.prototype.__camera_world_matrix_driver = function () {
-    var parent = parent && parent != this.graph_root ? this.parent : null;
-    var local_matrix = mat4.identity(this.__local_matrix_cache);
-    var quaternion = this.quaternion;
-    if (this.has_focal_point()) {
-        // special case for look-at camera
-        var rotation_matrix = mat3.fromMat4(mat3.create(), this.view_matrix);
-        quaternion = quat.fromMat3(quat.create(), rotation_matrix);
-    }
-    mat4.fromRotationTranslation(local_matrix, quaternion, this.location);
-    mat4.scale(local_matrix, local_matrix, this.scale);
-    if (parent) {
-        var world_matrix = mat4.identity(this.__world_matrix_cache);
-        var parent_matrix = parent.shader.world_matrix;
-        mat4.multiply(world_matrix, parent_matrix, local_matrix);
-        world_matrix.dirty = true;
-        return world_matrix;
-    }
-    else {
-        local_matrix.dirty = true;
-        return local_matrix;
-    }
-};
-
-
 please.CameraNode.prototype.update_camera = function () {
     // Calculate the arguments common to both projection functions.
     var near = this.near;
@@ -375,91 +353,57 @@ please.CameraNode.prototype.update_camera = function () {
 
 // [+] please.StereoCamera()
 //
-// Inherits from please.CameraNode and can be used similarly.  This
-// camera defines two subcameras, accessible from the properties
-// "left_eye" and "right_eye".  Their position is determined by this
-// object's "eye_distance" property, which should correspond to
-// millimeters (defaults to 62).  The "unit_conversion" property is a
-// multiplier value, and you use it to define what "millimeters" means
-// to you.
-//
-// Ideally, the StereoCamera object should be the object that you
-// orient to change the viewpoint of both cameras, and that the sub
-// cameras themselves are what is activated for the purpose of saving
-// color buffers.  A simple pipeline can be constructed from this to
-//
-// If the StereoCamera's "look_at" value is set to something other
-// than [null, null, null], the child CameraNode objects will
-// automatically attempt to converge on the point.  If it is desired
-// that they not converge, set the StereoCamera's "auto_converge"
-// parameter to false.  When auto convergance is left on, objects that
-// are past the focal point will appear to be "within" the screen,
-// whereas objects in front of the focal point will appear to "pop
-// out" of the screen.  If the focal point is too close to the camera,
-// you will see a cross eye effect.  **Important accessibility note**,
-// Take care that camera.focal_distance never gets too low, or you can
-// cause uneccesary eye strain on your viewer and make your program
-// inaccessible to users with convergence insufficiency.
-//
 please.StereoCamera = function () {
     please.CameraNode.call(this);
+        
     ANI("eye_distance", 10.0);
     ANI("unit_conversion", 0.001);
-    this.auto_converge = true;
-    this.left_eye = this._create_subcamera(-1);
-    this.right_eye = this._create_subcamera(1);
-
-    this.add(this.left_eye);
-    this.add(this.right_eye);
+    //this.auto_converge = true;
+    this.left_eye = this.__create_subcamera(-1);
+    this.right_eye = this.__create_subcamera(1);
 };
 please.StereoCamera.prototype = Object.create(please.CameraNode.prototype);
-please.StereoCamera.prototype._create_subcamera = function (position) {
-    var eye = new please.CameraNode();
 
-    // This causes various animatable properties on the eye's camera
-    // to be data bound to the StereoCamera that parents it
-    var add_binding = function (property_name) {
-        eye[property_name] = function () {
-            return this[property_name];
-        }.bind(this);
-    }.bind(this);
-    
-    ["focal_distance",
-     "depth_of_field",
-     "depth_fallof",
-     "fov",
-     "left",
-     "right",
-     "bottom",
-     "top",
-     "width",
-     "height",
-     "near",
-     "far",
-    ].map(add_binding);
 
-    // Now we make it so the camera's spacing from the center is set
-    // automatically.
-    eye.location_x = function () {
-        var dist = this.parent.eye_distance;
-        var unit = this.parent.unit_conversion;
-        return dist * unit * 0.5 * position;
+// This method is a little complicated.  It creates an object who's
+// prototype is the center camera, and then fills it with properties
+// to override behavior on the center camera.  It creates its own
+// animation cache and store which in turn claim the parent camera's
+// respective cache and store as prototypes.  This allows us to have a
+// different view_matrix for the center, left, and right cameras, and
+// to allow the left and right cameras to be derrived from the center
+// camera.
+please.StereoCamera.prototype.__create_subcamera = function (position) {
+    var proxy = Object.create(this);
+    // create proxy animation cache and stores
+    proxy.__ani_store = Object.create(this.__ani_store);
+    proxy.__ani_cache = Object.create(this.__ani_cache);
+    var clear = function (prop) {
+        proxy.__ani_store[prop] = null;
+        proxy.__ani_cache[prop] = null;
     };
-
-    // Automatic convergance
-    eye.rotation_z = function () {
-        if (this.parent.has_focal_point() && this.parent.auto_converge) {
-            // camera_distance, half_eye_distance
-            var angle = Math.atan2(this.location_x, this.parent.focal_distance);
-            return please.degrees(angle * -1);
-        }
-        else {
-            return 0;
-        }
-    };
-
-    // FIXME dummy this property out entirely somehow
-    eye.look_at = [null, null, null];
+    clear("view_matrix");
     
-    return eye;
+    // fill out specific properties this camera needs
+    proxy.__center_camera = this;
+    proxy.__eye_position = position; // -1 or 1
+    proxy.__eye_matrix = mat4.create();
+    proxy.__view_matrix_cache = mat4.create();
+    please.make_animatable(
+        proxy, "view_matrix", this.__alt_view_matrix_driver, null, true);
+    return proxy;
+};
+
+
+// alternate view matrix driver mechanism
+please.StereoCamera.prototype.__alt_view_matrix_driver = function () {
+    // translate the 'eye matrix' along the x axis
+    this.__eye_matrix[12] = (this.__eye_position *
+                             this.eye_distance * 0.5 *
+                             this.unit_conversion);
+    mat4.multiply(this.__view_matrix_cache,
+                  this.__eye_matrix,
+                  this.__center_camera.view_matrix);
+    this.__view_matrix_cache.dirty = true;
+    return this.__view_matrix_cache;
 };
