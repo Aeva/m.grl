@@ -353,12 +353,28 @@ please.CameraNode.prototype.update_camera = function () {
 
 // [+] please.StereoCamera()
 //
+// A StereoCamera is a special kind of CameraNode that can be used for
+// stereoscopic rendering.  It creates two virtual cameras that are
+// offset slightly to the left and right of the parent camera.  Scenes
+// rendered with either virtual camera can then be composited together
+// to create a stereoscopic effect.
+//
+// This object has the following additional properties in addition to
+// the normal CameraNode properties:
+//
+// - **eye_distance** This is the interpupillary distance (the
+//   distance the center of the pupils in both eyes).  By default this
+//   is 62.3 mm.
+//
+// - **unit_conversion** This is a multiplier to convert from
+//   millimeters to the arbitrary spatial units of your game. By
+//   default, this is value is 0.001 to convert to meters.
+//
 please.StereoCamera = function () {
     please.CameraNode.call(this);
         
-    ANI("eye_distance", 10.0);
+    ANI("eye_distance", 62.3);
     ANI("unit_conversion", 0.001);
-    //this.auto_converge = true;
     this.left_eye = this.__create_subcamera(-1);
     this.right_eye = this.__create_subcamera(1);
 };
