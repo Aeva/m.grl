@@ -31,7 +31,6 @@ addEventListener("load", function() {
     please.gl.set_context("gl_canvas");
 
     // setup gl state stuff
-    please.set_clear_color(.93, .93, .93, 1.0);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     // add asset search paths
@@ -200,6 +199,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // create render nodes
     
     var left_eye = new please.RenderNode("custom");
+    left_eye.clear_color = [.93, .93, .93, 1.0];
     left_eye.shader.light_direction = light_direction;
     left_eye.before_render = function () {
         camera.left_eye.activate();
@@ -207,6 +207,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     left_eye.graph = graph;
     
     var right_eye = new please.RenderNode("custom");
+    right_eye.clear_color = [.93, .93, .93, 1.0];
     right_eye.shader.light_direction = light_direction;
     right_eye.before_render = function () {
         camera.right_eye.activate();
@@ -217,10 +218,11 @@ addEventListener("mgrl_media_ready", please.once(function () {
     stereo_view.shader.left_eye_texture = left_eye;
     stereo_view.shader.right_eye_texture = right_eye;
     stereo_view.shader.stereo_split = mode_active("frame");
-    stereo_view.shader.left_color = window.left_mask;
-    stereo_view.shader.right_color = window.right_mask;
+    stereo_view.shader.left_color = window.lhs_mask;
+    stereo_view.shader.right_color = window.rhs_mask;
     
     var mono_view = new please.RenderNode("custom");
+    mono_view.clear_color = [.93, .93, .93, 1.0];
     mono_view.shader.light_direction = light_direction;
     mono_view.before_render = function () {
         camera.activate();
