@@ -406,6 +406,9 @@ please.GraphNode = function () {
     
 #ifdef WEBGL
     var prog = please.gl.get_program();
+    this.__local_matrix_cache = mat4.create();
+    this.__world_matrix_cache = mat4.create();
+
     if (please.renderer.name === "gl") {
         // code specific to the webgl renderer
        
@@ -420,8 +423,6 @@ please.GraphNode = function () {
             var old_data = this.__ani_store;
             this.__ani_store = {};
             this.shader = {};
-            this.__local_matrix_cache = mat4.create();
-            this.__world_matrix_cache = mat4.create();
             please.make_animatable(
                 this, "world_matrix", this.__world_matrix_driver, this.shader, true);
             please.make_animatable(
@@ -797,7 +798,6 @@ please.SceneGraph = function () {
     this.__bind = null;
     this.__draw = null;
     this.camera = null;
-    this.local_matrix = mat4.create();
     this.__last_framestart = null;
 
     // Alpha blending and state sorted draw passes.

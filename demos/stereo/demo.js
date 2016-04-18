@@ -203,7 +203,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var camera = window.camera = new please.StereoCamera();
     camera.look_at = vec3.fromValues(0, 0, 1);
     camera.location = [-3, 12.5, 5.7];
-    camera.unit_conversion = 0.02;
+    camera.unit_conversion = 0.0025;
 
     // for reference:
     // camera.look_at = [null, null, null];
