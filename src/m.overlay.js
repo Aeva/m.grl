@@ -51,9 +51,11 @@ please.__align_canvas_overlay = function () {
     if (overlay.rect && overlay.rect.top == rect.top && overlay.rect.left == rect.left && overlay.rect.width == rect.width && overlay.rect.height == rect.height) {
         return;
     }
+    var x_offset = window.pageXOffset;
+    var y_offset = window.pageYOffset;
     overlay.rect = rect;
-    overlay.style.top = rect.top + "px";
-    overlay.style.left = rect.left + "px";
+    overlay.style.top = rect.top + y_offset + "px";
+    overlay.style.left = rect.left + x_offset + "px";
     overlay.style.width = rect.width + "px";
     overlay.style.height = rect.height + "px";
     var event = new CustomEvent("mgrl_overlay_aligned");
