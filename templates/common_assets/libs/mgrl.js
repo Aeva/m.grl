@@ -89,6 +89,10 @@ if (!String.prototype.trim) {
     }
   })();
 }
+// Polyfill for weird String.trim behavior in chrome:
+if (!String.trim) {
+    String.trim = function (str) { return str.trim(); };
+}
 // Polyfill String.startsWith, code via MDN:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/startsWith
 if (!String.prototype.startsWith) {
@@ -904,9 +908,9 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
     var getter = function () {
         if (typeof(store[prop]) === "function" && store[prop].stops === undefined) {
             // determine if the cached value is too old
-            if (cache[prop] === null || (please.pipeline.__framestart > last_update && ! obj.__manual_cache_invalidation)) {
+            if (cache[prop] === null || (please.time.__framestart > last_update && ! obj.__manual_cache_invalidation)) {
                 cache[prop] = store[prop].call(obj);
-                last_update = please.pipeline.__framestart;
+                last_update = please.time.__framestart;
             }
             return cache[prop];
         }
@@ -915,8 +919,8 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
         }
     };
     var setter = function (value) {
-        cache[prop] = null;
-        store[prop] = value;
+        obj.__ani_cache[prop] = null;
+        obj.__ani_store[prop] = value;
         if (typeof(write_hook) === "function") {
             write_hook(target, prop, obj);
         }
@@ -1025,9 +1029,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
             else {
                 if (typeof(obj.__ani_store[prop+"_"+swizzle][i]) === "function") {
                     // determine if the cached value is too old
-                    if (obj.__ani_cache[handles[i]] === null || please.pipeline.__framestart > last_channel[i]) {
+                    if (obj.__ani_cache[handles[i]] === null || please.time.__framestart > last_channel[i]) {
                         obj.__ani_cache[handles[i]] = obj.__ani_store[prop+"_"+swizzle][i].call(obj);
-                        last_channel[i] = please.pipeline.__framestart;
+                        last_channel[i] = please.time.__framestart;
                     }
                     return obj.__ani_cache[handles[i]];
                 }
@@ -1063,9 +1067,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
         enumerable : true,
         get : function () {
             if (obj.__ani_store[prop+"_focus"] && typeof(obj.__ani_store[prop+"_focus"]) === "function") {
-                if (obj.__ani_cache[prop] === null || please.pipeline.__framestart > last_focus) {
+                if (obj.__ani_cache[prop] === null || please.time.__framestart > last_focus) {
                     obj.__ani_cache[prop] = obj.__ani_store[prop+"_focus"].call(obj);
-                    last_focus = please.pipeline.__framestart
+                    last_focus = please.time.__framestart
                 }
                 return obj.__ani_cache[prop];
             }
@@ -1283,11 +1287,148 @@ please.qa_failed = function() {
  * documented below.
  *
  */
-// Stores events for the scheduler.
+// data pertaining to scheduling
 please.time = {
+    // animation / timed event schedular vars
     "__pending" : [],
     "__times" : [],
     "__last_frame" : performance.now(),
+    // misc time vars
+    "fps" : 0,
+    "__fps_samples" : [],
+    "__framestart" : 0,
+    // animation frame schedular vars
+    "__frame" : {
+        "cache" : [],
+        "dirty" : [],
+        "timer" : null,
+        "on_draw" : null,
+        "callbacks" : {},
+        "remove" : function(name) {},
+        "flush" : function () {},
+    },
+};
+//
+// Adds a callback to be executed when the animation frame event is
+// triggered, before anything is drawn on screen.  Priority determines
+// the order of events to happen.  Generally events that happen before
+// rendering should have a negative priority.
+//
+// The return value of this function has a "skip_when" property that
+// you can call to provide a callback that says when the callback
+// should be skipped.
+//
+please.time.__frame.register = function (priority, name, callback) {
+    if (this.callbacks[name] !== undefined) {
+        var err = "Cannot register a callback of the same name twice.";
+        err += "  Please remove the old one first if this is intentional.";
+        throw new Error(err);
+    }
+    this.callbacks[name] = {
+        "name" : name,
+        "order" : priority,
+        "skip_when" : function (skip_condition) {
+            this.skip_condition = skip_condition;
+            return this;
+        },
+        "skip_condition" : null,
+        "callback" : callback,
+    };
+    this.dirty = true;
+    return this.callbacks[name];
+};
+//
+please.time.__frame.is_registered = function (name) {
+    return !!this.callbacks[name];
+};
+// removes a named callback from the render loop
+please.time.__frame.remove = function (name) {
+    if (this.callbacks[name] === undefined) {
+        console.warns("No such frame callback: " + name);
+    }
+    this.callbacks[name] = undefined;
+    this.dirty = true;
+};
+// regenerates the frame cache
+please.time.__frame.regen_cache = function () {
+    this.cache = [];
+    for (var name in this.callbacks) if (this.callbacks.hasOwnProperty(name)) {
+        this.cache.push(this.callbacks[name]);
+    }
+    this.cache.sort(function (lhs, rhs) {
+        return lhs.sort - rhs.sort;
+    });
+    this.dirty = false;
+};
+// calculates the current average frame rate
+please.time.__update_fps = function () {
+    please.postpone(function () {
+        if (this.__fps_samples.length > 100) {
+            var samples = this.__fps_samples;
+            var displacement = samples[samples.length-1] - samples[0];
+            var fps = please.time.fps = (samples.length-1) * (1000/displacement);
+            window.dispatchEvent(new CustomEvent(
+                "mgrl_fps", {"detail":Math.round(fps)}));
+            this.__fps_samples = [];
+        }
+    }.bind(this));
+};
+// calls the render loop callbacks in order
+please.time.__frame.on_draw = function () {
+    // record frame start time
+    var start_time = performance.now();
+    please.time.__fps_samples.push(start_time);
+    please.time.__framestart = start_time;
+    // if necessary, generate the sorted list of frame callbacks
+    if (this.dirty) {
+        this.regen_cache();
+    }
+    var prog = please.gl.__cache.current;
+    if (prog) {
+        prog.vars.mgrl_frame_start = start_time/1000.0;
+    }
+    // call the frame callbacks
+    var stage, msg = null, reset_name_bool = false;
+    for (var i=0; i<this.cache.length; i+=1) {
+        stage = this.cache[i];
+        if (stage.skip_condition && stage.skip_condition()) {
+            continue;
+        }
+        stage.callback();
+    }
+    if (please.__compositing_viewport) {
+        please.render(please.__compositing_viewport);
+    }
+    // check for stop mechanism
+    if (this.timer !== null) {
+        // reschedule the draw
+        please.time.resume();
+        // update the fps counter
+        please.time.__update_fps();
+    }
+};
+// [+] please.time.resume()
+//
+// Starts the scheduler.  This is called automatically, but if you
+// stopped the scheduler, you can use this method to restart it.
+//
+please.time.resume = function () {
+    var frame = please.time.__frame;
+    var draw_event = frame.on_draw.bind(frame);
+    frame.timer = requestAnimationFrame(draw_event);
+};
+// [+] please.time.stop()
+//
+// Stops the scheduler.
+//
+please.time.stop = function () {
+    var frame = please.time.__frame;
+    if (!frame.timer === null) {
+        cancelAnimationFrame(frame.timer);
+        frame.timer = null;
+    }
+    please.time.fps = 0;
+    please.time.__fps_samples = [];
 };
 // [+] please.postpone(callback)
 //
@@ -1324,10 +1465,12 @@ please.time.schedule = function (callback, when) {
     else {
         please.time.__pending.push(callback);
         please.time.__times.push(when);
-        // register a pipeline stage if it doesn't exist
-        var pipe_id = "mgrl/scheduler"
-        if (!please.pipeline.is_reserved(pipe_id)) {
-            please.pipeline.add(-Infinity, pipe_id, please.time.__schedule_handler);
+        // register the frame callback for the schedule if this hasn't
+        // been done yet
+        var name = "mgrl/scheduler"
+        if (!this.__frame.is_registered(name)) {
+            this.__frame.register(
+                    -Infinity, name, please.time.__schedule_handler);
         }
     }
 };
@@ -1458,6 +1601,9 @@ please.time.add_score = function (node, action_name, frame_set) {
         node.actions[action_name] = action;
     }
 };
+// Automatically start the event scheduler when the page finishes
+// loading.
+addEventListener("load", please.time.resume);
 // - m.media.js ------------------------------------------------------------- //
 /* [+] 
  * 
@@ -2347,301 +2493,6 @@ please.keys.__full_stop = function () {
         please.keys.__cancel(key);
     }
 };
-// - m.multipass.js --------------------------------------------------------- //
-/* [+]
- *
- * This part of the module is responsible for scheduling rendering
- * events that happen on every single redraw event.
- *
- * It allows for you to define callbacks for graphics code.  The
- * callbacks are given a priority value, so that they are always
- * called in a specific order.
- *
- * In the future, m.multipass will also automatically update some
- * uniform variable values to the GLSL shader program, so as to aid in
- * the development of multipass rendering effects.
- *
- * This file stores most of its API under the __please.pipeline__
- * object.
- */
-// Namespace for multipass rendering stuff:
-please.pipeline = {
-    // fps stuff
-    "fps" : 0,
-    "__fps_samples" : [],
-    // internal vars
-    "__framestart" : performance.now(),
-    "__cache" : [],
-    "__callbacks" : {},
-    "__stopped" : true,
-    "__dirty" : false,
-    "__timer" : null,
-    // api methods
-    "add" : function (priority, name, indirect, callback) {},
-    "remove" : function (name) {},
-    "remove_above" : function (priority) {},
-    "start" : function () {},
-    "stop" : function () {},
-    // internal event handlers
-    "__on_draw" : function () {},
-    "__reschedule" : function () {},
-    "__regen_cache" : function () {},
-};
-// [+] please.pipeline.add(priority, name, callback)
-//
-// Adds a callback to the pipeline.  Priority determines the order in
-// which the registered callbacks are to be called.
-//
-// Note that the return value for each callback is be passed as a
-// singular argument to the next callback in the chain.
-//
-// A good convention is to put things that need to happen before
-// rendering as negative numbers (they could all be -1 if the order
-// doesn't matter), and all of the rendering phases as distinct
-// positive integers.
-//
-// The sprite animation system, if used, will implicitly add its own
-// handler at priority -1.
-//
-// - **priority** A numerical sorting weight for this callback.  The
-//   higher the number, the later the method will be called. Numbers
-//   below zero indicates the callback is non-graphical and is called
-//   before any rendering code.
-//
-// - **name** A human-readable name for the pipeline stage.
-//
-// - **callback** the function to be called to execute this pipeline
-//   stage.  The return value of the previous pipeline stage is passed
-//   as an argument to the next pipeline stage's callback.
-//
-// To do indirect rendering on a pipeline stage, call the
-// "as_texture(options)" method on the return result of this function.
-// The method wraps please.pipeline.add_indirect(buffer_name,
-// options).  See please.pipeline.add_indirect for more details on the
-// options object.
-//
-// A pipeline stage can be made conditional by calling
-// "skip_when(callback)" on the return result of this function, like
-// with with "as_texture."  The two may be chained, eg
-// please.pipeline.add(...).as_texture().skip_when(...).
-//
-please.pipeline.add = function (priority, name, callback) {
-    if (this.__callbacks[name] !== undefined) {
-        var err = "Cannot register a callback of the same name twice.";
-        err += "  Please remove the old one first if this is intentional.";
-        throw new Error(err);
-    }
-    this.__callbacks[name] = {
-        "name" : name,
-        "glsl_var" : please.pipeline.__glsl_name(name),
-        "order" : priority,
-        "as_texture" : function (options) {
-            please.pipeline.add_indirect(name, options);
-            return this;
-        },
-        "skip_when" : function (skip_condition) {
-            this.skip_condition = skip_condition;
-            return this;
-        },
-        "__indirect" : false,
-        "__buffer_options" : null,
-        "skip_condition" : null,
-        "callback" : callback,
-    };
-    this.__dirty = true;
-    return this.__callbacks[name];
-};
-// [+] please.pipeline.is_reserved(name)
-//
-// Returns true if the named pipeline stage is already set, otherwise
-// returns false.
-//
-please.pipeline.is_reserved = function (pipe_id) {
-    return please.pipeline.__callbacks[pipe_id] !== undefined;
-};
-//
-please.pipeline.__glsl_name = function(name) {
-    if (name) {
-        // FIXME do some kind of validation
-        return name.replace("/", "_");
-    }
-    else {
-        return null;
-    }
-};
-// [+] please.pipeline.add_indirect(buffer_name, options)
-//
-// - **options** may be omitted, currently doesn't do anything but
-//   will be used in the future.
-//
-please.pipeline.add_indirect = function (buffer_name, options) {
-    var stage = this.__callbacks[buffer_name];
-    stage.__indirect = true;
-    var tex = please.gl.register_framebuffer(buffer_name, options);
-    stage.__buffer_options = tex.fbo.options;
-};
-// [+] please.pipeline.remove(name)
-//
-// Removes a named pipeline stage, preventing it from being rendering.
-//
-please.pipeline.remove = function (name) {
-    if (this.__callbacks[name] === undefined) {
-        console.warn("No such pipeline stage exists: " + name);
-    }
-    this.__callbacks[name] = undefined;
-    this.__dirty = true;
-};
-// [+] please.pipeline.remove_above(priority)
-//
-// Remove all handlers of a priority greater than or equal to the one
-// passed to this method.
-//
-// ```
-// // removes all pipeline stages that perform rendering functionality
-// please.pipeline.remove_above(0);
-// ```
-please.pipeline.remove_above = function (priority) {
-    var cull = [];
-    for (var name in this.__callbacks) if (this.__callbacks.hasOwnProperty(name)) {
-        if (this.__callbacks[name].sort >= priority) {
-            cull.push(name);
-        }
-    }
-    for (var i=0; i<cull.length; i+=1) {
-        please.pipeline.remove(cull[i]);
-    }
-};
-// [+] please.pipeline.start()
-//
-// Activates the rendering pipeline.
-//
-please.pipeline.start = function () {
-    if (please.renderer.name === "gl") {
-        please.pipeline.__on_draw = please.pipeline.__on_draw_gl;
-    }
-    if (please.renderer.name === "dom") {
-        please.pipeline.__on_draw = please.pipeline.__on_draw_dom;
-    }
-    this.__stopped = false;
-    this.__reschedule();
-};
-// [+] please.pipeline.stop()
-//
-// Halts the rendering pipeline.
-//
-please.pipeline.stop = function () {
-    if (!this.__stopped) {
-        if (this.__timer !== null) {
-            cancelAnimationFrame(this.__timer);
-            this.__timer = null;
-        }
-        this.__stopped = true;
-        this.fps = 0;
-        this.__fps_samples = [];
-    }
-};
-// Step through the pipeline stages.
-please.pipeline.__on_draw = function () {
-};
-// Draw pipeline stage for 
-please.pipeline.__on_draw_gl = function () {
-    // record frame start time
-    var start_time = performance.now();
-    please.pipeline.__fps_samples.push(start_time);
-    please.pipeline.__framestart = start_time;
-    // if necessary, generate the sorted list of pipeline stages
-    if (please.pipeline.__dirty) {
-        please.pipeline.__regen_cache();
-    }
-    var prog = please.gl.__cache.current;
-    if (prog) {
-        prog.vars.mgrl_frame_start = start_time/1000.0;
-    }
-    // render the pipeline stages
-    var stage, msg = null, reset_name_bool = false;
-    for (var i=0; i<please.pipeline.__cache.length; i+=1) {
-        stage = please.pipeline.__cache[i];
-        if (stage.skip_condition && stage.skip_condition()) {
-            continue;
-        }
-        please.gl.set_framebuffer(stage.__indirect ? stage.name : null);
-        if (prog) {
-            prog.vars.mgrl_pipeline_id = stage.order;
-            if (prog.uniform_list.indexOf(stage.glsl_var) > -1) {
-                prog.vars[stage.glsl_var] = true;
-                reset_name_bool = true;
-            }
-        }
-        msg = stage.callback(msg);
-        if (prog) {
-            if (reset_name_bool) {
-                prog.vars[stage.glsl_var] = false;
-            }
-        }
-    }
-    // reschedule the draw, if applicable
-    please.pipeline.__reschedule();
-    // update the fps counter
-    please.pipeline.__update_fps();
-};
-//
-please.pipeline.__on_draw_dom = function () {
-    // record frame start time
-    var start_time = performance.now();
-    please.pipeline.__fps_samples.push(start_time);
-    please.pipeline.__framestart = start_time;
-    // if necessary, generate the sorted list of pipeline stages
-    if (please.pipeline.__dirty) {
-        please.pipeline.__regen_cache();
-    }
-    // call the pipeline stages
-    var stage, msg = null, reset_name_bool = false;
-    for (var i=0; i<please.pipeline.__cache.length; i+=1) {
-        stage = please.pipeline.__cache[i];
-        if (stage.skip_condition && stage.skip_condition()) {
-            continue;
-        }
-        msg = stage.callback(msg);
-    }
-    // reschedule the draw, if applicable
-    please.pipeline.__reschedule();
-    // update the fps counter
-    please.pipeline.__update_fps();
-};
-//
-please.pipeline.__update_fps = function () {
-    please.postpone(function () {
-        if (please.pipeline.__fps_samples.length > 100) {
-            var samples = please.pipeline.__fps_samples;
-            var displacement = samples[samples.length-1] - samples[0];
-            var fps = (samples.length-1) * (1000/displacement); // wrong?
-            window.dispatchEvent(new CustomEvent(
-                "mgrl_fps", {"detail":Math.round(fps)}));
-            please.pipeline.__fps_samples = [];
-        }
-    });
-};
-// called by both please.pipeline.start and please.pipeline.__on_draw
-// to schedule or reschedule (if applicable) the event function.
-please.pipeline.__reschedule = function () {
-    if (!this.__stopped) {
-        this.__timer = requestAnimationFrame(please.pipeline.__on_draw);
-    }
-    else {
-        this.__timer = null;
-    }
-};
-// Regenerate the cache list of handlers.
-please.pipeline.__regen_cache = function () {
-    this.__cache = [];
-    for (var name in this.__callbacks) if (this.__callbacks.hasOwnProperty(name)) {
-        this.__cache.push(this.__callbacks[name]);
-    }
-    this.__cache.sort(function (lhs, rhs) {
-        return lhs.sort - rhs.sort;
-    });
-    this.__dirty = false;
-};
 // - m.overlays.js ---------------------------------------------------------- //
 /* [+] 
  * 
@@ -2869,7 +2720,7 @@ please.overlay_sync = function () {
         }
     }
 };
-please.pipeline.add(-1, "mgrl/overlay_sync", please.overlay_sync);
+please.time.__frame.register(-1, "mgrl/overlay_sync", please.overlay_sync);
 // - m.dom.js ------------------------------------------------------------ //
 // Namespace for code specific to the dom renderer
 please.dom = {};
@@ -2930,6 +2781,7 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
+    // these might be unused?
     "name" : "gl",
     "overlay" : null,
 };
@@ -2965,7 +2817,7 @@ please.gl.set_context = function (canvas_id, options) {
     });
     this.canvas = document.getElementById(canvas_id);
     please.__create_canvas_overlay(this.canvas);
-    please.pipeline.add(-1, "mgrl/picking_pass", please.__picking_pass).skip_when(
+    please.time.__frame.register(-1, "mgrl/picking_pass", please.__picking_pass).skip_when(
         function () { return please.__picking.queue.length === 0 && please.__picking.move_event === null; });
     try {
         var names = ["webgl", "experimental-webgl"];
@@ -7297,12 +7149,37 @@ please.media.__AnimationData = function (gani_text, uri) {
     }
     // return a graph node instance of this animation
     ani.instance = function () {
+        var node;
         if (please.renderer.name == "gl") {
-            return ani.__gl_instance()
+            node = ani.__gl_instance()
         }
         if (please.renderer.name == "dom") {
-            return ani.__dom_instance()
+            node = ani.__dom_instance()
         }
+        // Bind direction handle
+        var write_hook = function (target, prop, obj) {
+            var cache = obj.__ani_cache;
+            var store = obj.__ani_store;
+            if (this.__current_gani) {
+                var old_value = store[prop];
+                var new_value = old_value;
+                if (this.__current_gani.single_dir) {
+                    new_value = 0;
+                }
+                else {
+                    new_value = Math.floor(new_value % 4);
+                    if (new_value < 0) {
+                        new_value += 4;
+                    }
+                }
+                if (new_value !== old_value) {
+                    cache[prop] = null;
+                    store[prop] = new_value;
+                }
+            }
+        }.bind(node);
+        please.make_animatable(node, "dir", 0, null, false, write_hook);
+        return node;
     };
     // used by both possible instance functions
     ani.__common_mixin = function (node, setup_callback, frame_callback) {
@@ -7339,23 +7216,6 @@ please.media.__AnimationData = function (gani_text, uri) {
                         //please.make_animatable(node, name, value);
                     }
                 });
-                // Bind direction handle
-                if (!node.hasOwnProperty("dir")) {
-                    var write_hook = function (target, prop, obj) {
-                        var cache = obj.__ani_cache;
-                        var store = obj.__ani_store;
-                        var old_value = store[prop];
-                        var new_value = Math.floor(old_value % 4);
-                        if (new_value < 0) {
-                            new_value += 4;
-                        }
-                        if (new_value !== old_value) {
-                            cache[prop] = null;
-                            store[prop] = new_value;
-                        }
-                    };
-                    please.make_animatable(node, "dir", 0, null, null, write_hook);
-                }
                 // Generate the frameset for the animation.
                 var score = resource.frames.map(function (frame) {
                     var callback;
@@ -7606,63 +7466,6 @@ please.gani.sprite_to_html = function (ani_object, sprite_id, x, y) {
  * are always evaluated.  If such a driver function attempts to read
  * from another driver function, then that driver is evaluated (and
  * cached, so the value doesn't change again this frame), and so on.
- *
- * ```
- * // A scene graph instance
- * var scene_graph = new please.SceneGraph();
- *
- * // A drawable graph node.  You can instance gani and image files, too!
- * var character_model = please.access("alice.jta").instance();
- * character_model.rotation_z = function () { return performance.now()/100; };
- * 
- * // The focal point of the camera
- * var camera_target = new please.GraphNode();
- * camera_target.location_z = 2;
- * 
- * // An empty that has the previous two graph nodes as its children
- * // The game logic would move this node.
- * var character_base = new please.GraphNode();
- *
- * // Populate the graph
- * scene_graph.add(character_base);
- * character_base.add(character_model);
- * character_base.add(camera_target);
- *
- * // Add a camera object that automatically points at particular
- * // graph node.  If is more than one camera in the graph, then you
- * // will need to explicitly call the camera's "activate" method to
- * // have predictable behavior.
- * var camera = new please.CameraNode();
- * graph.add(camera);
- * camera.look_at = camera_target;
- * camera.location = [10, -10, 10];
- *
- * // Register a render pass with the scheduler (see m.multipass.js)
- * please.pipeline.add(10, "graph_demo/draw", function () {
- *    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
- *
- *    // This line may be called repeatedly to draw the current
- *    // snapshot of the graph multiple times the same way.
- *    scene_graph.draw();
- *
- * });
- *
- * // Register a second render pass that will also draw the scene_graph
- * please.pipeline.add(20, "graph_demo/fancy", function () {
- *
- *    // You can call .draw() as many times as you like per frame.
- *    // Both of these pipeline stages are in the same "frame".  You
- *    // can take advantage of this to do post processing effects with
- *    // the stencil buffer, shaders, and/or indirect rendering
- *    // targets!
- *
- *    scene_graph.draw();
- *
- * });
- *
- * // Start the render loop
- * please.pipeline.start();
- * ```
  */
 // [+] please.GraphNode()
 //
@@ -8309,13 +8112,6 @@ please.GraphNode.prototype = {
 // called as many times as you like per frame.  Normally the usage of
 // this will look something like the following example:
 //
-// ```
-// please.pipeline.add(10, "graph_demo/draw", function () {
-//    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-//    scene_graph.draw();
-// });
-// ```
-//
 please.SceneGraph = function () {
     please.GraphNode.call(this);
     please.graph_index.roots.push(this);
@@ -8393,7 +8189,7 @@ please.SceneGraph = function () {
         return rhs.__z_depth - lhs.__z_depth;
     };
     var gl_tick = function () {
-        this.__last_framestart = please.pipeline.__framestart;
+        this.__last_framestart = please.time.__framestart;
         // nodes in the z-sorting path
         this.__alpha = [];
         // nodes in the state-sorting path
@@ -8423,7 +8219,7 @@ please.SceneGraph = function () {
         };
     };
     var gl_draw = function (exclude_test) {
-        if (this.__last_framestart < please.pipeline.__framestart) {
+        if (this.__last_framestart < please.time.__framestart) {
             // note, this.__last_framestart can be null, but
             // null<positive_number will evaluate to true anyway.
             this.tick();
@@ -8485,10 +8281,10 @@ please.SceneGraph = function () {
         }
     };
     var dom_draw = function () {
-        if (this.__last_framestart < please.pipeline.__framestart) {
+        if (this.__last_framestart < please.time.__framestart) {
             // note, this.__last_framestart can be null, but
             // null<positive_number will evaluate to true anyway.
-            this.__last_framestart = please.pipeline.__framestart;
+            this.__last_framestart = please.time.__framestart;
         }
         if (this.camera) {
             this.camera.update_camera();
@@ -9618,6 +9414,7 @@ please.builder.SpriteBuilder.prototype = {
 please.RenderNode = function (prog, options) {
     console.assert(this !== window);
     prog = typeof(prog) === "string" ? please.gl.get_program(prog) : prog;
+    this.__is_render_node = true;
     // UUID, used to provide a uri handle for indirect rendering.
     Object.defineProperty(this, "__id", {
         enumerable : false,
@@ -9709,12 +9506,35 @@ please.RenderNode.prototype = {
         }
     },
 };
+// [+] please.set_viewport(render_node)
+//
+// Designate a particular RenderNode to be the rendering output.  You
+// can pass null to disable this mechanism if you want to override
+// m.grl's rendering management system, which you probably don't want
+// to do.
+//
+please.__compositing_viewport = null;
+please.set_viewport = function (node) {
+    var old_node = please.__compositing_viewport;
+    if (!!node && node.__is_render_node) {
+        // special case for loading screens
+        if (old_node && old_node.raise_curtains && !old_node.__curtains_up) {
+            old_node.raise_curtains(node);
+        }
+        else {
+            please.__compositing_viewport = node;
+        }
+    }
+    else {
+        please.__compositing_viewport = null;
+    }
+};
 // [+] please.render(node)
 //
 // Renders the compositing tree.
 //
 please.render = function(node) {
-    var expire = arguments[1] || please.pipeline.__framestart;
+    var expire = arguments[1] || please.time.__framestart;
     var stack = arguments[2] || [];
     if (stack.indexOf(node)>=0) {
         throw new Error("M.GRL doesn't currently suport render graph cycles.");
@@ -9727,7 +9547,7 @@ please.render = function(node) {
         return node.__cached;
     }
     else {
-        node.__last_framestart = please.pipeline.__framestart;
+        node.__last_framestart = please.time.__framestart;
     }
     // peek method on the render node can be used to allow the node to exclude
     // itself from the stack in favor of a different node or texture.
@@ -10193,9 +10013,9 @@ please.DeferredRenderer = function () {
     return assembly;
 };
 // - m.prefab.js ------------------------------------------------------------ //
-// [+] please.pipeline.add_autoscale(max_height)
+// [+] please.add_autoscale(max_height)
 //
-// Use this to add a pipeline stage which, when the rendering canvas
+// Use this to add a mechanism for which, when the rendering canvas
 // has the "fullscreen" class, will automatically scale the canvas to
 // conform to the window's screen ratio, making the assumption that
 // css is then used to scale up the canvas element.  The optional
@@ -10206,14 +10026,14 @@ please.DeferredRenderer = function () {
 // One can override the max_height option by setting the "max_height"
 // attribute on the canvas object.
 //
-please.pipeline.add_autoscale = function (max_height) {
-    var pipe_id = "mgrl/autoscale";
-    if (!please.pipeline.is_reserved(pipe_id)) {
+please.add_autoscale = function (max_height) {
+    var name = "mgrl/autoscale";
+    if (!please.time.__frame.is_registered(name)) {
         var skip_condition = function () {
             var canvas = please.gl.canvas;
             return !canvas || !canvas.classList.contains("fullscreen");
         };
-        please.pipeline.add(-Infinity, pipe_id, function () {
+        please.time.__frame.register(-Infinity, name, function () {
             // automatically change the viewport if necessary
             var canvas = please.gl.canvas;
             if (canvas.max_height === undefined) {
@@ -10298,7 +10118,9 @@ please.LoadingScreen = function (transition_effect) {
         transition.shader.px_size = 50;
     }
     transition.reset_to(effect);
+    transition.__curtains_up = false;
     transition.raise_curtains = function (target) {
+        transition.__curtains_up = true;
         window.setTimeout(function () {
             please.overlay.remove_element_of_class("loading_screen");
             transition.blend_to(target, 1500);
@@ -10312,9 +10134,6 @@ please.LoadingScreen = function (transition_effect) {
     });
     return transition;
 };
-// [+] please.StereoSplit
-//
-//
 // - m.struct.js ------------------------------------------------------------ //
 // [+] please.StructArray(struct, count)
 //
@@ -10545,7 +10364,7 @@ please.ParticleEmitter.prototype.draw = function () {
     var prog = please.gl.get_program();
     var tracker = this.__tracker;
     var particle = tracker.view;
-    var now = please.pipeline.__framestart;
+    var now = please.time.__framestart;
     var delta = now - tracker.last;
     var age;
     tracker.last = now;
