@@ -1,9 +1,9 @@
 // - m.prefab.js ------------------------------------------------------------ //
 
 
-// [+] please.pipeline.add_autoscale(max_height)
+// [+] please.add_autoscale(max_height)
 //
-// Use this to add a pipeline stage which, when the rendering canvas
+// Use this to add a mechanism for which, when the rendering canvas
 // has the "fullscreen" class, will automatically scale the canvas to
 // conform to the window's screen ratio, making the assumption that
 // css is then used to scale up the canvas element.  The optional
@@ -14,14 +14,14 @@
 // One can override the max_height option by setting the "max_height"
 // attribute on the canvas object.
 //
-please.pipeline.add_autoscale = function (max_height) {
-    var pipe_id = "mgrl/autoscale";
-    if (!please.pipeline.is_reserved(pipe_id)) {
+please.add_autoscale = function (max_height) {
+    var name = "mgrl/autoscale";
+    if (!please.time.__frame.is_registered(name)) {
         var skip_condition = function () {
             var canvas = please.gl.canvas;
             return !canvas || !canvas.classList.contains("fullscreen");
         };
-        please.pipeline.add(-Infinity, pipe_id, function () {
+        please.time.__frame.register(-Infinity, name, function () {
             // automatically change the viewport if necessary
             var canvas = please.gl.canvas;
             if (canvas.max_height === undefined) {
@@ -118,7 +118,9 @@ please.LoadingScreen = function (transition_effect) {
     }
     
     transition.reset_to(effect);
+    transition.__curtains_up = false;
     transition.raise_curtains = function (target) {
+        transition.__curtains_up = true;
         window.setTimeout(function () {
             please.overlay.remove_element_of_class("loading_screen");
             transition.blend_to(target, 1500);
@@ -134,8 +136,3 @@ please.LoadingScreen = function (transition_effect) {
        
     return transition;
 };
-
-
-// [+] please.StereoSplit
-//
-//

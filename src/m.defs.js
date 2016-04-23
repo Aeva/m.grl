@@ -783,7 +783,7 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
     var target = proxy ? proxy : obj;
 
     // Create the cache object if it does not yet exist.
-    please.__setup_ani_data(obj);    
+    please.__setup_ani_data(obj);
     var cache = obj.__ani_cache;
     var store = obj.__ani_store;
 
@@ -810,9 +810,9 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
     var getter = function () {
         if (typeof(store[prop]) === "function" && store[prop].stops === undefined) {
             // determine if the cached value is too old
-            if (cache[prop] === null || (please.pipeline.__framestart > last_update && ! obj.__manual_cache_invalidation)) {
+            if (cache[prop] === null || (please.time.__framestart > last_update && ! obj.__manual_cache_invalidation)) {
                 cache[prop] = store[prop].call(obj);
-                last_update = please.pipeline.__framestart;
+                last_update = please.time.__framestart;
             }
             return cache[prop];
         }
@@ -821,8 +821,8 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
         }
     };
     var setter = function (value) {
-        cache[prop] = null;
-        store[prop] = value;
+        obj.__ani_cache[prop] = null;
+        obj.__ani_store[prop] = value;
         if (typeof(write_hook) === "function") {
             write_hook(target, prop, obj);
         }
@@ -943,9 +943,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
             else {
                 if (typeof(store[prop+"_"+swizzle][i]) === "function") {
                     // determine if the cached value is too old
-                    if (cache[handles[i]] === null || please.pipeline.__framestart > last_channel[i]) {
+                    if (cache[handles[i]] === null || please.time.__framestart > last_channel[i]) {
                         cache[handles[i]] = store[prop+"_"+swizzle][i].call(obj);
-                        last_channel[i] = please.pipeline.__framestart;
+                        last_channel[i] = please.time.__framestart;
                     }
                     return cache[handles[i]];
                 }
@@ -983,9 +983,9 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
         enumerable : true,
         get : function () {
             if (store[prop+"_focus"] && typeof(store[prop+"_focus"]) === "function") {
-                if (cache[prop] === null || please.pipeline.__framestart > last_focus) {
+                if (cache[prop] === null || please.time.__framestart > last_focus) {
                     cache[prop] = store[prop+"_focus"].call(obj);
-                    last_focus = please.pipeline.__framestart
+                    last_focus = please.time.__framestart
                 }
                 return cache[prop];
             }

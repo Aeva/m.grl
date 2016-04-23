@@ -19,7 +19,6 @@ API Reference
     m.jta.rst
     m.lights.rst
     m.media.rst
-    m.multipass.rst
     m.overlay.rst
     m.pages.rst
     m.particles.rst

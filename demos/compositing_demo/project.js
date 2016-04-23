@@ -21,9 +21,7 @@
 
 
 // local namespace
-var demo = {
-    "viewport" : null,
-};
+var demo = {};
 
 
 addEventListener("load", function setup () {    
@@ -59,18 +57,10 @@ addEventListener("load", function setup () {
     // the maximum height of said canvas element.  You are responsible
     // for providing the css needed to upsample the canvas, though
     // this project template accomplishes that for you.  See "ui.css".
-    please.pipeline.add_autoscale();
+    please.add_autoscale();
     
-    // register a render pass with the scheduler
-    please.pipeline.add(10, "project/draw", function () {
-        please.render(demo.viewport);
-    }).skip_when(function () { return demo.viewport === null; });
-
-    // start the rendering pipeline
-    please.pipeline.start();
-
     // Show a loading screen
-    demo.viewport = new please.LoadingScreen();
+    please.set_viewport(new please.LoadingScreen());
 });
 
 
@@ -154,5 +144,5 @@ addEventListener("mgrl_media_ready", please.once(function () {
     pip_pass.shader.pip_alpha = 0.75;
 
     // Transition from the loading screen prefab to our renderer
-    demo.viewport.raise_curtains(pip_pass);
+    please.set_viewport(pip_pass);
 }));

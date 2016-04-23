@@ -250,4 +250,4 @@ please.overlay_sync = function () {
         }
     }
 };
-please.pipeline.add(-1, "mgrl/overlay_sync", please.overlay_sync);
+please.time.__frame.register(-1, "mgrl/overlay_sync", please.overlay_sync);

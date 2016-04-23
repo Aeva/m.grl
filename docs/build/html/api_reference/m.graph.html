@@ -91,62 +91,6 @@ driver functions associated to glsl variables are always evaluated. If
 such a driver function attempts to read from another driver function,
 then that driver is evaluated (and cached, so the value doesn&#8217;t change
 again this frame), and so on.</p>
-<div class="highlight-javascript"><div class="highlight"><pre><span class="c1">// A scene graph instance</span>
-<span class="kd">var</span> <span class="nx">scene_graph</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">SceneGraph</span><span class="p">();</span>
-
-<span class="c1">// A drawable graph node.  You can instance gani and image files, too!</span>
-<span class="kd">var</span> <span class="nx">character_model</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">access</span><span class="p">(</span><span class="s2">&quot;alice.jta&quot;</span><span class="p">).</span><span class="nx">instance</span><span class="p">();</span>
-<span class="nx">character_model</span><span class="p">.</span><span class="nx">rotation_z</span> <span class="o">=</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span> <span class="k">return</span> <span class="nx">performance</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span><span class="o">/</span><span class="mi">100</span><span class="p">;</span> <span class="p">};</span>
-
-<span class="c1">// The focal point of the camera</span>
-<span class="kd">var</span> <span class="nx">camera_target</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">GraphNode</span><span class="p">();</span>
-<span class="nx">camera_target</span><span class="p">.</span><span class="nx">location_z</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
-
-<span class="c1">// An empty that has the previous two graph nodes as its children</span>
-<span class="c1">// The game logic would move this node.</span>
-<span class="kd">var</span> <span class="nx">character_base</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">GraphNode</span><span class="p">();</span>
-
-<span class="c1">// Populate the graph</span>
-<span class="nx">scene_graph</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">character_base</span><span class="p">);</span>
-<span class="nx">character_base</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">character_model</span><span class="p">);</span>
-<span class="nx">character_base</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">camera_target</span><span class="p">);</span>
-
-<span class="c1">// Add a camera object that automatically points at particular</span>
-<span class="c1">// graph node.  If is more than one camera in the graph, then you</span>
-<span class="c1">// will need to explicitly call the camera&#39;s &quot;activate&quot; method to</span>
-<span class="c1">// have predictable behavior.</span>
-<span class="kd">var</span> <span class="nx">camera</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">CameraNode</span><span class="p">();</span>
-<span class="nx">graph</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">camera</span><span class="p">);</span>
-<span class="nx">camera</span><span class="p">.</span><span class="nx">look_at</span> <span class="o">=</span> <span class="nx">camera_target</span><span class="p">;</span>
-<span class="nx">camera</span><span class="p">.</span><span class="nx">location</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">];</span>
-
-<span class="c1">// Register a render pass with the scheduler (see m.multipass.js)</span>
-<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;graph_demo/draw&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
-   <span class="nx">gl</span><span class="p">.</span><span class="nx">clear</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">COLOR_BUFFER_BIT</span> <span class="o">|</span> <span class="nx">gl</span><span class="p">.</span><span class="nx">DEPTH_BUFFER_BIT</span><span class="p">);</span>
-
-   <span class="c1">// This line may be called repeatedly to draw the current</span>
-   <span class="c1">// snapshot of the graph multiple times the same way.</span>
-   <span class="nx">scene_graph</span><span class="p">.</span><span class="nx">draw</span><span class="p">();</span>
-
-<span class="p">});</span>
-
-<span class="c1">// Register a second render pass that will also draw the scene_graph</span>
-<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;graph_demo/fancy&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
-
-   <span class="c1">// You can call .draw() as many times as you like per frame.</span>
-   <span class="c1">// Both of these pipeline stages are in the same &quot;frame&quot;.  You</span>
-   <span class="c1">// can take advantage of this to do post processing effects with</span>
-   <span class="c1">// the stencil buffer, shaders, and/or indirect rendering</span>
-   <span class="c1">// targets!</span>
-
-   <span class="nx">scene_graph</span><span class="p">.</span><span class="nx">draw</span><span class="p">();</span>
-
-<span class="p">});</span>
-
-<span class="c1">// Start the render loop</span>
-<span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">start</span><span class="p">();</span>
-</pre></div>
-</div>
 <div class="section" id="please-graphnode">
 <h2>please.GraphNode<a class="headerlink" href="#please-graphnode" title="Permalink to this headline">¶</a></h2>
 <p><em>please.GraphNode</em> <strong>()</strong></p>
@@ -277,12 +221,6 @@ the order determined by .tick, though the z-sorted nodes will need to be
 sorted on every draw call. This method may called as many times as you
 like per frame. Normally the usage of this will look something like the
 following example:</p>
-<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">please</span><span class="p">.</span><span class="nx">pipeline</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;graph_demo/draw&quot;</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
-   <span class="nx">gl</span><span class="p">.</span><span class="nx">clear</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">COLOR_BUFFER_BIT</span> <span class="o">|</span> <span class="nx">gl</span><span class="p">.</span><span class="nx">DEPTH_BUFFER_BIT</span><span class="p">);</span>
-   <span class="nx">scene_graph</span><span class="p">.</span><span class="nx">draw</span><span class="p">();</span>
-<span class="p">});</span>
-</pre></div>
-</div>
 </div>
 </div>
 

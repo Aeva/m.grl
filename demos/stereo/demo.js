@@ -19,11 +19,21 @@
 
  Have a nice day! ^_^
 
- */
+*/
+
+
+// local namespace
+var demo = {};
 
 
 addEventListener("load", function() {
+    // create the rendering context
     please.gl.set_context("gl_canvas");
+
+    // setup gl state stuff
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    // add asset search paths
     please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "../gl_assets/img/");
     please.set_search_path("jta", "../gl_assets/models/");
@@ -44,8 +54,8 @@ addEventListener("load", function() {
     please.load("uvmap.png");
     please.load("floor_lamp.png");
 
-    // show the progress bar
-    show_progress();
+    // add a loading screen
+    please.set_viewport(new please.LoadingScreen());
 
     // set some globals we'll be using in the demo
     window.lhs_mask = [1.0, 0.0, 0.0];
@@ -86,36 +96,15 @@ function color_pick_handler(event) {
 };
 
 
-function show_progress() {
-    if (please.media.pending.length > 0) {
-        var progress = please.media.get_progress();
-        if (progress.all > -1) {
-            var bar = document.getElementById("progress_bar");
-            var label = document.getElementById("percent");
-            bar.style.width = "" + progress.all + "%";
-            label.innerHTML = "" + Math.round(progress.all) + "%";
-            var files = please.get_properties(progress.files);
-            var info = document.getElementById("progress_info");
-            info.innerHTML = "" + files.length + " file(s)";
-        }
-        setTimeout(show_progress, 100);
-    }
-};
-
-
 addEventListener("mgrl_fps", function (event) {
     document.getElementById("fps").innerHTML = event.detail;
 });
 
 
 addEventListener("mgrl_media_ready", please.once(function () {
-    // Clear loading screen, show canvas
-    document.getElementById("loading_screen").style.display = "none";
-    document.getElementById("demo_area").style.display = "block";
-
     // Create GL context, build shader pair
     var canvas = document.getElementById("gl_canvas");
-    var prog = please.glsl("default", "demo.vert", "demo.frag");
+    var prog = please.glsl("custom", "demo.vert", "demo.frag");
     prog.activate();
     please.glsl("stereo_pass", "splat.vert", "stereo.frag");
 
@@ -124,17 +113,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var mode_active = function (mode_name) {
         return render_mode_select.selectedOptions[0].value === mode_name;
     }
-
-    // setup default state stuff    
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
-    gl.enable(gl.CULL_FACE);
-    please.set_clear_color(.93, .93, .93, 1.0);
-    
-    // enable alpha blending
-    gl.enable(gl.BLEND);
-    //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     
     // access model data
     var gav_model = please.access("gavroche.jta");
@@ -217,88 +195,50 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var light_direction = vec3.fromValues(.25, -1.0, -.4);
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
-    // -- update shader var for light direction
-    prog.vars.light_direction = light_direction;
 
+    // create render nodes
     
-    // Define a skip condition callback, so that the pipeline stages
-    // for the eye buffers can be skipped completely when they are not
-    // needed.  This is useful because it also skips automatic state
-    // changes that would happen automatically to set up indirect
-    // rendering etc.
-    var skip_condition = function () {
-        return mode_active("mono");
-    };
-
-    
-    // Left eye render pass
-    please.pipeline.add(10, "demo/left_eye", function () {
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        // -- set the shader program
-        please.gl.get_program("default").activate();
-
-        // -- activate the camera
+    var left_eye = new please.RenderNode("custom");
+    left_eye.clear_color = [.93, .93, .93, 1.0];
+    left_eye.shader.light_direction = light_direction;
+    left_eye.before_render = function () {
         camera.left_eye.activate();
-
-        // -- draw the geometry
-        graph.draw();
-    }).as_texture().skip_when(skip_condition);
-
+    };
+    left_eye.graph = graph;
     
-    // Right eye render pass
-    please.pipeline.add(10, "demo/right_eye", function () {
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        // -- set the shader program
-        please.gl.get_program("default").activate();
-
-        // -- activate the camera
+    var right_eye = new please.RenderNode("custom");
+    right_eye.clear_color = [.93, .93, .93, 1.0];
+    right_eye.shader.light_direction = light_direction;
+    right_eye.before_render = function () {
         camera.right_eye.activate();
+    };
+    right_eye.graph = graph;
 
-        // -- draw the geometry
-        graph.draw();
-    }).as_texture().skip_when(skip_condition);
+    var stereo_view = demo.stereo_view = new please.RenderNode("stereo_pass");
+    stereo_view.shader.left_eye_texture = left_eye;
+    stereo_view.shader.right_eye_texture = right_eye;
+    stereo_view.shader.stereo_split = mode_active("frame");
+    stereo_view.shader.left_color = window.lhs_mask;
+    stereo_view.shader.right_color = window.rhs_mask;
+    
+    var mono_view = new please.RenderNode("custom");
+    mono_view.clear_color = [.93, .93, .93, 1.0];
+    mono_view.shader.light_direction = light_direction;
+    mono_view.before_render = function () {
+        camera.activate();
+    };
+    mono_view.graph = graph;
 
-
-    // Render the hardware-specific stereo split logic
-    please.pipeline.add(20, "demo/stereo_killed_the_video_star", function () {
-        if (!mode_active("mono")) {
-            // -- clear the screen
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-            // -- set the shader program
-            var prog = please.gl.get_program("stereo_pass");
-            prog.activate();
-            prog.samplers.left_eye_texture = "demo/left_eye";
-            prog.samplers.right_eye_texture = "demo/right_eye";
-            prog.vars.stereo_split = mode_active("frame");
-
-            prog.vars.left_color = window.lhs_mask;
-            prog.vars.right_color = window.rhs_mask;
-
-            // -- fullscreen quad
-            please.gl.splat();
+    mono_view.peek = function () {
+        if (mode_active("mono")) {
+            return null;
         }
         else {
-            // -- clear the screen
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            
-            // -- set the shader program
-            please.gl.get_program("default").activate();
-            
-            // -- activate the camera
-            camera.activate();
-            
-            // -- draw the geometry
-            graph.draw();
+            return stereo_view;
         }
-    });
+    };
 
-
-    please.pipeline.start();
+    please.set_viewport(mono_view);
 }));
 
 

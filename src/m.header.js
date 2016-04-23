@@ -41,7 +41,6 @@
 #include "m.time.js"
 #include "m.media.js"
 #include "m.input.js"
-#include "m.multipass.js"
 #include "m.overlay.js"
 
 #ifdef DOM

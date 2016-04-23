@@ -97,14 +97,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // the maximum height of said canvas element.  You are responsible
     // for providing the css needed to upsample the canvas, though
     // this project template accomplishes that for you.  See "ui.css".
-    please.pipeline.add_autoscale();
+    please.add_autoscale();
 
     // register a render pass with the scheduler
-    please.pipeline.add(10, "project/draw", function () {
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        graph.draw();
-    });
-
-    // start the rendering pipeline
-    please.pipeline.start();
+    var renderer = new please.RenderNode("default");
+    renderer.graph = graph;
+    please.set_viewport(renderer);
 }));

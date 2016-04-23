@@ -61,6 +61,11 @@ if (!String.prototype.trim) {
   })();
 }
 
+// Polyfill for weird String.trim behavior in chrome:
+if (!String.trim) {
+    String.trim = function (str) { return str.trim(); };
+}
+
 
 // Polyfill String.startsWith, code via MDN:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/startsWith

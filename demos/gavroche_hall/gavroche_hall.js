@@ -23,21 +23,33 @@
  */
 
 
-function show_progress() {
-    if (please.media.pending.length > 0) {
-        var progress = please.media.get_progress();
-        if (progress.all > -1) {
-            var bar = document.getElementById("progress_bar");
-            var label = document.getElementById("percent");
-            bar.style.width = "" + progress.all + "%";
-            label.innerHTML = "" + Math.round(progress.all) + "%";
-            var files = please.get_properties(progress.files);
-            var info = document.getElementById("progress_info");
-            info.innerHTML = "" + files.length + " file(s)";
-        }
-        setTimeout(show_progress, 100);
-    }
-};
+addEventListener("load", function() {
+    // set the opengl context
+    please.gl.set_context("gl_canvas");
+
+    // configure asset search paths
+    please.set_search_path("img", "../gl_assets/img/");
+    please.set_search_path("jta", "../gl_assets/models/");
+    please.set_search_path("gani", "./");
+
+    // files that load files will use relative file paths
+    please.gl.relative_lookup = true;
+
+    // load our model files
+    please.load("gavroche_hall.jta");
+    please.load("psycho.jta");
+    please.load("coin.gani");
+    please.load("walk.gani");
+    please.load("idle.gani");
+
+    // add a loading screen
+    please.set_viewport(new please.LoadingScreen());
+});
+
+
+addEventListener("mgrl_fps", function (event) {
+    document.getElementById("fps").innerHTML = event.detail;
+});
 
 
 // keyboard control stuff
@@ -98,46 +110,15 @@ function key_handler(state, key) {
 };
 
 
-addEventListener("load", function() {
-    // set the opengl context
-    please.gl.set_context("gl_canvas");
-
-    // configure asset search paths
-    please.set_search_path("img", "../gl_assets/img/");
-    please.set_search_path("jta", "../gl_assets/models/");
-    please.set_search_path("gani", "./");
-
-    // files that load files will use relative file paths
-    please.gl.relative_lookup = true;
-
-    // load our model files
-    please.load("gavroche_hall.jta");
-    please.load("psycho.jta");
-    please.load("coin.gani");
-    please.load("walk.gani");
-    please.load("idle.gani");
-    show_progress();
-});
-
-
-addEventListener("mgrl_fps", function (event) {
-    document.getElementById("fps").innerHTML = event.detail;
-});
-
-
 addEventListener("mgrl_media_ready", please.once(function () {
-    // Clear loading screen, show canvas
-    document.getElementById("loading_screen").style.display = "none";
-    document.getElementById("demo_area").style.display = "block";
+    // create the graph root
+    var graph = window.graph = new please.SceneGraph();
 
-    // Create GL context, build shader pair
-    var canvas = document.getElementById("gl_canvas");
-    var prog = please.glsl("default", "simple.vert", "diffuse.frag");
-    prog.activate();
-
-    // setup default state stuff    
-    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
-
+    // create a renderer
+    var renderer = window.renderer = new please.RenderNode("default");
+    renderer.graph = graph;
+    please.set_viewport(renderer);
+    
     // store our scene & build the graph:
     var level_data = window.scene = please.access("gavroche_hall.jta");
     var char_data = please.access("psycho.jta");
@@ -152,7 +133,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
         }
     });
 
-    var graph = window.graph = new please.SceneGraph();
     var level_node = level_data.instance();
     var char_avatar = char_data.instance();
     char_avatar.shader.alpha = .75;
@@ -252,14 +232,4 @@ addEventListener("mgrl_media_ready", please.once(function () {
     please.keys.enable();
     please.keys.connect("left", key_handler);
     please.keys.connect("right", key_handler);
-    
-    // register a render pass with the scheduler
-    please.pipeline.add(1, "gavroche_hall/draw", function () {
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        // -- draw the scene graph
-        graph.draw();
-    });
-    please.pipeline.start();
 }));

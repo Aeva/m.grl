@@ -12,11 +12,176 @@
  */
 
 
-// Stores events for the scheduler.
+// data pertaining to scheduling
 please.time = {
+    // animation / timed event schedular vars
     "__pending" : [],
     "__times" : [],
     "__last_frame" : performance.now(),
+
+    // misc time vars
+    "fps" : 0,
+    "__fps_samples" : [],
+    "__framestart" : 0,
+
+    // animation frame schedular vars
+    "__frame" : {
+        "cache" : [],
+        "dirty" : [],
+        "timer" : null,
+        "on_draw" : null,
+        "callbacks" : {},
+        "remove" : function(name) {},
+        "flush" : function () {},
+    },
+};
+
+
+//
+// Adds a callback to be executed when the animation frame event is
+// triggered, before anything is drawn on screen.  Priority determines
+// the order of events to happen.  Generally events that happen before
+// rendering should have a negative priority.
+//
+// The return value of this function has a "skip_when" property that
+// you can call to provide a callback that says when the callback
+// should be skipped.
+//
+please.time.__frame.register = function (priority, name, callback) {
+    if (this.callbacks[name] !== undefined) {
+        var err = "Cannot register a callback of the same name twice.";
+        err += "  Please remove the old one first if this is intentional.";
+        throw new Error(err);
+    }
+    this.callbacks[name] = {
+        "name" : name,
+        "order" : priority,
+        "skip_when" : function (skip_condition) {
+            this.skip_condition = skip_condition;
+            return this;
+        },
+        "skip_condition" : null,
+        "callback" : callback,
+    };
+    this.dirty = true;
+    return this.callbacks[name];
+};
+
+
+//
+please.time.__frame.is_registered = function (name) {
+    return !!this.callbacks[name];
+};
+
+
+// removes a named callback from the render loop
+please.time.__frame.remove = function (name) {
+    if (this.callbacks[name] === undefined) {
+        console.warns("No such frame callback: " + name);
+    }
+    this.callbacks[name] = undefined;
+    this.dirty = true;
+};
+
+
+// regenerates the frame cache
+please.time.__frame.regen_cache = function () {
+    this.cache = [];
+    ITER_PROPS(name, this.callbacks) {
+        this.cache.push(this.callbacks[name]);
+    }
+    this.cache.sort(function (lhs, rhs) {
+        return lhs.sort - rhs.sort;
+    });
+    this.dirty = false;
+};
+
+
+// calculates the current average frame rate
+please.time.__update_fps = function () {
+    please.postpone(function () {
+        if (this.__fps_samples.length > 100) {
+            var samples = this.__fps_samples;
+            var displacement = samples[samples.length-1] - samples[0];
+            var fps = please.time.fps = (samples.length-1) * (1000/displacement);
+            window.dispatchEvent(new CustomEvent(
+                "mgrl_fps", {"detail":Math.round(fps)}));
+            this.__fps_samples = [];
+        }
+    }.bind(this));
+};
+
+
+// calls the render loop callbacks in order
+please.time.__frame.on_draw = function () {
+    // record frame start time
+    var start_time = performance.now();
+    please.time.__fps_samples.push(start_time);
+    please.time.__framestart = start_time;
+
+    // if necessary, generate the sorted list of frame callbacks
+    if (this.dirty) {
+        this.regen_cache();
+    }
+
+#ifdef WEBGL
+    var prog = please.gl.__cache.current;
+    if (prog) {
+        prog.vars.mgrl_frame_start = start_time/1000.0;
+    }
+#endif
+
+    // call the frame callbacks
+    var stage, msg = null, reset_name_bool = false;
+    ITER(i, this.cache) {
+        stage = this.cache[i];
+        if (stage.skip_condition && stage.skip_condition()) {
+            continue;
+        }
+        stage.callback();
+    }
+
+#ifdef WEBGL
+    if (please.__compositing_viewport) {
+        please.render(please.__compositing_viewport);
+    }
+#endif
+
+    // check for stop mechanism
+    if (this.timer !== null) {
+        // reschedule the draw
+        please.time.resume();
+    
+        // update the fps counter
+        please.time.__update_fps();
+    }
+};
+
+
+// [+] please.time.resume()
+//
+// Starts the scheduler.  This is called automatically, but if you
+// stopped the scheduler, you can use this method to restart it.
+//
+please.time.resume = function () {
+    var frame = please.time.__frame;
+    var draw_event = frame.on_draw.bind(frame);
+    frame.timer = requestAnimationFrame(draw_event);
+};
+
+
+// [+] please.time.stop()
+//
+// Stops the scheduler.
+//
+please.time.stop = function () {
+    var frame = please.time.__frame;
+    if (!frame.timer === null) {
+        cancelAnimationFrame(frame.timer);
+        frame.timer = null;
+    }
+    please.time.fps = 0;
+    please.time.__fps_samples = [];
 };
 
 
@@ -58,10 +223,12 @@ please.time.schedule = function (callback, when) {
         please.time.__pending.push(callback);
         please.time.__times.push(when);
 
-        // register a pipeline stage if it doesn't exist
-        var pipe_id = "mgrl/scheduler"
-        if (!please.pipeline.is_reserved(pipe_id)) {
-            please.pipeline.add(-Infinity, pipe_id, please.time.__schedule_handler);
+        // register the frame callback for the schedule if this hasn't
+        // been done yet
+        var name = "mgrl/scheduler"
+        if (!this.__frame.is_registered(name)) {
+            this.__frame.register(
+                    -Infinity, name, please.time.__schedule_handler);
         }
     }
 };
@@ -208,3 +375,8 @@ please.time.add_score = function (node, action_name, frame_set) {
         node.actions[action_name] = action;
     }
 };
+
+
+// Automatically start the event scheduler when the page finishes
+// loading.
+addEventListener("load", please.time.resume);

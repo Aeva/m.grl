@@ -13,6 +13,21 @@ below.
 
 
 
+please.time.resume
+------------------
+*please.time.resume* **()**
+
+Starts the scheduler. This is called automatically, but if you stopped
+the scheduler, you can use this method to restart it.
+
+
+please.time.stop
+----------------
+*please.time.stop* **()**
+
+Stops the scheduler.
+
+
 please.postpone
 ---------------
 *please.postpone* **(callback)**

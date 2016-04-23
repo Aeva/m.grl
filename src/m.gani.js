@@ -709,15 +709,43 @@ please.media.__AnimationData = function (gani_text, uri) {
     // return a graph node instance of this animation
     ani.instance = function () {
 #ifdef WEBGL
+        var node;
         if (please.renderer.name == "gl") {
-            return ani.__gl_instance()
+            node = ani.__gl_instance()
         }
 #endif
 #ifdef DOM
         if (please.renderer.name == "dom") {
-            return ani.__dom_instance()
+            node = ani.__dom_instance()
         }
 #endif
+         
+        // Bind direction handle
+        var write_hook = function (target, prop, obj) {
+            var cache = obj.__ani_cache;
+            var store = obj.__ani_store;
+
+            if (this.__current_gani) {
+                var old_value = store[prop];
+                var new_value = old_value;
+                if (this.__current_gani.single_dir) {
+                    new_value = 0;
+                }
+                else {
+                    new_value = Math.floor(new_value % 4);
+                    if (new_value < 0) {
+                        new_value += 4;
+                    }
+                }
+
+                if (new_value !== old_value) {
+                    cache[prop] = null;
+                    store[prop] = new_value;
+                }
+            }
+        }.bind(node);
+        please.make_animatable(node, "dir", 0, null, false, write_hook);
+        return node;
     };
 
     
@@ -759,25 +787,6 @@ please.media.__AnimationData = function (gani_text, uri) {
                         //please.make_animatable(node, name, value);
                     }
                 });
-
-                // Bind direction handle
-                if (!node.hasOwnProperty("dir")) {
-                    var write_hook = function (target, prop, obj) {
-                        var cache = obj.__ani_cache;
-                        var store = obj.__ani_store;
-                        var old_value = store[prop];
-
-                        var new_value = Math.floor(old_value % 4);
-                        if (new_value < 0) {
-                            new_value += 4;
-                        }
-                        if (new_value !== old_value) {
-                            cache[prop] = null;
-                            store[prop] = new_value;
-                        }
-                    };
-                    please.make_animatable(node, "dir", 0, null, null, write_hook);
-                }
 
                 // Generate the frameset for the animation.
                 var score = resource.frames.map(function (frame) {

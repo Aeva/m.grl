@@ -90,6 +90,13 @@ the graph property is null or will otherwise call graph.draw(). This
 function may be overridden to support custom drawing logic.</li>
 </ul>
 </div>
+<div class="section" id="please-set-viewport">
+<h2>please.set_viewport<a class="headerlink" href="#please-set-viewport" title="Permalink to this headline">¶</a></h2>
+<p><em>please.set_viewport</em> <strong>(render_node)</strong></p>
+<p>Designate a particular RenderNode to be the rendering output. You can
+pass null to disable this mechanism if you want to override m.grl&#8217;s
+rendering management system, which you probably don&#8217;t want to do.</p>
+</div>
 <div class="section" id="please-render">
 <h2>please.render<a class="headerlink" href="#please-render" title="Permalink to this headline">¶</a></h2>
 <p><em>please.render</em> <strong>(node)</strong></p>
@@ -138,6 +145,7 @@ the above two functions.</li>
   <ul>
 <li><a class="reference internal" href="#">m.compositing.js</a><ul>
 <li><a class="reference internal" href="#please-rendernode">please.RenderNode</a></li>
+<li><a class="reference internal" href="#please-set-viewport">please.set_viewport</a></li>
 <li><a class="reference internal" href="#please-render">please.render</a></li>
 <li><a class="reference internal" href="#please-indirect-render">please.indirect_render</a></li>
 <li><a class="reference internal" href="#please-transitioneffect">please.TransitionEffect</a></li>

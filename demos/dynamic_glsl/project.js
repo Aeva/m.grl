@@ -24,7 +24,6 @@
 var demo = {
     "graph" : null,
     "models" : [],
-    "viewport" : null, // the render pass that will be rendered
 
     "last_build" : null,
     "last_index" : -1,
@@ -161,18 +160,10 @@ addEventListener("load", function() {
     // the maximum height of said canvas element.  You are responsible
     // for providing the css needed to upsample the canvas, though
     // this project template accomplishes that for you.  See "ui.css".
-    please.pipeline.add_autoscale();
-
-    // register a render pass with the scheduler
-    please.pipeline.add(10, "project/draw", function () {
-        please.render(demo.viewport);
-    }).skip_when(function () { return demo.viewport === null; });
-
-    // start the rendering pipeline
-    please.pipeline.start();
+    please.add_autoscale();
 
     // Show a loading screen
-    demo.viewport = new please.LoadingScreen();
+    please.set_viewport(new please.LoadingScreen());
 });
 
 
@@ -238,7 +229,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // add a render pass
     var renderer = new DynamicRenderNode();
     renderer.graph = graph;
-    demo.viewport.raise_curtains(renderer);
+    please.set_viewport(renderer);
     renderer.clear_color = [0.5, 0.5, 0.5, 1.0];
 }));
 

@@ -46,7 +46,6 @@
 
 #demo_area {
     position: relative;
-    display: none;
 }
 
 canvas#gl_canvas {

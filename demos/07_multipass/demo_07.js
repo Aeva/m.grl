@@ -23,33 +23,28 @@
 
 
 addEventListener("load", function() {
+    // create the rendering context
     please.gl.set_context("gl_canvas");
+
+    // setup default state stuff    
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.enable(gl.CULL_FACE);
+    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
+
+    // setup asset search paths
     please.set_search_path("glsl", "glsl/");
     please.set_search_path("img", "../gl_assets/img/");
     please.set_search_path("jta", "../gl_assets/models/");
 
+    // load assets
     please.load("halftone.vert");
     please.load("halftone.frag");
     please.load("suzanne.jta");
-    show_progress();
+
+    // add a loading screen
+    please.set_viewport(new please.LoadingScreen());
 });
-
-
-function show_progress() {
-    if (please.media.pending.length > 0) {
-        var progress = please.media.get_progress();
-        if (progress.all > -1) {
-            var bar = document.getElementById("progress_bar");
-            var label = document.getElementById("percent");
-            bar.style.width = "" + progress.all + "%";
-            label.innerHTML = "" + Math.round(progress.all) + "%";
-            var files = please.get_properties(progress.files);
-            var info = document.getElementById("progress_info");
-            info.innerHTML = "" + files.length + " file(s)";
-        }
-        setTimeout(show_progress, 100);
-    }
-};
 
 
 var key_times = {
@@ -135,20 +130,31 @@ addEventListener("mgrl_fps", function (event) {
 });
 
 
-addEventListener("mgrl_media_ready", function () {
-    // clear loading screen, show canvas
-    document.getElementById("loading_screen").style.display = "none";
-    document.getElementById("demo_area").style.display = "block";
-
+addEventListener("mgrl_media_ready", please.once(function () {
     // build the GLSL shader program
-    var prog = please.glsl("default", "halftone.vert", "halftone.frag");
+    var prog = please.glsl("custom", "halftone.vert", "halftone.frag");
     prog.activate();
 
-    // setup default state stuff    
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
-    gl.enable(gl.CULL_FACE);
-    please.set_clear_color(0.0, 0.0, 0.0, 0.0);
+    // create the scene graph root
+    var graph = new please.SceneGraph();
+
+    // lighting stuff
+    var light_direction = vec3.fromValues(-1.0, 1.0, 0.0);
+    vec3.scale(light_direction, light_direction, -1);
+    vec3.normalize(light_direction, light_direction);
+
+    // create the first render pass
+    var basic_draw = new please.RenderNode("custom");
+    basic_draw.clear_color = [0.0, 0.0, 0.0, 0.0];
+    basic_draw.shader.light_direction = light_direction;
+    basic_draw.shader.draw_pass = 1;
+    basic_draw.graph = graph;
+
+    // create the final render pass
+    var post_process = new please.RenderNode("custom");
+    post_process.shader.previous_render = basic_draw;
+    post_process.shader.draw_pass = 2;
+    please.set_viewport(post_process);
 
     // connect keyboard stuff
     please.keys.enable();
@@ -161,20 +167,7 @@ addEventListener("mgrl_media_ready", function () {
     var suzanne_data = please.access("suzanne.jta");
     var rotation_speed = .0005;
 
-    // display licensing meta_data info, where applicable
-    /*
-    [suzanne_data].map(function (scene) {
-        var target = document.getElementById("attribution_area");
-        target.style.display = "block";
-        var div = scene.get_license_html();
-        if (div) {
-            target.appendChild(div);
-        }
-    });
-    */
-
     // build the scene graph
-    var graph = new please.SceneGraph();
     var suzanne = suzanne_data.instance();
     suzanne.rotation_z = function () {
         var progress = performance.now()/110;
@@ -187,35 +180,4 @@ addEventListener("mgrl_media_ready", function () {
     graph.add(camera);
     camera.look_at = [0, 0, 1];
     camera.location = get_camera_position;
-
-    // lighting stuff
-    var light_direction = vec3.fromValues(-1.0, 1.0, 0.0);
-    vec3.scale(light_direction, light_direction, -1);
-    vec3.normalize(light_direction, light_direction);
-
-    // register a render pass with the scheduler
-    please.pipeline.add(1, "demo_07/draw", function () {
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        // update uniforms
-        prog.vars.light_direction = light_direction;
-
-        // draw the scene
-        graph.draw();
-    }).as_texture();
-
-
-    // add post processing pass
-    please.pipeline.add(2, "demo_07/post", function () {
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        // use the last render stage as a texture
-        prog.samplers.draw_pass = "demo_07/draw";
-
-        // fill the screen with a quad
-        please.gl.splat();
-    });//*/
-    
-    // start the drawing loop
-    please.pipeline.start();
-});
+}));

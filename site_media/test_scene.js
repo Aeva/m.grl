@@ -42,12 +42,6 @@ var scene = {
 
     // which point set to use
     "stage" : 0,
-
-    //
-    "buffer_control" : {
-        "width" : 1024,
-        "height" : 512,
-    },
 };
 
 
@@ -78,6 +72,10 @@ window.addEventListener("load", function () {
     // setup drawing context
     please.gl.set_context("bg_demo");
 
+    // setup gl state
+    gl.disable(gl.BLEND);
+    gl.disable(gl.CULL_FACE);
+
     // set up media search paths
     please.set_search_path("glsl", "site_media/glsl");
     please.set_search_path("img", "demos/gl_assets/img/");
@@ -96,6 +94,8 @@ window.addEventListener("load", function () {
     please.load("suzanne.png");
     please.load("suzanne.jta");
     please.load("floor_lamp.jta");
+
+    please.add_autoscale();
 });
 
 
@@ -106,25 +106,11 @@ addEventListener("mgrl_media_ready", please.once(function () {
         var frag = please.access(frag_file);
         return please.glsl(name, vert, frag);
     };
-    var prog = build_shader("default", "demo.vert", "demo.frag");
+    var prog = build_shader("color", "demo.vert", "demo.frag");
     prog.activate();
 
     build_shader("depth", "depth.vert", "depth.frag");
     build_shader("bokeh", "splat.vert", "bokeh.frag");
-    build_shader("upsample", "splat.vert", "upsample.frag");
-
-    // setup default state stuff    
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
-    //gl.enable(gl.CULL_FACE);
-    gl.disable(gl.CULL_FACE);
-
-    please.set_clear_color(.93, .93, .93, 1.0);
-
-    // enable alpha blending
-    gl.enable(gl.BLEND);
-    //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     // scene graph object thingy
     var graph = scene.graph = new please.SceneGraph();
@@ -180,86 +166,21 @@ addEventListener("mgrl_media_ready", please.once(function () {
     vec3.normalize(light_direction, light_direction);
     vec3.scale(light_direction, light_direction, -1);
 
-    
-    // register a render passes with the scheduler
-    please.pipeline.add(1, "scale_window", function () {
-        // automatically change the viewport if necessary 
+    // render passes
+    var color_pass = new please.RenderNode("color");
+    color_pass.clear_color = [.93, .93, .93, 0.0];
+    color_pass.shader.light_direction = light_direction;
+    color_pass.graph = graph;
 
-        var window_w = window.innerWidth;
-        var window_h = window.innerHeight;
-        var canvas_w = please.gl.canvas.width;
-        var canvas_h = please.gl.canvas.height;
-        if (window_w !== canvas_w || window_h !== canvas_h) {
-            please.gl.canvas.width = window_w;
-            please.gl.canvas.height = window_h;
-        }
-    });
+    var depth_pass = new please.RenderNode("depth");
+    depth_pass.clear_color = [0.0, 1.0, 1.0, 1.0];
+    depth_pass.graph = graph;
 
+    var bokeh_pass = new please.RenderNode("bokeh");
+    bokeh_pass.shader.depth_pass = depth_pass;
+    bokeh_pass.shader.color_pass = color_pass;
 
-    please.pipeline.add(10, "test/depth_pass", function () {
-        // write out blur factor information based on depth
-
-        var prog = please.gl.get_program("depth");
-        prog.activate();
-
-        prog.vars.bg_fill = true;
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        please.gl.splat();
-
-        prog.vars.bg_fill = false;
-        gl.clear(gl.DEPTH_BUFFER_BIT);
-        graph.draw();
-    }).as_texture(scene.buffer_control);
-
-
-    please.pipeline.add(20, "demo_06/draw", function () {
-        // draw the scene normally
-
-        var prog = please.gl.get_program("default");
-        prog.activate();
-
-        // -- update uniforms
-        prog.vars.light_direction = light_direction;
-
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        // -- draw geometry
-        graph.draw();
-    }).as_texture(scene.buffer_control);
-
-
-    please.pipeline.add(30, "test/bokeh_pass", function () {
-        // selectively blur the scene
-
-        var prog = please.gl.get_program("bokeh");
-        prog.activate();
-
-        // update uniforms, etc
-        prog.samplers.depth_pass = "test/depth_pass";
-        prog.samplers.color_pass = "demo_06/draw";
-
-        // -- clear the screen
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        // -- draw geometry
-        please.gl.splat();
-    }).as_texture(scene.buffer_control);
-
-
-    please.pipeline.add(40, "test/upsample_pass", function () {
-        // upsample the frame buffer
-
-        var prog = please.gl.get_program("upsample");
-        prog.activate();
-        prog.samplers.color_pass = "test/bokeh_pass";
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        please.gl.splat();
-    });
-
-
-    // start the draw loop
-    please.pipeline.start();
+    please.set_viewport(bokeh_pass);
 }));
 
 
