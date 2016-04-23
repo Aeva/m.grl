@@ -48,6 +48,15 @@ properties and methods:
    function may be overridden to support custom drawing logic.
 
 
+please.set_viewport
+-------------------
+*please.set\_viewport* **(render\_node)**
+
+Designate a particular RenderNode to be the rendering output. You can
+pass null to disable this mechanism if you want to override m.grl's
+rendering management system, which you probably don't want to do.
+
+
 please.render
 -------------
 *please.render* **(node)**
