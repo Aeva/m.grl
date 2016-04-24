@@ -302,8 +302,16 @@ please.GraphNode = function () {
     // A getter that is set to the rotation property when the mode
     // changes to quaternion mode.
     var as_euler = function () {
-        throw new Error("I don't know how to translate from quaternions to euler " +
-              "rotations :( I am sorry :( :( :(");
+        var p = vec3.fromValues(1, 0, 0);
+        vec3.transformQuat(p, p, this.quaternion);
+        var rotation_y = -Math.asin(p[2]);
+        var rotation_z = Math.atan2(p[1], p[0]);
+        p = vec3.fromValues(0, 1, 0);
+        vec3.transformQuat(p, p, this.quaternion);
+        vec3.rotateZ(p, p, vec3.create(), -rotation_z);
+        vec3.rotateY(p, p, vec3.create(), -rotation_y);
+        var rotation_x = Math.atan2(p[2], p[1]);
+        return [please.degrees(rotation_x), please.degrees(rotation_y), please.degrees(rotation_z)];
     }.bind(this);
 
     // A getter that is set to the quaternion property wthen the mode
