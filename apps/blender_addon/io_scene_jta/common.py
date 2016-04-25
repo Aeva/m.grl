@@ -72,7 +72,10 @@ class Exportable(object):
                 bone_name = self.obj.parent_bone
                 parent = "{0}:bone:{1}".format(self.obj.parent.name, bone_name)
                 pose = self.obj.parent.pose.bones[bone_name]
-                local_matrix = pose.matrix.inverted() * self.obj.matrix_world
+                # https://github.com/Aeva/m.grl/issues/213 for more
+                # info on how this works.
+                pose_w_matrix = self.obj.parent.matrix_world * pose.matrix
+                local_matrix = pose_w_matrix.inverted() * self.obj.matrix_world
             else:
                 parent = self.obj.parent.name
 
