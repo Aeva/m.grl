@@ -6197,13 +6197,13 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
             "callback" : make_frame_callback(low.updates, high.updates),
         });
     }
-    if (high.start < raw_data.duration) {
-        frame_set.push({
-            "speed" : (raw_data.duration - high.start),
-            "callback" : make_frame_callback(high.updates, {}),
-        });
-    }
     if (frame_set.length>0) {
+        if (high.start < raw_data.duration) {
+            frame_set.push({
+                "speed" : (raw_data.duration - high.start),
+                "callback" : make_frame_callback(high.updates, {}),
+            });
+        }
         please.time.add_score(root_node, action_name, frame_set);
     }
     else {
