@@ -270,41 +270,28 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
     // this method creates the frame-ready callback that sets up the
     // driver functions for animation.
     var make_frame_callback = function(start_updates, end_updates) {
-        return function(speed, skip_to) {
-            ITER_PROPS(object_id, start_updates) {
-                var obj_start = start_updates[object_id];
-                var obj_end = end_updates[object_id];
-                if (!obj_end) {
-                    obj_end = obj_start;
-                }
-                var node = find_object(object_id);
-                if (node) {
-                    ITER(i, attr_constants) {
-                        var attr = attr_constants[i];
-                        if (obj_start[attr] && obj_end[attr]) {
-                            var lhs = obj_start[attr];
-                            var rhs = obj_end[attr];
-                            if (skip_to) {
-                                lhs = please.mix(lhs, rhs, skip_to);
-                            }
-                            var path = please.linear_path(lhs, rhs);
-                            node[attr] = please.path_driver(path, speed);
-                        }
-                    }
+        // first combine the two property lists, since they won't
+        // always be the same
+        var all_updates = [];
+        for (var p=0; p<2; p+=1) {
+            var update_set = arguments[p];
+            ITER_PROPS(object_id, update_set) {
+                if (all_updates.indexOf(object_id) == -1) {
+                    all_updates.push(object_id);
                 }
             }
-            ITER_PROPS(object_id, end_updates) {
-                var obj_end = end_updates[object_id];
-                if (start_updates[object_id]) {
-                    // This has been handled above.
-                    continue;
-                }
+        }
+        return function(speed, skip_to) {
+            ITER(p, all_updates) {
+                var object_id = all_updates[p];
+                var obj_start = start_updates[object_id] || null;
+                var obj_end = end_updates[object_id] || obj_start;
                 var node = find_object(object_id);
                 if (node) {
                     ITER(i, attr_constants) {
                         var attr = attr_constants[i];
                         if (obj_end[attr]) {
-                            var lhs = node[attr];
+                            var lhs = obj_start ? obj_start[attr] : node[attr];
                             var rhs = obj_end[attr];
                             if (skip_to) {
                                 lhs = please.mix(lhs, rhs, skip_to);
