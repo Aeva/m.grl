@@ -179,6 +179,9 @@ please.access = function (asset_name, no_error) {
         return please.media.errors.img;
     }
     var found = please.media.assets[asset_name];
+    if (typeof(found) === "function") {
+        found = please.media.assets[asset_name] = found();
+    }
     var type = please.media.guess_type(asset_name);
     if (!found && !no_error) {
         if (type) {
