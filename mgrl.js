@@ -1774,6 +1774,9 @@ please.access = function (asset_name, no_error) {
         return please.media.errors.img;
     }
     var found = please.media.assets[asset_name];
+    if (typeof(found) === "function") {
+        found = please.media.assets[asset_name] = found();
+    }
     var type = please.media.guess_type(asset_name);
     if (!found && !no_error) {
         if (type) {
@@ -10458,8 +10461,11 @@ addEventListener("mgrl_gl_context_created", function () {
     please.prop_map(please.__bundled_glsl, function (name, src) {
         addEventListener("mgrl_gl_context_created", function () {
             // see m.media.js's please.media.handlers.glsl for reference:
-            please.media.assets[name] = new please.gl.ShaderSource(atob(src.replace(/\s/g, '')), name);
-            please.media.assets[name].bundled = true;
+            please.media.assets[name] = function () {
+                var asset = new please.gl.ShaderSource(atob(src.replace(/\s/g, '')), name);
+                asset.bundled = true;
+                return asset;
+            };
         });
     });
 })();
