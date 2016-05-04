@@ -52,6 +52,17 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     var out = "";    
     var methods = [];
     var hoists = [];
+
+    var find_hoists = function (methods, hoists) {
+        var found = [];
+        ITER(m, methods) {
+            var method = methods[m];
+            if (method.name !== "main") {
+                found.push(method.generate_hoist());
+            }
+        }
+        return please.gl.__reduce_hoists(hoists.concat(found));
+    }
     
     if (!is_include && this.inclusions.length > 0) {
         // First, combine all of the globals and hoist them to the top
@@ -95,11 +106,12 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
 
         // Generate function prototypes for all methods, validate the
         // resulting concatination, and print the to the output buffer.
-        hoists = hoists.concat(methods.map(function (m) { return m.generate_hoist(); }));
-        hoists = please.gl.__reduce_hoists(hoists);
+        hoists = find_hoists(methods, hoists);
         out += "\n// Generated and hoisted function prototypes follow:\n"
         ITER(h, hoists) {
-            out += hoists[h].print();
+            if (hoists[h].name !== "main") {
+                out += hoists[h].print();
+            }
         }
 
         // Pass globals to the curve macro and append the result.
@@ -124,8 +136,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
 
     // if applicable, print out hoists
     if (this.inclusions.length==0 && !is_include) {
-        hoists = hoists.concat(methods.map(function (m) { return m.generate_hoist(); }));
-        hoists = please.gl.__reduce_hoists(hoists);
+        hoists = find_hoists(methods, hoists);
         out += "\n// Generated and hoisted function prototypes follow:\n"
         ITER(h, hoists) {
             out += hoists[h].print();

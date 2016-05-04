@@ -27,3 +27,14 @@ test["prototype_hoisting"] = function () {
     assert(body_index !== -1);
     assert(proto_index < body_index);
 };
+
+
+test[""] = function () {
+    var src = "";
+    src += "void main() {\n";
+    src += "  //...\n";
+    src += "}\n";
+    var tree = please.gl.glsl_to_ast(src);
+    var result = tree.print();
+    assert(result.indexOf("void main();") == -1);
+};
