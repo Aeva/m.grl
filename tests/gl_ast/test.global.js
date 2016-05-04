@@ -232,7 +232,6 @@ test["allow global variables without extra qualifiers"] = function () {
     var tree = please.gl.glsl_to_ast(src);
     var expected = '' +
         '// Generated and hoisted function prototypes follow:\n' +
-        'void main();\n' +
         'float meep;\n' +
         'vec2 goom = vec2(10.0,10.0);\n' +
         'vec3 whee;\n' +
