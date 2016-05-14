@@ -24,7 +24,8 @@ canvas {
 
 #fps_counter {
     position: absolute;
-    top: 0px;
-    left: 0px;
+    top: 2px;
+    left: 4px;
     z-index: 20;
+    color: #999;
 }
