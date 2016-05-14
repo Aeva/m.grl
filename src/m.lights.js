@@ -120,7 +120,7 @@ please.DeferredRenderer = function () {
 
     
     var gbuffer_options = {
-        "buffers" : ["color", "spatial"],
+        "buffers" : ["color", "spatial", "normal"],
         "type":gl.FLOAT,
     };
     var gbuffers = new please.RenderNode(prog, gbuffer_options);
@@ -139,6 +139,7 @@ please.DeferredRenderer = function () {
     apply_lighting.shader.shader_pass = 2;
     apply_lighting.shader.geometry_pass = false;
     apply_lighting.shader.spatial_texture = gbuffers.buffers.spatial;
+    apply_lighting.shader.normal_texture = gbuffers.buffers.normal;
     apply_lighting.before_render = function () {
         if (assembly.graph !== null) {
             this.targets = [];
@@ -159,6 +160,7 @@ please.DeferredRenderer = function () {
                 this.__prog.samplers.light_texture = this.targets[i];
                 this.__prog.vars.light_view_matrix = light.camera.view_matrix;
                 this.__prog.vars.light_projection_matrix = light.camera.projection_matrix;
+                this.__prog.vars.light_world_position = light.camera.__world_coordinate_driver();
                 please.gl.splat();
             }
             gl.disable(gl.BLEND);
