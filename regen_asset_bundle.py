@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import fnmatch
 import base64
 import json
 import glob
@@ -8,17 +9,20 @@ import os
 
 def find_assets(extensions, path="src/assets/"):
     bundle = {}
-    for extension in extensions:
-        found = glob.glob(os.path.join(path, "*." + extension))
-        for asset_path in found:
-            warn_limit_kb = 10
-            print "  embedding: " + asset_path
-            if os.path.getsize(asset_path) > warn_limit_kb*1024:
-                msg = "WARNING: File larger than {0}kb!! -> {1}"
-                print msg.format(warn_limit_kb, os.path.split(asset_path)[-1])
+    for base, directories, files in os.walk(path):
+        for extension in extensions:
+            for name in fnmatch.filter(files, "*." + extension):
+                asset_path = os.path.join(base, name)
+                assert os.path.exists(asset_path)
+
+                warn_limit_kb = 10
+                print "  embedding: " + asset_path
+                if os.path.getsize(asset_path) > warn_limit_kb*1024:
+                    msg = "WARNING: File larger than {0}kb!! -> {1}"
+                    print msg.format(warn_limit_kb, os.path.split(asset_path)[-1])
                 
-            file_name = os.path.split(asset_path)[-1]
-            bundle[file_name] = base64.encodestring(open(asset_path, "r").read())
+                file_name = asset_path[len(path):]
+                bundle[file_name] = base64.encodestring(open(asset_path, "r").read())
     return bundle
 
 

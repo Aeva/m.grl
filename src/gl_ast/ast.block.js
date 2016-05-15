@@ -52,6 +52,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     var out = "";    
     var methods = [];
     var hoists = [];
+    var extensions = [];
 
     var find_hoists = function (methods, hoists) {
         var found = [];
@@ -63,6 +64,8 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         }
         return please.gl.__reduce_hoists(hoists.concat(found));
     }
+
+    var skip_virtuals = false;
     
     if (!is_include && this.inclusions.length > 0) {
         // First, combine all of the globals and hoist them to the top
@@ -70,6 +73,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         var globals = {};
         var ext_ast = {};
         var imports = this.all_includes();
+        skip_virtuals = true;
 
         var append_global = function(global) {
             if (globals[global.name] === undefined) {
@@ -91,13 +95,21 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
             ITER(h, other.hoists) {
                 hoists.push(other.hoists[h]);
             }
-            
+            ITER(e, other.extensions) {
+                extensions.push(other.extensions[e]);
+            }
         }
         this.globals.map(append_global);
 
         methods = methods.concat(this.methods);
         please.gl.__validate_functions(methods);
         hoists = hoists.concat(this.hoists);
+        extensions = extensions.concat(this.extensions);
+
+        // write the extension macros first
+        ITER(e, extensions) {
+            out += extensions[e].print();
+        }
 
         // Append the collection of globals to the output buffer.
         ITER_PROPS(name, globals) {
@@ -123,7 +135,8 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         }
 
         // Now, append the contents of each included file sans globals.
-        ITER_PROPS(name, ext_ast) {
+        ITER(i, imports) {
+            var name = imports[i];
             out += this.include_banner(name, true);
             out += ext_ast[name].__print_program(true);
             out += this.include_banner(name, false);
@@ -135,7 +148,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     }
 
     // if applicable, print out hoists
-    if (this.inclusions.length==0 && !is_include) {
+    if (!is_include && this.inclusions.length==0) {
         hoists = find_hoists(methods, hoists);
         out += "\n// Generated and hoisted function prototypes follow:\n"
         ITER(h, hoists) {
@@ -143,7 +156,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         }
     }
     
-    if (methods.length > 0) {
+    if (!is_include && methods.length > 0 && !skip_virtuals) {
         // find and print virtual globals
         var virtuals = [];
         ITER(m, methods) {
@@ -181,7 +194,8 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     // Now, append the contents of this ast tree sans globals and
     // explicit function prototypes.
     ITER(i, this.data) {
-        var token = this.data[i];
+        var token = this.data[i]
+        var last_token = this.data[i-1] || null;
         if (token.constructor == please.gl.ast.Global) {
             var dummy_out = (this.inclusions.length>0 || is_include) ? "// " : "";
             out += dummy_out + token.print();
@@ -192,6 +206,9 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         else if (token.constructor != please.gl.ast.Block &&
                  token.constructor != please.gl.ast.Comment &&
                  token.print) {
+            // This will catch Invocation tokens.  Since the include
+            // macro actually just leaves them in, they won't show up
+            // in the program's final output because of this.
             continue;
         }
         else if (token.constructor == please.gl.ast.Block &&
@@ -201,11 +218,15 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         else if (token.print) {
             out += token.print();
         }
+        else if (token == ";") {
+            if (last_token && last_token.is_include_macro) {
+                // *SIIIIIIIIIIIIIGH*
+                continue;
+            }
+            out += token + "\n";
+        }
         else {
             out += token;
-            if (token == ";") {
-                out += "\n";
-            }
         }
     };
 
@@ -240,8 +261,12 @@ please.gl.ast.Block.prototype.banner = function (header, begin) {
 
 
 // Put together a list of files to be included.
-please.gl.ast.Block.prototype.all_includes = function (skip) {
+please.gl.ast.Block.prototype.all_includes = function (call_stack) {
     var others = [];
+    var first_call = !call_stack;
+    if (first_call) {
+        call_stack = [];
+    }
     ITER(i, this.inclusions) {
         var uri = this.inclusions[i];
         var another = please.access(uri, null);
@@ -250,8 +275,28 @@ please.gl.ast.Block.prototype.all_includes = function (skip) {
             continue;
         }
         others.push(uri);
+
+        if (call_stack.indexOf(uri) == -1) {
+            call_stack.push(uri);
+            var recurse = another.__ast.all_includes(call_stack);
+            ITER(r, recurse) {
+                others.unshift(recurse[r]);
+            }
+            call_stack.pop();
+        }
     }
-    return others;
+
+    var touched = {};
+    var found = [];
+    ITER(i, others) {
+        var uri = others[i];
+        if (!touched[uri]) {
+            touched[uri] = true;
+            found.push(uri);
+        }
+    }
+    
+    return found;
 };
 
 
@@ -345,6 +390,7 @@ please.gl.ast.Block.prototype.make_global_scope = function () {
     this.globals = [];
     this.methods = [];
     this.rewrite = {};
+    this.extensions = [];
     this.enums = {};
     ITER(i, this.data) {
         var item = this.data[i];
@@ -356,6 +402,11 @@ please.gl.ast.Block.prototype.make_global_scope = function () {
         }
         if (item.constructor == please.gl.ast.FunctionPrototype) {
             this.hoists.push(item);
+        }
+        if (item.constructor == please.gl.ast.Comment && item.directive) {
+            if (item.data.startsWith("extension")) {
+                this.extensions.push(item);
+            }
         }
     }
     please.gl.__bind_invocations(this.data, this.methods);
@@ -455,6 +506,7 @@ please.gl.__identify_functions = function (ast) {
             if (statement.constructor == String || statement.constructor == please.gl.ast.Parenthetical) {
                 if (statement == ";") {
                     collapse(recording_for, cache);
+                    remainder.unshift(statement);
                 }
                 else {
                     cache.unshift(statement);
