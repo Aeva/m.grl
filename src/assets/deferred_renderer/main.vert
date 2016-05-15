@@ -1,8 +1,9 @@
 
 include("deferred_renderer/geometry_buffers.vert");
 
-
 attribute vec3 position;
+attribute vec3 normal;
+attribute vec2 tcoords;
 
 binding_context GraphNode {
   // object matrices
