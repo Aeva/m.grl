@@ -4,16 +4,13 @@ include("deferred_renderer/common.glsl");
 
 include("normalize_screen_coord.glsl");
 
-binding_context GraphNode {
-  uniform bool cast_shadows;
-}
-
 uniform sampler2D spatial_texture;
 uniform sampler2D normal_texture;
 
 uniform mat4 light_projection_matrix;
 uniform mat4 light_view_matrix;
 uniform vec3 light_world_position;
+uniform bool cast_shadows;
 
 
 float spotlight_shadows(vec3 world_position) {
@@ -35,11 +32,16 @@ float spotlight_shadows(vec3 world_position) {
     return 0.0;
   }
   if (length(light_normal) <=1.0) {
-    float bias = 0.0;
-    float light_depth_1 = texture2D(light_texture, light_uv).r;
-    float light_depth_2 = length(view_position);
-    float illuminated = step(light_depth_2, light_depth_1 + bias);
-    return illuminated;
+    if (cast_shadows) {
+      float bias = 0.0;
+      float light_depth_1 = texture2D(light_texture, light_uv).r;
+      float light_depth_2 = length(view_position);
+      float illuminated = step(light_depth_2, light_depth_1 + bias);
+      return illuminated;
+    }
+    else {
+      return 1.0;
+    }
   }
   else {
     return 0.0;
@@ -50,7 +52,7 @@ float spotlight_shadows(vec3 world_position) {
 float spotlight_illumination(vec3 world_position, vec3 world_normal) {
   // illuminated tells us if the pixel would be in the current light's
   // shadow or not.
-  float illuminated = cast_shadows ? spotlight_shadows(world_position) : 1.0;
+  float illuminated = spotlight_shadows(world_position);
 
   // the light weight is calculated in world space
   vec3 light_vector = normalize(light_world_position - world_position);
