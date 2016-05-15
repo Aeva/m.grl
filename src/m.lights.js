@@ -13,6 +13,34 @@
  */
 
 
+// [+] please.PointLightNode(options)
+//
+// This constructor function creates a graph node which represents a
+// point light.
+//
+please.PointLightNode = function (options) {
+    please.GraphNode.call(this);
+    this.__is_light = true;
+    this.__light_type = "point";
+
+    var prog = please.gl.get_program("mgrl_illumination");
+    if (!prog) {
+        prog = please.glsl(
+            "mgrl_illumination",
+            "deferred_renderer/main.vert",
+            "deferred_renderer/main.frag");
+    }
+
+    this.cast_shadows = false;
+    Object.freeze(this.cast_shadows);
+    
+    ANI("energy", 1);
+    ANI("falloff", 25);
+    please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
+};
+please.PointLightNode.prototype = Object.create(please.GraphNode.prototype);
+
+
 // [+] please.SpotLightNode(options)
 //
 // This constructor function creates a graph node which represents a
@@ -25,6 +53,7 @@
 please.SpotLightNode = function (options) {
     please.GraphNode.call(this);
     this.__is_light = true;
+    this.__light_type = "spot";
 
     var prog = please.gl.get_program("mgrl_illumination");
     if (!prog) {
@@ -170,13 +199,21 @@ please.DeferredRenderer = function () {
             gl.blendFunc(gl.ONE, gl.ONE);
             for (var i=0; i<assembly.graph.__lights.length; i+=1) {
                 var light = assembly.graph.__lights[i];
-                if (light.cast_shadows) {
-                    this.__prog.samplers.light_texture = this.targets[i];
+                if (light.__light_type == "spot") {
+                    if (light.cast_shadows) {
+                        this.__prog.samplers.light_texture = this.targets[i];
+                    }
+                    this.__prog.vars.light_type = 0;
+                    this.__prog.vars.cast_shadows = light.cast_shadows;
+                    this.__prog.vars.light_view_matrix = light.camera.view_matrix;
+                    this.__prog.vars.light_projection_matrix = light.camera.projection_matrix;
+                    this.__prog.vars.light_world_position = light.camera.__world_coordinate_driver();
                 }
-                this.__prog.vars.cast_shadows = light.cast_shadows;
-                this.__prog.vars.light_view_matrix = light.camera.view_matrix;
-                this.__prog.vars.light_projection_matrix = light.camera.projection_matrix;
-                this.__prog.vars.light_world_position = light.camera.__world_coordinate_driver();
+                else if (light.__light_type == "point") {
+                    this.__prog.vars.light_type = 1;
+                    this.__prog.vars.cast_shadows = light.cast_shadows;
+                    this.__prog.vars.light_world_position = light.__world_coordinate_driver();
+                }
                 please.gl.splat();
             }
             gl.disable(gl.BLEND);
