@@ -13,6 +13,39 @@
  */
 
 
+// [+] please.SunLightNode(options)
+//
+// This constructor function creates a graph node which represents a
+// sun light.
+//
+please.SunLightNode = function (options) {
+    please.GraphNode.call(this);
+    this.__is_light = true;
+    this.__light_type = "sun";
+
+    var prog = please.gl.get_program("mgrl_illumination");
+    if (!prog) {
+        prog = please.glsl(
+            "mgrl_illumination",
+            "deferred_renderer/main.vert",
+            "deferred_renderer/main.frag");
+    }
+
+    this.cast_shadows = false;
+    Object.freeze(this.cast_shadows);
+    
+    ANI("energy", 1);
+    please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
+    please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
+    please.make_animatable_tripple(this, "sun_vector", "xyz",
+                                   this.__sun_vector_driver);
+};
+please.SunLightNode.prototype = Object.create(please.GraphNode.prototype);
+please.SunLightNode.prototype.__sun_vector_driver = function () {
+    var vector = vec3.subtract(vec3.create(), this.world_location, this.look_at);
+    return vec3.normalize(vector, vector);
+};
+
 // [+] please.PointLightNode(options)
 //
 // This constructor function creates a graph node which represents a
@@ -35,7 +68,6 @@ please.PointLightNode = function (options) {
     Object.freeze(this.cast_shadows);
     
     ANI("energy", 1);
-    ANI("falloff", 25);
     please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
 };
 please.PointLightNode.prototype = Object.create(please.GraphNode.prototype);
@@ -71,7 +103,6 @@ please.SpotLightNode = function (options) {
     
     ANI("fov", 45);
     ANI("energy", 1);
-    ANI("falloff", 25);
     please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
     please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
     please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
@@ -213,6 +244,13 @@ please.DeferredRenderer = function () {
                     this.__prog.vars.light_type = 1;
                     this.__prog.vars.cast_shadows = light.cast_shadows;
                     this.__prog.vars.light_world_position = light.__world_coordinate_driver();
+                }
+                else if (light.__light_type == "sun") {
+                    this.__prog.vars.light_type = 2;
+                    this.__prog.vars.cast_shadows = light.cast_shadows;
+                    // here we use the light_world_position as the
+                    // sun light's vector instead of the sun's position
+                    this.__prog.vars.light_world_position = light.sun_vector;
                 }
                 please.gl.splat();
             }

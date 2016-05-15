@@ -83,6 +83,21 @@ float pointlight_illumination(vec3 world_position, vec3 world_normal) {
 }
 
 
+float sunlight_illumination(vec3 world_normal) {
+  // illuminated tells us if the pixel would be in the current light's
+  // shadow or not.
+  float illuminated = 1.0;
+
+  // the light weight is calculated in world space
+  vec3 light_vector = light_world_position;
+  float light_weight = max(dot(world_normal, light_vector), 0.0);
+
+  // constant for fudging
+  float intensity = 0.8;
+  return illuminated * light_weight * intensity;
+}
+
+
 void lighting_pass() {
   // light perspective pass
   vec2 tcoords = normalize_screen_coord(gl_FragCoord.xy);
@@ -98,6 +113,9 @@ void lighting_pass() {
     }
     else if (light_type == 1) {
       light = pointlight_illumination(space.xyz, normal);
+    }
+    else if (light_type == 2) {
+      light = sunlight_illumination(normal);
     }
     gl_FragData[0] = vec4(light, light, light, 1.0);
   }
