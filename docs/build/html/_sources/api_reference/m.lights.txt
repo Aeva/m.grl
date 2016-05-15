@@ -13,6 +13,22 @@ missing, but that is not the case right now. Use with caution.
 
 
 
+please.SunLightNode
+-------------------
+*please.SunLightNode* **(options)**
+
+This constructor function creates a graph node which represents a sun
+light.
+
+
+please.PointLightNode
+---------------------
+*please.PointLightNode* **(options)**
+
+This constructor function creates a graph node which represents a point
+light.
+
+
 please.SpotLightNode
 --------------------
 *please.SpotLightNode* **(options)**
