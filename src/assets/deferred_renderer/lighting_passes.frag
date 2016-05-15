@@ -11,6 +11,10 @@ binding_context GraphNode {
 uniform sampler2D spatial_texture;
 uniform sampler2D normal_texture;
 
+uniform mat4 light_projection_matrix;
+uniform mat4 light_view_matrix;
+uniform vec3 light_world_position;
+
 
 float spotlight_shadows(vec3 world_position) {
   // This method determines if the current fragment is occluded by the
@@ -67,7 +71,7 @@ void lighting_pass() {
     discard;
   }
   else {
-    float light = spot_light(space.xyz, normal);
+    float light = spotlight_illumination(space.xyz, normal);
     gl_FragData[0] = vec4(light, light, light, 1.0);
   }
 }
