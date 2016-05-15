@@ -64,6 +64,8 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         }
         return please.gl.__reduce_hoists(hoists.concat(found));
     }
+
+    var skip_virtuals = false;
     
     if (!is_include && this.inclusions.length > 0) {
         // First, combine all of the globals and hoist them to the top
@@ -71,6 +73,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         var globals = {};
         var ext_ast = {};
         var imports = this.all_includes();
+        skip_virtuals = true;
 
         var append_global = function(global) {
             if (globals[global.name] === undefined) {
@@ -145,7 +148,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     }
 
     // if applicable, print out hoists
-    if (this.inclusions.length==0 && !is_include) {
+    if (!is_include && this.inclusions.length==0) {
         hoists = find_hoists(methods, hoists);
         out += "\n// Generated and hoisted function prototypes follow:\n"
         ITER(h, hoists) {
@@ -153,7 +156,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         }
     }
     
-    if (methods.length > 0) {
+    if (!is_include && methods.length > 0 && !skip_virtuals) {
         // find and print virtual globals
         var virtuals = [];
         ITER(m, methods) {
