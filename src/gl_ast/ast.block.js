@@ -52,6 +52,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     var out = "";    
     var methods = [];
     var hoists = [];
+    var extensions = [];
 
     var find_hoists = function (methods, hoists) {
         var found = [];
@@ -91,13 +92,21 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
             ITER(h, other.hoists) {
                 hoists.push(other.hoists[h]);
             }
-            
+            ITER(e, other.extensions) {
+                extensions.push(other.extensions[e]);
+            }
         }
         this.globals.map(append_global);
 
         methods = methods.concat(this.methods);
         please.gl.__validate_functions(methods);
         hoists = hoists.concat(this.hoists);
+        extensions = extensions.concat(this.extensions);
+
+        // write the extension macros first
+        ITER(e, extensions) {
+            out += extensions[e].print();
+        }
 
         // Append the collection of globals to the output buffer.
         ITER_PROPS(name, globals) {
@@ -378,6 +387,7 @@ please.gl.ast.Block.prototype.make_global_scope = function () {
     this.globals = [];
     this.methods = [];
     this.rewrite = {};
+    this.extensions = [];
     this.enums = {};
     ITER(i, this.data) {
         var item = this.data[i];
@@ -389,6 +399,11 @@ please.gl.ast.Block.prototype.make_global_scope = function () {
         }
         if (item.constructor == please.gl.ast.FunctionPrototype) {
             this.hoists.push(item);
+        }
+        if (item.constructor == please.gl.ast.Comment && item.directive) {
+            if (item.data.startsWith("extension")) {
+                this.extensions.push(item);
+            }
         }
     }
     please.gl.__bind_invocations(this.data, this.methods);

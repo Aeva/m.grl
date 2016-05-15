@@ -169,6 +169,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         var ast = new please.gl.ast.Block(stream);
         ast.make_global_scope();
         please.gl.__validate_functions(ast.methods);
+        please.gl.macros.include(ast);
         return ast;
     }
     else {
@@ -231,6 +232,5 @@ please.gl.glsl_to_ast = function (src, uri) {
     }
     please.gl.__apply_source_map(tokens, src);
     var ast = please.gl.__stream_to_ast(tokens);
-    please.gl.macros.include(ast);
     return ast;
 };
