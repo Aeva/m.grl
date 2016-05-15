@@ -8,9 +8,17 @@
 
 
 // Find include statements in the provided near-complete syntax tree.
+//
+// WORDS OF CAUTION:
+//
+// This doesn't modify the tokens in any way whatsoever, it just
+// detects what files need to be included.  These tokens will then
+// just be ignored when the global scope is printed.
+//
 please.gl.macros.include = function (ast) {
     ITER(i, ast.data) {
         var item = ast.data[i];
+        var next = ast.data[i+1] || "end of token stream";
         if (item.constructor == please.gl.ast.Invocation && item.name == "include") {
             var args = item.args.data;
             try {
@@ -24,6 +32,12 @@ please.gl.macros.include = function (ast) {
                                 item.meta.line + " at char " + item.meta.char +
                                 " in file " + item.meta.uri);
             }
+            if (next != ';') {
+                throw new Error("Expected ';' after include statement on line " +
+                                item.meta.line + " at char " + item.meta.char +
+                                " in file " + item.meta.uri);                
+            }
+            item.is_include_macro = true;
             var uri = args[0].data;
             ast.inclusions.push(uri);
         }

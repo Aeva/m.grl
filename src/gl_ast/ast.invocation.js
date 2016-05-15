@@ -11,6 +11,7 @@ please.gl.ast.Invocation = function (name, args) {
     this.name = name || null;
     this.args = args || null;
     this.bound = false;
+    this.is_include_macro = false;
 };
 
 
