@@ -28,12 +28,16 @@ please.SpotLightNode = function (options) {
 
     var prog = please.gl.get_program("mgrl_illumination");
     if (!prog) {
-        prog = please.glsl("mgrl_illumination", "deferred.vert", "deferred.frag");
+        prog = please.glsl(
+            "mgrl_illumination",
+            "deferred_renderer/main.vert",
+            "deferred_renderer/main.frag");
     }
 
     this.camera = new please.CameraNode();
     this.camera.width = 1;
     this.camera.height = 1;
+    this.cast_shadows = true;
     this.__last_camera = null;
     
     ANI("fov", 45);
@@ -65,6 +69,7 @@ please.SpotLightNode = function (options) {
             return this.graph_root;
         },
     });
+    this.depth_pass.shader.cast_shadows = function () { return light.cast_shadows; };
     this.depth_pass.shader.shader_pass = 1;
     this.depth_pass.shader.geometry_pass = true;
     this.depth_pass.render = function () {
@@ -106,7 +111,10 @@ please.SpotLightNode.prototype.deactivate = function () {
 please.DeferredRenderer = function () {
     var prog = please.gl.get_program("mgrl_illumination");
     if (!prog) {
-        prog = please.glsl("mgrl_illumination", "deferred.vert", "deferred.frag");
+        prog = please.glsl(
+            "mgrl_illumination",
+            "deferred_renderer/main.vert",
+            "deferred_renderer/main.frag");
     }
     
     var assembly = new please.RenderNode(prog, {"buffers" : ["color"]});

@@ -75,8 +75,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // don't need to do this, but doing so will allow you to add
     // additional sources, which allows you to define your own custom
     // procedural textures and the likes.
-    please.glsl("mgrl_illumination",
-                "deferred.vert", "deferred.frag", "custom.frag");
+    please.glsl(
+        "mgrl_illumination",
+        "deferred_renderer/main.vert",
+        "deferred_renderer/main.frag");
     
     // Scere Graph object
     var graph = demo.graph = new please.SceneGraph();
