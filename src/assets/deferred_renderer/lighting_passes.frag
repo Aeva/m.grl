@@ -7,6 +7,8 @@ include("normalize_screen_coord.glsl");
 uniform sampler2D spatial_texture;
 uniform sampler2D normal_texture;
 
+uniform int light_type;
+
 uniform mat4 light_projection_matrix;
 uniform mat4 light_view_matrix;
 uniform vec3 light_world_position;
@@ -60,6 +62,38 @@ float spotlight_illumination(vec3 world_position, vec3 world_normal) {
 
   // constant for fudging
   float intensity = 0.8;
+  float falloff = 1.0/pow(distance(world_normal, light_vector), 2.0);
+  return illuminated * light_weight * intensity * falloff;
+}
+
+
+float pointlight_illumination(vec3 world_position, vec3 world_normal) {
+  // illuminated tells us if the pixel would be in the current light's
+  // shadow or not.
+  float illuminated = 1.0;
+
+  // the light weight is calculated in world space
+  vec3 light_vector = normalize(light_world_position - world_position);
+  float light_weight = max(dot(world_normal, light_vector), 0.0);
+
+  // constant for fudging
+  float intensity = 0.8;
+  float falloff = 1.0/pow(distance(world_normal, light_vector), 2.0);
+  return illuminated * light_weight * intensity * falloff;
+}
+
+
+float sunlight_illumination(vec3 world_normal) {
+  // illuminated tells us if the pixel would be in the current light's
+  // shadow or not.
+  float illuminated = 1.0;
+
+  // the light weight is calculated in world space
+  vec3 light_vector = light_world_position;
+  float light_weight = max(dot(world_normal, light_vector), 0.0);
+
+  // constant for fudging
+  float intensity = 0.8;
   return illuminated * light_weight * intensity;
 }
 
@@ -73,7 +107,16 @@ void lighting_pass() {
     discard;
   }
   else {
-    float light = spotlight_illumination(space.xyz, normal);
+    float light;
+    if (light_type == 0) {
+      light = spotlight_illumination(space.xyz, normal);
+    }
+    else if (light_type == 1) {
+      light = pointlight_illumination(space.xyz, normal);
+    }
+    else if (light_type == 2) {
+      light = sunlight_illumination(normal);
+    }
     gl_FragData[0] = vec4(light, light, light, 1.0);
   }
 }
