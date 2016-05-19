@@ -109,7 +109,6 @@ please.SpotLightNode = function (options) {
     
     var light = this;
     this.camera.fov = function () { return light.fov; };
-    this.camera.far = function () { return light.falloff * 2; };
     this.camera.look_at = function () { return light.look_at; };
     this.camera.up_vector = function () { return light.up_vector; };
     this.camera.location = this;
