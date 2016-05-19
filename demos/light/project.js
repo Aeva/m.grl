@@ -105,25 +105,23 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // spinner
     var spinner = new please.GraphNode();
     spinner.rotation_z = please.repeating_driver(-360, 0, 10000);
-    var handle = new please.GraphNode();
-    handle.location = [0, -15, 5];
-    spinner.add(handle);
+    graph.add(spinner);
 
     // light test
     var light = new please.SpotLightNode();
-    light.location = handle;
+    light.location = [0, -15, 7];
     light.look_at = [0, 0, 0];
     light.fov = 60;
-    graph.add(light);
+    spinner.add(light);
 
     var light = new please.SpotLightNode();
     light.location = [8, 0, 8];
     var speed = 3000;
-    light.location_y = please.oscillating_driver(-4, 4, speed);
+    light.location_y = please.oscillating_driver(-4, -8, speed);
     light.look_at = [5, 0, 0];
-    light.look_at_x = please.oscillating_driver(4, 6, speed);
+    light.look_at_x = please.oscillating_driver(2, 6, speed);
     light.look_at_y = please.oscillating_driver(-5, 5, speed);
-    light.fov = 80;
+    light.fov = please.oscillating_driver(20, 50, 8000);
     graph.add(light);
 
     // light.light_pass.stream_callback = function (array, info) {
