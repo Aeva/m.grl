@@ -4905,6 +4905,8 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     var methods = [];
     var hoists = [];
     var extensions = [];
+    var structs_by_name = {};
+    var structs = [];
     var find_hoists = function (methods, hoists) {
         var found = [];
         for (var m=0; m<methods.length; m+=1) {
@@ -4933,9 +4935,20 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
                 globals[global.name] = composite;
             }
         };
+        var append_struct = function(struct) {
+            var previous = structs_by_name[struct.name];
+            if (previous) {
+                please.gl.__cmp_structs(previous, struct);
+            }
+            else {
+                structs_by_name[struct.name] = struct;
+                structs.push(struct);
+            }
+        };
         for (var i=0; i<imports.length; i+=1) {
             var other = ext_ast[imports[i]] = please.access(imports[i]).__ast;
             other.globals.map(append_global);
+            other.structs.map(append_struct);
             for (var m=0; m<other.methods.length; m+=1) {
                 methods.push(other.methods[m]);
             }
@@ -4947,6 +4960,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
             }
         }
         this.globals.map(append_global);
+        this.structs.map(append_struct);
         methods = methods.concat(this.methods);
         please.gl.__validate_functions(methods);
         hoists = hoists.concat(this.hoists);
@@ -4954,6 +4968,10 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         // write the extension macros first
         for (var e=0; e<extensions.length; e+=1) {
             out += extensions[e].print();
+        }
+        // Append any struct definitions to the top
+        for (var s=0; s<structs.length; s+=1) {
+            out += structs[s].print();
         }
         // Append the collection of globals to the output buffer.
         for (var name in globals) if (globals.hasOwnProperty(name)) {
@@ -4987,12 +5005,18 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         methods = methods.concat(this.methods);
         please.gl.__validate_functions(methods);
     }
-    // if applicable, print out hoists
     if (!is_include && this.inclusions.length==0) {
+        // print out structs
+        for (var s=0; s<this.structs.length; s+=1) {
+            out += this.structs[s].print();
+        }
+        // if applicable, print out hoists
         hoists = find_hoists(methods, hoists);
-        out += "\n// Generated and hoisted function prototypes follow:\n"
-        for (var h=0; h<hoists.length; h+=1) {
-            out += hoists[h].print();
+        if (hoists.length > 0) {
+            out += "\n// Generated and hoisted function prototypes follow:\n"
+            for (var h=0; h<hoists.length; h+=1) {
+                out += hoists[h].print();
+            }
         }
     }
     if (!is_include && methods.length > 0 && !skip_virtuals) {
@@ -5052,6 +5076,9 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         else if (token.constructor == please.gl.ast.Block &&
                  token.macro == "swappable") {
             out += please.gl.macros.rewrite_swappable(token, methods);
+        }
+        else if (token.constructor == please.gl.ast.Struct) {
+            out += "/*\n" + token.print() + "\n*/\n";
         }
         else if (token.print) {
             out += token.print();
@@ -5203,6 +5230,7 @@ please.gl.ast.Block.prototype.generate_hoist = function () {
 please.gl.ast.Block.prototype.make_global_scope = function () {
     this.type = "global";
     this.hoists = []; // "function prototypes"
+    this.structs = [];
     this.globals = [];
     this.methods = [];
     this.rewrite = {};
@@ -5210,6 +5238,9 @@ please.gl.ast.Block.prototype.make_global_scope = function () {
     this.enums = {};
     for (var i=0; i<this.data.length; i+=1) {
         var item = this.data[i];
+        if (item.constructor == please.gl.ast.Struct) {
+            this.structs.push(item);
+        }
         if (item.constructor == please.gl.ast.Global) {
             this.globals.push(item);
         }
@@ -5287,6 +5318,7 @@ please.gl.__identify_functions = function (ast) {
         for (var i=0; i<non_blocks.length; i+=1) {
             if (cache[0].startsWith(non_blocks[i])) {
                 is_block = false;
+                remainder.unshift(cache[0]);
                 break;
             }
         }
@@ -5330,6 +5362,130 @@ please.gl.__identify_functions = function (ast) {
     }
     if (recording_for && cache.length > 0) {
         collapse(recording_for, cache);
+    }
+    return remainder;
+};
+// - gl_alst/ast.struct.js ----------------------------------------------- //
+/* [+] please.gl.ast.Struct(name, stream)
+ * 
+ * AST constructor function representing Structs definitions.
+ * 
+ */
+please.gl.ast.Struct = function (name, stream) {
+    console.assert(this !== window);
+    please.gl.ast.mixin(this);
+    this.name = name;
+    this.data = stream;
+    this.defs = [];
+    var cache = null;
+    for (var i=0; i<this.data.length; i+=1) {
+        var token = this.data[i];
+        if (!cache) {
+            if (token == ';') {
+                please.gl.ast.error(token, "Expected non-semicolon token.");
+            }
+            if (token.constructor != String) {
+                please.gl.ast.error(token, "Expected string.");
+            }
+            else {
+                cache = token;
+            }
+        }
+        else {
+            if (token == ';') {
+                var parts = cache.split(" ");
+                if (parts.length != 2) {
+                    please.gl.ast.error(cache, "Expected two tokens.");
+                }
+                this.defs.push(parts);
+                cache = null;
+            }
+            else {
+                please.gl.ast.error(token, "Expected semicolon.");
+            }
+        }
+    }
+};
+please.gl.ast.Struct.prototype.print = function () {
+    var out = 'struct ' + this.name + ' {\n';
+    for (var i=0; i<this.defs.length; i+=1) {
+        out += '  ' + this.defs[i][0] + ' ' + this.defs[i][1] + ';\n';
+    }
+    out += '};\n';
+    return out;
+};
+/* [+] please.gl.__cmp_structs(struct_a, struct_b)
+ * 
+ * Determines if two struct tokens are equivalent.  Throws an error if
+ * the two structs share a name, but have different bodies.
+ * 
+ */
+please.gl.__cmp_structs = function (lhs, rhs) {
+    if (lhs.name != rhs.name) {
+        return false;
+    }
+    var error_msg = "Mismatched redundant struct definition."
+    if (lhs.defs.length != rhs.defs.length) {
+        please.gl.ast.error(rhs, error_msg);
+    }
+    for (var i=0; i<lhs.defs.length; i+=1) {
+        if (lhs.defs[i] != rhs.defs[i]) {
+            please.gl.ast.error(rhs, error_msg);
+        }
+    }
+    return true;
+};
+// Identify tokens that describe a struct and replace them with a
+// Struct object.
+please.gl.__identify_structs = function (ast) {
+    var remainder = [];
+    var cache = [];
+    var evaluate_cache = function () {
+        var name_parts = cache[0].split(" ");
+        if (name_parts.length != 2) {
+            please.gl.ast.error(
+                cache[0],
+                "Wrong number of tokens at beginning of struct declaration.");
+        }
+        if (cache.length < 3) {
+            please.gl.ast.error(cache.slice(-1), "Malformed struct.");
+        }
+        if (cache[1].constructor !== please.gl.ast.Block) {
+            please.gl.ast.error(cache[1], "Expected block.");
+        }
+        if (cache[2] != ';') {
+            please.gl.ast.error(cache[2], "Expected semicolon.");
+        }
+        console.assert(cache.length == 3);
+        console.assert(cache[1].type == null);
+        // ok, checks pass, this is probaly well formed, at least
+        // outside of the braces
+        var name = name_parts[1];
+        var data = cache[1].data;
+        var struct = new please.gl.ast.Struct(name, data);
+        remainder.push(struct);
+    };
+    for (var i=0; i<ast.length; i+=1) {
+        var token = ast[i];
+        if (cache.length > 0) {
+            if (token.constructor == please.gl.ast.Comment) {
+                remainder.push(token);
+            }
+            else {
+                cache.push(token);
+                if (token == ";") {
+                    evaluate_cache();
+                }
+            }
+        }
+        else {
+            if (token.constructor == String && token.startsWith("struct")) {
+                cache.push(token);
+            }
+            else {
+                remainder.push(token);
+            }
+        }
     }
     return remainder;
 };
@@ -5905,6 +6061,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         remainder = please.gl.__identify_functions(remainder);
         remainder = please.gl.__identify_invocations(remainder);
         remainder = please.gl.__identify_prototypes(remainder);
+        remainder = please.gl.__identify_structs(remainder);
         var stream = globals.concat(remainder);
         var ast = new please.gl.ast.Block(stream);
         ast.make_global_scope();
@@ -10052,7 +10209,6 @@ please.SpotLightNode = function (options) {
     please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
     var light = this;
     this.camera.fov = function () { return light.fov; };
-    //this.camera.far = 10000000000;
     this.camera.look_at = function () { return light.look_at; };
     this.camera.up_vector = function () { return light.up_vector; };
     this.camera.location = this;
