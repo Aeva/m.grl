@@ -173,3 +173,17 @@ test["swappable methods cannot be overloaded"] = function () {
     };
     assert(raised);
 };
+
+
+test["structs integration"] = function () {
+    var src = '';
+    src += 'struct frogStruct {\n';
+    src += '  vec4 color;\n';
+    src += '  int type;\n';
+    src += '  mat4 frog_matrix;\n';
+    src += '};\n';
+    
+    var tree = please.gl.glsl_to_ast(src);
+    output = tree.print();
+    assert(output.trim() == src.trim());
+};

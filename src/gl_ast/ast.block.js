@@ -53,6 +53,8 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     var methods = [];
     var hoists = [];
     var extensions = [];
+    var structs_by_name = {};
+    var structs = [];
 
     var find_hoists = function (methods, hoists) {
         var found = [];
@@ -85,10 +87,22 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
                 globals[global.name] = composite;
             }
         };
+
+        var append_struct = function(struct) {
+            var previous = structs_by_name[struct.name];
+            if (previous) {
+                please.gl.__cmp_structs(previous, struct);
+            }
+            else {
+                structs_by_name[struct.name] = struct;
+                structs.push(struct);
+            }
+        };
         
         ITER(i, imports) {
             var other = ext_ast[imports[i]] = please.access(imports[i]).__ast;
             other.globals.map(append_global);
+            other.structs.map(append_struct);
             ITER(m, other.methods) {
                 methods.push(other.methods[m]);
             }
@@ -100,6 +114,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
             }
         }
         this.globals.map(append_global);
+        this.structs.map(append_struct);
 
         methods = methods.concat(this.methods);
         please.gl.__validate_functions(methods);
@@ -109,6 +124,11 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         // write the extension macros first
         ITER(e, extensions) {
             out += extensions[e].print();
+        }
+
+        // Append any struct definitions to the top
+        ITER(s, structs) {
+            out += structs[s].print();
         }
 
         // Append the collection of globals to the output buffer.
@@ -147,12 +167,18 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         please.gl.__validate_functions(methods);
     }
 
-    // if applicable, print out hoists
     if (!is_include && this.inclusions.length==0) {
+        // print out structs
+        ITER(s, this.structs) {
+            out += this.structs[s].print();            
+        }
+        // if applicable, print out hoists
         hoists = find_hoists(methods, hoists);
-        out += "\n// Generated and hoisted function prototypes follow:\n"
-        ITER(h, hoists) {
-            out += hoists[h].print();
+        if (hoists.length > 0) {
+            out += "\n// Generated and hoisted function prototypes follow:\n"
+            ITER(h, hoists) {
+                out += hoists[h].print();
+            }
         }
     }
     
@@ -214,6 +240,9 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         else if (token.constructor == please.gl.ast.Block &&
                  token.macro == "swappable") {
             out += please.gl.macros.rewrite_swappable(token, methods);
+        }
+        else if (token.constructor == please.gl.ast.Struct) {
+            out += "/*\n" + token.print() + "\n*/\n";
         }
         else if (token.print) {
             out += token.print();
@@ -387,6 +416,7 @@ please.gl.ast.Block.prototype.generate_hoist = function () {
 please.gl.ast.Block.prototype.make_global_scope = function () {
     this.type = "global";
     this.hoists = []; // "function prototypes"
+    this.structs = [];
     this.globals = [];
     this.methods = [];
     this.rewrite = {};
@@ -394,6 +424,9 @@ please.gl.ast.Block.prototype.make_global_scope = function () {
     this.enums = {};
     ITER(i, this.data) {
         var item = this.data[i];
+        if (item.constructor == please.gl.ast.Struct) {
+            this.structs.push(item);
+        }
         if (item.constructor == please.gl.ast.Global) {
             this.globals.push(item);
         }
@@ -480,6 +513,7 @@ please.gl.__identify_functions = function (ast) {
         ITER(i, non_blocks) {
             if (cache[0].startsWith(non_blocks[i])) {
                 is_block = false;
+                remainder.unshift(cache[0]);
                 break;
             }
         }
