@@ -231,7 +231,6 @@ test["allow global variables without extra qualifiers"] = function () {
 
     var tree = please.gl.glsl_to_ast(src);
     var expected = '' +
-        '// Generated and hoisted function prototypes follow:\n' +
         'float meep;\n' +
         'vec2 goom = vec2(10.0,10.0);\n' +
         'vec3 whee;\n' +
@@ -253,7 +252,6 @@ test["binding context syntax"] = function () {
         'uniform bool some_switch;';
 
     var expected = '' +
-        '// Generated and hoisted function prototypes follow:\n' +
         'attribute vec3 position;\n' +
         'uniform mat4 world_matrix;\n' +
         'uniform bool some_switch;';
@@ -272,7 +270,6 @@ test["binding context metadata"] = function () {
         '}';
     
     var expected = '' +
-        '// Generated and hoisted function prototypes follow:\n' +
         'uniform mat4 world_matrix;\n' +
         '// comments are ok here';
     
@@ -294,7 +291,6 @@ test["binding context combined metadata"] = function () {
         'uniform mat4 world_matrix;';
     
     var expected = '' +
-        '// Generated and hoisted function prototypes follow:\n' +
         'uniform mat4 world_matrix;';
     
     var tree = please.gl.glsl_to_ast(src);

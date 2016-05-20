@@ -182,16 +182,8 @@ test["structs integration"] = function () {
     src += '  int type;\n';
     src += '  mat4 frog_matrix;\n';
     src += '};\n';
-
-    var expected = '';
-    expected += '// Generated and hoisted function prototypes follow:\n';
-    expected += 'struct frogStruct {\n';
-    expected += '  vec4 color;\n';
-    expected += '  int type;\n';
-    expected += '  mat4 frog_matrix;\n';
-    expected += '};';
     
     var tree = please.gl.glsl_to_ast(src);
     output = tree.print();
-    assert(output.trim() == expected);
+    assert(output.trim() == src.trim());
 };

@@ -26,6 +26,7 @@ please.gl.__binding_contexts = [
 #include "gl_ast/ast.comment.js"
 #include "gl_ast/ast.global.js"
 #include "gl_ast/ast.block.js"
+#include "gl_ast/ast.struct.js"
 #include "gl_ast/ast.hexcode.js"
 #include "gl_ast/ast.parenthetical.js"
 #include "gl_ast/ast.invocation.js"
@@ -165,6 +166,7 @@ please.gl.__stream_to_ast = function (tokens, start) {
         remainder = please.gl.__identify_functions(remainder);
         remainder = please.gl.__identify_invocations(remainder);
         remainder = please.gl.__identify_prototypes(remainder);
+        remainder = please.gl.__identify_structs(remainder);
         var stream = globals.concat(remainder);
         var ast = new please.gl.ast.Block(stream);
         ast.make_global_scope();
