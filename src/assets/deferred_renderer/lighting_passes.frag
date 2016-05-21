@@ -1,8 +1,7 @@
 
-include("deferred_renderer/common.glsl");
-// test
-
 include("normalize_screen_coord.glsl");
+include("deferred_renderer/common.glsl");
+include("deferred_renderer/simple_brdf.glsl");
 
 uniform sampler2D spatial_texture;
 uniform sampler2D normal_texture;
@@ -51,23 +50,25 @@ float spotlight_shadows(vec3 world_position) {
 }
 
 
-float spotlight_illumination(vec3 world_position, vec3 world_normal) {
+vec3 spotlight_illumination(vec3 world_position, vec3 world_normal) {
   // illuminated tells us if the pixel would be in the current light's
   // shadow or not.
   float illuminated = spotlight_shadows(world_position);
+  brdf_input params;
 
   // the light weight is calculated in world space
-  vec3 light_vector = normalize(light_world_position - world_position);
-  float light_weight = max(dot(world_normal, light_vector), 0.0);
+  params.light_vector = normalize(light_world_position - world_position);
+  params.incidence_angle = max(dot(world_normal, params.light_vector), 0.0);
+  params.color = vec3(1.0, 1.0, 1.0);
+  params.intensity = 1.0;
+  params.falloff = 1.0/pow(distance(world_normal, params.light_vector), 2.0);
+  params.occlusion = illuminated;
 
-  // constant for fudging
-  float intensity = 0.8;
-  float falloff = 1.0/pow(distance(world_normal, light_vector), 2.0);
-  return illuminated * light_weight * intensity * falloff;
+  return brdf_function(params);
 }
 
 
-float pointlight_illumination(vec3 world_position, vec3 world_normal) {
+vec3 pointlight_illumination(vec3 world_position, vec3 world_normal) {
   // illuminated tells us if the pixel would be in the current light's
   // shadow or not.
   float illuminated = 1.0;
@@ -79,11 +80,11 @@ float pointlight_illumination(vec3 world_position, vec3 world_normal) {
   // constant for fudging
   float intensity = 0.8;
   float falloff = 1.0/pow(distance(world_normal, light_vector), 2.0);
-  return illuminated * light_weight * intensity * falloff;
+  return vec3(illuminated * light_weight * intensity * falloff);
 }
 
 
-float sunlight_illumination(vec3 world_normal) {
+vec3 sunlight_illumination(vec3 world_normal) {
   // illuminated tells us if the pixel would be in the current light's
   // shadow or not.
   float illuminated = 1.0;
@@ -94,7 +95,7 @@ float sunlight_illumination(vec3 world_normal) {
 
   // constant for fudging
   float intensity = 0.8;
-  return illuminated * light_weight * intensity;
+  return vec3(illuminated * light_weight * intensity);
 }
 
 
@@ -107,16 +108,16 @@ void lighting_pass() {
     discard;
   }
   else {
-    float light;
+    vec3 irradiance;
     if (light_type == 0) {
-      light = spotlight_illumination(space.xyz, normal);
+      irradiance = spotlight_illumination(space.xyz, normal);
     }
     else if (light_type == 1) {
-      light = pointlight_illumination(space.xyz, normal);
+      irradiance = pointlight_illumination(space.xyz, normal);
     }
     else if (light_type == 2) {
-      light = sunlight_illumination(normal);
+      irradiance = sunlight_illumination(normal);
     }
-    gl_FragData[0] = vec4(light, light, light, 1.0);
+    gl_FragData[0] = vec4(irradiance, 1.0);
   }
 }

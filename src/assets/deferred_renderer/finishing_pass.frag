@@ -5,6 +5,8 @@ include("normalize_screen_coord.glsl");
 uniform sampler2D diffuse_texture;
 uniform sampler2D light_texture;
 
+uniform vec2 dynamic_range;
+
 
 void finishing_pass() {
   // combine the lighting and diffuse passes and display
@@ -13,8 +15,12 @@ void finishing_pass() {
   if (diffuse.w == -1.0) {
     discard;
   }
-  vec4 lightmap = texture2D(light_texture, tcoords);
-  vec3 shadow = diffuse.rgb * 0.2;
-  vec3 color = mix(shadow, diffuse.rgb, lightmap.rgb);
+  vec3 lightmap = texture2D(light_texture, tcoords).rgb;
+  vec3 shadow = diffuse.rgb * 0.1;
+
+  float low = dynamic_range.x;
+  float high = dynamic_range.y - low;
+
+  vec3 color = ((shadow + lightmap) - low) / high;
   gl_FragData[0] = vec4(color, 1.0);
 }
