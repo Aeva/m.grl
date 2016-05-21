@@ -873,6 +873,13 @@ please.__setup_ani_data = function(obj) {
             value : {},
         });
     }
+    if (!obj.__ani_debug) {
+        Object.defineProperty(obj, "__ani_debug", {
+            enumerable : false,
+            writable : true,
+            value : {},
+        });
+    }
 };
 // [+] please.make_animatable(obj, prop, default_value, proxy, lock, write_hook)
 //
@@ -885,18 +892,21 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
     var target = proxy ? proxy : obj;
     // Create the cache object if it does not yet exist.
     please.__setup_ani_data(obj);
-    var cache = obj.__ani_cache;
-    var store = obj.__ani_store;
+    // HACK: originally these define statements just set 'cache' and 'store'
+    // to equal 'obj.__ani_cache' and 'obj.__ani_store', but
+    // store==obj.__ani_store is false now when evaluated in the
+    // getter/setters.  I have *no idea why this is*.
+    var debug = obj.__ani_debug;
     // Add the new property to the cache object.
-    if (!cache[prop]) {
-        Object.defineProperty(cache, prop, {
+    if (!obj.__ani_cache[prop]) {
+        Object.defineProperty(obj.__ani_cache, prop, {
             enumerable: true,
             writable: true,
             value: null,
         });
     }
-    if (!store[prop]) {
-        Object.defineProperty(store, prop, {
+    if (!obj.__ani_store[prop]) {
+        Object.defineProperty(obj.__ani_store, prop, {
             enumerable: true,
             writable: true,
             value: default_value!==undefined ? default_value : null,
@@ -906,16 +916,16 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
     var last_update = 0;
     // Define the getters and setters for the new property.
     var getter = function () {
-        if (typeof(store[prop]) === "function" && store[prop].stops === undefined) {
+        if (typeof(obj.__ani_store[prop]) === "function" && obj.__ani_store[prop].stops === undefined) {
             // determine if the cached value is too old
-            if (cache[prop] === null || (please.time.__framestart > last_update && ! obj.__manual_cache_invalidation)) {
-                cache[prop] = store[prop].call(obj);
+            if (obj.__ani_cache[prop] === null || (please.time.__framestart > last_update && ! obj.__manual_cache_invalidation)) {
+                obj.__ani_cache[prop] = obj.__ani_store[prop].call(obj);
                 last_update = please.time.__framestart;
             }
-            return cache[prop];
+            return obj.__ani_cache[prop];
         }
         else {
-            return store[prop];
+            return obj.__ani_store[prop];
         }
     };
     var setter = function (value) {
@@ -926,6 +936,11 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
         }
         return value;
     };
+    // add debugging hooks
+    debug[prop] = {
+        'get' : getter,
+        'set' : setter,
+    }
     if (!lock) {
         Object.defineProperty(target, prop, {
             enumerable: true,
@@ -8948,11 +8963,11 @@ please.CameraNode.prototype.update_camera = function () {
     var far = this.far;
     var width = this.width;
     var height = this.height;
-    if (width === null) {
-        width = please.renderer.width;
+    if (!width) {
+        width = this.width = please.renderer.width;
     }
-    if (height === null) {
-        height = please.renderer.height;
+    if (!height) {
+        height = this.height = please.renderer.height;
     }
     // Determine if the common args have changed.
     var dirty = false;
@@ -10145,7 +10160,7 @@ please.SunLightNode = function (options) {
     }
     this.cast_shadows = false;
     Object.freeze(this.cast_shadows);
-    please.make_animatable(this, "energy", 1);;
+    please.make_animatable(this, "intensity", 1);;
     please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
     please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
     please.make_animatable_tripple(this, "sun_vector", "xyz",
@@ -10174,7 +10189,7 @@ please.PointLightNode = function (options) {
     }
     this.cast_shadows = false;
     Object.freeze(this.cast_shadows);
-    please.make_animatable(this, "energy", 1);;
+    please.make_animatable(this, "intensity", 1);;
     please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
 };
 please.PointLightNode.prototype = Object.create(please.GraphNode.prototype);
@@ -10204,7 +10219,7 @@ please.SpotLightNode = function (options) {
     this.cast_shadows = true;
     this.__last_camera = null;
     please.make_animatable(this, "fov", 45);;
-    please.make_animatable(this, "energy", 1);;
+    please.make_animatable(this, "intensity", 1);;
     please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
     please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
     please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
@@ -10348,7 +10363,7 @@ please.DeferredRenderer = function () {
                     // sun light's vector instead of the sun's position
                     this.__prog.vars.light_world_position = light.sun_vector;
                 }
-                this.__prog.vars.light_intensity = light.energy;
+                this.__prog.vars.light_intensity = light.intensity;
                 this.__prog.vars.light_color = light.color;
                 please.gl.splat();
             }
