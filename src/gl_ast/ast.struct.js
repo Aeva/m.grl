@@ -69,7 +69,7 @@ please.gl.__cmp_structs = function (lhs, rhs) {
         please.gl.ast.error(rhs, error_msg);
     }
     ITER(i, lhs.defs) {
-        if (lhs.defs[i] != rhs.defs[i]) {
+        if (lhs.defs[i].toString() != rhs.defs[i].toString()) {
             please.gl.ast.error(rhs, error_msg);
         }
     }
@@ -108,6 +108,7 @@ please.gl.__identify_structs = function (ast) {
         var name = name_parts[1];
         var data = cache[1].data;
         var struct = new please.gl.ast.Struct(name, data);
+        cache = [];
         
         remainder.push(struct);
     };

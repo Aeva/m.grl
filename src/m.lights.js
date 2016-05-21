@@ -34,7 +34,7 @@ please.SunLightNode = function (options) {
     this.cast_shadows = false;
     Object.freeze(this.cast_shadows);
     
-    ANI("energy", 1);
+    ANI("intensity", 1);
     please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
     please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
     please.make_animatable_tripple(this, "sun_vector", "xyz",
@@ -67,7 +67,7 @@ please.PointLightNode = function (options) {
     this.cast_shadows = false;
     Object.freeze(this.cast_shadows);
     
-    ANI("energy", 1);
+    ANI("intensity", 1);
     please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
 };
 please.PointLightNode.prototype = Object.create(please.GraphNode.prototype);
@@ -102,7 +102,7 @@ please.SpotLightNode = function (options) {
     this.__last_camera = null;
     
     ANI("fov", 45);
-    ANI("energy", 1);
+    ANI("intensity", 1);
     please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
     please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
     please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
@@ -188,7 +188,7 @@ please.DeferredRenderer = function () {
     
     var gbuffer_options = {
         "buffers" : ["color", "spatial", "normal"],
-        "type":gl.FLOAT,
+        "type" : gl.FLOAT,
     };
     var gbuffers = new please.RenderNode(prog, gbuffer_options);
     gbuffers.clear_color = [-1, -1, -1, -1];
@@ -200,11 +200,16 @@ please.DeferredRenderer = function () {
         }
     }
 
-    
-    var apply_lighting = new please.RenderNode(prog, {"buffers" : ["color"]});
+
+    var light_options = {
+        "buffers" : ["color"],
+        "type" : gl.FLOAT,
+    };
+    var apply_lighting = new please.RenderNode(prog, light_options);
     apply_lighting.clear_color = [0.0, 0.0, 0.0, 1.0];
     apply_lighting.shader.shader_pass = 2;
     apply_lighting.shader.geometry_pass = false;
+    apply_lighting.shader.diffuse_texture = gbuffers.buffers.color;
     apply_lighting.shader.spatial_texture = gbuffers.buffers.spatial;
     apply_lighting.shader.normal_texture = gbuffers.buffers.normal;
     apply_lighting.before_render = function () {
@@ -227,6 +232,7 @@ please.DeferredRenderer = function () {
             gl.disable(gl.DEPTH_TEST);
             gl.enable(gl.BLEND);
             gl.blendFunc(gl.ONE, gl.ONE);
+            this.__prog.vars.camera_position = assembly.graph.camera.world_location;
             for (var i=0; i<assembly.graph.__lights.length; i+=1) {
                 var light = assembly.graph.__lights[i];
                 if (light.__light_type == "spot") {
@@ -251,6 +257,8 @@ please.DeferredRenderer = function () {
                     // sun light's vector instead of the sun's position
                     this.__prog.vars.light_world_position = light.sun_vector;
                 }
+                this.__prog.vars.light_intensity = light.intensity;
+                this.__prog.vars.light_color = light.color;
                 please.gl.splat();
             }
             gl.disable(gl.BLEND);
@@ -261,5 +269,6 @@ please.DeferredRenderer = function () {
     
     assembly.shader.diffuse_texture = gbuffers.buffers.color;
     assembly.shader.light_texture = apply_lighting;
+    assembly.shader.exposure = 10;
     return assembly;
 };

@@ -769,6 +769,13 @@ please.__setup_ani_data = function(obj) {
             value : {},
         });
     }
+    if (!obj.__ani_debug) {
+        Object.defineProperty(obj, "__ani_debug", {
+            enumerable : false,
+            writable : true,
+            value : {},
+        });
+    }
 };
 
 
@@ -784,8 +791,14 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
 
     // Create the cache object if it does not yet exist.
     please.__setup_ani_data(obj);
-    var cache = obj.__ani_cache;
-    var store = obj.__ani_store;
+    
+    // HACK: originally these define statements just set 'cache' and 'store'
+    // to equal 'obj.__ani_cache' and 'obj.__ani_store', but
+    // store==obj.__ani_store is false now when evaluated in the
+    // getter/setters.  I have *no idea why this is*.
+#define cache obj.__ani_cache
+#define store obj.__ani_store
+    var debug = obj.__ani_debug;
 
     // Add the new property to the cache object.
     if (!cache[prop]) {
@@ -829,6 +842,12 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
         return value;
     };
 
+    // add debugging hooks
+    debug[prop] = {
+        'get' : getter,
+        'set' : setter,
+    }
+
     if (!lock) {
         Object.defineProperty(target, prop, {
             enumerable: true,
@@ -846,6 +865,8 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
         });
     }
 };
+#undef cache
+#undef store
 
 
 // [+] please.make_animatable_tripple(object, prop, swizzle, default_value, proxy, write_hook);
