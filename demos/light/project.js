@@ -113,6 +113,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     light.location = [0, -15, 7];
     light.look_at = [0, 0, 0];
     light.fov = 60;
+    light.intensity = 6;
+    light.color = [1,0,0];
     spinner.add(light);
 
     var light = new please.SpotLightNode();
@@ -123,13 +125,18 @@ addEventListener("mgrl_media_ready", please.once(function () {
     light.look_at_x = please.oscillating_driver(2, 6, speed);
     light.look_at_y = please.oscillating_driver(-5, 5, speed);
     light.fov = please.oscillating_driver(20, 50, 8000);
+    light.intensity = 3;
+    light.color = [0,1,1];
     graph.add(light);
 
     var light = new please.PointLightNode();
     light.location = [0, -4, 4];
     light.location_x = please.oscillating_driver(-8, 8, 5000);
-    light.location_z = please.oscillating_driver(1, 6, 4000)
+    light.location_z = 2;
+    light.intensity = please.oscillating_driver(.5, 2, 500)
+    light.color = [1, 0, 0.8];
     graph.add(light);
+    
     var marker = please.access("psycho.jta").instance();
     marker.scale = [.2,.2,.2];
     marker.cast_shadows = false;
@@ -138,11 +145,14 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var light = new please.SunLightNode();
     light.location = [0, -4, 4];
     light.look_at = [0, 0, 0];
+    light.intensity = 5;
     graph.add(light);
     // var marker = please.access("psycho.jta").instance();
     // marker.scale = [.2,.2,.2];
     // marker.cast_shadows = false;
     // light.add(marker);
+
+    demo.renderer.shader.dynamic_range[1] = 15;
         
     please.set_viewport(demo.renderer);
 }));
