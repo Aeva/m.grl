@@ -269,6 +269,6 @@ please.DeferredRenderer = function () {
     
     assembly.shader.diffuse_texture = gbuffers.buffers.color;
     assembly.shader.light_texture = apply_lighting;
-    assembly.shader.dynamic_range = [0.0, 4.0];
+    assembly.shader.exposure = 10;
     return assembly;
 };

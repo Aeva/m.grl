@@ -155,7 +155,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     demo.renderer.shader.ambient_color = [1, 1, 1];
     demo.renderer.shader.ambient_intensity = 3;
-    demo.renderer.shader.dynamic_range[1] = 20;
+    demo.renderer.shader.exposure = 20;
         
     please.set_viewport(demo.renderer);
 }));
