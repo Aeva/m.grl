@@ -72,15 +72,17 @@ vec3 pointlight_illumination(vec3 world_position, vec3 world_normal) {
   // illuminated tells us if the pixel would be in the current light's
   // shadow or not.
   float illuminated = 1.0;
+  brdf_input params;
 
   // the light weight is calculated in world space
-  vec3 light_vector = normalize(light_world_position - world_position);
-  float light_weight = max(dot(world_normal, light_vector), 0.0);
+  params.light_vector = normalize(light_world_position - world_position);
+  params.incidence_angle = max(dot(world_normal, params.light_vector), 0.0);
+  params.color = vec3(1.0, 1.0, 1.0);
+  params.intensity = 1.0;
+  params.falloff = 1.0/pow(distance(world_normal, params.light_vector), 2.0);
+  params.occlusion = illuminated;
 
-  // constant for fudging
-  float intensity = 0.8;
-  float falloff = 1.0/pow(distance(world_normal, light_vector), 2.0);
-  return vec3(illuminated * light_weight * intensity * falloff);
+  return brdf_function(params);
 }
 
 
@@ -88,14 +90,17 @@ vec3 sunlight_illumination(vec3 world_normal) {
   // illuminated tells us if the pixel would be in the current light's
   // shadow or not.
   float illuminated = 1.0;
+  brdf_input params;
 
   // the light weight is calculated in world space
-  vec3 light_vector = light_world_position;
-  float light_weight = max(dot(world_normal, light_vector), 0.0);
+  params.light_vector = normalize(light_world_position);
+  params.incidence_angle = max(dot(world_normal, params.light_vector), 0.0);
+  params.color = vec3(1.0, 1.0, 1.0);
+  params.intensity = 1.0;
+  params.falloff = 1.0;
+  params.occlusion = illuminated;
 
-  // constant for fudging
-  float intensity = 0.8;
-  return vec3(illuminated * light_weight * intensity);
+  return brdf_function(params);
 }
 
 

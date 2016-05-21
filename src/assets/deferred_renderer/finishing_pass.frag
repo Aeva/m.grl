@@ -16,11 +16,8 @@ void finishing_pass() {
     discard;
   }
   vec3 lightmap = texture2D(light_texture, tcoords).rgb;
-  vec3 shadow = diffuse.rgb * 0.1;
-
   float low = dynamic_range.x;
   float high = dynamic_range.y - low;
-
-  vec3 color = ((shadow + lightmap) - low) / high;
+  vec3 color = (lightmap - low) / high;
   gl_FragData[0] = vec4(color, 1.0);
 }

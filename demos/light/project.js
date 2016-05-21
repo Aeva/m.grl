@@ -25,7 +25,8 @@ var demo = {
     "manifest" : [
         "custom.frag",
         "shadow_test.jta",
-        "shadow_test_bake.jta",
+        "shadow_test_bake.png",
+        "psycho.jta",
     ],
 };
 
@@ -124,19 +125,24 @@ addEventListener("mgrl_media_ready", please.once(function () {
     light.fov = please.oscillating_driver(20, 50, 8000);
     graph.add(light);
 
-    // light.light_pass.stream_callback = function (array, info) {
-    //     var accumulate = 0;
-    //     var data, i=0;
-    //     for (var y=0; y<info.height; i+=1) {
-    //         for (var x=0; x<info.width; x+=1) {
-    //             //var data = array.slice(i, i+info.period);
-    //             var data = array[i];
-    //             accumulate += data;
-    //             i+=info.period;
-    //         }
-    //     }
-    //     console.info(accumulate / info.width*info.height);
-    // }
+    var light = new please.PointLightNode();
+    light.location = [0, -4, 4];
+    light.location_x = please.oscillating_driver(-8, 8, 5000);
+    light.location_z = please.oscillating_driver(1, 6, 4000)
+    graph.add(light);
+    var marker = please.access("psycho.jta").instance();
+    marker.scale = [.2,.2,.2];
+    marker.cast_shadows = false;
+    light.add(marker);
+
+    var light = new please.SunLightNode();
+    light.location = [0, -4, 4];
+    light.look_at = [0, 0, 0];
+    graph.add(light);
+    // var marker = please.access("psycho.jta").instance();
+    // marker.scale = [.2,.2,.2];
+    // marker.cast_shadows = false;
+    // light.add(marker);
         
     please.set_viewport(demo.renderer);
 }));
