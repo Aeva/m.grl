@@ -108,6 +108,7 @@ please.gl.__identify_structs = function (ast) {
         var name = name_parts[1];
         var data = cache[1].data;
         var struct = new please.gl.ast.Struct(name, data);
+        cache = [];
         
         remainder.push(struct);
     };
