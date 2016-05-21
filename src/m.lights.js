@@ -232,6 +232,7 @@ please.DeferredRenderer = function () {
             gl.disable(gl.DEPTH_TEST);
             gl.enable(gl.BLEND);
             gl.blendFunc(gl.ONE, gl.ONE);
+            this.__prog.vars.camera_position = assembly.graph.camera.world_location;
             for (var i=0; i<assembly.graph.__lights.length; i+=1) {
                 var light = assembly.graph.__lights[i];
                 if (light.__light_type == "spot") {

@@ -13,6 +13,7 @@ uniform mat4 light_projection_matrix;
 uniform mat4 light_view_matrix;
 uniform vec3 light_world_position;
 uniform vec3 light_color;
+uniform vec3 camera_position;
 uniform bool cast_shadows;
 
 
@@ -58,9 +59,9 @@ vec3 spotlight_illumination(vec3 world_position, vec3 world_normal) {
   float illuminated = spotlight_shadows(world_position);
   brdf_input params;
 
-  // the light weight is calculated in world space
+  params.view_vector = normalize(camera_position - world_position);
   params.light_vector = normalize(light_world_position - world_position);
-  params.incidence_angle = max(dot(world_normal, params.light_vector), 0.0);
+  params.normal_vector = normalize(world_normal);
   params.color = light_color;
   params.intensity = light_intensity;
   params.falloff = 1.0/pow(distance(world_normal, params.light_vector), 2.0);
@@ -76,9 +77,9 @@ vec3 pointlight_illumination(vec3 world_position, vec3 world_normal) {
   float illuminated = 1.0;
   brdf_input params;
 
-  // the light weight is calculated in world space
+  params.view_vector = normalize(camera_position - world_position);
   params.light_vector = normalize(light_world_position - world_position);
-  params.incidence_angle = max(dot(world_normal, params.light_vector), 0.0);
+  params.normal_vector = normalize(world_normal);
   params.color = light_color;
   params.intensity = light_intensity;
   params.falloff = 1.0/pow(distance(world_normal, params.light_vector), 2.0);
@@ -94,9 +95,9 @@ vec3 sunlight_illumination(vec3 world_normal) {
   float illuminated = 1.0;
   brdf_input params;
 
-  // the light weight is calculated in world space
+  params.view_vector = normalize(camera_position - world_position);
   params.light_vector = normalize(light_world_position);
-  params.incidence_angle = max(dot(world_normal, params.light_vector), 0.0);
+  params.normal_vector = normalize(world_normal);
   params.color = light_color;
   params.intensity = light_intensity;
   params.falloff = 1.0;

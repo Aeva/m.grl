@@ -316,9 +316,7 @@ please.CameraNode.prototype.update_camera = function () {
         var top = this.top;
         var orthographic_grid = this.orthographic_grid;
 
-        if (left === null || right === null ||
-            bottom === null || top === null) {
-
+        if (!left || !right || !bottom || !top) {
             // If any of the orthographic args are unset, provide our
             // own defaults based on the canvas element's dimensions.
             left = please.mix(0.0, width*-1, this.origin_x);

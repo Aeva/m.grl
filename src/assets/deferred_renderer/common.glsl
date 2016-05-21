@@ -8,12 +8,13 @@ varying float linear_depth;
 
 
 struct brdf_input {
+  vec3 view_vector;
   vec3 light_vector;
+  vec3 normal_vector;
   vec3 color;
   float falloff;
   float intensity;
   float occlusion;
-  float incidence_angle;
 };
 
 
