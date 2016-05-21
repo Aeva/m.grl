@@ -272,11 +272,11 @@ please.CameraNode.prototype.update_camera = function () {
     var far = this.far;
     var width = this.width;
     var height = this.height;
-    if (width === null) {
-        width = please.renderer.width;
+    if (!width) {
+        width = this.width = please.renderer.width;
     }
-    if (height === null) {
-        height = please.renderer.height;
+    if (!height) {
+        height = this.height = please.renderer.height;
     }
 
     // Determine if the common args have changed.
