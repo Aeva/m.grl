@@ -256,6 +256,8 @@ please.DeferredRenderer = function () {
                     // sun light's vector instead of the sun's position
                     this.__prog.vars.light_world_position = light.sun_vector;
                 }
+                this.__prog.vars.light_intensity = light.energy;
+                this.__prog.vars.light_color = light.color;
                 please.gl.splat();
             }
             gl.disable(gl.BLEND);
@@ -266,6 +268,6 @@ please.DeferredRenderer = function () {
     
     assembly.shader.diffuse_texture = gbuffers.buffers.color;
     assembly.shader.light_texture = apply_lighting;
-    assembly.shader.dynamic_range = [0.0, 2.0];
+    assembly.shader.dynamic_range = [0.0, 4.0];
     return assembly;
 };

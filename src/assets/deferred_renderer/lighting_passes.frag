@@ -8,9 +8,11 @@ uniform sampler2D normal_texture;
 
 uniform int light_type;
 
+uniform float light_intensity;
 uniform mat4 light_projection_matrix;
 uniform mat4 light_view_matrix;
 uniform vec3 light_world_position;
+uniform vec3 light_color;
 uniform bool cast_shadows;
 
 
@@ -59,8 +61,8 @@ vec3 spotlight_illumination(vec3 world_position, vec3 world_normal) {
   // the light weight is calculated in world space
   params.light_vector = normalize(light_world_position - world_position);
   params.incidence_angle = max(dot(world_normal, params.light_vector), 0.0);
-  params.color = vec3(1.0, 1.0, 1.0);
-  params.intensity = 1.0;
+  params.color = light_color;
+  params.intensity = light_intensity;
   params.falloff = 1.0/pow(distance(world_normal, params.light_vector), 2.0);
   params.occlusion = illuminated;
 
@@ -77,8 +79,8 @@ vec3 pointlight_illumination(vec3 world_position, vec3 world_normal) {
   // the light weight is calculated in world space
   params.light_vector = normalize(light_world_position - world_position);
   params.incidence_angle = max(dot(world_normal, params.light_vector), 0.0);
-  params.color = vec3(1.0, 1.0, 1.0);
-  params.intensity = 1.0;
+  params.color = light_color;
+  params.intensity = light_intensity;
   params.falloff = 1.0/pow(distance(world_normal, params.light_vector), 2.0);
   params.occlusion = illuminated;
 
@@ -95,8 +97,8 @@ vec3 sunlight_illumination(vec3 world_normal) {
   // the light weight is calculated in world space
   params.light_vector = normalize(light_world_position);
   params.incidence_angle = max(dot(world_normal, params.light_vector), 0.0);
-  params.color = vec3(1.0, 1.0, 1.0);
-  params.intensity = 1.0;
+  params.color = light_color;
+  params.intensity = light_intensity;
   params.falloff = 1.0;
   params.occlusion = illuminated;
 
