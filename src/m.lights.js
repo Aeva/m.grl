@@ -34,7 +34,7 @@ please.SunLightNode = function (options) {
     this.cast_shadows = false;
     Object.freeze(this.cast_shadows);
     
-    ANI("energy", 1);
+    ANI("intensity", 1);
     please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
     please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
     please.make_animatable_tripple(this, "sun_vector", "xyz",
@@ -67,7 +67,7 @@ please.PointLightNode = function (options) {
     this.cast_shadows = false;
     Object.freeze(this.cast_shadows);
     
-    ANI("energy", 1);
+    ANI("intensity", 1);
     please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
 };
 please.PointLightNode.prototype = Object.create(please.GraphNode.prototype);
@@ -102,7 +102,7 @@ please.SpotLightNode = function (options) {
     this.__last_camera = null;
     
     ANI("fov", 45);
-    ANI("energy", 1);
+    ANI("intensity", 1);
     please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
     please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
     please.make_animatable_tripple(this, "up_vector", "xyz", [0, 0, 1]);
@@ -256,7 +256,7 @@ please.DeferredRenderer = function () {
                     // sun light's vector instead of the sun's position
                     this.__prog.vars.light_world_position = light.sun_vector;
                 }
-                this.__prog.vars.light_intensity = light.energy;
+                this.__prog.vars.light_intensity = light.intensity;
                 this.__prog.vars.light_color = light.color;
                 please.gl.splat();
             }
