@@ -102,6 +102,7 @@ please.SpotLightNode = function (options) {
     this.__last_camera = null;
     
     ANI("fov", 45);
+    ANI("size", 0.15);
     ANI("intensity", 1);
     please.make_animatable_tripple(this, "color", "rgb", [1, 1, 1]);
     please.make_animatable_tripple(this, "look_at", "xyz", [0, 0, 0]);
@@ -129,6 +130,7 @@ please.SpotLightNode = function (options) {
         },
     });
     this.depth_pass.shader.cast_shadows = function () { return light.cast_shadows; };
+    this.depth_pass.shader.light_size_vert = function () { return light.size/2.0; };
     this.depth_pass.shader.shader_pass = 1;
     this.depth_pass.shader.geometry_pass = true;
     this.depth_pass.shader.shadow_pass = true;
@@ -246,6 +248,7 @@ please.DeferredRenderer = function () {
                     this.__prog.vars.light_view_matrix = light.camera.view_matrix;
                     this.__prog.vars.light_projection_matrix = light.camera.projection_matrix;
                     this.__prog.vars.light_world_position = light.camera.__world_coordinate_driver();
+                    this.__prog.vars.light_size_frag = light.size/2.0;
                 }
                 else if (light.__light_type == "point") {
                     this.__prog.vars.light_type = 1;

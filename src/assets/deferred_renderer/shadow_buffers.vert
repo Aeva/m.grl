@@ -15,6 +15,7 @@ binding_context GraphNode {
 uniform mat4 view_matrix;
 uniform mat4 projection_matrix;
 uniform float mgrl_orthographic_scale;
+uniform float light_size_vert;
 varying vec4 scatter_samples;
 
 
@@ -36,18 +37,17 @@ mat4 model_view_matrix(mat4 view_matrix) {
 float scatter_depth(int which) {
   mat4 basis = view_matrix;
   mat4 shift = mat4(1.0); // identity matrix
-  float size = 0.1;
   if (which == 0) {
-    shift[3].x += size;
+    shift[3].x += light_size_vert;
   }
   else if (which == 1) {
-    shift[3].x -= size;
+    shift[3].x -= light_size_vert;
   }
   else if (which == 2) {
-    shift[3].z += size;
+    shift[3].z += light_size_vert;
   }
   else if (which == 3) {
-    shift[3].z -= size;
+    shift[3].z -= light_size_vert;
   }
   mat4 model_view = model_view_matrix(shift * basis);
   return length((model_view * vec4(local_position, 1.0)));

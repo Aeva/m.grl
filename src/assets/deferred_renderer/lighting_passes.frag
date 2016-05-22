@@ -9,6 +9,7 @@ uniform sampler2D normal_texture;
 uniform int light_type;
 
 uniform float light_intensity;
+uniform float light_size_frag;
 uniform mat4 light_projection_matrix;
 uniform mat4 light_view_matrix;
 uniform vec3 light_world_position;
@@ -20,18 +21,17 @@ uniform bool cast_shadows;
 mat4 scatter_matrix(int which) {
   mat4 basis = light_view_matrix;
   mat4 shift = mat4(1.0); // identity matrix
-  float size = 0.1;
   if (which == 0) {
-    shift[3].x += size;
+    shift[3].x += light_size_frag;
   }
   else if (which == 1) {
-    shift[3].x -= size;
+    shift[3].x -= light_size_frag;
   }
   else if (which == 2) {
-    shift[3].z += size;
+    shift[3].z += light_size_frag;
   }
   else if (which == 3) {
-    shift[3].z -= size;
+    shift[3].z -= light_size_frag;
   }
   return shift * basis;
 }
