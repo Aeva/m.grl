@@ -640,31 +640,6 @@ please.GraphNode.prototype = {
         this.__z_depth = position[2];
     },
 #ifdef WEBGL
-    "mesh_data" : function () {
-        // Return arrays of raw mesh data.  Automatically decodes
-        // index buffer array data.  Returns null if there is no
-        // relevant mesh data.
-
-        if (this.__buffers !== null && this.__buffers.vbo) {
-            if (this.__buffers.ibo) {
-                return please.gl.decode_buffers(
-                    this.__buffers.vbo, this.__buffers.ibo);
-            }
-            else {
-                var long_data = {};
-                var vbo_data = this.__buffers.vbo.reference.data;
-                long_data.__types = this.__buffers.vbo.reference.type;
-                long_data.__vertex_count = vbo.reference.size;
-                ITER_PROPS(attr, vbo_data) {
-                    long_data[attr] = vbo_data[attr];
-                }
-                return long_data;
-            }
-        }
-        else {
-            return null;
-        }
-    },
     "__bind" : function (prog) {
         // calls this.bind if applicable.
         if (this.__drawable && typeof(this.bind) === "function") {
