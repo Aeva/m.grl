@@ -17,13 +17,35 @@ uniform vec3 camera_position;
 uniform bool cast_shadows;
 
 
-float spotlight_shadows(vec3 world_position) {
+mat4 scatter_matrix(int which) {
+  mat4 basis = light_view_matrix;
+  mat4 shift = mat4(1.0); // identity matrix
+  float size = 0.1;
+  if (which == 0) {
+    shift[3].x += size;
+  }
+  else if (which == 1) {
+    shift[3].x -= size;
+  }
+  else if (which == 2) {
+    shift[3].z += size;
+  }
+  else if (which == 3) {
+    shift[3].z -= size;
+  }
+  return shift * basis;
+}
+
+
+float spotlight_shadows(vec3 world_position, int which) {
   // This method determines if the current fragment is occluded by the
   // current light's shadow.  A return value between 0.0 and 1.0 is
   // given.  Calculations are done in the light's view space.
 
+  mat4 light_view = scatter_matrix(which);
+
   // the position of the fragment in view space
-  vec3 view_position = (light_view_matrix * vec4(world_position, 1.0)).xyz;
+  vec3 view_position = (light_view * vec4(world_position, 1.0)).xyz;
 
   // apply the light's projection matrix
   vec4 light_projected = light_projection_matrix * vec4(view_position, 1.0);
@@ -56,7 +78,11 @@ float spotlight_shadows(vec3 world_position) {
 vec3 spotlight_illumination(vec3 world_position, vec3 world_normal) {
   // illuminated tells us if the pixel would be in the current light's
   // shadow or not.
-  float illuminated = spotlight_shadows(world_position);
+  float illuminated = 0.0;
+  for (int i=0; i<4; i+=1) {
+    illuminated += spotlight_shadows(world_position, i);
+  }
+  illuminated /= 4.0;
   brdf_input params;
 
   params.view_vector = normalize(camera_position - world_position);

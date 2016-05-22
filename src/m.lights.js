@@ -131,6 +131,7 @@ please.SpotLightNode = function (options) {
     this.depth_pass.shader.cast_shadows = function () { return light.cast_shadows; };
     this.depth_pass.shader.shader_pass = 1;
     this.depth_pass.shader.geometry_pass = true;
+    this.depth_pass.shader.shadow_pass = true;
     this.depth_pass.render = function () {
         this.activate();
         this.graph_root.draw(function (node) { return !node.cast_shadows; });
@@ -194,6 +195,7 @@ please.DeferredRenderer = function () {
     gbuffers.clear_color = [-1, -1, -1, -1];
     gbuffers.shader.shader_pass = 0;
     gbuffers.shader.geometry_pass = true;
+    gbuffers.shader.shadow_pass = false;
     gbuffers.render = function () {
         if (assembly.graph !== null) {
             assembly.graph.draw();

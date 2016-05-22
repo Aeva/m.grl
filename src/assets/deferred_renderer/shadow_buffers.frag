@@ -1,8 +1,7 @@
 
 include("deferred_renderer/common.glsl");
-
+varying vec4 scatter_samples;
 
 void shadow_buffers() {
-  float depth = linear_depth;
-  gl_FragData[0] = vec4(depth, depth, depth, 1.0);
+  gl_FragData[0] = scatter_samples;
 }
