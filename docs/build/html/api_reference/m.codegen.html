@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>m.gl.ast.js &mdash; M.GRL version zero documentation</title>
+    <title>m.codegen.js &mdash; M.GRL version zero documentation</title>
     
     <link rel="stylesheet" href="../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -28,8 +28,8 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
     <link rel="up" title="API Reference" href="index.html" />
-    <link rel="next" title="m.gl.buffers.js" href="m.gl.buffers.html" />
-    <link rel="prev" title="m.gani.js" href="m.gani.html" /> 
+    <link rel="next" title="m.compositing.js" href="m.compositing.html" />
+    <link rel="prev" title="m.camera.js" href="m.camera.html" /> 
   </head>
   <body>
     <div class="related">
@@ -39,10 +39,10 @@
           <a href="../genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="m.gl.buffers.html" title="m.gl.buffers.js"
+          <a href="m.compositing.html" title="m.compositing.js"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="m.gani.html" title="m.gani.js"
+          <a href="m.camera.html" title="m.camera.js"
              accesskey="P">previous</a> |</li>
         <li><a href="../index.html">Contents</a> &raquo;</li>
           <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
@@ -54,14 +54,32 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="m-gl-ast-js">
-<h1>m.gl.ast.js<a class="headerlink" href="#m-gl-ast-js" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="please-gl-glsl-to-ast">
-<h2>please.gl.glsl_to_ast<a class="headerlink" href="#please-gl-glsl-to-ast" title="Permalink to this headline">¶</a></h2>
-<p><em>please.gl.glsl_to_ast</em> <strong>(shader_source, uri)</strong></p>
-<p>Takes a glsl source file and returns an abstract syntax tree
-representation of the code to be used for further processing. The &#8216;uri&#8217;
-argument is optional, and is mainly used for error reporting.</p>
+  <div class="section" id="m-codegen-js">
+<h1>m.codegen.js<a class="headerlink" href="#m-codegen-js" title="Permalink to this headline">¶</a></h1>
+<p>This part of the module defines functionality for code generation, and
+is intended for internal use only.</p>
+<div class="section" id="please-format-invocation">
+<h2>please.format_invocation<a class="headerlink" href="#please-format-invocation" title="Permalink to this headline">¶</a></h2>
+<p><em>please.format_invocation</em> <strong>(method, arg1, arg2, etc)</strong></p>
+<p>Returns a string containing what is hopefully valid JS source code for
+calling the specified method with hardcoded arguments.</p>
+</div>
+<div class="section" id="please-jsir">
+<h2>please.JSIR<a class="headerlink" href="#please-jsir" title="Permalink to this headline">¶</a></h2>
+<p><em>please.JSIR</em> <strong>(method_name, arg1, arg2, etc)</strong></p>
+<p>Constructor. Arguments are similar to &#8216;please.format_invocation&#8217; -
+first is the string for the method invocation this wraps, and the
+remaining params represent the arguments to said wrapped method.</p>
+<p>Where this differs is, arguments can be functions or just null. They can
+be changed on the fly.</p>
+<p>Call the &#8216;compile&#8217; method with a cache object to produce the final
+output.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">ir</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">JSIR</span><span class="p">(</span><span class="s2">&quot;alert&quot;</span><span class="p">,</span> <span class="s2">&quot;hello world!&quot;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">cache</span> <span class="o">=</span> <span class="p">{};</span>
+<span class="kd">var</span> <span class="nx">generated</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Function</span><span class="p">(</span><span class="nx">ir</span><span class="p">.</span><span class="nx">compile</span><span class="p">(</span><span class="nx">cache</span><span class="p">)).</span><span class="nx">bind</span><span class="p">(</span><span class="nx">cache</span><span class="p">);</span>
+<span class="nx">generated</span><span class="p">();</span>
+</pre></div>
+</div>
 </div>
 </div>
 
@@ -73,21 +91,22 @@ argument is optional, and is mainly used for error reporting.</p>
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">m.gl.ast.js</a><ul>
-<li><a class="reference internal" href="#please-gl-glsl-to-ast">please.gl.glsl_to_ast</a></li>
+<li><a class="reference internal" href="#">m.codegen.js</a><ul>
+<li><a class="reference internal" href="#please-format-invocation">please.format_invocation</a></li>
+<li><a class="reference internal" href="#please-jsir">please.JSIR</a></li>
 </ul>
 </li>
 </ul>
 
   <h4>Previous topic</h4>
-  <p class="topless"><a href="m.gani.html"
-                        title="previous chapter">m.gani.js</a></p>
+  <p class="topless"><a href="m.camera.html"
+                        title="previous chapter">m.camera.js</a></p>
   <h4>Next topic</h4>
-  <p class="topless"><a href="m.gl.buffers.html"
-                        title="next chapter">m.gl.buffers.js</a></p>
+  <p class="topless"><a href="m.compositing.html"
+                        title="next chapter">m.compositing.js</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
-    <li><a href="../_sources/api_reference/m.gl.ast.txt"
+    <li><a href="../_sources/api_reference/m.codegen.txt"
            rel="nofollow">Show Source</a></li>
   </ul>
 <div id="searchbox" style="display: none">
@@ -114,10 +133,10 @@ argument is optional, and is mainly used for error reporting.</p>
           <a href="../genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="m.gl.buffers.html" title="m.gl.buffers.js"
+          <a href="m.compositing.html" title="m.compositing.js"
              >next</a> |</li>
         <li class="right" >
-          <a href="m.gani.html" title="m.gani.js"
+          <a href="m.camera.html" title="m.camera.js"
              >previous</a> |</li>
         <li><a href="../index.html">Contents</a> &raquo;</li>
           <li><a href="index.html" >API Reference</a> &raquo;</li> 

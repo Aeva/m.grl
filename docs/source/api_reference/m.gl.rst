@@ -78,20 +78,6 @@ name (for caching), and pass any number of shader objects to the
 function.
 
 
-please.gl.vbo
--------------
-*please.gl.vbo* **(vertex\_count, attr\_map, options)**
-
-Create a VBO from attribute array data.
-
-
-please.gl.ibo
--------------
-*please.gl.ibo* **(data, options)**
-
-Create a IBO.
-
-
 please.gl.blank_texture
 -----------------------
 *please.gl.blank\_texture* **(options)**

@@ -3,11 +3,9 @@
 m.defs.js
 =========
 
-This part of the module is responsible primarily for polyfills of
-language features that are present in Firefox but absent from other
-browsers. This file also implements some helper functions that are
-widely used within M.GRL's codebase, and defines the module's faux
-namespace 'please'.
+This part of the module is responsible primarily for implementing helper
+functions that are widely used within M.GRL's codebase, and defines the
+module's faux namespace 'please'.
 
 
 
