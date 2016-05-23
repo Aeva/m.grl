@@ -197,9 +197,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     });
 
     var scene = please.access("holodeck.jta").instance();
-    scene.propogate(function (child) {
-        child.use_manual_cache_invalidation();
-    });
     scene.children.map(function (model) {
         demo.models.push(model);
     });

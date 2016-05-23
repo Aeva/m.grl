@@ -45,7 +45,6 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
         }
         tracker.asset = asset;
         tracker.stamp = asset.instance(true);
-        tracker.stamp.use_manual_cache_invalidation();
         tracker.animated = !!tracker.stamp.play;
     }
     else {

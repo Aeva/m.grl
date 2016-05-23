@@ -100,7 +100,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // Add a fixture in the middle of the floor
     var level = demo.level = please.access("shadow_test.jta").instance();
     level.shader.is_floor = false;
-    level.use_manual_cache_invalidation();
     graph.add(level);
 
     // spinner

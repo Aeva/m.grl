@@ -116,7 +116,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
                 tile.rotation_x += 180;
             }
             tile_set.add(tile);
-            tile.use_manual_cache_invalidation();
         }
     }
     demo.tile_bake = new please.StaticDrawNode(tile_set);
