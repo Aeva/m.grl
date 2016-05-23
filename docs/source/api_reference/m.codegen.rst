@@ -19,7 +19,7 @@ calling the specified method with hardcoded arguments.
 
 please.JSIR
 -----------
-*please.JSIR* **(method\_name, arg1, arg2, etc)**
+*please.JSIR* **(force\_dynamic, method\_name, arg1, arg2, etc)**
 
 Constructor. Arguments are similar to 'please.format\_invocation' -
 first is the string for the method invocation this wraps, and the
@@ -33,9 +33,11 @@ output.
 
 .. code-block:: javascript
 
-    var ir = new please.JSIR("alert", "hello world!");
+    var ir = new please.JSIR(true, "alert", "hello world!");
     var cache = {};
     var generated = new Function(ir.compile(cache)).bind(cache);
+    generated();
+    cache[ir.params[0].id] = "haaax"
     generated();
 
 

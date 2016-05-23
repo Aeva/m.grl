@@ -66,7 +66,7 @@ calling the specified method with hardcoded arguments.</p>
 </div>
 <div class="section" id="please-jsir">
 <h2>please.JSIR<a class="headerlink" href="#please-jsir" title="Permalink to this headline">¶</a></h2>
-<p><em>please.JSIR</em> <strong>(method_name, arg1, arg2, etc)</strong></p>
+<p><em>please.JSIR</em> <strong>(force_dynamic, method_name, arg1, arg2, etc)</strong></p>
 <p>Constructor. Arguments are similar to &#8216;please.format_invocation&#8217; -
 first is the string for the method invocation this wraps, and the
 remaining params represent the arguments to said wrapped method.</p>
@@ -74,9 +74,11 @@ remaining params represent the arguments to said wrapped method.</p>
 be changed on the fly.</p>
 <p>Call the &#8216;compile&#8217; method with a cache object to produce the final
 output.</p>
-<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">ir</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">JSIR</span><span class="p">(</span><span class="s2">&quot;alert&quot;</span><span class="p">,</span> <span class="s2">&quot;hello world!&quot;</span><span class="p">);</span>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">ir</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">JSIR</span><span class="p">(</span><span class="kc">true</span><span class="p">,</span> <span class="s2">&quot;alert&quot;</span><span class="p">,</span> <span class="s2">&quot;hello world!&quot;</span><span class="p">);</span>
 <span class="kd">var</span> <span class="nx">cache</span> <span class="o">=</span> <span class="p">{};</span>
 <span class="kd">var</span> <span class="nx">generated</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Function</span><span class="p">(</span><span class="nx">ir</span><span class="p">.</span><span class="nx">compile</span><span class="p">(</span><span class="nx">cache</span><span class="p">)).</span><span class="nx">bind</span><span class="p">(</span><span class="nx">cache</span><span class="p">);</span>
+<span class="nx">generated</span><span class="p">();</span>
+<span class="nx">cache</span><span class="p">[</span><span class="nx">ir</span><span class="p">.</span><span class="nx">params</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">id</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;haaax&quot;</span>
 <span class="nx">generated</span><span class="p">();</span>
 </pre></div>
 </div>
