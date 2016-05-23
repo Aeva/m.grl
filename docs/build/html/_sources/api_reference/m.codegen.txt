@@ -33,7 +33,7 @@ output.
 
 .. code-block:: javascript
 
-    var ir = please.JSIR("alert", "hello world!");
+    var ir = new please.JSIR("alert", "hello world!");
     var cache = {};
     var generated = new Function(ir.compile(cache)).bind(cache);
     generated();
