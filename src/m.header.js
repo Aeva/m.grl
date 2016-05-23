@@ -36,6 +36,7 @@
 #include "m.macros.js"
 #include "m.polyfills.js"
 #include "m.defs.js"
+#include "m.codegen.js"
 #include "m.pages.js"
 #include "m.qa.js"
 #include "m.time.js"
