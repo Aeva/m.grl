@@ -20,7 +20,7 @@ please.format_invocation = function (method_string) {
 };
 
 
-// [+] please.JSIR(method_name, arg1, arg2, etc)
+// [+] please.JSIR(force_dynamic, method_name, arg1, arg2, etc)
 //
 // Constructor.  Arguments are similar to 'please.format_invocation' -
 // first is the string for the method invocation this wraps, and the
@@ -33,31 +33,58 @@ please.format_invocation = function (method_string) {
 // output.
 //
 // ```
-// var ir = please.JSIR("alert", "hello world!");
+// var ir = new please.JSIR(true, "alert", "hello world!");
 // var cache = {};
 // var generated = new Function(ir.compile(cache)).bind(cache);
 // generated();
+// cache[ir.params[0].id] = "haaax"
+// generated();
 // ```
 //
-please.JSIR = function (method_string) {
-    var args = Array.apply(null, arguments).slice(1);
+please.JSIR = function (force_dynamic, method_string) {
+    var args = Array.apply(null, arguments).slice(2);
     this.method = method_string;
     this.params = [];
+    this.dirty = true;
     ITER(a, args) {
+        var is_dynamic = force_dynamic || args[a].constructor === Function;
         this.params.push({
             "id" : please.uuid(),
             "value" : args[a],
+            "dynamic" : is_dynamic,
         });
     }
 };
 
+
 please.JSIR.prototype.compile = function (cache) {
     var args = [this.method];
     ITER(p, this.params) {
-        var param = this.params[p];
-        cache[param.id] = param.value;
-        var lookup = 'this["' + param.id + '"]';
+        var lookup, param = this.params[p];
+        if (param.dynamic) {
+            if (param.value.constructor === Function) {
+                cache[param.id] = param.value();
+            }
+            else {
+                cache[param.id] = param.value;
+            }
+            lookup = 'this["' + param.id + '"]';
+        }
+        else {
+            lookup = param.value.toString();
+        }
         args.push(lookup);
     }
+    this.dirty = false;
     return please.format_invocation.apply(please, args);
+};
+
+
+please.JSIR.prototype.update_arg = function (index, value) {
+    var param = this.params[index];
+    if (!param.dynamic) {
+        this.dirty = true;
+    }
+    param.value = value;
+    param.dynamic = true;
 };
