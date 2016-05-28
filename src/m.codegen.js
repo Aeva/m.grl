@@ -80,11 +80,19 @@ please.JSIR.prototype.compile = function (cache) {
 };
 
 
-please.JSIR.prototype.update_arg = function (index, value) {
+please.JSIR.prototype.update_arg = function (index, value, cache) {
     var param = this.params[index];
     if (!param.dynamic) {
         this.dirty = true;
     }
     param.value = value;
     param.dynamic = true;
+    if (cache) {
+        if (value.constructor === Function) {
+            cache[param.id] = value();
+        }
+        else {
+            cache[param.id] = value;
+        }
+    }
 };
