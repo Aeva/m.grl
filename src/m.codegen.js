@@ -96,3 +96,47 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
         }
     }
 };
+
+
+// [+] please.__drawable_ir(vbo, ibo, start, total, defaults, graph_node)
+// 
+// Creates a list of IR objects needed to render a partical VBO/IBO of
+// data.  The only required param is 'vbo'.
+//
+//  - **vbo** a vbo object, as defined in m.gl.buffers.js
+//  - **ibo** an ibo object, as defined in m.gl.buffers.js
+//  - **start** starting vertex to draw, defaults to 0
+//  - **total** number of vertices to draw, defaults to maximum
+//  - **defaults** a key-value store for the default uniform values
+//  - **graph_node** a graph node object to optionally data bind against
+//
+// This method returns a list of strings and IR objects that can be
+// used to generate a function.
+//
+please.__drawable_ir = function (vbo, ibo, start, total, defaults, graph_node) {
+    var ir = [];
+    return ir;
+};
+
+
+// [+] please.__compile_ir(ir_tokens, cache)
+//
+// Takes a list of IR tokens and strings and generates a function from
+// them.
+//
+please.__compile_ir = function (ir_tokens, cache) {
+    var src = "";
+    ITER(t, ir_tokens) {
+        var token = ir_tokens[t];
+        if (token.constructor == String) {
+            src += token;
+        }
+        else if (token.compile) {
+            src += token.compile(cache);
+        }
+        else {
+            throw new Error("Invalid IR token.");
+        }
+    }
+    return src;
+};
