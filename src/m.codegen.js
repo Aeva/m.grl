@@ -144,8 +144,12 @@ please.__drawable_ir = function (prog, vbo, ibo, start, total, defaults, graph_n
     var ir = [];
     var is_static = !graph_node;
     // add IR for VBO bind
+    ir.push(vbo.static_bind(prog));
     
     // add IR for IBO bind, if applicable
+    if (ibo) {
+        ir.push(ibo.static_bind);
+    }
     
     // add IR for uniforms
     var uniforms = [];

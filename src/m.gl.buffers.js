@@ -227,7 +227,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
 
 
     // For generating static bind methods.
-    var static_bind_source_gen = function (prog, instanced) {
+    vbo.static_bind = function (prog, instanced) {
         var src = "";
 
         // enable attributes
@@ -298,19 +298,9 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 }
             }
         }
-        
         return src.trim();
     };
 
-    // create our static bind method sources
-    vbo.generate_static_bindings = function () {
-        if (vbo.static_bind === null || vbo.static_instance_bind == null) {
-            var prog = please.gl.__cache.current;
-            vbo.static_bind = static_bind_source_gen(prog, false);
-            vbo.static_instance_bind = static_bind_source_gen(prog, true);
-        }
-    };
-    
     return vbo;
 };
 
