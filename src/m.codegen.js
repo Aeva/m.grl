@@ -85,13 +85,11 @@ please.JSIR.prototype.compile = function (cache) {
     ITER(p, this.params) {
         var lookup, param = this.params[p];
         if (param.dynamic) {
-            if (typeof(param.value) == "function") {
-                cache[param.id] = param.value();
-            }
-            else {
-                cache[param.id] = param.value;
-            }
+            cache[param.id] = param.value;
             lookup = 'this["' + param.id + '"]';
+            if (typeof(param.value) == "function") {
+                lookup += "()";
+            }
         }
         else if (param.value === null) {
             lookup = "null";
@@ -114,12 +112,7 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
     param.value = value;
     param.dynamic = true;
     if (cache) {
-        if (value.constructor === Function) {
-            cache[param.id] = value();
-        }
-        else {
-            cache[param.id] = value;
-        }
+        cache[param.id] = value;
     }
 };
 
@@ -142,7 +135,6 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
 //
 please.__drawable_ir = function (prog, vbo, ibo, start, total, defaults, graph_node) {
     var ir = [];
-    var is_static = !graph_node;
     // add IR for VBO bind
     ir.push(vbo.static_bind(prog));
     
@@ -169,6 +161,9 @@ please.__drawable_ir = function (prog, vbo, ibo, start, total, defaults, graph_n
             uniforms.push(name);
             uniform_defaults[name] = prog.__uniform_initial_value(name);
         }
+        else if (graph_node && graph_node.__ani_store[name]) {
+            uniforms.push(name);
+        }
     }
     ITER(u, uniforms) {
         // generate the IR for uniforms and if applicable, set up the
@@ -176,10 +171,18 @@ please.__drawable_ir = function (prog, vbo, ibo, start, total, defaults, graph_n
         var name = uniforms[u];
         var value = uniform_defaults[name];
         var cmd = "this.prog.vars['"+name+"']";
-        if (is_static) {
+
+        if (graph_node) {
+            // setup dynamic bindings
+            if (!graph_node.__ani_store[name]) {
+                graph_node.__ani_store[name] = value;
+            }
+            value = graph_node.__ani_debug[name].get;
+
             var token = new please.JSIR('=', cmd, value);
         }
         else {
+            // otherwise, just use static bindings
             var token = new please.JSIR('=', cmd, '@', value);
         }
         ir.push(token);
