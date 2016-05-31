@@ -613,6 +613,7 @@ please.GraphNode.prototype = {
         this.__z_depth = position[2];
     },
 #ifdef WEBGL
+    "__static_draw" : null,
     "__bind" : function (prog) {
         // calls this.bind if applicable.
         if (this.__drawable && typeof(this.bind) === "function") {
@@ -832,8 +833,13 @@ please.SceneGraph = function () {
                 ITER(i, children) {
                     var child = children[i];
                     if (!(exclude_test && exclude_test(child))) {
-                        child.__bind(prog);
-                        child.__draw(prog);
+                        if (child.__static_draw) {
+                            child.__static_draw();
+                        }
+                        else {
+                            child.__bind(prog);
+                            child.__draw(prog);
+                        }
                     }
                 }
             }

@@ -183,6 +183,7 @@ please.gl.__jta_model = function (src, uri) {
                             console.warn("Model \"" + uri + "\" defines a uniform variable not used by the current shader program: " + name);
                         }
                     });
+                    /*
                     node.bind = function () {
                         model.vbo.bind();
                         model.ibo.bind();
@@ -193,6 +194,14 @@ please.gl.__jta_model = function (src, uri) {
                             model.ibo.draw(group.start, group.count);
                         };
                     };
+                    */
+                    var prog = please.gl.__cache.current;
+                    var cache = {};
+                    cache.prog = prog;
+                    var ir = please.__drawable_ir(
+                        prog, model.vbo, model.ibo, null, null, null, node);
+                    var src = please.__compile_ir(ir, cache)
+                    node.__static_draw = new Function(src).bind(cache);
                     node.__buffers = {
                         "vbo" : model.vbo,
                         "ibo" : model.ibo,

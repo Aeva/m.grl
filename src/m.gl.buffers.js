@@ -236,7 +236,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             ITER(a, attr_names) {
                 var name = attr_names[a];
                 if (prog.attrs[name]) {
-                    src += "prog.attrs['"+name+"'].enabled = true;\n";
+                    src += "this.prog.attrs['"+name+"'].enabled = true;\n";
                 }
             }
         }
@@ -244,7 +244,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             // only enable what we need, disable everything else
             for (var name in prog.attrs) {
                 var enabled = attr_names.indexOf(name) !== -1;
-                src += "prog.attrs['"+name+"'].enabled = "+enabled+";\n";
+                src += "this.prog.attrs['"+name+"'].enabled = "+enabled+";\n";
             }
         }
 
@@ -253,7 +253,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             for (var name in vbo.stats) {
                 var glsl_name = "mgrl_model_local_" + name;
                 if (prog.vars.hasOwnProperty(glsl_name)) {
-                    src += "prog.vars['"+glsl_name+"'] = "+vbo.stats[name]+";\n";
+                    src += "this.prog.vars['"+glsl_name+"'] = "+vbo.stats[name]+";\n";
                 }
             }
         }
@@ -268,7 +268,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             // single attribute buffer binding
             src += please.format_invocation(
                 "gl.vertexAttribPointer",
-                "prog.attrs['" + attr + "'].loc",
+                "this.prog.attrs['" + attr + "'].loc",
                 item_size, opt.type, false, 0, 0) + "\n";
         }
         else {
@@ -280,7 +280,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 if (prog.attrs[attr]) {
                     src += please.format_invocation(
                         "gl.vertexAttribPointer",
-                        "prog.attrs['" + attr + "'].loc",
+                        "this.prog.attrs['" + attr + "'].loc",
                         item_size, opt.type, false, stride*4, offset*4) + "\n";
                 }
             }
@@ -294,7 +294,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 if (prog.attrs[name]) {
                     src += "\n" + please.format_invocation(
                         ext+".vertexAttribDivisorANGLE",
-                        "prog.attrs['" + name + "'].loc", 1);
+                        "this.prog.attrs['" + name + "'].loc", 1);
                 }
             }
         }
