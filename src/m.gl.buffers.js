@@ -45,11 +45,16 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             gl.drawArrays(opt.mode, start, total);
         },
         "static_bind" : null,
-        "static_instance_bind" : null,
         "static_draw" : function (start, total, instances) {
-            DEFAULT(start, 0);
-            DEFAULT(total, vertex_count);
-            DEFAULT(instances, 0);
+            if (!start) {
+                start = 0;
+            }
+            if (!total) {
+                total = vertex_count;
+            }
+            if (!instances) {
+                instances = 0;
+            }
 
             if (instances > 0) {
                 var ext = "please.gl.ext.ANGLE_instanced_arrays";
@@ -353,10 +358,16 @@ please.gl.ibo = function (data, options) {
         },
         "static_bind" : null,
         "static_draw" : function (start, total, instances) {
-            DEFAULT(start, 0);
-            DEFAULT(total, 0);
-            DEFAULT(instances, 0);
-
+            if (!start) {
+                start = 0;
+            }
+            if (!total) {
+                total = face_count;
+            }
+            if (!instances) {
+                instances = 0;
+            }
+            
             if (instances > 0) {
                 var ext = "please.gl.ext.ANGLE_instanced_arrays";
                 return please.format_invocation(

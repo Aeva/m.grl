@@ -182,6 +182,13 @@ please.__drawable_ir = function (prog, vbo, ibo, start, total, defaults, graph_n
     }
 
     // add IR for appropriate draw call
+    if (ibo) {
+        ir.push(ibo.static_draw(start, total));
+    }
+    else {
+        ir.push(vbo.static_draw(start, total));
+    }
+    
     return ir;
 };
 
