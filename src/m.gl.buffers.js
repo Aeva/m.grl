@@ -230,6 +230,13 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
     vbo.static_bind = function (prog, instanced) {
         var src = "";
 
+        for (var name in vbo.stats) {
+            var glsl_name = "mgrl_model_local_" + name;
+            if (prog.vars.hasOwnProperty(glsl_name)) {
+                src += "this.prog.vars["+glsl_name+"] = "+vbo.stats[name]+";";
+            }
+        }
+
         // enable attributes
         if (instanced) {
             // don't disable other arrays
