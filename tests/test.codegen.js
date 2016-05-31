@@ -98,10 +98,20 @@ test["codegen static IR integration"] = function () {
 
 test["drawable ir lists"] = function () {
     var prog = please.glsl("default", "simple.vert", "diffuse.frag");
-    //prog.activate();
+
+    var builder = new please.builder.SpriteBuilder();
+    builder.add_flat(10, 10, 0, 0, 10, 10);
+    var buffers = builder.build();
+    var vbo = buffers.vbo;
+    var ibo = buffers.ibo;
+
+    var start = null;
+    var total = null;
+
     var defaults = {};
     var node = null;
-    var ir = please.__drawable_ir(prog, null, null, null, null, defaults, node);
+
+    var ir = please.__drawable_ir(prog, vbo, ibo, start, total, defaults, node);
     var cache = {};
     var src = please.__compile_ir(ir, cache);
     console.info(src);
