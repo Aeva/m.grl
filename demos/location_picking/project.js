@@ -100,9 +100,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var tile_model = please.access("flip_tile.jta");
     var char_model = please.access("psycho.jta");
 
-    // The background tiles are going to be accumulated in a single
-    // graph node, which is going to be passed into a StaticDrawNode,
-    // so as to allow the data to be rendered much more efficiently.
+    // Background tiles.
     var tile_set = new please.GraphNode();
     for (var y=-5; y<=5; y+=1) {
         for (var x=-5; x<=5; x+=1) {
@@ -118,8 +116,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
             tile_set.add(tile);
         }
     }
-    demo.tile_bake = new please.StaticDrawNode(tile_set);
-    graph.add(demo.tile_bake);
+    graph.add(tile_set);
 
     var player = demo.player = new please.GraphNode();
     var model = char_model.instance();
