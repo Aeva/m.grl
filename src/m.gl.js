@@ -869,6 +869,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             prog.samplers.__defineSetter__(binding_name, function (uri) {
                 // FIXME: allow an option for a placeholder texture somehow.
 
+                if (uri === null) {
+                    return;
+                }
                 if (uri.constructor === Array) {
                     // FIXME: texture array upload
                     //

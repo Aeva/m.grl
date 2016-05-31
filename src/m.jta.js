@@ -195,11 +195,16 @@ please.gl.__jta_model = function (src, uri) {
                         };
                     };
                     */
+                    var draw_ranges = [];
+                    ITER_PROPS(group_name, model.groups) {
+                        var group = model.groups[group_name];
+                        draw_ranges.push([group.start, group.count]);
+                    };
                     var prog = please.gl.__cache.current;
                     var cache = {};
                     cache.prog = prog;
                     var ir = please.__drawable_ir(
-                        prog, model.vbo, model.ibo, null, null, null, node);
+                        prog, model.vbo, model.ibo, draw_ranges, null, node);
                     var src = please.__compile_ir(ir, cache)
                     node.__static_draw = new Function(src).bind(cache);
                     node.__buffers = {

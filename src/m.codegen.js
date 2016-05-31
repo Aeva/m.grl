@@ -117,23 +117,31 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
 };
 
 
-// [+] please.__drawable_ir(prog, vbo, ibo, start, total, defaults, graph_node)
+// [+] please.__drawable_ir(prog, vbo, ibo, ranges, defaults, graph_node)
 // 
 // Creates a list of IR objects needed to render a partical VBO/IBO of
 // data.  The only required params are 'prog' and 'vbo'.
 //
 //  - **prog** a compiled shader program object
+//
 //  - **vbo** a vbo object, as defined in m.gl.buffers.js
+//
 //  - **ibo** an ibo object, as defined in m.gl.buffers.js
-//  - **start** starting vertex to draw, defaults to 0
-//  - **total** number of vertices to draw, defaults to maximum
+//
+//  - **ranges** is a list of two element lists.  The values represent
+//    ranges to be passed into the draw calls.  The first value is the
+//    starting vertex or face, the second value is the total number of
+//    vertices or faces to draw.  If ommitted, it will default to
+//    [[null, null]], which will draw the entire buffer.
+//
 //  - **defaults** a key-value store for the default uniform values
+//
 //  - **graph_node** a graph node object to optionally data bind against
 //
 // This method returns a list of strings and IR objects that can be
 // used to generate a function.
 //
-please.__drawable_ir = function (prog, vbo, ibo, start, total, defaults, graph_node) {
+please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
     var ir = [];
     // add IR for VBO bind
     ir.push(vbo.static_bind(prog));
@@ -170,7 +178,8 @@ please.__drawable_ir = function (prog, vbo, ibo, start, total, defaults, graph_n
         // appropriate bindings to the supplied GraphNode
         var name = uniforms[u];
         var value = uniform_defaults[name];
-        var cmd = "this.prog.vars['"+name+"']";
+        var target = prog.samplers.hasOwnProperty(name) ? "samplers" : "vars";
+        var cmd = "this.prog." + target + "['"+name+"']";
 
         if (graph_node) {
             // setup dynamic bindings
@@ -189,11 +198,14 @@ please.__drawable_ir = function (prog, vbo, ibo, start, total, defaults, graph_n
     }
 
     // add IR for appropriate draw call
-    if (ibo) {
-        ir.push(ibo.static_draw(start, total));
+    if (!ranges) {
+        ranges = [[null, null]];
     }
-    else {
-        ir.push(vbo.static_draw(start, total));
+    var draw_buffer = ibo || vbo;
+    ITER(r, ranges) {
+        var start = ranges[r][0];
+        var total = ranges[r][1];
+        ir.push(draw_buffer.static_draw(start, total));
     }
     
     return ir;
