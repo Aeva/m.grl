@@ -14,7 +14,7 @@ test["codegen dynamic IR integration"] = function () {
         this.test_result = a + b;
     };
 
-    var ir = new please.JSIR(true, "this.test_method", 1, 2);
+    var ir = new please.JSIR("this.test_method", '@', 1, '@', 2);
     var src = ir.compile(cache);
     assert(ir.dirty === false);
 
@@ -40,6 +40,28 @@ test["codegen dynamic IR integration"] = function () {
 
 
 
+test["codegen partial dynamic IR integration"] = function () {
+    var cache = {};
+    cache.test_result = 0;
+    cache.test_method = function (a, b) {
+        this.test_result = a + b;
+    };
+
+    var ir = new please.JSIR("this.test_method", 1, '@', 2);
+    var src = ir.compile(cache);
+    assert(ir.dirty === false);
+
+    var expected = 'this.test_method(1, ';
+    expected += 'this["' + ir.params[1].id + '"]);';
+    assert(src === expected);
+    
+    var method = new Function(src).bind(cache);
+    method();
+    assert(cache.test_result === 3);
+};
+
+
+
 test["codegen static IR integration"] = function () {
     var cache = {};
     cache.test_result = 0;
@@ -47,7 +69,7 @@ test["codegen static IR integration"] = function () {
         this.test_result = a + b;
     };
 
-    var ir = new please.JSIR(false, "this.test_method", 1, 2);
+    var ir = new please.JSIR("this.test_method", 1, 2);
     var src = ir.compile(cache);
     assert(ir.dirty === false);
 
@@ -70,4 +92,17 @@ test["codegen static IR integration"] = function () {
     method = new Function(src).bind(cache);
     method();
     assert(cache.test_result === 5);
+};
+
+
+
+test["drawable ir lists"] = function () {
+    var prog = please.glsl("default", "simple.vert", "diffuse.frag");
+    //prog.activate();
+    var defaults = {};
+    var node = null;
+    var ir = please.__drawable_ir(prog, null, null, null, null, defaults, node);
+    var cache = {};
+    var src = please.__compile_ir(ir, cache);
+    console.info(src);
 };

@@ -13,14 +13,28 @@
 // Returns a string containing what is hopefully valid JS source code
 // for calling the specified method with hardcoded arguments.
 //
-please.format_invocation = function (method_string) {
-    var args = Array.apply(null, arguments).slice(1);
-    var cmd = "" + method_string + "(" + args.join(", ") + ");";
+// If the method string is equal to "=", then the invocation will be
+// formatted as an assignment statement, and exactly two arguments
+// will be expected.
+//
+please.format_invocation = function (method_string/*, args */) {
+    var cmd, args = Array.apply(null, arguments).slice(1);
+    if (method_string == "=") {
+        // method is actually an assignment macro
+        if (args.length !== 2) {
+            throw new Error("Expected exactly two optional arguments.");
+        }
+        cmd = "" + args[0] + " = " + args[1] + ";";
+    }
+    else {
+        // normal method invocation
+        cmd = "" + method_string + "(" + args.join(", ") + ");";
+    }
     return cmd;
 };
 
 
-// [+] please.JSIR(force_dynamic, method_name, arg1, arg2, etc)
+// [+] please.JSIR(method_name, arg1, arg2, etc)
 //
 // Constructor.  Arguments are similar to 'please.format_invocation' -
 // first is the string for the method invocation this wraps, and the
@@ -32,8 +46,11 @@ please.format_invocation = function (method_string) {
 // Call the 'compile' method with a cache object to produce the final
 // output.
 //
+// To mark a particular argument as being a non-static value, precede
+// it by a '@' like in the example below.
+//
 // ```
-// var ir = new please.JSIR(true, "alert", "hello world!");
+// var ir = new please.JSIR("alert", '@', "hello world!");
 // var cache = {};
 // var generated = new Function(ir.compile(cache)).bind(cache);
 // generated();
@@ -41,18 +58,24 @@ please.format_invocation = function (method_string) {
 // generated();
 // ```
 //
-please.JSIR = function (force_dynamic, method_string) {
-    var args = Array.apply(null, arguments).slice(2);
+please.JSIR = function (method_string/*, args */) {
+    var args = Array.apply(null, arguments).slice(1);
     this.method = method_string;
     this.params = [];
     this.dirty = true;
+
+    var force_dynamic = false;
     ITER(a, args) {
-        var is_dynamic = force_dynamic || args[a].constructor === Function;
+        if (args[a] === '@') {
+            force_dynamic = true;
+            continue;
+        }
         this.params.push({
             "id" : please.uuid(),
             "value" : args[a],
-            "dynamic" : is_dynamic,
+            "dynamic" : force_dynamic || typeof(args[a]) == "function",
         });
+        force_dynamic = false;
     }
 };
 
@@ -62,13 +85,16 @@ please.JSIR.prototype.compile = function (cache) {
     ITER(p, this.params) {
         var lookup, param = this.params[p];
         if (param.dynamic) {
-            if (param.value.constructor === Function) {
+            if (typeof(param.value) == "function") {
                 cache[param.id] = param.value();
             }
             else {
                 cache[param.id] = param.value;
             }
             lookup = 'this["' + param.id + '"]';
+        }
+        else if (param.value === null) {
+            lookup = "null";
         }
         else {
             lookup = param.value.toString();
@@ -98,11 +124,12 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
 };
 
 
-// [+] please.__drawable_ir(vbo, ibo, start, total, defaults, graph_node)
+// [+] please.__drawable_ir(prog, vbo, ibo, start, total, defaults, graph_node)
 // 
 // Creates a list of IR objects needed to render a partical VBO/IBO of
-// data.  The only required param is 'vbo'.
+// data.  The only required params are 'prog' and 'vbo'.
 //
+//  - **prog** a compiled shader program object
 //  - **vbo** a vbo object, as defined in m.gl.buffers.js
 //  - **ibo** an ibo object, as defined in m.gl.buffers.js
 //  - **start** starting vertex to draw, defaults to 0
@@ -113,8 +140,48 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
 // This method returns a list of strings and IR objects that can be
 // used to generate a function.
 //
-please.__drawable_ir = function (vbo, ibo, start, total, defaults, graph_node) {
+please.__drawable_ir = function (prog, vbo, ibo, start, total, defaults, graph_node) {
     var ir = [];
+    var is_static = !graph_node;
+    // add IR for VBO bind
+    
+    // add IR for IBO bind, if applicable
+    
+    // add IR for uniforms
+    var uniforms = [];
+    var uniform_defaults = defaults || {};
+    var named_defaults = defaults ? please.get_properties(defaults) : [];
+    ITER(u, prog.uniform_list) {
+        // determine which uniforms apply to this object
+        var name = prog.uniform_list[u];
+        if (named_defaults.indexOf(name) > -1) {
+            // uniforms in the defaults list are always used if the
+            // shader program features them
+            uniforms.push(name);
+        }
+        else if (prog.binding_ctx["GraphNode"].indexOf(name) > -1) {
+            // otherwise, only use uniforms that are in the GraphNode
+            // binding context.
+            uniforms.push(name);
+            uniform_defaults[name] = prog.__uniform_initial_value(name);
+        }
+    }
+    ITER(u, uniforms) {
+        // generate the IR for uniforms and if applicable, set up the
+        // appropriate bindings to the supplied GraphNode
+        var name = uniforms[u];
+        var value = uniform_defaults[name];
+        var cmd = "this.prog.vars['"+name+"']";
+        if (is_static) {
+            var token = new please.JSIR('=', cmd, value);
+        }
+        else {
+            var token = new please.JSIR('=', cmd, '@', value);
+        }
+        ir.push(token);
+    }
+
+    // add IR for appropriate draw call
     return ir;
 };
 
@@ -137,6 +204,7 @@ please.__compile_ir = function (ir_tokens, cache) {
         else {
             throw new Error("Invalid IR token.");
         }
+        src += "\n";
     }
     return src;
 };
