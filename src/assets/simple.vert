@@ -1,20 +1,23 @@
 
-// matrices
-uniform mat4 view_matrix;
-uniform mat4 world_matrix;
-uniform mat4 particle_matrix;
-uniform mat4 projection_matrix;
-
 // vertex data
 attribute vec3 position;
 attribute vec3 normal;
 attribute vec2 tcoords;
 
+// gloabl matrices
+uniform mat4 view_matrix;
+uniform mat4 particle_matrix;
+uniform mat4 projection_matrix;
+
 // misc adjustments
 uniform float mgrl_orthographic_scale;
 
-// billboard sprites enabler
-uniform float billboard_mode;
+
+binding_context GraphNode {
+  uniform mat4 world_matrix;
+  uniform float billboard_mode;
+}
+
 
 // interpolated vertex data in various transformations
 varying vec3 local_position;

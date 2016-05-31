@@ -6,8 +6,11 @@ precision mediump float;
 #endif
 
 uniform float mgrl_frame_start;
-uniform float mode;
-uniform sampler2D diffuse_texture;
+
+binding_context GraphNode {
+  uniform float mode;
+  uniform sampler2D diffuse_texture;
+}
 
 varying vec3 local_position;
 varying vec3 local_normal;

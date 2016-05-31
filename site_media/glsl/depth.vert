@@ -1,8 +1,12 @@
 
-uniform mat4 world_matrix;
+attribute vec3 position;
+
 uniform mat4 view_matrix;
 uniform mat4 projection_matrix;
-attribute vec3 position;
+
+binding_context GraphNode {
+  uniform mat4 world_matrix;
+}
 
 uniform float depth_of_field;
 uniform float focal_distance;

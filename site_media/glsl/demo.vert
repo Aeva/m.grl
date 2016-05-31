@@ -1,19 +1,23 @@
 
-// matrices
-uniform mat4 world_matrix;
-uniform mat4 view_matrix;
-uniform mat4 projection_matrix;
-
-// handy dandy light stuff
-uniform vec3 light_direction;
-uniform mat3 normal_matrix;
-varying vec3 light_weight;
-varying float directional_weight;
-
 // vertex data
 attribute vec3 position;
 attribute vec3 normal;
 attribute vec2 tcoords;
+
+// matrices
+uniform mat4 view_matrix;
+uniform mat4 projection_matrix;
+
+
+binding_context GraphNode {
+  uniform mat4 world_matrix;
+  uniform mat3 normal_matrix;
+}
+
+// handy dandy light stuff
+uniform vec3 light_direction;
+varying vec3 light_weight;
+varying float directional_weight;
 
 // interpolated vertex data in various transformations
 varying vec3 local_position;
