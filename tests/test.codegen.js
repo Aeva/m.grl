@@ -105,13 +105,12 @@ test["drawable ir lists"] = function () {
     var vbo = buffers.vbo;
     var ibo = buffers.ibo;
 
-    var start = null;
-    var total = null;
+    var draw_ranges = null;
 
     var defaults = {};
     var node = new please.GraphNode();
 
-    var ir = please.__drawable_ir(prog, vbo, ibo, start, total, defaults, node);
+    var ir = please.__drawable_ir(prog, vbo, ibo, draw_ranges, defaults, node);
     var cache = {};
     cache.prog = prog;
     var src = please.__compile_ir(ir, cache);
