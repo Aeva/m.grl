@@ -359,9 +359,19 @@ please.GraphNode = function () {
     var prog = please.gl.get_program();
     this.__local_matrix_cache = mat4.create();
     this.__world_matrix_cache = mat4.create();
+    this.__uniform_update = new please.Signal();
 
     if (please.renderer.name === "gl") {
         // code specific to the webgl renderer
+        var bind_driver = function (name, value) {
+            please.make_animatable(
+                this, name, value, this.shader, true, this.__uniform_update);
+        }.bind(this);
+
+        var bind_vec_driver = function (name, channels, value) {
+            please.make_animatable_tripple(
+                this, name, channels, value, this.shader, true, this.__uniform_update);
+        }.bind(this);
        
         this.__regen_glsl_bindings = function (event) {
             // GLSL bindings with default driver methods:
@@ -374,21 +384,15 @@ please.GraphNode = function () {
             var old_data = this.__ani_store;
             this.__ani_store = {};
             this.shader = {};
-            please.make_animatable(
-                this, "world_matrix", this.__world_matrix_driver, this.shader, true);
-            please.make_animatable(
-                this, "normal_matrix", this.__normal_matrix_driver, this.shader, true);
+            bind_driver("world_matrix", this.__world_matrix_driver);
+            bind_driver("normal_matrix", this.__normal_matrix_driver);
             // GLSLS bindings with default behaviors
             please.make_animatable(
-                this, "alpha", 1.0, this.shader);
-            please.make_animatable(
-                this, "is_sprite", this.__is_sprite_driver, this.shader, true);
-            please.make_animatable(
-                this, "is_transparent", this.__is_transparent_driver, this.shader, true);
-            please.make_animatable_tripple(
-                this, "object_index", "rgb", this.__object_id_driver, this.shader, true);
-            please.make_animatable(
-                this, "billboard_mode", this.__billboard_driver, this.shader, true);
+                this, "alpha", 1.0, this.shader, false, this.__uniform_update);
+            bind_driver("is_sprite", this.__is_sprite_driver);
+            bind_driver("is_transparent", this.__is_transparent_driver);
+            bind_vec_driver("object_index", "rgb", this.__object_id_driver);
+            bind_driver("billboard_mode", this.__billboard_driver);
 
             // prog.samplers is a subset of prog.vars
             for (var name, i=0; i<prog.uniform_list.length; i+=1) {
@@ -398,7 +402,8 @@ please.GraphNode = function () {
                     if (prog.binding_ctx["GraphNode"].indexOf(name) > -1) {
                         initial_value = prog.__uniform_initial_value(name);
                     }
-                    please.make_animatable(this, name, initial_value, this.shader);
+                    please.make_animatable(
+                        this, name, initial_value, this.shader, false, this.__uniform_update);
                 }
             }
 
