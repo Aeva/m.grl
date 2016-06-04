@@ -294,6 +294,62 @@ please.split_params = function (line, delim) {
 // for more information.
 //
 please.get_properties = Object.getOwnPropertyNames;
+// [+] please.Signal(represented)
+//
+// Signals are basically functions that can be given multiple bodies
+// and have no return value.  They are intended to be used for event
+// dispatching.
+//
+// This creates a Signal object.  A Signal object can be called like a
+// function (because it is one), but you must attach callbacks to it
+// to provide it's behavior.  The "represented" argument is the 'this'
+// value for the callback methods.  If "represented" is missing or is
+// null, then 'this' will be the Window object.
+//
+// Basic usage:
+//
+// ```
+// var represented = {};
+// var some_event = please.Signal(represented);
+//
+// some_event.connect(function (a, b, c) {
+//     console.info(a+b+c);
+//     console.info(this);
+// });
+//
+// some_event.connect(function (a, b, c) {
+//     console.info(a*b*c);
+//     console.info(this);
+// }.bind(window));
+//
+// some_event(10, 20, 30);
+// ```
+//
+// The results of running the above would be this in the Javascript
+// console:
+//
+// ```
+// First callback:
+// - 60
+// - Object {  }
+//
+// Second callback:
+// - 6000
+// - Window
+// ```
+please.Signal = function (wrapped) {
+    var callbacks = [];
+    var represented = typeof(wrapped) == "object" ? wrapped : null;
+    var signal = function () {
+        for (var c=0; c<callbacks.length; c+=1) {
+            callbacks[c].apply(represented, arguments);
+        }
+    };
+    signal.connect = function (callback) {
+        callbacks.push(callback);
+    }
+    return signal;
+}
 // [+] please.array_hash(array, digits)
 // 
 // Returns a string that represents the array.  This is mainly used

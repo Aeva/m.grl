@@ -124,6 +124,46 @@ function. See <a class="reference external" href="https://developer.mozilla.org/
 article</a>
 for more information.</p>
 </div>
+<div class="section" id="please-signal">
+<h2>please.Signal<a class="headerlink" href="#please-signal" title="Permalink to this headline">¶</a></h2>
+<p><em>please.Signal</em> <strong>(represented)</strong></p>
+<p>Signals are basically functions that can be given multiple bodies and
+have no return value. They are intended to be used for event
+dispatching.</p>
+<p>This creates a Signal object. A Signal object can be called like a
+function (because it is one), but you must attach callbacks to it to
+provide it&#8217;s behavior. The &#8220;represented&#8221; argument is the &#8216;this&#8217; value
+for the callback methods. If &#8220;represented&#8221; is missing or is null, then
+&#8216;this&#8217; will be the Window object.</p>
+<p>Basic usage:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">represented</span> <span class="o">=</span> <span class="p">{};</span>
+<span class="kd">var</span> <span class="nx">some_event</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">Signal</span><span class="p">(</span><span class="nx">represented</span><span class="p">);</span>
+
+<span class="nx">some_event</span><span class="p">.</span><span class="nx">connect</span><span class="p">(</span><span class="kd">function</span> <span class="p">(</span><span class="nx">a</span><span class="p">,</span> <span class="nx">b</span><span class="p">,</span> <span class="nx">c</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="nx">a</span><span class="o">+</span><span class="nx">b</span><span class="o">+</span><span class="nx">c</span><span class="p">);</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+<span class="p">});</span>
+
+<span class="nx">some_event</span><span class="p">.</span><span class="nx">connect</span><span class="p">(</span><span class="kd">function</span> <span class="p">(</span><span class="nx">a</span><span class="p">,</span> <span class="nx">b</span><span class="p">,</span> <span class="nx">c</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="nx">a</span><span class="o">*</span><span class="nx">b</span><span class="o">*</span><span class="nx">c</span><span class="p">);</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+<span class="p">}.</span><span class="nx">bind</span><span class="p">(</span><span class="nb">window</span><span class="p">));</span>
+
+<span class="nx">some_event</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The results of running the above would be this in the Javascript
+console:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">First</span> <span class="nx">callback</span><span class="o">:</span>
+<span class="o">-</span> <span class="mi">60</span>
+<span class="o">-</span> <span class="nb">Object</span> <span class="p">{</span>  <span class="p">}</span>
+
+<span class="nx">Second</span> <span class="nx">callback</span><span class="o">:</span>
+<span class="o">-</span> <span class="mi">6000</span>
+<span class="o">-</span> <span class="nx">Window</span>
+</pre></div>
+</div>
+</div>
 <div class="section" id="please-array-hash">
 <h2>please.array_hash<a class="headerlink" href="#please-array-hash" title="Permalink to this headline">¶</a></h2>
 <p><em>please.array_hash</em> <strong>(array, digits)</strong></p>
@@ -352,6 +392,7 @@ removed. To clear the main handle&#8217;s driver function, set it to null.</p>
 <li><a class="reference internal" href="#please-once">please.once</a></li>
 <li><a class="reference internal" href="#please-split-params">please.split_params</a></li>
 <li><a class="reference internal" href="#please-get-properties">please.get_properties</a></li>
+<li><a class="reference internal" href="#please-signal">please.Signal</a></li>
 <li><a class="reference internal" href="#please-array-hash">please.array_hash</a></li>
 <li><a class="reference internal" href="#please-random-of">please.random_of</a></li>
 <li><a class="reference internal" href="#please-radians">please.radians</a></li>
