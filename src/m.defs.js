@@ -133,15 +133,15 @@ please.get_properties = Object.getOwnPropertyNames;
 
 // [+] please.Signal(represented)
 //
-// This creates a Signal object.  A Signal object can be called like a
-// function, but you must attach callbacks to it to provide it's
-// behavior.  The "represented" argument is the 'this' value for the
-// callback methods.  If "represented" is missing or is null, then
-// 'this' will be the Window object.
-//
 // Signals are basically functions that can be given multiple bodies
 // and have no return value.  They are intended to be used for event
 // dispatching.
+//
+// This creates a Signal object.  A Signal object can be called like a
+// function (because it is one), but you must attach callbacks to it
+// to provide it's behavior.  The "represented" argument is the 'this'
+// value for the callback methods.  If "represented" is missing or is
+// null, then 'this' will be the Window object.
 //
 // Basic usage:
 //
