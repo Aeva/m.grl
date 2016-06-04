@@ -184,9 +184,9 @@ please.Signal = function (wrapped) {
     };
     signal.connect = function (callback) {
         callbacks.push(callback);
-    }
+    };
     return signal;
-}
+};
 
 
 // [+] please.array_hash(array, digits)
