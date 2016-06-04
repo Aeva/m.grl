@@ -19,6 +19,7 @@
 //
 please.format_invocation = function (method_string/*, args */) {
     var cmd, args = Array.apply(null, arguments).slice(1);
+    
     if (method_string == "=") {
         // method is actually an assignment macro
         if (args.length !== 2) {
@@ -62,7 +63,6 @@ please.JSIR = function (method_string/*, args */) {
     var args = Array.apply(null, arguments).slice(1);
     this.method = method_string;
     this.params = [];
-    this.dirty = true;
 
     var force_dynamic = false;
     ITER(a, args) {
@@ -99,16 +99,12 @@ please.JSIR.prototype.compile = function (cache) {
         }
         args.push(lookup);
     }
-    this.dirty = false;
     return please.format_invocation.apply(please, args);
 };
 
 
 please.JSIR.prototype.update_arg = function (index, value, cache) {
     var param = this.params[index];
-    if (!param.dynamic) {
-        this.dirty = true;
-    }
     param.value = value;
     param.dynamic = true;
     if (cache) {
@@ -150,6 +146,9 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
     if (ibo) {
         ir.push(ibo.static_bind);
     }
+
+    // recompile signal
+    ir.dirty = new please.Signal();
     
     // add IR for uniforms
     var uniforms = [];
@@ -173,6 +172,7 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
             uniforms.push(name);
         }
     }
+    var bindings = {};
     ITER(u, uniforms) {
         // generate the IR for uniforms and if applicable, set up the
         // appropriate bindings to the supplied GraphNode
@@ -186,9 +186,17 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
             if (!graph_node.__ani_store[name]) {
                 graph_node.__ani_store[name] = value;
             }
-            value = graph_node.__ani_debug[name].get;
-
+            if (typeof(graph_node.__ani_store[name]) == "function") {
+                value = graph_node.__ani_debug[name].get;
+            }
+            else {
+                value = graph_node.__ani_store[name];
+                if (typeof(value) == "string") {
+                    value = '"' + value + '"';
+                }
+            }
             var token = new please.JSIR('=', cmd, value);
+            bindings[name] = token;
         }
         else {
             // otherwise, just use static bindings
@@ -196,6 +204,13 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
         }
         ir.push(token);
     }
+
+    graph_node.__uniform_update.connect(function (target, prop, obj) {
+        if (bindings[prop]) {
+            bindings[prop].update_arg(1, obj.__ani_debug[prop].get);
+            ir.dirty();
+        }
+    });
 
     // add IR for appropriate draw call
     if (!ranges) {
