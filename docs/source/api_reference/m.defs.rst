@@ -84,6 +84,53 @@ article <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Globa
 for more information.
 
 
+please.Signal
+-------------
+*please.Signal* **(represented)**
+
+Signals are basically functions that can be given multiple bodies and
+have no return value. They are intended to be used for event
+dispatching.
+
+This creates a Signal object. A Signal object can be called like a
+function (because it is one), but you must attach callbacks to it to
+provide it's behavior. The "represented" argument is the 'this' value
+for the callback methods. If "represented" is missing or is null, then
+'this' will be the Window object.
+
+Basic usage:
+
+.. code-block:: javascript
+
+    var represented = {};
+    var some_event = please.Signal(represented);
+
+    some_event.connect(function (a, b, c) {
+        console.info(a+b+c);
+        console.info(this);
+    });
+
+    some_event.connect(function (a, b, c) {
+        console.info(a*b*c);
+        console.info(this);
+    }.bind(window));
+
+    some_event(10, 20, 30);
+
+The results of running the above would be this in the Javascript
+console:
+
+.. code-block:: javascript
+
+    First callback:
+    - 60
+    - Object {  }
+
+    Second callback:
+    - 6000
+    - Window
+
+
 please.array_hash
 -----------------
 *please.array\_hash* **(array, digits)**

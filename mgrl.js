@@ -178,11 +178,9 @@ if (!window.CustomEvent) {
 // - m.defs.js  ------------------------------------------------------------- //
 /* [+]
  *
- * This part of the module is responsible primarily for polyfills of
- * language features that are present in Firefox but absent from other
- * browsers.  This file also implements some helper functions that are
- * widely used within M.GRL's codebase, and defines the module's faux
- * namespace 'please'.
+ * This part of the module is responsible primarily for implementing
+ * helper functions that are widely used within M.GRL's codebase, and
+ * defines the module's faux namespace 'please'.
  * 
  */
 // Define said namespace:
@@ -294,6 +292,62 @@ please.split_params = function (line, delim) {
 // for more information.
 //
 please.get_properties = Object.getOwnPropertyNames;
+// [+] please.Signal(represented)
+//
+// Signals are basically functions that can be given multiple bodies
+// and have no return value.  They are intended to be used for event
+// dispatching.
+//
+// This creates a Signal object.  A Signal object can be called like a
+// function (because it is one), but you must attach callbacks to it
+// to provide it's behavior.  The "represented" argument is the 'this'
+// value for the callback methods.  If "represented" is missing or is
+// null, then 'this' will be the Window object.
+//
+// Basic usage:
+//
+// ```
+// var represented = {};
+// var some_event = please.Signal(represented);
+//
+// some_event.connect(function (a, b, c) {
+//     console.info(a+b+c);
+//     console.info(this);
+// });
+//
+// some_event.connect(function (a, b, c) {
+//     console.info(a*b*c);
+//     console.info(this);
+// }.bind(window));
+//
+// some_event(10, 20, 30);
+// ```
+//
+// The results of running the above would be this in the Javascript
+// console:
+//
+// ```
+// First callback:
+// - 60
+// - Object {  }
+//
+// Second callback:
+// - 6000
+// - Window
+// ```
+please.Signal = function (wrapped) {
+    var callbacks = [];
+    var represented = typeof(wrapped) == "object" ? wrapped : null;
+    var signal = function () {
+        for (var c=0; c<callbacks.length; c+=1) {
+            callbacks[c].apply(represented, arguments);
+        }
+    };
+    signal.connect = function (callback) {
+        callbacks.push(callback);
+    }
+    return signal;
+}
 // [+] please.array_hash(array, digits)
 // 
 // Returns a string that represents the array.  This is mainly used
@@ -918,7 +972,7 @@ please.make_animatable = function(obj, prop, default_value, proxy, lock, write_h
     var getter = function () {
         if (typeof(obj.__ani_store[prop]) === "function" && obj.__ani_store[prop].stops === undefined) {
             // determine if the cached value is too old
-            if (obj.__ani_cache[prop] === null || (please.time.__framestart > last_update && ! obj.__manual_cache_invalidation)) {
+            if (obj.__ani_cache[prop] === null || please.time.__framestart > last_update) {
                 obj.__ani_cache[prop] = obj.__ani_store[prop].call(obj);
                 last_update = please.time.__framestart;
             }
@@ -1129,6 +1183,222 @@ please.make_animatable_tripple = function (obj, prop, swizzle, initial, proxy, w
     if (initial) {
         target[prop] = initial;
     }
+};
+// - m.codegen.js ----------------------------------------------------------- //
+/* [+]
+ *
+ * This part of the module defines functionality for code generation,
+ * and is intended for internal use only.
+ * 
+ */
+// [+] please.format_invocation(method, arg1, arg2, etc)
+// 
+// Returns a string containing what is hopefully valid JS source code
+// for calling the specified method with hardcoded arguments.
+//
+// If the method string is equal to "=", then the invocation will be
+// formatted as an assignment statement, and exactly two arguments
+// will be expected.
+//
+please.format_invocation = function (method_string/*, args */) {
+    var cmd, args = Array.apply(null, arguments).slice(1);
+    if (method_string == "=") {
+        // method is actually an assignment macro
+        if (args.length !== 2) {
+            throw new Error("Expected exactly two optional arguments.");
+        }
+        cmd = "" + args[0] + " = " + args[1] + ";";
+    }
+    else {
+        // normal method invocation
+        cmd = "" + method_string + "(" + args.join(", ") + ");";
+    }
+    return cmd;
+};
+// [+] please.JSIR(method_name, arg1, arg2, etc)
+//
+// Constructor.  Arguments are similar to 'please.format_invocation' -
+// first is the string for the method invocation this wraps, and the
+// remaining params represent the arguments to said wrapped method.
+//
+// Where this differs is, arguments can be functions or just null.
+// They can be changed on the fly.
+//
+// Call the 'compile' method with a cache object to produce the final
+// output.
+//
+// To mark a particular argument as being a non-static value, precede
+// it by a '@' like in the example below.
+//
+// ```
+// var ir = new please.JSIR("alert", '@', "hello world!");
+// var cache = {};
+// var generated = new Function(ir.compile(cache)).bind(cache);
+// generated();
+// cache[ir.params[0].id] = "haaax"
+// generated();
+// ```
+//
+please.JSIR = function (method_string/*, args */) {
+    var args = Array.apply(null, arguments).slice(1);
+    this.method = method_string;
+    this.params = [];
+    this.dirty = true;
+    var force_dynamic = false;
+    for (var a=0; a<args.length; a+=1) {
+        if (args[a] === '@') {
+            force_dynamic = true;
+            continue;
+        }
+        this.params.push({
+            "id" : please.uuid(),
+            "value" : args[a],
+            "dynamic" : force_dynamic || typeof(args[a]) == "function",
+        });
+        force_dynamic = false;
+    }
+};
+please.JSIR.prototype.compile = function (cache) {
+    var args = [this.method];
+    for (var p=0; p<this.params.length; p+=1) {
+        var lookup, param = this.params[p];
+        if (param.dynamic) {
+            cache[param.id] = param.value;
+            lookup = 'this["' + param.id + '"]';
+            if (typeof(param.value) == "function") {
+                lookup += "()";
+            }
+        }
+        else if (param.value === null) {
+            lookup = "null";
+        }
+        else {
+            lookup = param.value.toString();
+        }
+        args.push(lookup);
+    }
+    this.dirty = false;
+    return please.format_invocation.apply(please, args);
+};
+please.JSIR.prototype.update_arg = function (index, value, cache) {
+    var param = this.params[index];
+    if (!param.dynamic) {
+        this.dirty = true;
+    }
+    param.value = value;
+    param.dynamic = true;
+    if (cache) {
+        cache[param.id] = value;
+    }
+};
+// [+] please.__drawable_ir(prog, vbo, ibo, ranges, defaults, graph_node)
+// 
+// Creates a list of IR objects needed to render a partical VBO/IBO of
+// data.  The only required params are 'prog' and 'vbo'.
+//
+//  - **prog** a compiled shader program object
+//
+//  - **vbo** a vbo object, as defined in m.gl.buffers.js
+//
+//  - **ibo** an ibo object, as defined in m.gl.buffers.js
+//
+//  - **ranges** is a list of two element lists.  The values represent
+//    ranges to be passed into the draw calls.  The first value is the
+//    starting vertex or face, the second value is the total number of
+//    vertices or faces to draw.  If ommitted, it will default to
+//    [[null, null]], which will draw the entire buffer.
+//
+//  - **defaults** a key-value store for the default uniform values
+//
+//  - **graph_node** a graph node object to optionally data bind against
+//
+// This method returns a list of strings and IR objects that can be
+// used to generate a function.
+//
+please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
+    var ir = [];
+    // add IR for VBO bind
+    ir.push(vbo.static_bind(prog));
+    // add IR for IBO bind, if applicable
+    if (ibo) {
+        ir.push(ibo.static_bind);
+    }
+    // add IR for uniforms
+    var uniforms = [];
+    var uniform_defaults = defaults || {};
+    var named_defaults = defaults ? please.get_properties(defaults) : [];
+    for (var u=0; u<prog.uniform_list.length; u+=1) {
+        // determine which uniforms apply to this object
+        var name = prog.uniform_list[u];
+        if (named_defaults.indexOf(name) > -1) {
+            // uniforms in the defaults list are always used if the
+            // shader program features them
+            uniforms.push(name);
+        }
+        else if (prog.binding_ctx["GraphNode"].indexOf(name) > -1) {
+            // otherwise, only use uniforms that are in the GraphNode
+            // binding context.
+            uniforms.push(name);
+            uniform_defaults[name] = prog.__uniform_initial_value(name);
+        }
+        else if (graph_node && graph_node.__ani_store[name]) {
+            uniforms.push(name);
+        }
+    }
+    for (var u=0; u<uniforms.length; u+=1) {
+        // generate the IR for uniforms and if applicable, set up the
+        // appropriate bindings to the supplied GraphNode
+        var name = uniforms[u];
+        var value = uniform_defaults[name];
+        var target = prog.samplers.hasOwnProperty(name) ? "samplers" : "vars";
+        var cmd = "this.prog." + target + "['"+name+"']";
+        if (graph_node) {
+            // setup dynamic bindings
+            if (!graph_node.__ani_store[name]) {
+                graph_node.__ani_store[name] = value;
+            }
+            value = graph_node.__ani_debug[name].get;
+            var token = new please.JSIR('=', cmd, value);
+        }
+        else {
+            // otherwise, just use static bindings
+            var token = new please.JSIR('=', cmd, '@', value);
+        }
+        ir.push(token);
+    }
+    // add IR for appropriate draw call
+    if (!ranges) {
+        ranges = [[null, null]];
+    }
+    var draw_buffer = ibo || vbo;
+    for (var r=0; r<ranges.length; r+=1) {
+        var start = ranges[r][0];
+        var total = ranges[r][1];
+        ir.push(draw_buffer.static_draw(start, total));
+    }
+    return ir;
+};
+// [+] please.__compile_ir(ir_tokens, cache)
+//
+// Takes a list of IR tokens and strings and generates a function from
+// them.
+//
+please.__compile_ir = function (ir_tokens, cache) {
+    var src = "";
+    for (var t=0; t<ir_tokens.length; t+=1) {
+        var token = ir_tokens[t];
+        if (token.constructor == String) {
+            src += token;
+        }
+        else if (token.compile) {
+            src += token.compile(cache);
+        }
+        else {
+            throw new Error("Invalid IR token.");
+        }
+        src += "\n";
+    }
+    return src;
 };
 // - m.pages.js  ------------------------------------------------------------ //
 /* [+]
@@ -2865,6 +3135,7 @@ please.gl.set_context = function (canvas_id, options) {
             'WEBGL_draw_buffers',
             'WEBGL_color_buffer_float',
             'WEBGL_color_buffer_half_float',
+            'ANGLE_instanced_arrays',
         ];
         for (var i=0; i<search.length; i+=1) {
             var name = search[i];
@@ -3574,6 +3845,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             prog.__cache.samplers[binding_name] = null;
             prog.samplers.__defineSetter__(binding_name, function (uri) {
                 // FIXME: allow an option for a placeholder texture somehow.
+                if (uri === null) {
+                    return;
+                }
                 if (uri.constructor === Array) {
                     // FIXME: texture array upload
                     //
@@ -3702,267 +3976,6 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     prog.ready = true;
     please.gl.__cache.programs[prog.name] = prog;
     return prog;
-};
-// [+] please.gl.vbo(vertex_count, attr_map, options)
-//
-// Create a VBO from attribute array data.
-//
-please.gl.__last_vbo = null;
-please.gl.vbo = function (vertex_count, attr_map, options) {
-    var opt = {
-        "type" : gl.FLOAT,
-        "mode" : gl.TRIANGLES,
-        "hint" : gl.STATIC_DRAW,
-    }
-    if (options) {
-        please.get_properties(opt).map(function (name) {
-            if (options.hasOwnProperty(name)) {
-                opt[name] = options[name];
-            }
-        });
-    }
-    var vbo = {
-        "id" : null,
-        "opt" : opt,
-        "count" : vertex_count,
-        "bind" : function () {},
-        "draw" : function () {
-            gl.drawArrays(opt.mode, 0, this.count);
-        },
-        "stats" : {
-            "min" : null,
-            "max" : null,
-            "size" : null,
-            "average" : null,
-        },
-        "reference" : {
-            "size" : vertex_count,
-            "data" : attr_map,
-            "type" : {},
-            "options" : opt,
-        },
-    };
-    for (var attr in attr_map) if (attr_map.hasOwnProperty(attr)) {
-        vbo.reference.type[attr] = attr_map[attr].length / vertex_count;
-    }
-    if (attr_map.position !== undefined) {
-        var point, sum = null;
-        var channels = attr_map.position.length / vertex_count;
-        for(var i=0; i<vertex_count*channels; i+=channels) {
-            point = attr_map.position.slice(i, i+channels);
-            if (sum === null) {
-                // We call point.slice() here to copy the array's contents.
-                // Otherwise, we'll just be editing references to the same object.
-                sum = point.slice();
-                vbo.stats.min = point.slice();
-                vbo.stats.max = point.slice();
-            }
-            else {
-                for (var ch=0; ch<channels; ch+=1) {
-                    sum[ch] += point[ch];
-                    if (point[ch] < vbo.stats.min[ch]) {
-                        vbo.stats.min[ch] = point[ch];
-                    }
-                    if (point[ch] > vbo.stats.max[ch]) {
-                        vbo.stats.max[ch] = point[ch];
-                    }
-                }
-            }
-        }
-        vbo.stats.size = [];
-        vbo.stats.average = [];
-        for (var ch=0; ch<channels; ch+=1) {
-            vbo.stats.size.push(vbo.stats.max[ch] - vbo.stats.min[ch]);
-            vbo.stats.average.push(sum[ch] / vertex_count);
-        }
-    }
-    var bind_stats = function (prog) {
-        for (var name in vbo.stats) {
-            var glsl_name = "mgrl_model_local_" + name;
-            if (prog.vars.hasOwnProperty(glsl_name)) {
-                prog.vars[glsl_name] = vbo.stats[name];
-            }
-        }
-    };
-    var attr_names = please.get_properties(attr_map);
-    // This is used to automatically disable and enable attributes
-    // when neccesary
-    var setup_attrs = function (prog) {
-        for (var name in prog.attrs) {
-            if (attr_names.indexOf(name) === -1) {
-                prog.attrs[name].enabled = false;
-            }
-            else {
-                prog.attrs[name].enabled = true;
-            }
-        }
-    };
-    if (attr_names.length === 1) {
-        // ---- create a monolithic VBO
-        var attr = attr_names[0];
-        var data = attr_map(attr);
-        var item_size = data.length / vbo.count;
-        // copy the data to the buffer
-        vbo.id = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vbo.id);
-        gl.bufferData(gl.ARRAY_BUFFER, data, opt.hint);
-        vbo.bind = function () {
-            if (please.gl.__last_vbo !== this) {
-                please.gl.__last_vbo = this
-                var prog = please.gl.__cache.current;
-                if (prog) {
-                    setup_attrs(prog);
-                    bind_stats(prog);
-                    if (prog.hasOwnProperty(prog.attrs[attr])) {
-                        gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
-                        gl.vertexAttribPointer(
-                            prog.attrs[attr].loc, item_size, opt.type, false, 0, 0);
-                    }
-                }
-            }
-        };
-    }
-    else {
-        // ---- create an interlaced VBO
-        var offset = 0;
-        var buffer_size = 0;
-        var bind_order = [];
-        var bind_offset = [];
-        var item_sizes = {};
-        // FIXME: item_size 4 attrs should be first, followed by the
-        // size 2 attrs, the 3 and 1 sized attrs.  Some kind of snake
-        // oil optimization for OpenGL ES that I see a lot, but
-        // haven't found a practical explanation for yet, so not
-        // worrying about it for now.
-        // determine item sizes and bind offsets
-        for (var i=0; i<attr_names.length; i+=1) {
-            var attr = attr_names[i];
-            item_sizes[attr] = attr_map[attr].length / vbo.count;
-            buffer_size += attr_map[attr].length;
-            bind_order.push(attr);
-            bind_offset.push(offset);
-            offset += item_sizes[attr];
-        };
-        // calculate the packing stride
-        var stride = offset;
-        // build the interlaced vertex array:
-        var builder = new Float32Array(buffer_size);
-        for (var i=0; i<bind_order.length; i+=1) {
-            var attr = bind_order[i];
-            var data = attr_map[attr];
-            var item_size = item_sizes[attr];
-            for (var k=0; k<data.length/item_size; k+=1) {
-                for (var n=0; n<item_sizes[attr]; n+=1) {
-                    var attr_offset = bind_offset[i] + (stride*k);
-                    builder[attr_offset+n] = data[(k*item_sizes[attr])+n];
-                }
-            }
-        }
-        // copy the new data to the buffer
-        vbo.id = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vbo.id);
-        gl.bufferData(gl.ARRAY_BUFFER, builder, opt.hint);
-        vbo.bind = function () {
-            if (please.gl.__last_vbo !== this) {
-                please.gl.__last_vbo = this
-                var prog = please.gl.__cache.current;
-                if (prog) {
-                    setup_attrs(prog);
-                    bind_stats(prog);
-                    gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
-                    for (var i=0; i<bind_order.length; i+=1) {
-                        var attr = bind_order[i];
-                        var offset = bind_offset[i];
-                        var item_size = item_sizes[attr];
-                        if (prog.attrs[attr]) {
-                            gl.vertexAttribPointer(
-                                prog.attrs[attr].loc, item_size,
-                                opt.type, false, stride*4, offset*4);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return vbo;
-};
-// [+] please.gl.ibo(data, options)
-//
-// Create a IBO.
-//
-please.gl.__last_ibo = null;
-please.gl.ibo = function (data, options) {
-    var opt = {
-        "type" : gl.UNSIGNED_SHORT,
-        "mode" : gl.TRIANGLES,
-        "hint" : gl.STATIC_DRAW,
-    }
-    if (options) {
-        please.get_properties(opt).map(function (name) {
-            if (options.hasOwnProperty(name)) {
-                opt[name] = options[name];
-            }
-        });
-    }
-    if (data.BYTES_PER_ELEMENT == 2) {
-        opt["type"] = gl.UNSIGNED_SHORT;
-    }
-    else if (data.BYTES_PER_ELEMENT == 4) {
-        opt["type"] = gl.UNSIGNED_INT;
-    }
-    var poly_size = 3; // fixme this should be determined by opt.mode
-    var face_count = data.length;
-    var ibo = {
-        "id" : gl.createBuffer(),
-        "bind" : function () {
-            if (please.gl.__last_ibo !== this) {
-                please.gl.__last_ibo = this
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.id);
-            }
-        },
-        "draw" : function (start, total) {
-            if (start === undefined || total === undefined) {
-                start = 0;
-                total = face_count;
-            }
-            gl.drawElements(opt.mode, total, opt.type, start*data.BYTES_PER_ELEMENT);
-        },
-        "reference" : {
-            "data" : data,
-            "options" : opt,
-        },
-    };
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.id);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
-    return ibo;
-};
-/* [+] please.gl.decode_buffers(vbo, ibo)
- * 
- * Takes a VBO and an IBO and returns the raw mesh data.
- * 
- */
-please.gl.decode_buffers = function (vbo, ibo) {
-    var long_data = {};
-    var ibo_data = ibo.reference.data;
-    var vbo_data = vbo.reference.data;
-    var vbo_type = vbo.reference.type;
-    var vertex_count = ibo_data.length;
-    for (var attr in vbo_data) if (vbo_data.hasOwnProperty(attr)) {
-        var buffer = vbo_data[attr];
-        var type_size = vbo_type[attr];
-        var output = new Float32Array(vertex_count * type_size);
-        for (var i=0; i<ibo_data.length; i+=1) {
-            var seek = ibo_data[i] * type_size;
-            var write = i * type_size;
-            for (var channel = 0; channel<type_size; channel +=1) {
-                output[write+channel] = buffer[seek+channel]
-            }
-        }
-        long_data[attr] = output;
-    }
-    long_data.__vertex_count = vertex_count;
-    long_data.__types = vbo_type;
-    return long_data;
 };
 // [+] please.gl.blank_texture(options)
 //
@@ -4265,6 +4278,364 @@ please.media.handlers.glsl = function (url, asset_name, callback) {
         please.media.assets[asset_name] = new please.gl.ShaderSource(req.responseText, url);
     };
     please.media.__xhr_helper("text", url, asset_name, media_callback, callback);
+};
+// - m.gl.buffers.js ----------------------------------------------------- //
+please.gl.__buffers = {
+    "last_vbo" : null,
+    "last_ibo" : null,
+    "next_id" : 0,
+    "all" : [],
+};
+// Register the buffer so that it can be looked up later by index.
+please.gl.__register_buffer = function (buffer) {
+    please.gl.__buffers.all.push(buffer);
+    return buffer.buffer_index = please.gl.__buffers.all.length -1;
+};
+/* [+] please.gl.vbo(vertex_count, attr_map, options)
+ *
+ * Create a VBO from attribute array data.
+ *
+ */
+please.gl.vbo = function (vertex_count, attr_map, options) {
+    var opt = {
+        "type" : gl.FLOAT,
+        "mode" : gl.TRIANGLES,
+        "hint" : gl.STATIC_DRAW,
+    }
+    if (options) {
+        please.get_properties(opt).map(function (name) {
+            if (options.hasOwnProperty(name)) {
+                opt[name] = options[name];
+            }
+        });
+    }
+    var vbo = {
+        "id" : null,
+        "opt" : opt,
+        "count" : vertex_count,
+        "bind" : null,
+        "draw" : function (start, total) {
+            if (start === undefined) { start = 0; };
+            if (total === undefined) { total = vertex_count; };
+            gl.drawArrays(opt.mode, start, total);
+        },
+        "static_bind" : null,
+        "static_draw" : function (start, total, instances) {
+            if (!start) {
+                start = 0;
+            }
+            if (!total) {
+                total = vertex_count;
+            }
+            if (!instances) {
+                instances = 0;
+            }
+            if (instances > 0) {
+                var ext = "please.gl.ext.ANGLE_instanced_arrays";
+                return please.format_invocation(
+                    ext + ".drawArraysInstancedANGLE",
+                    "gl.drawArrays", opt.mode, start, total, instances);
+            }
+            else {
+                return please.format_invocation(
+                    "gl.drawArrays", opt.mode, start, total);
+            }
+        },
+        "stats" : {
+            "min" : null,
+            "max" : null,
+            "size" : null,
+            "average" : null,
+        },
+        "reference" : {
+            "size" : vertex_count,
+            "type" : {},
+            "options" : opt,
+        },
+    };
+    please.gl.__register_buffer(vbo);
+    var attr_names = please.get_properties(attr_map);
+    // generate the type info for each attr in the buffer (eg vec4 = 4)
+    for (var attr in attr_map) if (attr_map.hasOwnProperty(attr)) {
+        vbo.reference.type[attr] = attr_map[attr].length / vertex_count;
+    }
+    // generate spacial stats about the buffer if applicable
+    if (attr_map.position !== undefined) {
+        var point, sum = null;
+        var channels = attr_map.position.length / vertex_count;
+        for(var i=0; i<vertex_count*channels; i+=channels) {
+            point = attr_map.position.slice(i, i+channels);
+            if (sum === null) {
+                // We call point.slice() here to copy the array's contents.
+                // Otherwise, we'll just be editing references to the same object.
+                sum = point.slice();
+                vbo.stats.min = point.slice();
+                vbo.stats.max = point.slice();
+            }
+            else {
+                for (var ch=0; ch<channels; ch+=1) {
+                    sum[ch] += point[ch];
+                    if (point[ch] < vbo.stats.min[ch]) {
+                        vbo.stats.min[ch] = point[ch];
+                    }
+                    if (point[ch] > vbo.stats.max[ch]) {
+                        vbo.stats.max[ch] = point[ch];
+                    }
+                }
+            }
+        }
+        vbo.stats.size = [];
+        vbo.stats.average = [];
+        for (var ch=0; ch<channels; ch+=1) {
+            vbo.stats.size.push(vbo.stats.max[ch] - vbo.stats.min[ch]);
+            vbo.stats.average.push(sum[ch] / vertex_count);
+        }
+    }
+    // Common functionality used by both versions of vbo.bind.
+    // Returns true if the buffer can be bound, otherwise returns
+    // false.
+    var common_bind = function () {
+        var prog = please.gl.__cache.current;
+        if (prog && please.gl.__buffers.last_vbo !== vbo) {
+            please.gl.__buffers.last_vbo = this;
+            for (var name in vbo.stats) {
+                var glsl_name = "mgrl_model_local_" + name;
+                if (prog.vars.hasOwnProperty(glsl_name)) {
+                    prog.vars[glsl_name] = vbo.stats[name];
+                }
+            }
+            for (var name in prog.attrs) {
+                prog.attrs[name].enabled = attr_names.indexOf(name) !== -1;
+            }
+            return true;
+        }
+        return false;
+    };
+    if (attr_names.length === 1) {
+        // create a single-attribute VBO
+        var attr = attr_names[0];
+        var data = attr_map(attr);
+        var item_size = data.length / vbo.count;
+        // copy the data to the buffer
+        vbo.id = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo.id);
+        gl.bufferData(gl.ARRAY_BUFFER, data, opt.hint);
+        // create binding functions
+        vbo.bind = function () {
+            if (common_bind()) {
+                if (prog.hasOwnProperty(prog.attrs[attr])) {
+                    gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
+                    gl.vertexAttribPointer(
+                        prog.attrs[attr].loc, item_size, opt.type, false, 0, 0);
+                }
+            }
+        };
+    }
+    else {
+        // create a multi-attribute VBO (interlaced)
+        var offset = 0;
+        var buffer_size = 0;
+        var bind_order = [];
+        var bind_offset = [];
+        var item_sizes = {};
+        // determine item sizes and bind offsets
+        for (var i=0; i<attr_names.length; i+=1) {
+            var attr = attr_names[i];
+            item_sizes[attr] = attr_map[attr].length / vbo.count;
+            buffer_size += attr_map[attr].length;
+            bind_order.push(attr);
+            bind_offset.push(offset);
+            offset += item_sizes[attr];
+        };
+        // calculate the packing stride
+        var stride = offset;
+        // build the interlaced vertex array:
+        var builder = new Float32Array(buffer_size);
+        for (var i=0; i<bind_order.length; i+=1) {
+            var attr = bind_order[i];
+            var data = attr_map[attr];
+            var item_size = item_sizes[attr];
+            for (var k=0; k<data.length/item_size; k+=1) {
+                for (var n=0; n<item_sizes[attr]; n+=1) {
+                    var attr_offset = bind_offset[i] + (stride*k);
+                    builder[attr_offset+n] = data[(k*item_sizes[attr])+n];
+                }
+            }
+        }
+        // copy the new data to the buffer
+        vbo.id = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo.id);
+        gl.bufferData(gl.ARRAY_BUFFER, builder, opt.hint);
+        vbo.bind = function () {
+            if (common_bind()) {
+                var prog = please.gl.__cache.current;
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
+                for (var i=0; i<bind_order.length; i+=1) {
+                    var attr = bind_order[i];
+                    var offset = bind_offset[i];
+                    var item_size = item_sizes[attr];
+                    if (prog.attrs[attr]) {
+                        gl.vertexAttribPointer(
+                            prog.attrs[attr].loc, item_size,
+                            opt.type, false, stride*4, offset*4);
+                    }
+                }
+            }
+        }
+    }
+    // For generating static bind methods.
+    vbo.static_bind = function (prog, instanced) {
+        var src = "";
+        for (var name in vbo.stats) {
+            var glsl_name = "mgrl_model_local_" + name;
+            if (prog.vars.hasOwnProperty(glsl_name)) {
+                src += "this.prog.vars["+glsl_name+"] = "+vbo.stats[name]+";";
+            }
+        }
+        // enable attributes
+        if (instanced) {
+            // don't disable other arrays
+            for (var a=0; a<attr_names.length; a+=1) {
+                var name = attr_names[a];
+                if (prog.attrs[name]) {
+                    src += "this.prog.attrs['"+name+"'].enabled = true;\n";
+                }
+            }
+        }
+        else {
+            // only enable what we need, disable everything else
+            for (var name in prog.attrs) {
+                var enabled = attr_names.indexOf(name) !== -1;
+                src += "this.prog.attrs['"+name+"'].enabled = "+enabled+";\n";
+            }
+        }
+        // upload vbo spacial statistics
+        if (attr_map.position) {
+            for (var name in vbo.stats) {
+                var glsl_name = "mgrl_model_local_" + name;
+                if (prog.vars.hasOwnProperty(glsl_name)) {
+                    src += "this.prog.vars['"+glsl_name+"'] = "+vbo.stats[name]+";\n";
+                }
+            }
+        }
+        // bind the buffer for use
+        src += please.format_invocation(
+            "gl.bindBuffer",
+            "gl.ARRAY_BUFFER",
+            "please.gl.__buffers.all[" + vbo.buffer_index + "].id") + "\n";
+        if (attr_names.length === 1) {
+            // single attribute buffer binding
+            src += please.format_invocation(
+                "gl.vertexAttribPointer",
+                "this.prog.attrs['" + attr + "'].loc",
+                item_size, opt.type, false, 0, 0) + "\n";
+        }
+        else {
+            // multi-attribute buffer bindings
+            for (var i=0; i<bind_order.length; i+=1) {
+                var attr = bind_order[i];
+                var offset = bind_offset[i];
+                var item_size = item_sizes[attr];
+                if (prog.attrs[attr]) {
+                    src += please.format_invocation(
+                        "gl.vertexAttribPointer",
+                        "this.prog.attrs['" + attr + "'].loc",
+                        item_size, opt.type, false, stride*4, offset*4) + "\n";
+                }
+            }
+        }
+        if (instanced) {
+            // enable instancing
+            var ext = "please.gl.ext.ANGLE_instanced_arrays";
+            for (var a=0; a<attr_names.length; a+=1) {
+                var name = attr_names[a];
+                if (prog.attrs[name]) {
+                    src += "\n" + please.format_invocation(
+                        ext+".vertexAttribDivisorANGLE",
+                        "this.prog.attrs['" + name + "'].loc", 1);
+                }
+            }
+        }
+        return src.trim();
+    };
+    return vbo;
+};
+// [+] please.gl.ibo(data, options)
+//
+// Create a IBO.
+//
+please.gl.ibo = function (data, options) {
+    var opt = {
+        "type" : gl.UNSIGNED_SHORT,
+        "mode" : gl.TRIANGLES,
+        "hint" : gl.STATIC_DRAW,
+    }
+    if (options) {
+        please.get_properties(opt).map(function (name) {
+            if (options.hasOwnProperty(name)) {
+                opt[name] = options[name];
+            }
+        });
+    }
+    if (data.BYTES_PER_ELEMENT == 2) {
+        opt["type"] = gl.UNSIGNED_SHORT;
+    }
+    else if (data.BYTES_PER_ELEMENT == 4) {
+        opt["type"] = gl.UNSIGNED_INT;
+    }
+    var poly_size = 3; // fixme this should be determined by opt.mode
+    var face_count = data.length;
+    var ibo = {
+        "id" : gl.createBuffer(),
+        "bind" : function () {
+            if (please.gl.__buffers.last_ibo !== this) {
+                please.gl.__buffers.last_ibo = this;
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.id);
+            }
+        },
+        "draw" : function (start, total) {
+            if (start === undefined || total === undefined) {
+                start = 0;
+                total = face_count;
+            }
+            gl.drawElements(opt.mode, total, opt.type, start*data.BYTES_PER_ELEMENT);
+        },
+        "static_bind" : null,
+        "static_draw" : function (start, total, instances) {
+            if (!start) {
+                start = 0;
+            }
+            if (!total) {
+                total = face_count;
+            }
+            if (!instances) {
+                instances = 0;
+            }
+            if (instances > 0) {
+                var ext = "please.gl.ext.ANGLE_instanced_arrays";
+                return please.format_invocation(
+                    ext + ".drawElementsInstancedANGLE",
+                    opt.mode, total, opt.type, start*data.BYTES_PER_ELEMENT,
+                    instances);
+            }
+            else {
+                return please.format_invocation(
+                    "gl.drawElements", opt.mode, total, opt.type,
+                    start*data.BYTES_PER_ELEMENT);
+            }
+        },
+        "reference" : {
+            "options" : opt,
+        },
+    };
+    please.gl.__register_buffer(ibo);
+    ibo.static_bind = please.format_invocation(
+        "gl.bindBuffer", "gl.ELEMENT_ARRAY_BUFFER",
+        "please.gl.__buffers.all[" + ibo.buffer_index + "].id"
+    );
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.id);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
+    return ibo;
 };
 // - m.gl.ast.js --------------------------------------------------------- //
 // namespaces for ast constructors and macros
@@ -6308,16 +6679,30 @@ please.gl.__jta_model = function (src, uri) {
                             console.warn("Model \"" + uri + "\" defines a uniform variable not used by the current shader program: " + name);
                         }
                     });
+                    /*
                     node.bind = function () {
                         model.vbo.bind();
                         model.ibo.bind();
                     };
                     node.draw = function () {
-                        for (var group_name in model.groups) if (model.groups.hasOwnProperty(group_name)) {
+                        ITER_PROPS(group_name, model.groups) {
                             var group = model.groups[group_name];
                             model.ibo.draw(group.start, group.count);
                         };
                     };
+                    */
+                    var draw_ranges = [];
+                    for (var group_name in model.groups) if (model.groups.hasOwnProperty(group_name)) {
+                        var group = model.groups[group_name];
+                        draw_ranges.push([group.start, group.count]);
+                    };
+                    var prog = please.gl.__cache.current;
+                    var cache = {};
+                    cache.prog = prog;
+                    var ir = please.__drawable_ir(
+                        prog, model.vbo, model.ibo, draw_ranges, null, node);
+                    var src = please.__compile_ir(ir, cache)
+                    node.__static_draw = new Function(src).bind(cache);
                     node.__buffers = {
                         "vbo" : model.vbo,
                         "ibo" : model.ibo,
@@ -8096,7 +8481,6 @@ please.GraphNode = function () {
     this.selectable = false; // object can be selected via picking
     this.__pick_index = null; // used internally for tracking picking
     this.__last_vbo = null; // stores the vbo that was bound last draw
-    this.__manual_cache_invalidation = false;
     this.cast_shadows = true;
     // should either be null or an object with properties "ibo" and "vbo"
     this.__buffers = null;
@@ -8180,38 +8564,6 @@ please.GraphNode.prototype = {
                     }
                 }
             }
-        }
-    },
-    "add_static" : function (entity) {
-        // Convinience method for adding StaticDrawNode objects to the
-        // graph.
-        var frozen = new please.StaticDrawNode(entity);
-        this.add(frozen);
-    },
-    "use_automatic_cache_invalidation" : function () {
-        // Sets the object to use automatic cache invalidation mode.
-        // Driver functions will be evaluated once per frame.  This is
-        // the default behavior.
-        this.__manual_cache_invalidation = false;
-    },
-    "use_manual_cache_invalidation" : function () {
-        // Sets the object to use manual cache invalidation mode.
-        // Driver functions will only be evaluated once.  This is
-        // useful when you don't expect a given GraphNode to change
-        // its world matrix etc ever.
-        this.__manual_cache_invalidation = true;
-    },
-    "manual_cache_clear" : function (var_name) {
-        // This is used to clear the driver cache when in manual cache
-        // invalidation mode.  If no variable name is set, then this
-        // will clear the entire cache for the object.
-        if (!var_name) {
-            for (var name in this.__ani_cache) if (this.__ani_cache.hasOwnProperty(name)) {
-                this.manual_cache_clear(name);
-            }
-        }
-        else {
-            this.__ani_cache[var_name] = null;
         }
     },
     "__set_graph_root" : function (root) {
@@ -8302,30 +8654,7 @@ please.GraphNode.prototype = {
         var position = vec3.transformMat4(vec3.create(), this.location, matrix);
         this.__z_depth = position[2];
     },
-    "mesh_data" : function () {
-        // Return arrays of raw mesh data.  Automatically decodes
-        // index buffer array data.  Returns null if there is no
-        // relevant mesh data.
-        if (this.__buffers !== null && this.__buffers.vbo) {
-            if (this.__buffers.ibo) {
-                return please.gl.decode_buffers(
-                    this.__buffers.vbo, this.__buffers.ibo);
-            }
-            else {
-                var long_data = {};
-                var vbo_data = this.__buffers.vbo.reference.data;
-                long_data.__types = this.__buffers.vbo.reference.type;
-                long_data.__vertex_count = vbo.reference.size;
-                for (var attr in vbo_data) if (vbo_data.hasOwnProperty(attr)) {
-                    long_data[attr] = vbo_data[attr];
-                }
-                return long_data;
-            }
-        }
-        else {
-            return null;
-        }
-    },
+    "__static_draw" : null,
     "__bind" : function (prog) {
         // calls this.bind if applicable.
         if (this.__drawable && typeof(this.bind) === "function") {
@@ -8523,8 +8852,13 @@ please.SceneGraph = function () {
                 for (var i=0; i<children.length; i+=1) {
                     var child = children[i];
                     if (!(exclude_test && exclude_test(child))) {
-                        child.__bind(prog);
-                        child.__draw(prog);
+                        if (child.__static_draw) {
+                            child.__static_draw();
+                        }
+                        else {
+                            child.__bind(prog);
+                            child.__draw(prog);
+                        }
                     }
                 }
             }
@@ -9093,411 +9427,6 @@ please.StereoCamera.prototype.__alt_view_matrix_driver = function () {
                   this.__center_camera.view_matrix);
     this.__view_matrix_cache.dirty = true;
     return this.__view_matrix_cache;
-};
-// - m.staticdraw.js ----------------------------------------------------- //
-/* [+]
- * 
- * This part of M.GRL implements the StaticDrawNode functionality.
- * Static nodes are used to freeze instanced assets into a singular
- * object which can be drawn with only a few GL calls and no special
- * processing.
- *
- * Where GraphNodes are useful for applying dynamic behavior to a
- * small number of objects, StaticDrawNodes are intended to allow
- * large numbers of objects to be rendered as quickly as possible.
- * 
- */
-/* [+] please.StaticDrawNode(graph_node)
- * 
- * Create a static draw node from a graph node and its children.
- * 
- */
-please.StaticDrawNode = function (graph_node) {
-    please.GraphNode.call(this);
-    this.__is_static_draw_node = true;
-    this.__drawable = true;
-    // generate data like ranges and uniforms per object in the graph,
-    // sort into texture groups
-    var flattened = this.__flatten_graph(graph_node);
-    flattened.cache_keys.sort();
-    // uniform vars that remain constant accross the entire group are
-    // set as the defaults for this resulting object's shader object
-    for (var name in flattened.uniforms.universal) if (flattened.uniforms.universal.hasOwnProperty(name)) {
-        this.shader[name] = flattened.uniforms.universal[name];
-    }
-    // reorganize the objects within texture groups to attempt to
-    // minimize uniform state changes
-    this.__uniform_sort(flattened);
-    // generate the static vbo
-    var vbo = this.__combine_vbos(flattened);
-    this.__static_vbo = vbo;
-    // generate the draw callback
-    this.draw = this.__generate_draw_callback(flattened);
-};
-please.StaticDrawNode.prototype = Object.create(please.GraphNode.prototype);
-//
-// Generate a branchless draw function for the static draw set.
-//
-please.StaticDrawNode.prototype.__generate_draw_callback = function (flat) {
-    var calls = [
-        "if (!this.visible) { return; }",
-        "var prog = please.gl.get_program();",
-        "this.__static_vbo.bind();",
-    ];
-    var last_state = {};
-    var UNASSIGNED = {};
-    for (var i=0; i<flat.uniforms.dynamic.length; i+=1) {
-        var name = flat.uniforms.dynamic[i];
-        // can't just use null here because that is a valid value to upload
-        last_state[name] = UNASSIGNED;
-    }
-    var offset = 0;
-    for (var ki=0; ki<flat.cache_keys.length; ki+=1) {
-        var key = flat.cache_keys[ki];
-        var samplers = flat.sampler_bindings[key];
-        for (var var_name in samplers) if (samplers.hasOwnProperty(var_name)) {
-            var uri = samplers[var_name];
-            if (uri) {
-                calls.push("prog.samplers['"+var_name+"'] = '"+uri+"';");
-            }
-        }
-        var add_draw_command = function (range) {
-            var call_args = ["gl.TRIANGLES", offset, range];
-            calls.push("gl.drawArrays(" + call_args.join(", ") + ");");
-            offset += range;
-        };
-        var add_state_change = function (name, value) {
-            var out;
-            var type = value.constructor.name;
-            if (type === "Array") {
-                out = value.toSource();
-            }
-            else if (type.indexOf("Array") !== -1) {
-                // object is a typed array
-                var data = Array.apply(null, value).toSource();
-                out = "new "+type+"(" + data + ")";
-            }
-            else {
-                // object probably doesn't need any fancy processing
-                out = value;
-            }
-            calls.push("prog.vars['"+name+"'] = " + out + ";");
-        };
-        var range = 0;
-        var draw_set = flat.groups[key];
-        for (var d=0; d<draw_set.length; d+=1) {
-            var chunk = draw_set[d];
-            var changed = [];
-            for (var i=0; i<flat.uniforms.dynamic.length; i+=1) {
-                var name = flat.uniforms.dynamic[i];
-                var old_value = last_state[name];
-                var new_value = chunk.uniforms[name];
-                if (new_value !== old_value) {
-                    changed.push(name);
-                }
-            }
-            if (changed.length > 0) {
-                if (range > 0) {
-                    add_draw_command(range);
-                    range = 0;
-                }
-                for (var i=0; i<changed.length; i+=1) {
-                    var name = changed[i];
-                    var value = chunk.uniforms[name];
-                    add_state_change(name, value);
-                    last_state[name] = value;
-                }
-            }
-            range += chunk.data.__vertex_count;
-        }
-        if (range > 0) {
-            add_draw_command(range);
-        }
-    }
-    var src = calls.join("\n");
-    try {
-        return new Function(src);
-    }
-    catch (error) {
-        console.error("FAILED TO BUILD STATIC DRAW FUNCTION");
-        throw error;
-    }
-};
-//
-//  Generate the new vertex buffer object
-//
-please.StaticDrawNode.prototype.__combine_vbos = function (flat) {
-    var all_attrs = {}; // a map from attribute names to expected data type
-    var total_vertices = 0;
-    // determine all attribute names needed for the new vbo
-    for (var ki=0; ki<flat.cache_keys.length; ki+=1) {
-        var key = flat.cache_keys[ki];
-        var nodes = flat.groups[key];
-        for (var n=0; n<nodes.length; n+=1) {
-            var node_attrs = nodes[n].data;
-            var node_types = node_attrs.__types;
-            var vertex_count = node_attrs.__vertex_count;
-            total_vertices += vertex_count;
-            for (var attr in node_attrs) if (node_attrs.hasOwnProperty(attr)) {
-                if (!attr.startsWith("__")) {
-                    var type_size = node_types[attr];
-                    if (!all_attrs[attr]) {
-                        all_attrs[attr] = type_size;
-                    }
-                    else if (all_attrs[attr] !== type_size) {
-                        var message = "Mismatched attribute array data types.";
-                        message += "  Cannot build static scene.";
-                        throw new Error(message);
-                    }
-                }
-            }
-        }
-    }
-    // build the empty arrays
-    var attr_data = {}; // the data for the vbo
-    for (var attr in all_attrs) if (all_attrs.hasOwnProperty(attr)) {
-        attr_data[attr] = new Float32Array(total_vertices * all_attrs[attr]);
-    }
-    // loop over the mesh data objects and concatinate them together
-    // into one array
-    var offset = 0;
-    for (var ki=0; ki<flat.cache_keys.length; ki+=1) {
-        var key = flat.cache_keys[ki];
-        var nodes = flat.groups[key];
-        for (var n=0; n<nodes.length; n+=1) {
-            var node_attrs = nodes[n].data;
-            var vertex_count = node_attrs.__vertex_count;
-            for (var attr in attr_data) if (attr_data.hasOwnProperty(attr)) {
-                var type = all_attrs[attr];
-                var size = vertex_count * type;
-                var start = offset * type;
-                if (node_attrs[attr]) {
-                    for (var i=0; i<size; i+=1) {
-                        attr_data[attr][start+i] = node_attrs[attr][i];
-                    }
-                }
-                else {
-                    for (var i=start; i<start+size; i+=1) {
-                        attr_data[attr][i] = 0;
-                    }
-                }
-            }
-            offset += vertex_count;
-        }
-    }
-    // create the composite VBO
-    return please.gl.vbo(total_vertices, attr_data);
-};
-//
-//  Sort the objects within the flattened graph's texture groups to
-//  attempt to minimize uniform state changes.
-//
-please.StaticDrawNode.prototype.__uniform_sort = function (flat) {
-    var UNASSIGNED = new (function UNASSIGNED () {});
-    for (var ki=0; ki<flat.cache_keys.length; ki+=1) {
-        var key = flat.cache_keys[ki];
-        var draw_set = flat.groups[key];
-        // a simple comparison function to be used by the larger
-        // comparison function below
-        var simple_cmp = function (lhs, rhs) {
-            if (lhs < rhs) {
-                return -1;
-            }
-            else if (lhs > rhs) {
-                return 1;
-            }
-            else {
-                return 0;
-            }
-        };
-        // attempt to lower the number of state changes by sorting the
-        // objects in the texture group by their uniform values
-        draw_set.sort(function (lhs, rhs) {
-            for (var i=0; i<flat.uniforms.dynamic.length; i+=1) {
-                var name = flat.uniforms.dynamic[i];
-                var a = lhs.uniforms[name];
-                var b = rhs.uniforms[name];
-                if (a === undefined) { a = UNASSIGNED; };
-                if (b === undefined) { b = UNASSIGNED; };
-                var type = a.constructor;
-                var ret = 0;
-                if (a.constructor !== b.constructor) {
-                    // lexical sort on constructor name when the two
-                    // objects aren't the same type
-                    ret = simple_cmp(a.constructor.name, a.constructor.name);
-                }
-                else if (type.name == "Array") {
-                    // lexical sort of coerced string values for arrays
-                    ret = simple_cmp(a.toSource(), b.toSource());
-                }
-                else if (type.name.indexOf("Array") !== -1) {
-                    // lexical sort of coerced string values for typed arrays
-                    ret = simple_cmp(
-                        Array.apply(null, a).toSource(),
-                        Array.apply(null, b).toSource());
-                }
-                else {
-                    // value sort for numbers, lexical for strings
-                    ret = simple_cmp(a, b);
-                }
-                if (ret == 0) {
-                    // if the two values come up equal, compaire the
-                    // next uniform
-                    continue;
-                }
-                else {
-                    return ret;
-                }
-            }
-        });
-    }
-};
-//
-//  Take a graph node and it's children, freeze the values for shader
-//  variables, generate mesh data with world matrix applied, and sort
-//  into texture groups.
-//
-please.StaticDrawNode.prototype.__flatten_graph = function (graph_node) {
-    var prog = please.gl.get_program();
-    var samplers = prog.sampler_list;
-    var uniforms = [];
-    var ignore = [
-        "projection_matrix",
-        "normal_matrix",
-        "world_matrix",
-        "view_matrix",
-    ];
-    for (var i=0; i<prog.uniform_list.length; i+=1) {
-        var test = prog.uniform_list[i];
-        if (samplers.indexOf(test) == -1 && ignore.indexOf(test) == -1 && !test.startsWith("mgrl_")) {
-            uniforms.push(test);
-        }
-    }
-    // Uniform delta tracks how often a uniform is changed for each
-    // draw.  Uniform states tracks how many unique states the uniform
-    // has.
-    var uniform_delta = {};
-    var uniform_states = {};
-    for (var i=0; i<uniforms.length; i+=1) {
-        var name = uniforms[i];
-        uniform_delta[name] = 0;
-        uniform_states[name] = [];
-    }
-    var groups = {};
-    var cache_keys = [];
-    var sampler_bindings = {};
-    var array_store = {};
-    var is_array = function (obj) {
-        try {
-            return obj.constructor.name.indexOf("Array") !== -1;
-        } catch (err) {
-            return false;
-        }
-    };
-    graph_node.propogate(function (inspect) {
-        if (inspect.__is_static_draw_node) {
-            throw new Error(
-                "Static Draw Nodes cannot be made from other Static Draw Nodes");
-        }
-        if (inspect.__drawable && inspect.visible) {
-            var mesh_data = inspect.mesh_data();
-            if (mesh_data == null) {
-                console.warn("unable to use object for static draw:", inspect);
-                return;
-            }
-            var matrix = inspect.shader.world_matrix;
-            var chunk = {
-                "data" : this.__apply_matrix(mesh_data, matrix),
-                "uniforms" : {},
-            };
-            for (var i=0; i<uniforms.length; i+=1) {
-                var name = uniforms[i];
-                var value = inspect.shader[name];
-                // This will coerce all identical arrays to be the
-                // same object, so that anything based on indexOf or
-                // tests for equality should work correctly.
-                if (is_array(value)) {
-                    var hash = please.array_hash(value, 4);
-                    if (!array_store[hash]) {
-                        array_store[hash] = value;
-                    }
-                    else {
-                        value = array_store[hash];
-                    }
-                }
-                chunk.uniforms[name] = value;
-                if (uniform_states[name].indexOf(value) == -1) {
-                    uniform_states[name].push(value);
-                    uniform_delta[name] += 1;
-                }
-            }
-            // create a cache key from sampler settings to determine
-            // which texture group this object belongs in
-            var cache_key = ["::"];
-            for (var i=0; i<samplers.length; i+=1) {
-                var name = samplers[i];
-                var uri = inspect.shader[name];
-                if (uri) {
-                    cache_key.push(uri);
-                }
-            }
-            var delim = String.fromCharCode(29);
-            cache_key = cache_key.join(delim);
-            // create a new cache group if necessary and populate the
-            // sampler settings for that group
-            if (!groups[cache_key]) {
-                groups[cache_key] = [];
-                sampler_bindings[cache_key] = {};
-                cache_keys.push(cache_key);
-                for (var i=0; i<samplers.length; i+=1) {
-                    var name = samplers[i];
-                    var uri = inspect.shader[name];
-                    sampler_bindings[cache_key][name] = uri;
-                }
-            }
-            // add the object to a texture group
-            groups[cache_key].push(chunk);
-        }
-    }.bind(this));
-    // these variables keep track of which uniform variables change
-    // many times when the graph is drawn vs which only are set once
-    var dynamic_uniforms = [];
-    var universal_uniforms = {};
-    for (var i=0; i<uniforms.length; i+=1) {
-        var name = uniforms[i];
-        var delta = uniform_delta[name];
-        if (delta > 1) {
-            dynamic_uniforms.push(name);
-        }
-        else if (delta == 1) {
-            universal_uniforms[name] = uniform_states[name][0];
-        }
-    }
-    return {
-        "groups" : groups,
-        "cache_keys" : cache_keys,
-        "sampler_bindings" : sampler_bindings,
-        "uniforms" : {
-            "delta" : uniform_delta,
-            "dynamic" : dynamic_uniforms,
-            "universal" : universal_uniforms,
-        },
-    };
-};
-//
-//  Apply a world matrix to an array of vertex positions.
-//
-please.StaticDrawNode.prototype.__apply_matrix = function (mesh_data, matrix) {
-    var old_coords = mesh_data.position;
-    var new_coords = new Float32Array(old_coords.length);
-    for (var i=0; i<mesh_data.__vertex_count; i+=1) {
-        var seek = i*3;
-        var view = new_coords.subarray(seek, seek+3);
-        var coord = old_coords.subarray(seek, seek+3);
-        vec3.transformMat4(view, coord, matrix);
-    };
-    mesh_data.position = new_coords;
-    return mesh_data;
 };
 // - m.builder.js -------------------------------------------------------- //
 /* [+]
@@ -10614,7 +10543,6 @@ please.ParticleEmitter = function (asset, span, limit, setup, update, ext) {
         }
         tracker.asset = asset;
         tracker.stamp = asset.instance(true);
-        tracker.stamp.use_manual_cache_invalidation();
         tracker.animated = !!tracker.stamp.play;
     }
     else {
@@ -10794,7 +10722,7 @@ addEventListener("mgrl_gl_context_created", function () {
 });
 // - bundled glsl shader assets --------------------------------------------- //
 (function () {
-    please.__bundled_glsl = {"deferred_renderer/geometry_buffers.frag": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CgoKLy8gc2FtcGxlcnMK\nYmluZGluZ19jb250ZXh0IEdyYXBoTm9kZSB7CiAgdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90\nZXh0dXJlOwogIHVuaWZvcm0gc2FtcGxlcjJEIG5vcm1hbF90ZXh0dXJlOwogIG1vZGVfc3dpdGNo\nIGRpZmZ1c2VfY29sb3JfZnVuY3Rpb247CiAgbW9kZV9zd2l0Y2ggdGV4dHVyZV9jb29yZGluYXRl\nX2Z1bmN0aW9uOwoKICB1bmlmb3JtIGJvb2wgaGFzX25vcm1hbF9tYXA7Cn0KCgpzd2FwcGFibGUg\ndmVjMiB0ZXh0dXJlX2Nvb3JkaW5hdGVfZnVuY3Rpb24oKSB7CiAgcmV0dXJuIGxvY2FsX3Rjb29y\nZHM7Cn0KCgpzd2FwcGFibGUgdmVjNCBkaWZmdXNlX2NvbG9yX2Z1bmN0aW9uKCkgewogIHZlYzIg\ndGNvb3JkcyA9IHRleHR1cmVfY29vcmRpbmF0ZV9mdW5jdGlvbigpOwogIHJldHVybiB0ZXh0dXJl\nMkQoZGlmZnVzZV90ZXh0dXJlLCB0Y29vcmRzKTsKfQoKCnZvaWQgZ2J1ZmZlcnNfbWFpbigpIHsK\nICAvLyBnLWJ1ZmZlciBwYXNzCiAgdmVjNCBkaWZmdXNlID0gZGlmZnVzZV9jb2xvcl9mdW5jdGlv\nbigpOwogIGlmIChkaWZmdXNlLmEgPCAwLjUpIHsKICAgIGRpc2NhcmQ7CiAgfQogIGdsX0ZyYWdE\nYXRhWzBdID0gZGlmZnVzZTsKICBnbF9GcmFnRGF0YVsxXSA9IHZlYzQod29ybGRfcG9zaXRpb24s\nIGxpbmVhcl9kZXB0aCk7CiAgZ2xfRnJhZ0RhdGFbMl0gPSB2ZWM0KHdvcmxkX25vcm1hbCwgMC4w\nKTsKfQo=\n", "deferred_renderer/simple_brdf.glsl": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7Cgp1bmlmb3JtIHNhbXBs\nZXIyRCBkaWZmdXNlX3RleHR1cmU7CnVuaWZvcm0gdmVjMyBhbWJpZW50X2NvbG9yOwp1bmlmb3Jt\nIGZsb2F0IGFtYmllbnRfaW50ZW5zaXR5OwoKdmVjMyBicmRmX2Z1bmN0aW9uKGJyZGZfaW5wdXQg\ncGFyYW1zKSB7CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9GcmFn\nQ29vcmQueHkpOwogIHZlYzMgYmFzZV9jb2xvciA9IHRleHR1cmUyRChkaWZmdXNlX3RleHR1cmUs\nIHRjb29yZHMpLnJnYjsKCiAgZmxvYXQgaW5jaWRlbmNlID0gZG90KHBhcmFtcy5ub3JtYWxfdmVj\ndG9yLCBwYXJhbXMubGlnaHRfdmVjdG9yKTsKICB2ZWMzIHJlZmxlY3Rpb24gPSAyLjAgKiBwYXJh\nbXMubm9ybWFsX3ZlY3RvciAqIGluY2lkZW5jZSAtIHBhcmFtcy5saWdodF92ZWN0b3I7CgogIGZs\nb2F0IGludGVuc2l0eSA9IHBhcmFtcy5pbnRlbnNpdHkgKiBwYXJhbXMuZmFsbG9mZjsKCiAgdmVj\nMyBhbWJpZW50ID0gYW1iaWVudF9jb2xvciAqIGJhc2VfY29sb3IgKiBhbWJpZW50X2ludGVuc2l0\neTsKICB2ZWMzIGRpZmZ1c2UgPSBwYXJhbXMuY29sb3IgKiBpbmNpZGVuY2UgKiBiYXNlX2NvbG9y\nICogaW50ZW5zaXR5ICogcGFyYW1zLm9jY2x1c2lvbjsKICB2ZWMzIHNwZWN1bGFyID0gcGFyYW1z\nLmNvbG9yICogcG93KG1heChkb3QocmVmbGVjdGlvbiwgcGFyYW1zLnZpZXdfdmVjdG9yKSwgMC4w\nKSwgaW50ZW5zaXR5KSAqIHBhcmFtcy5vY2NsdXNpb247CgogIHJldHVybiBhbWJpZW50ICsgZGlm\nZnVzZSArIHNwZWN1bGFyOwp9Cg==\n", "picture_in_picture.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl93aWR0\naDsKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl9oZWlnaHQ7Cgp1bmlmb3JtIHZlYzIgcGlwX3Np\nemU7CnVuaWZvcm0gdmVjMiBwaXBfY29vcmQ7CnVuaWZvcm0gZmxvYXQgcGlwX2FscGhhOwp1bmlm\nb3JtIHNhbXBsZXIyRCBtYWluX3RleHR1cmU7CnVuaWZvcm0gc2FtcGxlcjJEIHBpcF90ZXh0dXJl\nOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2\nb2lkKSB7CiAgdmVjMiBzY3JlZW5fY29vcmQgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0Zy\nYWdDb29yZC54eSk7CiAgdmVjNCBjb2xvciA9IHRleHR1cmUyRChtYWluX3RleHR1cmUsIHNjcmVl\nbl9jb29yZCk7CgogIC8vIHNjYWxlIHRoZSBzY3JlZW5fY29vcmQgdG8gcmVwcmVzZW50IGEgcGVy\nY2VudAogIHNjcmVlbl9jb29yZCAqPSAxMDAuMDsKICB2ZWMyIHBpcF90ZXN0ID0gc2NyZWVuX2Nv\nb3JkIC0gcGlwX2Nvb3JkOwogIGlmIChwaXBfdGVzdC54ID49IDAuMCAmJiBwaXBfdGVzdC55ID49\nIDAuMCAmJiBwaXBfdGVzdC54IDw9IHBpcF9zaXplLnggJiYgcGlwX3Rlc3QueSA8PSBwaXBfc2l6\nZS55KSB7CiAgICB2ZWM0IHBpcF9jb2xvciA9IHRleHR1cmUyRChwaXBfdGV4dHVyZSwgcGlwX3Rl\nc3QgLyBwaXBfc2l6ZSk7CiAgICBjb2xvciA9IG1peChjb2xvciwgcGlwX2NvbG9yLCBwaXBfY29s\nb3IuYSAvIHBpcF9hbHBoYSk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "splat.vert": "CnVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7CnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5p\nZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4OwphdHRyaWJ1dGUgdmVjMyBwb3NpdGlvbjsKCgp2\nb2lkIG1haW4odm9pZCkgewogIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2aWV3\nX21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7Cn0K\n", "simple.vert": "Ci8vIG1hdHJpY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2pl\nY3Rpb25fbWF0cml4OwoKLy8gdmVydGV4IGRhdGEKYXR0cmlidXRlIHZlYzMgcG9zaXRpb247CmF0\ndHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZlYzIgdGNvb3JkczsKCi8vIG1pc2MgYWRq\ndXN0bWVudHMKdW5pZm9ybSBmbG9hdCBtZ3JsX29ydGhvZ3JhcGhpY19zY2FsZTsKCi8vIGJpbGxi\nb2FyZCBzcHJpdGVzIGVuYWJsZXIKdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKCi8vIGlu\ndGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBpbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5n\nIHZlYzMgbG9jYWxfcG9zaXRpb247CnZhcnlpbmcgdmVjMyBsb2NhbF9ub3JtYWw7CnZhcnlpbmcg\ndmVjMiBsb2NhbF90Y29vcmRzOwp2YXJ5aW5nIHZlYzMgd29ybGRfcG9zaXRpb247CnZhcnlpbmcg\ndmVjMyB3b3JsZF9ub3JtYWw7CnZhcnlpbmcgdmVjMyBzY3JlZW5fbm9ybWFsOwp2YXJ5aW5nIGZs\nb2F0IGxpbmVhcl9kZXB0aDsKCgp2b2lkIG1haW4odm9pZCkgewogIC8vIHBhc3MgYWxvbmcgdG8g\ndGhlIGZyYWdtZW50IHNoYWRlcgogIGxvY2FsX3Bvc2l0aW9uID0gcG9zaXRpb24gKiBtZ3JsX29y\ndGhvZ3JhcGhpY19zY2FsZTsKICBsb2NhbF9ub3JtYWwgPSBub3JtYWw7CiAgbG9jYWxfdGNvb3Jk\ncyA9IHRjb29yZHM7CgogIC8vIGNhbGN1bGF0ZSBtb2RlbHZpZXcgbWF0cml4CiAgbWF0NCBtb2Rl\nbF92aWV3ID0gdmlld19tYXRyaXggKiB3b3JsZF9tYXRyaXg7CiAgaWYgKGJpbGxib2FyZF9tb2Rl\nID4gMC4wKSB7CiAgICAvLyBjbGVhciBvdXQgcm90YXRpb24gaW5mb3JtYXRpb24KICAgIG1vZGVs\nX3ZpZXdbMF0ueHl6ID0gd29ybGRfbWF0cml4WzBdLnh5ejsKICAgIG1vZGVsX3ZpZXdbMl0ueHl6\nID0gd29ybGRfbWF0cml4WzJdLnh5ejsKICAgIGlmIChiaWxsYm9hcmRfbW9kZSA9PSAyLjApIHsK\nICAgICAgbW9kZWxfdmlld1sxXS54eXogPSB3b3JsZF9tYXRyaXhbMV0ueHl6OwogICAgfQogIH0K\nCiAgLy8gdmFyaW91cyBjb29yZGluYXRlIHRyYW5zZm9ybXMKICB2ZWM0IGZpbmFsX3Bvc2l0aW9u\nID0gcHJvamVjdGlvbl9tYXRyaXggKiBtb2RlbF92aWV3ICogdmVjNChsb2NhbF9wb3NpdGlvbiwg\nMS4wKTsKICB3b3JsZF9wb3NpdGlvbiA9ICh3b3JsZF9tYXRyaXggKiB2ZWM0KGxvY2FsX3Bvc2l0\naW9uLCAxLjApKS54eXo7CiAgd29ybGRfbm9ybWFsID0gbm9ybWFsaXplKG1hdDMod29ybGRfbWF0\ncml4KSAqIG5vcm1hbCkueHl6OwogIHNjcmVlbl9ub3JtYWwgPSBub3JtYWxpemUobWF0Myhwcm9q\nZWN0aW9uX21hdHJpeCAqIG1vZGVsX3ZpZXcpICogbm9ybWFsKS54eXo7CiAgbGluZWFyX2RlcHRo\nID0gbGVuZ3RoKG1vZGVsX3ZpZXcgKiB2ZWM0KGxvY2FsX3Bvc2l0aW9uLCAxLjApKTsKICBnbF9Q\nb3NpdGlvbiA9IGZpbmFsX3Bvc2l0aW9uOwp9Cg==\n", "picking.frag": "CnZhcnlpbmcgdmVjMyBsb2NhbF9wb3NpdGlvbjsKdW5pZm9ybSB2ZWMzIG9iamVjdF9pbmRleDsK\ndW5pZm9ybSBib29sIG1ncmxfc2VsZWN0X21vZGU7CnVuaWZvcm0gdmVjMyBtZ3JsX21vZGVsX2xv\nY2FsX21pbjsKdW5pZm9ybSB2ZWMzIG1ncmxfbW9kZWxfbG9jYWxfc2l6ZTsKCgp2b2lkIG1haW4o\ndm9pZCkgewogIGlmIChtZ3JsX3NlbGVjdF9tb2RlKSB7CiAgICBnbF9GcmFnQ29sb3IgPSB2ZWM0\nKG9iamVjdF9pbmRleCwgMS4wKTsKICB9CiAgZWxzZSB7CiAgICB2ZWMzIHNoaWZ0ZWQgPSBsb2Nh\nbF9wb3NpdGlvbiAtIG1ncmxfbW9kZWxfbG9jYWxfbWluOwogICAgdmVjMyBzY2FsZWQgPSBzaGlm\ndGVkIC8gbWdybF9tb2RlbF9sb2NhbF9zaXplOwogICAgZ2xfRnJhZ0NvbG9yID0gdmVjNChzY2Fs\nZWQsIDEuMCk7CiAgfTsKfQo=\n", "diffuse.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKLy8gc2FtcGxlcnMKYmluZGluZ19jb250ZXh0IEdy\nYXBoTm9kZSB7CiAgdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0dXJlOwogIHVuaWZvcm0g\nZmxvYXQgYWxwaGE7CiAgdW5pZm9ybSBib29sIGlzX3Nwcml0ZTsKICB1bmlmb3JtIGJvb2wgaXNf\ndHJhbnNwYXJlbnQ7CgogIG1vZGVfc3dpdGNoIGRpZmZ1c2VfY29sb3JfZnVuY3Rpb247CiAgbW9k\nZV9zd2l0Y2ggdGV4dHVyZV9jb29yZGluYXRlX2Z1bmN0aW9uOwp9CgoKdmFyeWluZyB2ZWMzIGxv\nY2FsX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2YXJ5aW5nIHZlYzIgbG9j\nYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwoKCnN3YXBwYWJsZSB2ZWMy\nIHRleHR1cmVfY29vcmRpbmF0ZV9mdW5jdGlvbigpIHsKICByZXR1cm4gbG9jYWxfdGNvb3JkczsK\nfQoKCnN3YXBwYWJsZSB2ZWM0IGRpZmZ1c2VfY29sb3JfZnVuY3Rpb24oKSB7CiAgdmVjMiB0Y29v\ncmRzID0gdGV4dHVyZV9jb29yZGluYXRlX2Z1bmN0aW9uKCk7CiAgcmV0dXJuIHRleHR1cmUyRChk\naWZmdXNlX3RleHR1cmUsIHRjb29yZHMpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsKICB2ZWM0IGRp\nZmZ1c2UgPSBkaWZmdXNlX2NvbG9yX2Z1bmN0aW9uKCk7CiAgaWYgKGlzX3Nwcml0ZSkgewogICAg\nZmxvYXQgY3V0b2ZmID0gaXNfdHJhbnNwYXJlbnQgPyAwLjEgOiAxLjA7CiAgICBpZiAoZGlmZnVz\nZS5hIDwgY3V0b2ZmKSB7CiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgfQogIGRpZmZ1c2UuYSAqPSBh\nbHBoYTsKICBnbF9GcmFnQ29sb3IgPSBkaWZmdXNlOwp9Cg==\n", "stereo.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnVuaWZvcm0gdmVjNCBtZ3Js\nX2NsZWFyX2NvbG9yOwp1bmlmb3JtIGZsb2F0IG1ncmxfZnJhbWVfc3RhcnQ7CnVuaWZvcm0gZmxv\nYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfaGVpZ2h0OwoK\ndW5pZm9ybSBzYW1wbGVyMkQgbGVmdF9leWVfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgcmln\naHRfZXllX3RleHR1cmU7Cgp1bmlmb3JtIGJvb2wgc3RlcmVvX3NwbGl0Owp1bmlmb3JtIHZlYzMg\nbGVmdF9jb2xvcjsKdW5pZm9ybSB2ZWMzIHJpZ2h0X2NvbG9yOwoKdmVjNCBzYW1wbGVfb3JfY2xl\nYXIoc2FtcGxlcjJEIHNhbXBsZXIsIHZlYzIgY29vcmQpIHsKICB2ZWM0IGNvbG9yID0gdGV4dHVy\nZTJEKHNhbXBsZXIsIGNvb3JkKTsKICBpZiAoY29sb3IuYSA9PSAwLjApIHsKICAgIGNvbG9yID0g\nbWdybF9jbGVhcl9jb2xvcjsKICB9CiAgcmV0dXJuIGNvbG9yOwp9Cgp2b2lkIG1haW4odm9pZCkg\newogIHZlYzIgY29vcmQgPSBnbF9GcmFnQ29vcmQueHkgLyB2ZWMyKG1ncmxfYnVmZmVyX3dpZHRo\nLCBtZ3JsX2J1ZmZlcl9oZWlnaHQpOwogIHZlYzQgY29sb3I7CgogIGlmIChzdGVyZW9fc3BsaXQp\nIHsKICAgIC8vIEZJWE1FOiBhcHBseSBkaXN0b3J0aW9uIGVmZmVjdCBuZWVkZWQgZm9yIFZSIGds\nYXNzZXMKICAgIGlmIChjb29yZC54IDwgMC41KSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKGxl\nZnRfZXllX3RleHR1cmUsIHZlYzIoY29vcmQueCoyLjAsIGNvb3JkLnkpKTsKICAgIH0KICAgIGVs\nc2UgewogICAgICBjb2xvciA9IHRleHR1cmUyRChyaWdodF9leWVfdGV4dHVyZSwgdmVjMigoY29v\ncmQueCAtIDAuNSkqMi4wLCBjb29yZC55KSk7CiAgICB9CiAgfQoKICBlbHNlIHsKICAgIHZlYzMg\nbGVmdCA9IHNhbXBsZV9vcl9jbGVhcihsZWZ0X2V5ZV90ZXh0dXJlLCBjb29yZCkucmdiICogbGVm\ndF9jb2xvcjsKICAgIHZlYzMgcmlnaHQgPSBzYW1wbGVfb3JfY2xlYXIocmlnaHRfZXllX3RleHR1\ncmUsIGNvb3JkKS5yZ2IgKiByaWdodF9jb2xvcjsKICAgIGNvbG9yID0gdmVjNCgobGVmdCtyaWdo\ndCksIDEuMCk7CiAgfQogIAogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "diagonal_wipe.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBibHVyX3JhZGl1czsKdW5pZm9ybSBib29sIGZsaXBfYXhpczsK\ndW5pZm9ybSBib29sIGZsaXBfZGlyZWN0aW9uOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2b2lkKSB7CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFs\naXplX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkpOwogIGZsb2F0IHNsb3BlID0gbWdybF9i\ndWZmZXJfaGVpZ2h0IC8gbWdybF9idWZmZXJfd2lkdGg7CiAgaWYgKGZsaXBfYXhpcykgewogICAg\nc2xvcGUgKj0gLTEuMDsKICB9CiAgZmxvYXQgaGFsZl9oZWlnaHQgPSBtZ3JsX2J1ZmZlcl9oZWln\naHQgKiAwLjU7CiAgZmxvYXQgaGlnaF9wb2ludCA9IG1ncmxfYnVmZmVyX2hlaWdodCArIGhhbGZf\naGVpZ2h0ICsgYmx1cl9yYWRpdXMgKyAxLjA7CiAgZmxvYXQgbG93X3BvaW50ID0gKGhhbGZfaGVp\nZ2h0ICogLTEuMCkgLSBibHVyX3JhZGl1cyAtIDEuMDsKICBmbG9hdCBtaWRwb2ludCA9IG1peCho\naWdoX3BvaW50LCBsb3dfcG9pbnQsIGZsaXBfZGlyZWN0aW9uID8gMS4wIC0gcHJvZ3Jlc3MgOiBw\ncm9ncmVzcyk7CiAgZmxvYXQgdGVzdCA9ICgoZ2xfRnJhZ0Nvb3JkLnggLSBtZ3JsX2J1ZmZlcl93\naWR0aC8yLjApICogc2xvcGUpICsgbWlkcG9pbnQ7CgogIHZlYzQgY29sb3I7CiAgZmxvYXQgZGlz\ndCA9IGdsX0ZyYWdDb29yZC55IC0gdGVzdDsKICBpZiAoZGlzdCA8PSBibHVyX3JhZGl1cyAmJiBk\naXN0ID49IChibHVyX3JhZGl1cyotMS4wKSkgewogICAgdmVjNCBjb2xvcl9hID0gdGV4dHVyZTJE\nKHRleHR1cmVfYSwgdGNvb3Jkcyk7CiAgICB2ZWM0IGNvbG9yX2IgPSB0ZXh0dXJlMkQodGV4dHVy\nZV9iLCB0Y29vcmRzKTsKICAgIGZsb2F0IGJsZW5kID0gKGRpc3QgKyBibHVyX3JhZGl1cykgLyAo\nYmx1cl9yYWRpdXMqMi4wKTsKICAgIGNvbG9yID0gbWl4KGNvbG9yX2EsIGNvbG9yX2IsIGZsaXBf\nZGlyZWN0aW9uID8gMS4wIC0gYmxlbmQgOiBibGVuZCk7CiAgfQogIGVsc2UgewogICAgaWYgKChn\nbF9GcmFnQ29vcmQueSA8IHRlc3QgJiYgIWZsaXBfZGlyZWN0aW9uKSB8fCAoZ2xfRnJhZ0Nvb3Jk\nLnkgPiB0ZXN0ICYmIGZsaXBfZGlyZWN0aW9uKSkgewogICAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2EsIHRjb29yZHMpOwogICAgfQogICAgZWxzZSB7CiAgICAgIGNvbG9yID0gdGV4dHVy\nZTJEKHRleHR1cmVfYiwgdGNvb3Jkcyk7CiAgICB9CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9y\nOwp9Cg==\n", "deferred_renderer/main.frag": "I2V4dGVuc2lvbiBHTF9FWFRfZHJhd19idWZmZXJzIDogcmVxdWlyZQoKaW5jbHVkZSgiZGVmZXJy\nZWRfcmVuZGVyZXIvZ2VvbWV0cnlfYnVmZmVycy5mcmFnIik7CmluY2x1ZGUoImRlZmVycmVkX3Jl\nbmRlcmVyL3NoYWRvd19idWZmZXJzLmZyYWciKTsKaW5jbHVkZSgiZGVmZXJyZWRfcmVuZGVyZXIv\nbGlnaHRpbmdfcGFzc2VzLmZyYWciKTsKaW5jbHVkZSgiZGVmZXJyZWRfcmVuZGVyZXIvZmluaXNo\naW5nX3Bhc3MuZnJhZyIpOwoKdW5pZm9ybSBpbnQgc2hhZGVyX3Bhc3M7CgoKdm9pZCBtYWluKHZv\naWQpIHsKICBpZiAoc2hhZGVyX3Bhc3MgPT0gMCkgewogICAgLy8gVGhlIGdidWZmZXJzIHBhc3Mg\naXMgY2FsbGVkIG9uY2UgZnJvbSB0aGUgY2FtZXJhJ3MgcGVyc3BlY3RpdmUKICAgIC8vIHRvIHBv\ncHVsYXRlIHRoZSBnZW9tZXRyeSBidWZmZXJzLgogICAgZ2J1ZmZlcnNfbWFpbigpOwogIH0KICBl\nbHNlIGlmIChzaGFkZXJfcGFzcyA9PSAxKSB7CiAgICAvLyBUaGUgc2hhZG93IGJ1ZmZlcnMgcGFz\ncyBpcyBjYWxsZWQgbWFueSB0aW1lcywgYXQgbGVhc3Qgb25jZSBwZXIKICAgIC8vIGVhY2ggbGln\naHQgdGhhdCBjYXN0cyBhIHNoYWRvdy4gIFRoZSByZXN1bHRzIHdpbGwgYmUgdXNlZCBpbgogICAg\nLy8gdGhlIGxpZ2h0aW5nIHBhc3NlLgogICAgc2hhZG93X2J1ZmZlcnMoKTsKICB9CiAgZWxzZSBp\nZiAoc2hhZGVyX3Bhc3MgPT0gMikgewogICAgLy8gVGhlIGxpZ2h0aW5nIHBhc3MgaXMgY2FsbGVk\nIGF0IGxlYXN0IG9uY2UgcGVyIGxpZ2h0LiAgVGhlCiAgICAvLyBsaWdodGluZyBwYXNzZXMgYXJl\nIHNjcmVlbnNwYWNlIHBhc3NlcywgYW5kIHV0aWxpemUgaW5mb3JtYXRpb24KICAgIC8vIGluIHNv\nbWUgb2YgdGhlIGdidWZmZXJzIHRvIGFjY3VtdWxhdGUgYSBsaWdodG1hcC4KICAgIGxpZ2h0aW5n\nX3Bhc3MoKTsKICB9CiAgZWxzZSBpZiAoc2hhZGVyX3Bhc3MgPT0gMykgewogICAgLy8gVGhlIGZp\nbmlzaGluZyBwYXNzIGlzIGNhbGxlZCBvbmNlIHBlciBmcmFtZSwgYW5kIHRoZSByZXN1bHQgZnJv\nbQogICAgLy8gdGhlIGxpZ2h0aW5nIHBhc3NlcyBpcyBjb21wb3NpdGVkIHdpdGggdGhlIGRpZmZ1\nc2UgZ2J1ZmZlci4KICAgIGZpbmlzaGluZ19wYXNzKCk7CiAgfQp9Cg==\n", "deferred_renderer/main.vert": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2dlb21ldHJ5X2J1ZmZlcnMudmVydCIpOwoKYXR0\ncmlidXRlIHZlYzMgcG9zaXRpb247CmF0dHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZl\nYzIgdGNvb3JkczsKCmJpbmRpbmdfY29udGV4dCBHcmFwaE5vZGUgewogIC8vIG9iamVjdCBtYXRy\naWNlcwogIHVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7Cn0KCnVuaWZvcm0gbWF0NCB2aWV3X21h\ndHJpeDsKdW5pZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4Owp1bmlmb3JtIGJvb2wgZ2VvbWV0\ncnlfcGFzczsKCgp2b2lkIG1haW4odm9pZCkgewogIGlmIChnZW9tZXRyeV9wYXNzKSB7CiAgICBn\nbF9Qb3NpdGlvbiA9IGdidWZmZXJzX21haW4oKTsKICB9CiAgZWxzZSB7CiAgICBnbF9Qb3NpdGlv\nbiA9IHByb2plY3Rpb25fbWF0cml4ICogdmlld19tYXRyaXggKiB3b3JsZF9tYXRyaXggKiB2ZWM0\nKHBvc2l0aW9uLCAxLjApOwogIH0KfQo=\n", "normalize_screen_coord.glsl": "CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZm\nZXJfaGVpZ2h0OwoKLy8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0Zy\nYWdDb29yZC54eSwgd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNj\ncmVlbiBjb29yZGluYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0\nZSB0aGF0IGlzIG5vcm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0\nbyAxLjAuCi8vCnZlYzIgbm9ybWFsaXplX3NjcmVlbl9jb29yZCh2ZWMyIGNvb3JkKSB7CiAgcmV0\ndXJuIHZlYzIoY29vcmQueC9tZ3JsX2J1ZmZlcl93aWR0aCwgY29vcmQueS9tZ3JsX2J1ZmZlcl9o\nZWlnaHQpOwp9Cgo=\n", "color_curve.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gY3VydmUgZmxvYXQgdmFsdWVfY3VydmVbMTZdOwp1bmlmb3Jt\nIGN1cnZlIGZsb2F0IHJlZF9jdXJ2ZVsxNl07CnVuaWZvcm0gY3VydmUgZmxvYXQgZ3JlZW5fY3Vy\ndmVbMTZdOwp1bmlmb3JtIGN1cnZlIGZsb2F0IGJsdWVfY3VydmVbMTZdOwoKCmluY2x1ZGUoIm5v\ncm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCmZsb2F0IHZhbHVlKHZlYzMgY29sb3IpIHsK\nICByZXR1cm4gbWF4KGNvbG9yLnIsIG1heChjb2xvci5nLCBjb2xvci5iKSk7Cn0KCgp2b2lkIG1h\naW4odm9pZCkgewogIHZlYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJh\nZ0Nvb3JkLnh5KTsKICB2ZWMzIGNvbG9yID0gdGV4dHVyZTJEKGlucHV0X3RleHR1cmUsIHRjb29y\nZHMpLnJnYjsKCiAgZmxvYXQgdjEgPSB2YWx1ZShjb2xvcik7CiAgZmxvYXQgdjIgPSBzYW1wbGVf\nY3VydmUodmFsdWVfY3VydmUsIHYxKTsKICBmbG9hdCBzY2FsZSA9IDEuMCAvIHYxOwogIGNvbG9y\nID0gY29sb3IgKiBzY2FsZSAqIHYyOwogIAogIGNvbG9yLnIgPSBzYW1wbGVfY3VydmUocmVkX2N1\ncnZlLCBjb2xvci5yKTsKICBjb2xvci5nID0gc2FtcGxlX2N1cnZlKGdyZWVuX2N1cnZlLCBjb2xv\nci5nKTsKICBjb2xvci5iID0gc2FtcGxlX2N1cnZlKGJsdWVfY3VydmUsIGNvbG9yLmIpOwogIGds\nX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIDEuMCk7Cn0K\n", "deferred_renderer/common.glsl": "dmFyeWluZyB2ZWMzIGxvY2FsX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2\nYXJ5aW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2\nYXJ5aW5nIHZlYzMgd29ybGRfbm9ybWFsOwp2YXJ5aW5nIHZlYzMgc2NyZWVuX3Bvc2l0aW9uOwp2\nYXJ5aW5nIGZsb2F0IGxpbmVhcl9kZXB0aDsKCgpzdHJ1Y3QgYnJkZl9pbnB1dCB7CiAgdmVjMyB2\naWV3X3ZlY3RvcjsKICB2ZWMzIGxpZ2h0X3ZlY3RvcjsKICB2ZWMzIG5vcm1hbF92ZWN0b3I7CiAg\ndmVjMyBjb2xvcjsKICBmbG9hdCBmYWxsb2ZmOwogIGZsb2F0IGludGVuc2l0eTsKICBmbG9hdCBv\nY2NsdXNpb247Cn07CgoKc3RydWN0IGJyZGZfb3V0cHV0IHsKICB2ZWMzIGNvbG9yOwogIGZsb2F0\nIGludGVuc2l0eTsKfTsK\n", "deferred_renderer/shadow_buffers.frag": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CgoKdm9pZCBzaGFkb3df\nYnVmZmVycygpIHsKICBmbG9hdCBkZXB0aCA9IGxpbmVhcl9kZXB0aDsKICBnbF9GcmFnRGF0YVsw\nXSA9IHZlYzQoZGVwdGgsIGRlcHRoLCBkZXB0aCwgMS4wKTsKfQo=\n", "disintegrate.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBweF9zaXplOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCi8vIGh0dHBzOi8vc3RhY2tvdmVyZmxvdy5jb20vcXVlc3Rpb25zLzEy\nOTY0Mjc5L3doYXRzLXRoZS1vcmlnaW4tb2YtdGhpcy1nbHNsLXJhbmQtb25lLWxpbmVyCmZsb2F0\nIHJhbmRvbV9zZWVkKHZlYzIgY28pIHsKICByZXR1cm4gZnJhY3Qoc2luKGRvdChjby54eSAsdmVj\nMigxMi45ODk4LDc4LjIzMykpKSAqIDQzNzU4LjU0NTMpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsK\nICB2ZWMyIGdyaWQgPSBnbF9GcmFnQ29vcmQueHkgLyBweF9zaXplOwogIHZlYzIgb2Zmc2V0ID0g\nZnJhY3QoZ3JpZCkqMC41OwogIGZsb2F0IHJhbmRvbSA9IChyYW5kb21fc2VlZChmbG9vcihncmlk\nICsgb2Zmc2V0KSkqMC45KSArIDAuMTsKICByYW5kb20gKj0gKDEuMCAtIHByb2dyZXNzKTsKICB2\nZWMyIHRjb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAg\ndmVjNCBjb2xvcjsKICBpZiAocmFuZG9tIDwgMC4xKSB7CiAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2IsIHRjb29yZHMpOwogIH0KICBlbHNlIHsKICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYSwgdGNvb3Jkcyk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "deferred_renderer/finishing_pass.frag": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CmluY2x1ZGUoIm5vcm1h\nbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0\ndXJlOwp1bmlmb3JtIHNhbXBsZXIyRCBsaWdodF90ZXh0dXJlOwp1bmlmb3JtIGZsb2F0IGV4cG9z\ndXJlOwoKCnZvaWQgZmluaXNoaW5nX3Bhc3MoKSB7CiAgLy8gY29tYmluZSB0aGUgbGlnaHRpbmcg\nYW5kIGRpZmZ1c2UgcGFzc2VzIGFuZCBkaXNwbGF5CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXpl\nX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkpOwogIHZlYzQgZGlmZnVzZSA9IHRleHR1cmUy\nRChkaWZmdXNlX3RleHR1cmUsIHRjb29yZHMpOwogIGlmIChkaWZmdXNlLncgPT0gLTEuMCkgewog\nICAgZGlzY2FyZDsKICB9CiAgdmVjMyBsaWdodG1hcCA9IHRleHR1cmUyRChsaWdodF90ZXh0dXJl\nLCB0Y29vcmRzKS5yZ2I7CiAgZ2xfRnJhZ0RhdGFbMF0gPSB2ZWM0KGxpZ2h0bWFwIC8gZXhwb3N1\ncmUsIDEuMCk7Cn0K\n", "deferred_renderer/lighting_passes.frag": "CmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwppbmNsdWRlKCJkZWZlcnJl\nZF9yZW5kZXJlci9jb21tb24uZ2xzbCIpOwppbmNsdWRlKCJkZWZlcnJlZF9yZW5kZXJlci9zaW1w\nbGVfYnJkZi5nbHNsIik7Cgp1bmlmb3JtIHNhbXBsZXIyRCBzcGF0aWFsX3RleHR1cmU7CnVuaWZv\ncm0gc2FtcGxlcjJEIG5vcm1hbF90ZXh0dXJlOwoKdW5pZm9ybSBpbnQgbGlnaHRfdHlwZTsKCnVu\naWZvcm0gZmxvYXQgbGlnaHRfaW50ZW5zaXR5Owp1bmlmb3JtIG1hdDQgbGlnaHRfcHJvamVjdGlv\nbl9tYXRyaXg7CnVuaWZvcm0gbWF0NCBsaWdodF92aWV3X21hdHJpeDsKdW5pZm9ybSB2ZWMzIGxp\nZ2h0X3dvcmxkX3Bvc2l0aW9uOwp1bmlmb3JtIHZlYzMgbGlnaHRfY29sb3I7CnVuaWZvcm0gdmVj\nMyBjYW1lcmFfcG9zaXRpb247CnVuaWZvcm0gYm9vbCBjYXN0X3NoYWRvd3M7CgoKZmxvYXQgc3Bv\ndGxpZ2h0X3NoYWRvd3ModmVjMyB3b3JsZF9wb3NpdGlvbikgewogIC8vIFRoaXMgbWV0aG9kIGRl\ndGVybWluZXMgaWYgdGhlIGN1cnJlbnQgZnJhZ21lbnQgaXMgb2NjbHVkZWQgYnkgdGhlCiAgLy8g\nY3VycmVudCBsaWdodCdzIHNoYWRvdy4gIEEgcmV0dXJuIHZhbHVlIGJldHdlZW4gMC4wIGFuZCAx\nLjAgaXMKICAvLyBnaXZlbi4gIENhbGN1bGF0aW9ucyBhcmUgZG9uZSBpbiB0aGUgbGlnaHQncyB2\naWV3IHNwYWNlLgoKICAvLyB0aGUgcG9zaXRpb24gb2YgdGhlIGZyYWdtZW50IGluIHZpZXcgc3Bh\nY2UKICB2ZWMzIHZpZXdfcG9zaXRpb24gPSAobGlnaHRfdmlld19tYXRyaXggKiB2ZWM0KHdvcmxk\nX3Bvc2l0aW9uLCAxLjApKS54eXo7CgogIC8vIGFwcGx5IHRoZSBsaWdodCdzIHByb2plY3Rpb24g\nbWF0cml4CiAgdmVjNCBsaWdodF9wcm9qZWN0ZWQgPSBsaWdodF9wcm9qZWN0aW9uX21hdHJpeCAq\nIHZlYzQodmlld19wb3NpdGlvbiwgMS4wKTsKICAKICAvLyBkZXRlcm1pbmUgdGhlIHZlY3RvciBm\ncm9tIHRoZSBsaWdodCBzb3VyY2UgdG8gdGhlIGZyYWdtZW50CiAgdmVjMiBsaWdodF9ub3JtYWwg\nPSBsaWdodF9wcm9qZWN0ZWQueHkvbGlnaHRfcHJvamVjdGVkLnc7CiAgdmVjMiBsaWdodF91diA9\nIGxpZ2h0X25vcm1hbCowLjUrMC41OwoKICBpZiAobGlnaHRfdXYueCA8IDAuMCB8fCBsaWdodF91\ndi55IDwgMC4wIHx8IGxpZ2h0X3V2LnggPiAxLjAgfHwgbGlnaHRfdXYueSA+IDEuMCkgewogICAg\ncmV0dXJuIDAuMDsKICB9CiAgaWYgKGxlbmd0aChsaWdodF9ub3JtYWwpIDw9MS4wKSB7CiAgICBp\nZiAoY2FzdF9zaGFkb3dzKSB7CiAgICAgIGZsb2F0IGJpYXMgPSAwLjA7CiAgICAgIGZsb2F0IGxp\nZ2h0X2RlcHRoXzEgPSB0ZXh0dXJlMkQobGlnaHRfdGV4dHVyZSwgbGlnaHRfdXYpLnI7CiAgICAg\nIGZsb2F0IGxpZ2h0X2RlcHRoXzIgPSBsZW5ndGgodmlld19wb3NpdGlvbik7CiAgICAgIGZsb2F0\nIGlsbHVtaW5hdGVkID0gc3RlcChsaWdodF9kZXB0aF8yLCBsaWdodF9kZXB0aF8xICsgYmlhcyk7\nCiAgICAgIHJldHVybiBpbGx1bWluYXRlZDsKICAgIH0KICAgIGVsc2UgewogICAgICByZXR1cm4g\nMS4wOwogICAgfQogIH0KICBlbHNlIHsKICAgIHJldHVybiAwLjA7CiAgfQp9CgoKdmVjMyBzcG90\nbGlnaHRfaWxsdW1pbmF0aW9uKHZlYzMgd29ybGRfcG9zaXRpb24sIHZlYzMgd29ybGRfbm9ybWFs\nKSB7CiAgLy8gaWxsdW1pbmF0ZWQgdGVsbHMgdXMgaWYgdGhlIHBpeGVsIHdvdWxkIGJlIGluIHRo\nZSBjdXJyZW50IGxpZ2h0J3MKICAvLyBzaGFkb3cgb3Igbm90LgogIGZsb2F0IGlsbHVtaW5hdGVk\nID0gc3BvdGxpZ2h0X3NoYWRvd3Mod29ybGRfcG9zaXRpb24pOwogIGJyZGZfaW5wdXQgcGFyYW1z\nOwoKICBwYXJhbXMudmlld192ZWN0b3IgPSBub3JtYWxpemUoY2FtZXJhX3Bvc2l0aW9uIC0gd29y\nbGRfcG9zaXRpb24pOwogIHBhcmFtcy5saWdodF92ZWN0b3IgPSBub3JtYWxpemUobGlnaHRfd29y\nbGRfcG9zaXRpb24gLSB3b3JsZF9wb3NpdGlvbik7CiAgcGFyYW1zLm5vcm1hbF92ZWN0b3IgPSBu\nb3JtYWxpemUod29ybGRfbm9ybWFsKTsKICBwYXJhbXMuY29sb3IgPSBsaWdodF9jb2xvcjsKICBw\nYXJhbXMuaW50ZW5zaXR5ID0gbGlnaHRfaW50ZW5zaXR5OwogIHBhcmFtcy5mYWxsb2ZmID0gMS4w\nL3BvdyhkaXN0YW5jZSh3b3JsZF9ub3JtYWwsIHBhcmFtcy5saWdodF92ZWN0b3IpLCAyLjApOwog\nIHBhcmFtcy5vY2NsdXNpb24gPSBpbGx1bWluYXRlZDsKCiAgcmV0dXJuIGJyZGZfZnVuY3Rpb24o\ncGFyYW1zKTsKfQoKCnZlYzMgcG9pbnRsaWdodF9pbGx1bWluYXRpb24odmVjMyB3b3JsZF9wb3Np\ndGlvbiwgdmVjMyB3b3JsZF9ub3JtYWwpIHsKICAvLyBpbGx1bWluYXRlZCB0ZWxscyB1cyBpZiB0\naGUgcGl4ZWwgd291bGQgYmUgaW4gdGhlIGN1cnJlbnQgbGlnaHQncwogIC8vIHNoYWRvdyBvciBu\nb3QuCiAgZmxvYXQgaWxsdW1pbmF0ZWQgPSAxLjA7CiAgYnJkZl9pbnB1dCBwYXJhbXM7CgogIHBh\ncmFtcy52aWV3X3ZlY3RvciA9IG5vcm1hbGl6ZShjYW1lcmFfcG9zaXRpb24gLSB3b3JsZF9wb3Np\ndGlvbik7CiAgcGFyYW1zLmxpZ2h0X3ZlY3RvciA9IG5vcm1hbGl6ZShsaWdodF93b3JsZF9wb3Np\ndGlvbiAtIHdvcmxkX3Bvc2l0aW9uKTsKICBwYXJhbXMubm9ybWFsX3ZlY3RvciA9IG5vcm1hbGl6\nZSh3b3JsZF9ub3JtYWwpOwogIHBhcmFtcy5jb2xvciA9IGxpZ2h0X2NvbG9yOwogIHBhcmFtcy5p\nbnRlbnNpdHkgPSBsaWdodF9pbnRlbnNpdHk7CiAgcGFyYW1zLmZhbGxvZmYgPSAxLjAvcG93KGRp\nc3RhbmNlKHdvcmxkX25vcm1hbCwgcGFyYW1zLmxpZ2h0X3ZlY3RvciksIDIuMCk7CiAgcGFyYW1z\nLm9jY2x1c2lvbiA9IGlsbHVtaW5hdGVkOwoKICByZXR1cm4gYnJkZl9mdW5jdGlvbihwYXJhbXMp\nOwp9CgoKdmVjMyBzdW5saWdodF9pbGx1bWluYXRpb24odmVjMyB3b3JsZF9ub3JtYWwpIHsKICAv\nLyBpbGx1bWluYXRlZCB0ZWxscyB1cyBpZiB0aGUgcGl4ZWwgd291bGQgYmUgaW4gdGhlIGN1cnJl\nbnQgbGlnaHQncwogIC8vIHNoYWRvdyBvciBub3QuCiAgZmxvYXQgaWxsdW1pbmF0ZWQgPSAxLjA7\nCiAgYnJkZl9pbnB1dCBwYXJhbXM7CgogIHBhcmFtcy52aWV3X3ZlY3RvciA9IG5vcm1hbGl6ZShj\nYW1lcmFfcG9zaXRpb24gLSB3b3JsZF9wb3NpdGlvbik7CiAgcGFyYW1zLmxpZ2h0X3ZlY3RvciA9\nIG5vcm1hbGl6ZShsaWdodF93b3JsZF9wb3NpdGlvbik7CiAgcGFyYW1zLm5vcm1hbF92ZWN0b3Ig\nPSBub3JtYWxpemUod29ybGRfbm9ybWFsKTsKICBwYXJhbXMuY29sb3IgPSBsaWdodF9jb2xvcjsK\nICBwYXJhbXMuaW50ZW5zaXR5ID0gbGlnaHRfaW50ZW5zaXR5OwogIHBhcmFtcy5mYWxsb2ZmID0g\nMS4wOwogIHBhcmFtcy5vY2NsdXNpb24gPSBpbGx1bWluYXRlZDsKCiAgcmV0dXJuIGJyZGZfZnVu\nY3Rpb24ocGFyYW1zKTsKfQoKCnZvaWQgbGlnaHRpbmdfcGFzcygpIHsKICAvLyBsaWdodCBwZXJz\ncGVjdGl2ZSBwYXNzCiAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9G\ncmFnQ29vcmQueHkpOwogIHZlYzQgc3BhY2UgPSB0ZXh0dXJlMkQoc3BhdGlhbF90ZXh0dXJlLCB0\nY29vcmRzKTsKICB2ZWMzIG5vcm1hbCA9IHRleHR1cmUyRChub3JtYWxfdGV4dHVyZSwgdGNvb3Jk\ncykucmdiOwogIGlmIChzcGFjZS53ID09IC0xLjApIHsKICAgIGRpc2NhcmQ7CiAgfQogIGVsc2Ug\newogICAgdmVjMyBpcnJhZGlhbmNlOwogICAgaWYgKGxpZ2h0X3R5cGUgPT0gMCkgewogICAgICBp\ncnJhZGlhbmNlID0gc3BvdGxpZ2h0X2lsbHVtaW5hdGlvbihzcGFjZS54eXosIG5vcm1hbCk7CiAg\nICB9CiAgICBlbHNlIGlmIChsaWdodF90eXBlID09IDEpIHsKICAgICAgaXJyYWRpYW5jZSA9IHBv\naW50bGlnaHRfaWxsdW1pbmF0aW9uKHNwYWNlLnh5eiwgbm9ybWFsKTsKICAgIH0KICAgIGVsc2Ug\naWYgKGxpZ2h0X3R5cGUgPT0gMikgewogICAgICBpcnJhZGlhbmNlID0gc3VubGlnaHRfaWxsdW1p\nbmF0aW9uKG5vcm1hbCk7CiAgICB9CiAgICBnbF9GcmFnRGF0YVswXSA9IHZlYzQoaXJyYWRpYW5j\nZSwgMS4wKTsKICB9Cn0K\n", "curve_template.glsl": "Ly8gIERvIG5vdCBjYWxsIGluY2x1ZGUgb24gY3VydmVfdGVtcGxhdGUuZ2xzbCBpbiB5b3VyIHNv\ndXJjZSBmaWxlcy4KLy8gIFVzZSB0aGUgY3VydmUgbWFjcm8gaW5zdGVhZCEhIQoKR0xfVFlQRSBz\nYW1wbGVfY3VydmUoR0xfVFlQRSBzYW1wbGVzW0FSUkFZX0xFTl0sIGZsb2F0IGFscGhhKSB7CiAg\nZmxvYXQgcGljayA9IChBUlJBWV9MRU4uMCAtIDEuMCkgKiBhbHBoYTsKICBpbnQgbG93ID0gaW50\nKGZsb29yKHBpY2spKTsKICBpbnQgaGlnaCA9IGludChjZWlsKHBpY2spKTsKICBmbG9hdCBiZXRh\nID0gZnJhY3QocGljayk7CgogIEdMX1RZUEUgbG93X3NhbXBsZTsKICBHTF9UWVBFIGhpZ2hfc2Ft\ncGxlOwoKICAvLyB3b3JrYXJvdW5kIGJlY2F1c2UgZ2xzbCBkb2VzIG5vdCBhbGxvdyBmb3IgcmFu\nZG9tIGFjY2VzcyBvbiBhcnJheXMgPjpPCiAgZm9yIChpbnQgaT0wOyBpPEFSUkFZX0xFTjsgaSs9\nMSkgewogICAgaWYgKGkgPT0gbG93KSB7CiAgICAgIGxvd19zYW1wbGUgPSBzYW1wbGVzW2ldOwog\nICAgfQogICAgaWYgKGkgPT0gaGlnaCkgewogICAgICBoaWdoX3NhbXBsZSA9IHNhbXBsZXNbaV07\nCiAgICB9CiAgfQogIAogIHJldHVybiBtaXgobG93X3NhbXBsZSwgaGlnaF9zYW1wbGUsIGJldGEp\nOwp9Cg==\n", "deferred_renderer/geometry_buffers.vert": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CgoKYmluZGluZ19jb250\nZXh0IEdyYXBoTm9kZSB7CiAgLy8gb2JqZWN0IG1hdHJpY2VzCiAgdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKICB1bmlmb3JtIG1hdDQgcGFydGljbGVfbWF0cml4OwoKICAvLyBiaWxsYm9hcmQg\nc3ByaXRlcyBlbmFibGVyCiAgdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKfQoKCnVuaWZv\ncm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4Owp1bmlm\nb3JtIGZsb2F0IG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwoKCnZlYzQgZ2J1ZmZlcnNfbWFpbigp\nIHsKICAvLyBwYXNzIGFsb25nIHRvIHRoZSBmcmFnbWVudCBzaGFkZXIKICBsb2NhbF9wb3NpdGlv\nbiA9IHBvc2l0aW9uICogbWdybF9vcnRob2dyYXBoaWNfc2NhbGU7CiAgbG9jYWxfbm9ybWFsID0g\nbm9ybWFsOwogIGxvY2FsX3Rjb29yZHMgPSB0Y29vcmRzOwoKICAvLyBjYWxjdWxhdGUgbW9kZWx2\naWV3IG1hdHJpeAogIG1hdDQgbW9kZWxfdmlldyA9IHZpZXdfbWF0cml4ICogd29ybGRfbWF0cml4\nOwogIGlmIChiaWxsYm9hcmRfbW9kZSA+IDAuMCkgewogICAgLy8gY2xlYXIgb3V0IHJvdGF0aW9u\nIGluZm9ybWF0aW9uCiAgICBtb2RlbF92aWV3WzBdLnh5eiA9IHdvcmxkX21hdHJpeFswXS54eXo7\nCiAgICBtb2RlbF92aWV3WzJdLnh5eiA9IHdvcmxkX21hdHJpeFsyXS54eXo7CiAgICBpZiAoYmls\nbGJvYXJkX21vZGUgPT0gMi4wKSB7CiAgICAgIG1vZGVsX3ZpZXdbMV0ueHl6ID0gd29ybGRfbWF0\ncml4WzFdLnh5ejsKICAgIH0KICB9CgogIC8vIHZhcmlvdXMgY29vcmRpbmF0ZSB0cmFuc2Zvcm1z\nCiAgdmVjNCBmaW5hbF9wb3NpdGlvbiA9IHByb2plY3Rpb25fbWF0cml4ICogbW9kZWxfdmlldyAq\nIHZlYzQobG9jYWxfcG9zaXRpb24sIDEuMCk7CiAgd29ybGRfcG9zaXRpb24gPSAod29ybGRfbWF0\ncml4ICogdmVjNChsb2NhbF9wb3NpdGlvbiwgMS4wKSkueHl6OwogIHdvcmxkX25vcm1hbCA9IG5v\ncm1hbGl6ZShtYXQzKHdvcmxkX21hdHJpeCkgKiBub3JtYWwpLnh5ejsKICBzY3JlZW5fcG9zaXRp\nb24gPSBmaW5hbF9wb3NpdGlvbi54eXo7CiAgbGluZWFyX2RlcHRoID0gbGVuZ3RoKChtb2RlbF92\naWV3ICogdmVjNChsb2NhbF9wb3NpdGlvbiwgMS4wKSkpOwogIHJldHVybiBmaW5hbF9wb3NpdGlv\nbjsKfQo=\n", "scatter_blur.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gZmxvYXQgYmx1cl9yYWRpdXM7CnVuaWZvcm0gZmxvYXQgc2Ft\ncGxlczsKCmNvbnN0IGZsb2F0IG1heF9zYW1wbGVzID0gMzIuMDsKY29uc3QgZmxvYXQgdHdvX3Bp\nID0gNi4yODMxODUzMDcxODsKCgppbmNsdWRlKCJub3JtYWxpemVfc2NyZWVuX2Nvb3JkLmdsc2wi\nKTsKCgp2ZWMyIHNjcmVlbl9jbGFtcCh2ZWMyIGNvb3JkKSB7CiAgcmV0dXJuIGNsYW1wKGNvb3Jk\nLCB2ZWMyKDAuMCwgMC4wKSwgZ2xfRnJhZ0Nvb3JkLnh5KTsKfQoKCnZlYzIgcHJuZyh2ZWMyIGNv\nKSB7CiAgdmVjMiBhID0gZnJhY3QoY28ueXggKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7CiAgdmVj\nMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSArIGRvdChh\nLnl4LCBiKTsKICAvL3JldHVybiBmcmFjdChjLnggKiBjLnkgKiA5NS40MzM3KTsKICByZXR1cm4g\nZnJhY3QodmVjMihjLngqYy55Kjk1LjQzMzcsIGMueCpjLnkqOTcuNTk3KSk7Cn0KCgpmbG9hdCBw\ncm5nKGZsb2F0IG4pewogIHZlYzIgYSA9IGZyYWN0KG4gKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7\nCiAgdmVjMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSAr\nIGRvdChhLnl4LCBiKTsKICByZXR1cm4gZnJhY3QoYy54ICogYy55ICogOTUuNDMzNyk7Cn0KCgp2\nb2lkIG1haW4odm9pZCkgewogIGZsb2F0IGNvdW50ID0gMC4wOwogIHZlYzQgY29sb3IgPSB2ZWM0\nKDAuMCwgMC4wLCAwLjAsIDAuMCk7CgogIGZsb2F0IHgsIHksIHJhZGl1czsKICBmbG9hdCBhbmds\nZSA9IHR3b19waSAqIHBybmcoZ2xfRnJhZ0Nvb3JkLnh5KS54OwogIGZsb2F0IGFuZ2xlX3N0ZXAg\nPSB0d29fcGkgLyBzYW1wbGVzOwogIAogIGZvciAoZmxvYXQgaT0wLjA7IGk8bWF4X3NhbXBsZXM7\nIGkrPTEuMCkgewogICAgcmFkaXVzID0gYmx1cl9yYWRpdXMgKiBwcm5nKGFuZ2xlKTsKICAgIHgg\nPSBnbF9GcmFnQ29vcmQueCArIGNvcyhhbmdsZSkqcmFkaXVzOwogICAgeSA9IGdsX0ZyYWdDb29y\nZC55ICsgc2luKGFuZ2xlKSpyYWRpdXM7CiAgICBhbmdsZSArPSBhbmdsZV9zdGVwOwogICAgaWYg\nKHggPCAwLjAgfHwgeSA8IDAuMCB8fCB4ID49IG1ncmxfYnVmZmVyX3dpZHRoIHx8IHkgPj0gbWdy\nbF9idWZmZXJfaGVpZ2h0KSB7CiAgICAgIGNvbnRpbnVlOwogICAgfQogICAgY29sb3IgKz0gdGV4\ndHVyZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQodmVjMih4LCB5KSkp\nOwogICAgY291bnQgKz0gMS4wOwogICAgaWYgKGNvdW50ID49IHNhbXBsZXMpIHsKICAgICAgYnJl\nYWs7CiAgICB9CiAgfQogIAogIGlmIChjb3VudCA9PSAwLjApIHsKICAgIGNvbG9yID0gdGV4dHVy\nZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nvb3JkLnh5\nKSk7CiAgICBjb3VudCA9IDEuMDsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3IgLyBjb3VudDsK\nfQo=\n"};
+    please.__bundled_glsl = {"deferred_renderer/geometry_buffers.frag": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CgoKLy8gc2FtcGxlcnMK\nYmluZGluZ19jb250ZXh0IEdyYXBoTm9kZSB7CiAgdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90\nZXh0dXJlOwogIHVuaWZvcm0gc2FtcGxlcjJEIG5vcm1hbF90ZXh0dXJlOwogIG1vZGVfc3dpdGNo\nIGRpZmZ1c2VfY29sb3JfZnVuY3Rpb247CiAgbW9kZV9zd2l0Y2ggdGV4dHVyZV9jb29yZGluYXRl\nX2Z1bmN0aW9uOwoKICB1bmlmb3JtIGJvb2wgaGFzX25vcm1hbF9tYXA7Cn0KCgpzd2FwcGFibGUg\ndmVjMiB0ZXh0dXJlX2Nvb3JkaW5hdGVfZnVuY3Rpb24oKSB7CiAgcmV0dXJuIGxvY2FsX3Rjb29y\nZHM7Cn0KCgpzd2FwcGFibGUgdmVjNCBkaWZmdXNlX2NvbG9yX2Z1bmN0aW9uKCkgewogIHZlYzIg\ndGNvb3JkcyA9IHRleHR1cmVfY29vcmRpbmF0ZV9mdW5jdGlvbigpOwogIHJldHVybiB0ZXh0dXJl\nMkQoZGlmZnVzZV90ZXh0dXJlLCB0Y29vcmRzKTsKfQoKCnZvaWQgZ2J1ZmZlcnNfbWFpbigpIHsK\nICAvLyBnLWJ1ZmZlciBwYXNzCiAgdmVjNCBkaWZmdXNlID0gZGlmZnVzZV9jb2xvcl9mdW5jdGlv\nbigpOwogIGlmIChkaWZmdXNlLmEgPCAwLjUpIHsKICAgIGRpc2NhcmQ7CiAgfQogIGdsX0ZyYWdE\nYXRhWzBdID0gZGlmZnVzZTsKICBnbF9GcmFnRGF0YVsxXSA9IHZlYzQod29ybGRfcG9zaXRpb24s\nIGxpbmVhcl9kZXB0aCk7CiAgZ2xfRnJhZ0RhdGFbMl0gPSB2ZWM0KHdvcmxkX25vcm1hbCwgMC4w\nKTsKfQo=\n", "deferred_renderer/simple_brdf.glsl": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7Cgp1bmlmb3JtIHNhbXBs\nZXIyRCBkaWZmdXNlX3RleHR1cmU7CnVuaWZvcm0gdmVjMyBhbWJpZW50X2NvbG9yOwp1bmlmb3Jt\nIGZsb2F0IGFtYmllbnRfaW50ZW5zaXR5OwoKdmVjMyBicmRmX2Z1bmN0aW9uKGJyZGZfaW5wdXQg\ncGFyYW1zKSB7CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9GcmFn\nQ29vcmQueHkpOwogIHZlYzMgYmFzZV9jb2xvciA9IHRleHR1cmUyRChkaWZmdXNlX3RleHR1cmUs\nIHRjb29yZHMpLnJnYjsKCiAgZmxvYXQgaW5jaWRlbmNlID0gZG90KHBhcmFtcy5ub3JtYWxfdmVj\ndG9yLCBwYXJhbXMubGlnaHRfdmVjdG9yKTsKICB2ZWMzIHJlZmxlY3Rpb24gPSAyLjAgKiBwYXJh\nbXMubm9ybWFsX3ZlY3RvciAqIGluY2lkZW5jZSAtIHBhcmFtcy5saWdodF92ZWN0b3I7CgogIGZs\nb2F0IGludGVuc2l0eSA9IHBhcmFtcy5pbnRlbnNpdHkgKiBwYXJhbXMuZmFsbG9mZjsKCiAgdmVj\nMyBhbWJpZW50ID0gYW1iaWVudF9jb2xvciAqIGJhc2VfY29sb3IgKiBhbWJpZW50X2ludGVuc2l0\neTsKICB2ZWMzIGRpZmZ1c2UgPSBwYXJhbXMuY29sb3IgKiBpbmNpZGVuY2UgKiBiYXNlX2NvbG9y\nICogaW50ZW5zaXR5ICogcGFyYW1zLm9jY2x1c2lvbjsKICB2ZWMzIHNwZWN1bGFyID0gcGFyYW1z\nLmNvbG9yICogcG93KG1heChkb3QocmVmbGVjdGlvbiwgcGFyYW1zLnZpZXdfdmVjdG9yKSwgMC4w\nKSwgaW50ZW5zaXR5KSAqIHBhcmFtcy5vY2NsdXNpb247CgogIHJldHVybiBhbWJpZW50ICsgZGlm\nZnVzZSArIHNwZWN1bGFyOwp9Cg==\n", "picture_in_picture.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl93aWR0\naDsKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl9oZWlnaHQ7Cgp1bmlmb3JtIHZlYzIgcGlwX3Np\nemU7CnVuaWZvcm0gdmVjMiBwaXBfY29vcmQ7CnVuaWZvcm0gZmxvYXQgcGlwX2FscGhhOwp1bmlm\nb3JtIHNhbXBsZXIyRCBtYWluX3RleHR1cmU7CnVuaWZvcm0gc2FtcGxlcjJEIHBpcF90ZXh0dXJl\nOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2\nb2lkKSB7CiAgdmVjMiBzY3JlZW5fY29vcmQgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0Zy\nYWdDb29yZC54eSk7CiAgdmVjNCBjb2xvciA9IHRleHR1cmUyRChtYWluX3RleHR1cmUsIHNjcmVl\nbl9jb29yZCk7CgogIC8vIHNjYWxlIHRoZSBzY3JlZW5fY29vcmQgdG8gcmVwcmVzZW50IGEgcGVy\nY2VudAogIHNjcmVlbl9jb29yZCAqPSAxMDAuMDsKICB2ZWMyIHBpcF90ZXN0ID0gc2NyZWVuX2Nv\nb3JkIC0gcGlwX2Nvb3JkOwogIGlmIChwaXBfdGVzdC54ID49IDAuMCAmJiBwaXBfdGVzdC55ID49\nIDAuMCAmJiBwaXBfdGVzdC54IDw9IHBpcF9zaXplLnggJiYgcGlwX3Rlc3QueSA8PSBwaXBfc2l6\nZS55KSB7CiAgICB2ZWM0IHBpcF9jb2xvciA9IHRleHR1cmUyRChwaXBfdGV4dHVyZSwgcGlwX3Rl\nc3QgLyBwaXBfc2l6ZSk7CiAgICBjb2xvciA9IG1peChjb2xvciwgcGlwX2NvbG9yLCBwaXBfY29s\nb3IuYSAvIHBpcF9hbHBoYSk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "splat.vert": "CnVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7CnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5p\nZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4OwphdHRyaWJ1dGUgdmVjMyBwb3NpdGlvbjsKCgp2\nb2lkIG1haW4odm9pZCkgewogIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2aWV3\nX21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7Cn0K\n", "simple.vert": "Ci8vIHZlcnRleCBkYXRhCmF0dHJpYnV0ZSB2ZWMzIHBvc2l0aW9uOwphdHRyaWJ1dGUgdmVjMyBu\nb3JtYWw7CmF0dHJpYnV0ZSB2ZWMyIHRjb29yZHM7CgovLyBnbG9hYmwgbWF0cmljZXMKdW5pZm9y\nbSBtYXQ0IHZpZXdfbWF0cml4Owp1bmlmb3JtIG1hdDQgcGFydGljbGVfbWF0cml4Owp1bmlmb3Jt\nIG1hdDQgcHJvamVjdGlvbl9tYXRyaXg7CgovLyBtaXNjIGFkanVzdG1lbnRzCnVuaWZvcm0gZmxv\nYXQgbWdybF9vcnRob2dyYXBoaWNfc2NhbGU7CgoKYmluZGluZ19jb250ZXh0IEdyYXBoTm9kZSB7\nCiAgdW5pZm9ybSBtYXQ0IHdvcmxkX21hdHJpeDsKICB1bmlmb3JtIGZsb2F0IGJpbGxib2FyZF9t\nb2RlOwp9CgoKLy8gaW50ZXJwb2xhdGVkIHZlcnRleCBkYXRhIGluIHZhcmlvdXMgdHJhbnNmb3Jt\nYXRpb25zCnZhcnlpbmcgdmVjMyBsb2NhbF9wb3NpdGlvbjsKdmFyeWluZyB2ZWMzIGxvY2FsX25v\ncm1hbDsKdmFyeWluZyB2ZWMyIGxvY2FsX3Rjb29yZHM7CnZhcnlpbmcgdmVjMyB3b3JsZF9wb3Np\ndGlvbjsKdmFyeWluZyB2ZWMzIHdvcmxkX25vcm1hbDsKdmFyeWluZyB2ZWMzIHNjcmVlbl9ub3Jt\nYWw7CnZhcnlpbmcgZmxvYXQgbGluZWFyX2RlcHRoOwoKCnZvaWQgbWFpbih2b2lkKSB7CiAgLy8g\ncGFzcyBhbG9uZyB0byB0aGUgZnJhZ21lbnQgc2hhZGVyCiAgbG9jYWxfcG9zaXRpb24gPSBwb3Np\ndGlvbiAqIG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwogIGxvY2FsX25vcm1hbCA9IG5vcm1hbDsK\nICBsb2NhbF90Y29vcmRzID0gdGNvb3JkczsKCiAgLy8gY2FsY3VsYXRlIG1vZGVsdmlldyBtYXRy\naXgKICBtYXQ0IG1vZGVsX3ZpZXcgPSB2aWV3X21hdHJpeCAqIHdvcmxkX21hdHJpeDsKICBpZiAo\nYmlsbGJvYXJkX21vZGUgPiAwLjApIHsKICAgIC8vIGNsZWFyIG91dCByb3RhdGlvbiBpbmZvcm1h\ndGlvbgogICAgbW9kZWxfdmlld1swXS54eXogPSB3b3JsZF9tYXRyaXhbMF0ueHl6OwogICAgbW9k\nZWxfdmlld1syXS54eXogPSB3b3JsZF9tYXRyaXhbMl0ueHl6OwogICAgaWYgKGJpbGxib2FyZF9t\nb2RlID09IDIuMCkgewogICAgICBtb2RlbF92aWV3WzFdLnh5eiA9IHdvcmxkX21hdHJpeFsxXS54\neXo7CiAgICB9CiAgfQoKICAvLyB2YXJpb3VzIGNvb3JkaW5hdGUgdHJhbnNmb3JtcwogIHZlYzQg\nZmluYWxfcG9zaXRpb24gPSBwcm9qZWN0aW9uX21hdHJpeCAqIG1vZGVsX3ZpZXcgKiB2ZWM0KGxv\nY2FsX3Bvc2l0aW9uLCAxLjApOwogIHdvcmxkX3Bvc2l0aW9uID0gKHdvcmxkX21hdHJpeCAqIHZl\nYzQobG9jYWxfcG9zaXRpb24sIDEuMCkpLnh5ejsKICB3b3JsZF9ub3JtYWwgPSBub3JtYWxpemUo\nbWF0Myh3b3JsZF9tYXRyaXgpICogbm9ybWFsKS54eXo7CiAgc2NyZWVuX25vcm1hbCA9IG5vcm1h\nbGl6ZShtYXQzKHByb2plY3Rpb25fbWF0cml4ICogbW9kZWxfdmlldykgKiBub3JtYWwpLnh5ejsK\nICBsaW5lYXJfZGVwdGggPSBsZW5ndGgobW9kZWxfdmlldyAqIHZlYzQobG9jYWxfcG9zaXRpb24s\nIDEuMCkpOwogIGdsX1Bvc2l0aW9uID0gZmluYWxfcG9zaXRpb247Cn0K\n", "picking.frag": "CnZhcnlpbmcgdmVjMyBsb2NhbF9wb3NpdGlvbjsKdW5pZm9ybSB2ZWMzIG9iamVjdF9pbmRleDsK\ndW5pZm9ybSBib29sIG1ncmxfc2VsZWN0X21vZGU7CnVuaWZvcm0gdmVjMyBtZ3JsX21vZGVsX2xv\nY2FsX21pbjsKdW5pZm9ybSB2ZWMzIG1ncmxfbW9kZWxfbG9jYWxfc2l6ZTsKCgp2b2lkIG1haW4o\ndm9pZCkgewogIGlmIChtZ3JsX3NlbGVjdF9tb2RlKSB7CiAgICBnbF9GcmFnQ29sb3IgPSB2ZWM0\nKG9iamVjdF9pbmRleCwgMS4wKTsKICB9CiAgZWxzZSB7CiAgICB2ZWMzIHNoaWZ0ZWQgPSBsb2Nh\nbF9wb3NpdGlvbiAtIG1ncmxfbW9kZWxfbG9jYWxfbWluOwogICAgdmVjMyBzY2FsZWQgPSBzaGlm\ndGVkIC8gbWdybF9tb2RlbF9sb2NhbF9zaXplOwogICAgZ2xfRnJhZ0NvbG9yID0gdmVjNChzY2Fs\nZWQsIDEuMCk7CiAgfTsKfQo=\n", "diffuse.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKLy8gc2FtcGxlcnMKYmluZGluZ19jb250ZXh0IEdy\nYXBoTm9kZSB7CiAgdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0dXJlOwogIHVuaWZvcm0g\nZmxvYXQgYWxwaGE7CiAgdW5pZm9ybSBib29sIGlzX3Nwcml0ZTsKICB1bmlmb3JtIGJvb2wgaXNf\ndHJhbnNwYXJlbnQ7CgogIG1vZGVfc3dpdGNoIGRpZmZ1c2VfY29sb3JfZnVuY3Rpb247CiAgbW9k\nZV9zd2l0Y2ggdGV4dHVyZV9jb29yZGluYXRlX2Z1bmN0aW9uOwp9CgoKdmFyeWluZyB2ZWMzIGxv\nY2FsX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2YXJ5aW5nIHZlYzIgbG9j\nYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwoKCnN3YXBwYWJsZSB2ZWMy\nIHRleHR1cmVfY29vcmRpbmF0ZV9mdW5jdGlvbigpIHsKICByZXR1cm4gbG9jYWxfdGNvb3JkczsK\nfQoKCnN3YXBwYWJsZSB2ZWM0IGRpZmZ1c2VfY29sb3JfZnVuY3Rpb24oKSB7CiAgdmVjMiB0Y29v\ncmRzID0gdGV4dHVyZV9jb29yZGluYXRlX2Z1bmN0aW9uKCk7CiAgcmV0dXJuIHRleHR1cmUyRChk\naWZmdXNlX3RleHR1cmUsIHRjb29yZHMpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsKICB2ZWM0IGRp\nZmZ1c2UgPSBkaWZmdXNlX2NvbG9yX2Z1bmN0aW9uKCk7CiAgaWYgKGlzX3Nwcml0ZSkgewogICAg\nZmxvYXQgY3V0b2ZmID0gaXNfdHJhbnNwYXJlbnQgPyAwLjEgOiAxLjA7CiAgICBpZiAoZGlmZnVz\nZS5hIDwgY3V0b2ZmKSB7CiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgfQogIGRpZmZ1c2UuYSAqPSBh\nbHBoYTsKICBnbF9GcmFnQ29sb3IgPSBkaWZmdXNlOwp9Cg==\n", "stereo.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnVuaWZvcm0gdmVjNCBtZ3Js\nX2NsZWFyX2NvbG9yOwp1bmlmb3JtIGZsb2F0IG1ncmxfZnJhbWVfc3RhcnQ7CnVuaWZvcm0gZmxv\nYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfaGVpZ2h0OwoK\ndW5pZm9ybSBzYW1wbGVyMkQgbGVmdF9leWVfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgcmln\naHRfZXllX3RleHR1cmU7Cgp1bmlmb3JtIGJvb2wgc3RlcmVvX3NwbGl0Owp1bmlmb3JtIHZlYzMg\nbGVmdF9jb2xvcjsKdW5pZm9ybSB2ZWMzIHJpZ2h0X2NvbG9yOwoKdmVjNCBzYW1wbGVfb3JfY2xl\nYXIoc2FtcGxlcjJEIHNhbXBsZXIsIHZlYzIgY29vcmQpIHsKICB2ZWM0IGNvbG9yID0gdGV4dHVy\nZTJEKHNhbXBsZXIsIGNvb3JkKTsKICBpZiAoY29sb3IuYSA9PSAwLjApIHsKICAgIGNvbG9yID0g\nbWdybF9jbGVhcl9jb2xvcjsKICB9CiAgcmV0dXJuIGNvbG9yOwp9Cgp2b2lkIG1haW4odm9pZCkg\newogIHZlYzIgY29vcmQgPSBnbF9GcmFnQ29vcmQueHkgLyB2ZWMyKG1ncmxfYnVmZmVyX3dpZHRo\nLCBtZ3JsX2J1ZmZlcl9oZWlnaHQpOwogIHZlYzQgY29sb3I7CgogIGlmIChzdGVyZW9fc3BsaXQp\nIHsKICAgIC8vIEZJWE1FOiBhcHBseSBkaXN0b3J0aW9uIGVmZmVjdCBuZWVkZWQgZm9yIFZSIGds\nYXNzZXMKICAgIGlmIChjb29yZC54IDwgMC41KSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKGxl\nZnRfZXllX3RleHR1cmUsIHZlYzIoY29vcmQueCoyLjAsIGNvb3JkLnkpKTsKICAgIH0KICAgIGVs\nc2UgewogICAgICBjb2xvciA9IHRleHR1cmUyRChyaWdodF9leWVfdGV4dHVyZSwgdmVjMigoY29v\ncmQueCAtIDAuNSkqMi4wLCBjb29yZC55KSk7CiAgICB9CiAgfQoKICBlbHNlIHsKICAgIHZlYzMg\nbGVmdCA9IHNhbXBsZV9vcl9jbGVhcihsZWZ0X2V5ZV90ZXh0dXJlLCBjb29yZCkucmdiICogbGVm\ndF9jb2xvcjsKICAgIHZlYzMgcmlnaHQgPSBzYW1wbGVfb3JfY2xlYXIocmlnaHRfZXllX3RleHR1\ncmUsIGNvb3JkKS5yZ2IgKiByaWdodF9jb2xvcjsKICAgIGNvbG9yID0gdmVjNCgobGVmdCtyaWdo\ndCksIDEuMCk7CiAgfQogIAogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "diagonal_wipe.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBibHVyX3JhZGl1czsKdW5pZm9ybSBib29sIGZsaXBfYXhpczsK\ndW5pZm9ybSBib29sIGZsaXBfZGlyZWN0aW9uOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2b2lkKSB7CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFs\naXplX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkpOwogIGZsb2F0IHNsb3BlID0gbWdybF9i\ndWZmZXJfaGVpZ2h0IC8gbWdybF9idWZmZXJfd2lkdGg7CiAgaWYgKGZsaXBfYXhpcykgewogICAg\nc2xvcGUgKj0gLTEuMDsKICB9CiAgZmxvYXQgaGFsZl9oZWlnaHQgPSBtZ3JsX2J1ZmZlcl9oZWln\naHQgKiAwLjU7CiAgZmxvYXQgaGlnaF9wb2ludCA9IG1ncmxfYnVmZmVyX2hlaWdodCArIGhhbGZf\naGVpZ2h0ICsgYmx1cl9yYWRpdXMgKyAxLjA7CiAgZmxvYXQgbG93X3BvaW50ID0gKGhhbGZfaGVp\nZ2h0ICogLTEuMCkgLSBibHVyX3JhZGl1cyAtIDEuMDsKICBmbG9hdCBtaWRwb2ludCA9IG1peCho\naWdoX3BvaW50LCBsb3dfcG9pbnQsIGZsaXBfZGlyZWN0aW9uID8gMS4wIC0gcHJvZ3Jlc3MgOiBw\ncm9ncmVzcyk7CiAgZmxvYXQgdGVzdCA9ICgoZ2xfRnJhZ0Nvb3JkLnggLSBtZ3JsX2J1ZmZlcl93\naWR0aC8yLjApICogc2xvcGUpICsgbWlkcG9pbnQ7CgogIHZlYzQgY29sb3I7CiAgZmxvYXQgZGlz\ndCA9IGdsX0ZyYWdDb29yZC55IC0gdGVzdDsKICBpZiAoZGlzdCA8PSBibHVyX3JhZGl1cyAmJiBk\naXN0ID49IChibHVyX3JhZGl1cyotMS4wKSkgewogICAgdmVjNCBjb2xvcl9hID0gdGV4dHVyZTJE\nKHRleHR1cmVfYSwgdGNvb3Jkcyk7CiAgICB2ZWM0IGNvbG9yX2IgPSB0ZXh0dXJlMkQodGV4dHVy\nZV9iLCB0Y29vcmRzKTsKICAgIGZsb2F0IGJsZW5kID0gKGRpc3QgKyBibHVyX3JhZGl1cykgLyAo\nYmx1cl9yYWRpdXMqMi4wKTsKICAgIGNvbG9yID0gbWl4KGNvbG9yX2EsIGNvbG9yX2IsIGZsaXBf\nZGlyZWN0aW9uID8gMS4wIC0gYmxlbmQgOiBibGVuZCk7CiAgfQogIGVsc2UgewogICAgaWYgKChn\nbF9GcmFnQ29vcmQueSA8IHRlc3QgJiYgIWZsaXBfZGlyZWN0aW9uKSB8fCAoZ2xfRnJhZ0Nvb3Jk\nLnkgPiB0ZXN0ICYmIGZsaXBfZGlyZWN0aW9uKSkgewogICAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2EsIHRjb29yZHMpOwogICAgfQogICAgZWxzZSB7CiAgICAgIGNvbG9yID0gdGV4dHVy\nZTJEKHRleHR1cmVfYiwgdGNvb3Jkcyk7CiAgICB9CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9y\nOwp9Cg==\n", "deferred_renderer/main.frag": "I2V4dGVuc2lvbiBHTF9FWFRfZHJhd19idWZmZXJzIDogcmVxdWlyZQoKaW5jbHVkZSgiZGVmZXJy\nZWRfcmVuZGVyZXIvZ2VvbWV0cnlfYnVmZmVycy5mcmFnIik7CmluY2x1ZGUoImRlZmVycmVkX3Jl\nbmRlcmVyL3NoYWRvd19idWZmZXJzLmZyYWciKTsKaW5jbHVkZSgiZGVmZXJyZWRfcmVuZGVyZXIv\nbGlnaHRpbmdfcGFzc2VzLmZyYWciKTsKaW5jbHVkZSgiZGVmZXJyZWRfcmVuZGVyZXIvZmluaXNo\naW5nX3Bhc3MuZnJhZyIpOwoKdW5pZm9ybSBpbnQgc2hhZGVyX3Bhc3M7CgoKdm9pZCBtYWluKHZv\naWQpIHsKICBpZiAoc2hhZGVyX3Bhc3MgPT0gMCkgewogICAgLy8gVGhlIGdidWZmZXJzIHBhc3Mg\naXMgY2FsbGVkIG9uY2UgZnJvbSB0aGUgY2FtZXJhJ3MgcGVyc3BlY3RpdmUKICAgIC8vIHRvIHBv\ncHVsYXRlIHRoZSBnZW9tZXRyeSBidWZmZXJzLgogICAgZ2J1ZmZlcnNfbWFpbigpOwogIH0KICBl\nbHNlIGlmIChzaGFkZXJfcGFzcyA9PSAxKSB7CiAgICAvLyBUaGUgc2hhZG93IGJ1ZmZlcnMgcGFz\ncyBpcyBjYWxsZWQgbWFueSB0aW1lcywgYXQgbGVhc3Qgb25jZSBwZXIKICAgIC8vIGVhY2ggbGln\naHQgdGhhdCBjYXN0cyBhIHNoYWRvdy4gIFRoZSByZXN1bHRzIHdpbGwgYmUgdXNlZCBpbgogICAg\nLy8gdGhlIGxpZ2h0aW5nIHBhc3NlLgogICAgc2hhZG93X2J1ZmZlcnMoKTsKICB9CiAgZWxzZSBp\nZiAoc2hhZGVyX3Bhc3MgPT0gMikgewogICAgLy8gVGhlIGxpZ2h0aW5nIHBhc3MgaXMgY2FsbGVk\nIGF0IGxlYXN0IG9uY2UgcGVyIGxpZ2h0LiAgVGhlCiAgICAvLyBsaWdodGluZyBwYXNzZXMgYXJl\nIHNjcmVlbnNwYWNlIHBhc3NlcywgYW5kIHV0aWxpemUgaW5mb3JtYXRpb24KICAgIC8vIGluIHNv\nbWUgb2YgdGhlIGdidWZmZXJzIHRvIGFjY3VtdWxhdGUgYSBsaWdodG1hcC4KICAgIGxpZ2h0aW5n\nX3Bhc3MoKTsKICB9CiAgZWxzZSBpZiAoc2hhZGVyX3Bhc3MgPT0gMykgewogICAgLy8gVGhlIGZp\nbmlzaGluZyBwYXNzIGlzIGNhbGxlZCBvbmNlIHBlciBmcmFtZSwgYW5kIHRoZSByZXN1bHQgZnJv\nbQogICAgLy8gdGhlIGxpZ2h0aW5nIHBhc3NlcyBpcyBjb21wb3NpdGVkIHdpdGggdGhlIGRpZmZ1\nc2UgZ2J1ZmZlci4KICAgIGZpbmlzaGluZ19wYXNzKCk7CiAgfQp9Cg==\n", "deferred_renderer/main.vert": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2dlb21ldHJ5X2J1ZmZlcnMudmVydCIpOwoKYXR0\ncmlidXRlIHZlYzMgcG9zaXRpb247CmF0dHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZl\nYzIgdGNvb3JkczsKCmJpbmRpbmdfY29udGV4dCBHcmFwaE5vZGUgewogIC8vIG9iamVjdCBtYXRy\naWNlcwogIHVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7Cn0KCnVuaWZvcm0gbWF0NCB2aWV3X21h\ndHJpeDsKdW5pZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4Owp1bmlmb3JtIGJvb2wgZ2VvbWV0\ncnlfcGFzczsKCgp2b2lkIG1haW4odm9pZCkgewogIGlmIChnZW9tZXRyeV9wYXNzKSB7CiAgICBn\nbF9Qb3NpdGlvbiA9IGdidWZmZXJzX21haW4oKTsKICB9CiAgZWxzZSB7CiAgICBnbF9Qb3NpdGlv\nbiA9IHByb2plY3Rpb25fbWF0cml4ICogdmlld19tYXRyaXggKiB3b3JsZF9tYXRyaXggKiB2ZWM0\nKHBvc2l0aW9uLCAxLjApOwogIH0KfQo=\n", "normalize_screen_coord.glsl": "CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZm\nZXJfaGVpZ2h0OwoKLy8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0Zy\nYWdDb29yZC54eSwgd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNj\ncmVlbiBjb29yZGluYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0\nZSB0aGF0IGlzIG5vcm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0\nbyAxLjAuCi8vCnZlYzIgbm9ybWFsaXplX3NjcmVlbl9jb29yZCh2ZWMyIGNvb3JkKSB7CiAgcmV0\ndXJuIHZlYzIoY29vcmQueC9tZ3JsX2J1ZmZlcl93aWR0aCwgY29vcmQueS9tZ3JsX2J1ZmZlcl9o\nZWlnaHQpOwp9Cgo=\n", "color_curve.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gY3VydmUgZmxvYXQgdmFsdWVfY3VydmVbMTZdOwp1bmlmb3Jt\nIGN1cnZlIGZsb2F0IHJlZF9jdXJ2ZVsxNl07CnVuaWZvcm0gY3VydmUgZmxvYXQgZ3JlZW5fY3Vy\ndmVbMTZdOwp1bmlmb3JtIGN1cnZlIGZsb2F0IGJsdWVfY3VydmVbMTZdOwoKCmluY2x1ZGUoIm5v\ncm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCmZsb2F0IHZhbHVlKHZlYzMgY29sb3IpIHsK\nICByZXR1cm4gbWF4KGNvbG9yLnIsIG1heChjb2xvci5nLCBjb2xvci5iKSk7Cn0KCgp2b2lkIG1h\naW4odm9pZCkgewogIHZlYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJh\nZ0Nvb3JkLnh5KTsKICB2ZWMzIGNvbG9yID0gdGV4dHVyZTJEKGlucHV0X3RleHR1cmUsIHRjb29y\nZHMpLnJnYjsKCiAgZmxvYXQgdjEgPSB2YWx1ZShjb2xvcik7CiAgZmxvYXQgdjIgPSBzYW1wbGVf\nY3VydmUodmFsdWVfY3VydmUsIHYxKTsKICBmbG9hdCBzY2FsZSA9IDEuMCAvIHYxOwogIGNvbG9y\nID0gY29sb3IgKiBzY2FsZSAqIHYyOwogIAogIGNvbG9yLnIgPSBzYW1wbGVfY3VydmUocmVkX2N1\ncnZlLCBjb2xvci5yKTsKICBjb2xvci5nID0gc2FtcGxlX2N1cnZlKGdyZWVuX2N1cnZlLCBjb2xv\nci5nKTsKICBjb2xvci5iID0gc2FtcGxlX2N1cnZlKGJsdWVfY3VydmUsIGNvbG9yLmIpOwogIGds\nX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIDEuMCk7Cn0K\n", "deferred_renderer/common.glsl": "dmFyeWluZyB2ZWMzIGxvY2FsX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2\nYXJ5aW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2\nYXJ5aW5nIHZlYzMgd29ybGRfbm9ybWFsOwp2YXJ5aW5nIHZlYzMgc2NyZWVuX3Bvc2l0aW9uOwp2\nYXJ5aW5nIGZsb2F0IGxpbmVhcl9kZXB0aDsKCgpzdHJ1Y3QgYnJkZl9pbnB1dCB7CiAgdmVjMyB2\naWV3X3ZlY3RvcjsKICB2ZWMzIGxpZ2h0X3ZlY3RvcjsKICB2ZWMzIG5vcm1hbF92ZWN0b3I7CiAg\ndmVjMyBjb2xvcjsKICBmbG9hdCBmYWxsb2ZmOwogIGZsb2F0IGludGVuc2l0eTsKICBmbG9hdCBv\nY2NsdXNpb247Cn07CgoKc3RydWN0IGJyZGZfb3V0cHV0IHsKICB2ZWMzIGNvbG9yOwogIGZsb2F0\nIGludGVuc2l0eTsKfTsK\n", "deferred_renderer/shadow_buffers.frag": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CgoKdm9pZCBzaGFkb3df\nYnVmZmVycygpIHsKICBmbG9hdCBkZXB0aCA9IGxpbmVhcl9kZXB0aDsKICBnbF9GcmFnRGF0YVsw\nXSA9IHZlYzQoZGVwdGgsIGRlcHRoLCBkZXB0aCwgMS4wKTsKfQo=\n", "disintegrate.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBweF9zaXplOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCi8vIGh0dHBzOi8vc3RhY2tvdmVyZmxvdy5jb20vcXVlc3Rpb25zLzEy\nOTY0Mjc5L3doYXRzLXRoZS1vcmlnaW4tb2YtdGhpcy1nbHNsLXJhbmQtb25lLWxpbmVyCmZsb2F0\nIHJhbmRvbV9zZWVkKHZlYzIgY28pIHsKICByZXR1cm4gZnJhY3Qoc2luKGRvdChjby54eSAsdmVj\nMigxMi45ODk4LDc4LjIzMykpKSAqIDQzNzU4LjU0NTMpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsK\nICB2ZWMyIGdyaWQgPSBnbF9GcmFnQ29vcmQueHkgLyBweF9zaXplOwogIHZlYzIgb2Zmc2V0ID0g\nZnJhY3QoZ3JpZCkqMC41OwogIGZsb2F0IHJhbmRvbSA9IChyYW5kb21fc2VlZChmbG9vcihncmlk\nICsgb2Zmc2V0KSkqMC45KSArIDAuMTsKICByYW5kb20gKj0gKDEuMCAtIHByb2dyZXNzKTsKICB2\nZWMyIHRjb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAg\ndmVjNCBjb2xvcjsKICBpZiAocmFuZG9tIDwgMC4xKSB7CiAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2IsIHRjb29yZHMpOwogIH0KICBlbHNlIHsKICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYSwgdGNvb3Jkcyk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "deferred_renderer/finishing_pass.frag": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CmluY2x1ZGUoIm5vcm1h\nbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0\ndXJlOwp1bmlmb3JtIHNhbXBsZXIyRCBsaWdodF90ZXh0dXJlOwp1bmlmb3JtIGZsb2F0IGV4cG9z\ndXJlOwoKCnZvaWQgZmluaXNoaW5nX3Bhc3MoKSB7CiAgLy8gY29tYmluZSB0aGUgbGlnaHRpbmcg\nYW5kIGRpZmZ1c2UgcGFzc2VzIGFuZCBkaXNwbGF5CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXpl\nX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkpOwogIHZlYzQgZGlmZnVzZSA9IHRleHR1cmUy\nRChkaWZmdXNlX3RleHR1cmUsIHRjb29yZHMpOwogIGlmIChkaWZmdXNlLncgPT0gLTEuMCkgewog\nICAgZGlzY2FyZDsKICB9CiAgdmVjMyBsaWdodG1hcCA9IHRleHR1cmUyRChsaWdodF90ZXh0dXJl\nLCB0Y29vcmRzKS5yZ2I7CiAgZ2xfRnJhZ0RhdGFbMF0gPSB2ZWM0KGxpZ2h0bWFwIC8gZXhwb3N1\ncmUsIDEuMCk7Cn0K\n", "deferred_renderer/lighting_passes.frag": "CmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwppbmNsdWRlKCJkZWZlcnJl\nZF9yZW5kZXJlci9jb21tb24uZ2xzbCIpOwppbmNsdWRlKCJkZWZlcnJlZF9yZW5kZXJlci9zaW1w\nbGVfYnJkZi5nbHNsIik7Cgp1bmlmb3JtIHNhbXBsZXIyRCBzcGF0aWFsX3RleHR1cmU7CnVuaWZv\ncm0gc2FtcGxlcjJEIG5vcm1hbF90ZXh0dXJlOwoKdW5pZm9ybSBpbnQgbGlnaHRfdHlwZTsKCnVu\naWZvcm0gZmxvYXQgbGlnaHRfaW50ZW5zaXR5Owp1bmlmb3JtIG1hdDQgbGlnaHRfcHJvamVjdGlv\nbl9tYXRyaXg7CnVuaWZvcm0gbWF0NCBsaWdodF92aWV3X21hdHJpeDsKdW5pZm9ybSB2ZWMzIGxp\nZ2h0X3dvcmxkX3Bvc2l0aW9uOwp1bmlmb3JtIHZlYzMgbGlnaHRfY29sb3I7CnVuaWZvcm0gdmVj\nMyBjYW1lcmFfcG9zaXRpb247CnVuaWZvcm0gYm9vbCBjYXN0X3NoYWRvd3M7CgoKZmxvYXQgc3Bv\ndGxpZ2h0X3NoYWRvd3ModmVjMyB3b3JsZF9wb3NpdGlvbikgewogIC8vIFRoaXMgbWV0aG9kIGRl\ndGVybWluZXMgaWYgdGhlIGN1cnJlbnQgZnJhZ21lbnQgaXMgb2NjbHVkZWQgYnkgdGhlCiAgLy8g\nY3VycmVudCBsaWdodCdzIHNoYWRvdy4gIEEgcmV0dXJuIHZhbHVlIGJldHdlZW4gMC4wIGFuZCAx\nLjAgaXMKICAvLyBnaXZlbi4gIENhbGN1bGF0aW9ucyBhcmUgZG9uZSBpbiB0aGUgbGlnaHQncyB2\naWV3IHNwYWNlLgoKICAvLyB0aGUgcG9zaXRpb24gb2YgdGhlIGZyYWdtZW50IGluIHZpZXcgc3Bh\nY2UKICB2ZWMzIHZpZXdfcG9zaXRpb24gPSAobGlnaHRfdmlld19tYXRyaXggKiB2ZWM0KHdvcmxk\nX3Bvc2l0aW9uLCAxLjApKS54eXo7CgogIC8vIGFwcGx5IHRoZSBsaWdodCdzIHByb2plY3Rpb24g\nbWF0cml4CiAgdmVjNCBsaWdodF9wcm9qZWN0ZWQgPSBsaWdodF9wcm9qZWN0aW9uX21hdHJpeCAq\nIHZlYzQodmlld19wb3NpdGlvbiwgMS4wKTsKICAKICAvLyBkZXRlcm1pbmUgdGhlIHZlY3RvciBm\ncm9tIHRoZSBsaWdodCBzb3VyY2UgdG8gdGhlIGZyYWdtZW50CiAgdmVjMiBsaWdodF9ub3JtYWwg\nPSBsaWdodF9wcm9qZWN0ZWQueHkvbGlnaHRfcHJvamVjdGVkLnc7CiAgdmVjMiBsaWdodF91diA9\nIGxpZ2h0X25vcm1hbCowLjUrMC41OwoKICBpZiAobGlnaHRfdXYueCA8IDAuMCB8fCBsaWdodF91\ndi55IDwgMC4wIHx8IGxpZ2h0X3V2LnggPiAxLjAgfHwgbGlnaHRfdXYueSA+IDEuMCkgewogICAg\ncmV0dXJuIDAuMDsKICB9CiAgaWYgKGxlbmd0aChsaWdodF9ub3JtYWwpIDw9MS4wKSB7CiAgICBp\nZiAoY2FzdF9zaGFkb3dzKSB7CiAgICAgIGZsb2F0IGJpYXMgPSAwLjA7CiAgICAgIGZsb2F0IGxp\nZ2h0X2RlcHRoXzEgPSB0ZXh0dXJlMkQobGlnaHRfdGV4dHVyZSwgbGlnaHRfdXYpLnI7CiAgICAg\nIGZsb2F0IGxpZ2h0X2RlcHRoXzIgPSBsZW5ndGgodmlld19wb3NpdGlvbik7CiAgICAgIGZsb2F0\nIGlsbHVtaW5hdGVkID0gc3RlcChsaWdodF9kZXB0aF8yLCBsaWdodF9kZXB0aF8xICsgYmlhcyk7\nCiAgICAgIHJldHVybiBpbGx1bWluYXRlZDsKICAgIH0KICAgIGVsc2UgewogICAgICByZXR1cm4g\nMS4wOwogICAgfQogIH0KICBlbHNlIHsKICAgIHJldHVybiAwLjA7CiAgfQp9CgoKdmVjMyBzcG90\nbGlnaHRfaWxsdW1pbmF0aW9uKHZlYzMgd29ybGRfcG9zaXRpb24sIHZlYzMgd29ybGRfbm9ybWFs\nKSB7CiAgLy8gaWxsdW1pbmF0ZWQgdGVsbHMgdXMgaWYgdGhlIHBpeGVsIHdvdWxkIGJlIGluIHRo\nZSBjdXJyZW50IGxpZ2h0J3MKICAvLyBzaGFkb3cgb3Igbm90LgogIGZsb2F0IGlsbHVtaW5hdGVk\nID0gc3BvdGxpZ2h0X3NoYWRvd3Mod29ybGRfcG9zaXRpb24pOwogIGJyZGZfaW5wdXQgcGFyYW1z\nOwoKICBwYXJhbXMudmlld192ZWN0b3IgPSBub3JtYWxpemUoY2FtZXJhX3Bvc2l0aW9uIC0gd29y\nbGRfcG9zaXRpb24pOwogIHBhcmFtcy5saWdodF92ZWN0b3IgPSBub3JtYWxpemUobGlnaHRfd29y\nbGRfcG9zaXRpb24gLSB3b3JsZF9wb3NpdGlvbik7CiAgcGFyYW1zLm5vcm1hbF92ZWN0b3IgPSBu\nb3JtYWxpemUod29ybGRfbm9ybWFsKTsKICBwYXJhbXMuY29sb3IgPSBsaWdodF9jb2xvcjsKICBw\nYXJhbXMuaW50ZW5zaXR5ID0gbGlnaHRfaW50ZW5zaXR5OwogIHBhcmFtcy5mYWxsb2ZmID0gMS4w\nL3BvdyhkaXN0YW5jZSh3b3JsZF9ub3JtYWwsIHBhcmFtcy5saWdodF92ZWN0b3IpLCAyLjApOwog\nIHBhcmFtcy5vY2NsdXNpb24gPSBpbGx1bWluYXRlZDsKCiAgcmV0dXJuIGJyZGZfZnVuY3Rpb24o\ncGFyYW1zKTsKfQoKCnZlYzMgcG9pbnRsaWdodF9pbGx1bWluYXRpb24odmVjMyB3b3JsZF9wb3Np\ndGlvbiwgdmVjMyB3b3JsZF9ub3JtYWwpIHsKICAvLyBpbGx1bWluYXRlZCB0ZWxscyB1cyBpZiB0\naGUgcGl4ZWwgd291bGQgYmUgaW4gdGhlIGN1cnJlbnQgbGlnaHQncwogIC8vIHNoYWRvdyBvciBu\nb3QuCiAgZmxvYXQgaWxsdW1pbmF0ZWQgPSAxLjA7CiAgYnJkZl9pbnB1dCBwYXJhbXM7CgogIHBh\ncmFtcy52aWV3X3ZlY3RvciA9IG5vcm1hbGl6ZShjYW1lcmFfcG9zaXRpb24gLSB3b3JsZF9wb3Np\ndGlvbik7CiAgcGFyYW1zLmxpZ2h0X3ZlY3RvciA9IG5vcm1hbGl6ZShsaWdodF93b3JsZF9wb3Np\ndGlvbiAtIHdvcmxkX3Bvc2l0aW9uKTsKICBwYXJhbXMubm9ybWFsX3ZlY3RvciA9IG5vcm1hbGl6\nZSh3b3JsZF9ub3JtYWwpOwogIHBhcmFtcy5jb2xvciA9IGxpZ2h0X2NvbG9yOwogIHBhcmFtcy5p\nbnRlbnNpdHkgPSBsaWdodF9pbnRlbnNpdHk7CiAgcGFyYW1zLmZhbGxvZmYgPSAxLjAvcG93KGRp\nc3RhbmNlKHdvcmxkX25vcm1hbCwgcGFyYW1zLmxpZ2h0X3ZlY3RvciksIDIuMCk7CiAgcGFyYW1z\nLm9jY2x1c2lvbiA9IGlsbHVtaW5hdGVkOwoKICByZXR1cm4gYnJkZl9mdW5jdGlvbihwYXJhbXMp\nOwp9CgoKdmVjMyBzdW5saWdodF9pbGx1bWluYXRpb24odmVjMyB3b3JsZF9ub3JtYWwpIHsKICAv\nLyBpbGx1bWluYXRlZCB0ZWxscyB1cyBpZiB0aGUgcGl4ZWwgd291bGQgYmUgaW4gdGhlIGN1cnJl\nbnQgbGlnaHQncwogIC8vIHNoYWRvdyBvciBub3QuCiAgZmxvYXQgaWxsdW1pbmF0ZWQgPSAxLjA7\nCiAgYnJkZl9pbnB1dCBwYXJhbXM7CgogIHBhcmFtcy52aWV3X3ZlY3RvciA9IG5vcm1hbGl6ZShj\nYW1lcmFfcG9zaXRpb24gLSB3b3JsZF9wb3NpdGlvbik7CiAgcGFyYW1zLmxpZ2h0X3ZlY3RvciA9\nIG5vcm1hbGl6ZShsaWdodF93b3JsZF9wb3NpdGlvbik7CiAgcGFyYW1zLm5vcm1hbF92ZWN0b3Ig\nPSBub3JtYWxpemUod29ybGRfbm9ybWFsKTsKICBwYXJhbXMuY29sb3IgPSBsaWdodF9jb2xvcjsK\nICBwYXJhbXMuaW50ZW5zaXR5ID0gbGlnaHRfaW50ZW5zaXR5OwogIHBhcmFtcy5mYWxsb2ZmID0g\nMS4wOwogIHBhcmFtcy5vY2NsdXNpb24gPSBpbGx1bWluYXRlZDsKCiAgcmV0dXJuIGJyZGZfZnVu\nY3Rpb24ocGFyYW1zKTsKfQoKCnZvaWQgbGlnaHRpbmdfcGFzcygpIHsKICAvLyBsaWdodCBwZXJz\ncGVjdGl2ZSBwYXNzCiAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9G\ncmFnQ29vcmQueHkpOwogIHZlYzQgc3BhY2UgPSB0ZXh0dXJlMkQoc3BhdGlhbF90ZXh0dXJlLCB0\nY29vcmRzKTsKICB2ZWMzIG5vcm1hbCA9IHRleHR1cmUyRChub3JtYWxfdGV4dHVyZSwgdGNvb3Jk\ncykucmdiOwogIGlmIChzcGFjZS53ID09IC0xLjApIHsKICAgIGRpc2NhcmQ7CiAgfQogIGVsc2Ug\newogICAgdmVjMyBpcnJhZGlhbmNlOwogICAgaWYgKGxpZ2h0X3R5cGUgPT0gMCkgewogICAgICBp\ncnJhZGlhbmNlID0gc3BvdGxpZ2h0X2lsbHVtaW5hdGlvbihzcGFjZS54eXosIG5vcm1hbCk7CiAg\nICB9CiAgICBlbHNlIGlmIChsaWdodF90eXBlID09IDEpIHsKICAgICAgaXJyYWRpYW5jZSA9IHBv\naW50bGlnaHRfaWxsdW1pbmF0aW9uKHNwYWNlLnh5eiwgbm9ybWFsKTsKICAgIH0KICAgIGVsc2Ug\naWYgKGxpZ2h0X3R5cGUgPT0gMikgewogICAgICBpcnJhZGlhbmNlID0gc3VubGlnaHRfaWxsdW1p\nbmF0aW9uKG5vcm1hbCk7CiAgICB9CiAgICBnbF9GcmFnRGF0YVswXSA9IHZlYzQoaXJyYWRpYW5j\nZSwgMS4wKTsKICB9Cn0K\n", "curve_template.glsl": "Ly8gIERvIG5vdCBjYWxsIGluY2x1ZGUgb24gY3VydmVfdGVtcGxhdGUuZ2xzbCBpbiB5b3VyIHNv\ndXJjZSBmaWxlcy4KLy8gIFVzZSB0aGUgY3VydmUgbWFjcm8gaW5zdGVhZCEhIQoKR0xfVFlQRSBz\nYW1wbGVfY3VydmUoR0xfVFlQRSBzYW1wbGVzW0FSUkFZX0xFTl0sIGZsb2F0IGFscGhhKSB7CiAg\nZmxvYXQgcGljayA9IChBUlJBWV9MRU4uMCAtIDEuMCkgKiBhbHBoYTsKICBpbnQgbG93ID0gaW50\nKGZsb29yKHBpY2spKTsKICBpbnQgaGlnaCA9IGludChjZWlsKHBpY2spKTsKICBmbG9hdCBiZXRh\nID0gZnJhY3QocGljayk7CgogIEdMX1RZUEUgbG93X3NhbXBsZTsKICBHTF9UWVBFIGhpZ2hfc2Ft\ncGxlOwoKICAvLyB3b3JrYXJvdW5kIGJlY2F1c2UgZ2xzbCBkb2VzIG5vdCBhbGxvdyBmb3IgcmFu\nZG9tIGFjY2VzcyBvbiBhcnJheXMgPjpPCiAgZm9yIChpbnQgaT0wOyBpPEFSUkFZX0xFTjsgaSs9\nMSkgewogICAgaWYgKGkgPT0gbG93KSB7CiAgICAgIGxvd19zYW1wbGUgPSBzYW1wbGVzW2ldOwog\nICAgfQogICAgaWYgKGkgPT0gaGlnaCkgewogICAgICBoaWdoX3NhbXBsZSA9IHNhbXBsZXNbaV07\nCiAgICB9CiAgfQogIAogIHJldHVybiBtaXgobG93X3NhbXBsZSwgaGlnaF9zYW1wbGUsIGJldGEp\nOwp9Cg==\n", "deferred_renderer/geometry_buffers.vert": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CgoKYmluZGluZ19jb250\nZXh0IEdyYXBoTm9kZSB7CiAgLy8gb2JqZWN0IG1hdHJpY2VzCiAgdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKICB1bmlmb3JtIG1hdDQgcGFydGljbGVfbWF0cml4OwoKICAvLyBiaWxsYm9hcmQg\nc3ByaXRlcyBlbmFibGVyCiAgdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKfQoKCnVuaWZv\ncm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4Owp1bmlm\nb3JtIGZsb2F0IG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwoKCnZlYzQgZ2J1ZmZlcnNfbWFpbigp\nIHsKICAvLyBwYXNzIGFsb25nIHRvIHRoZSBmcmFnbWVudCBzaGFkZXIKICBsb2NhbF9wb3NpdGlv\nbiA9IHBvc2l0aW9uICogbWdybF9vcnRob2dyYXBoaWNfc2NhbGU7CiAgbG9jYWxfbm9ybWFsID0g\nbm9ybWFsOwogIGxvY2FsX3Rjb29yZHMgPSB0Y29vcmRzOwoKICAvLyBjYWxjdWxhdGUgbW9kZWx2\naWV3IG1hdHJpeAogIG1hdDQgbW9kZWxfdmlldyA9IHZpZXdfbWF0cml4ICogd29ybGRfbWF0cml4\nOwogIGlmIChiaWxsYm9hcmRfbW9kZSA+IDAuMCkgewogICAgLy8gY2xlYXIgb3V0IHJvdGF0aW9u\nIGluZm9ybWF0aW9uCiAgICBtb2RlbF92aWV3WzBdLnh5eiA9IHdvcmxkX21hdHJpeFswXS54eXo7\nCiAgICBtb2RlbF92aWV3WzJdLnh5eiA9IHdvcmxkX21hdHJpeFsyXS54eXo7CiAgICBpZiAoYmls\nbGJvYXJkX21vZGUgPT0gMi4wKSB7CiAgICAgIG1vZGVsX3ZpZXdbMV0ueHl6ID0gd29ybGRfbWF0\ncml4WzFdLnh5ejsKICAgIH0KICB9CgogIC8vIHZhcmlvdXMgY29vcmRpbmF0ZSB0cmFuc2Zvcm1z\nCiAgdmVjNCBmaW5hbF9wb3NpdGlvbiA9IHByb2plY3Rpb25fbWF0cml4ICogbW9kZWxfdmlldyAq\nIHZlYzQobG9jYWxfcG9zaXRpb24sIDEuMCk7CiAgd29ybGRfcG9zaXRpb24gPSAod29ybGRfbWF0\ncml4ICogdmVjNChsb2NhbF9wb3NpdGlvbiwgMS4wKSkueHl6OwogIHdvcmxkX25vcm1hbCA9IG5v\ncm1hbGl6ZShtYXQzKHdvcmxkX21hdHJpeCkgKiBub3JtYWwpLnh5ejsKICBzY3JlZW5fcG9zaXRp\nb24gPSBmaW5hbF9wb3NpdGlvbi54eXo7CiAgbGluZWFyX2RlcHRoID0gbGVuZ3RoKChtb2RlbF92\naWV3ICogdmVjNChsb2NhbF9wb3NpdGlvbiwgMS4wKSkpOwogIHJldHVybiBmaW5hbF9wb3NpdGlv\nbjsKfQo=\n", "scatter_blur.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gZmxvYXQgYmx1cl9yYWRpdXM7CnVuaWZvcm0gZmxvYXQgc2Ft\ncGxlczsKCmNvbnN0IGZsb2F0IG1heF9zYW1wbGVzID0gMzIuMDsKY29uc3QgZmxvYXQgdHdvX3Bp\nID0gNi4yODMxODUzMDcxODsKCgppbmNsdWRlKCJub3JtYWxpemVfc2NyZWVuX2Nvb3JkLmdsc2wi\nKTsKCgp2ZWMyIHNjcmVlbl9jbGFtcCh2ZWMyIGNvb3JkKSB7CiAgcmV0dXJuIGNsYW1wKGNvb3Jk\nLCB2ZWMyKDAuMCwgMC4wKSwgZ2xfRnJhZ0Nvb3JkLnh5KTsKfQoKCnZlYzIgcHJuZyh2ZWMyIGNv\nKSB7CiAgdmVjMiBhID0gZnJhY3QoY28ueXggKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7CiAgdmVj\nMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSArIGRvdChh\nLnl4LCBiKTsKICAvL3JldHVybiBmcmFjdChjLnggKiBjLnkgKiA5NS40MzM3KTsKICByZXR1cm4g\nZnJhY3QodmVjMihjLngqYy55Kjk1LjQzMzcsIGMueCpjLnkqOTcuNTk3KSk7Cn0KCgpmbG9hdCBw\ncm5nKGZsb2F0IG4pewogIHZlYzIgYSA9IGZyYWN0KG4gKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7\nCiAgdmVjMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSAr\nIGRvdChhLnl4LCBiKTsKICByZXR1cm4gZnJhY3QoYy54ICogYy55ICogOTUuNDMzNyk7Cn0KCgp2\nb2lkIG1haW4odm9pZCkgewogIGZsb2F0IGNvdW50ID0gMC4wOwogIHZlYzQgY29sb3IgPSB2ZWM0\nKDAuMCwgMC4wLCAwLjAsIDAuMCk7CgogIGZsb2F0IHgsIHksIHJhZGl1czsKICBmbG9hdCBhbmds\nZSA9IHR3b19waSAqIHBybmcoZ2xfRnJhZ0Nvb3JkLnh5KS54OwogIGZsb2F0IGFuZ2xlX3N0ZXAg\nPSB0d29fcGkgLyBzYW1wbGVzOwogIAogIGZvciAoZmxvYXQgaT0wLjA7IGk8bWF4X3NhbXBsZXM7\nIGkrPTEuMCkgewogICAgcmFkaXVzID0gYmx1cl9yYWRpdXMgKiBwcm5nKGFuZ2xlKTsKICAgIHgg\nPSBnbF9GcmFnQ29vcmQueCArIGNvcyhhbmdsZSkqcmFkaXVzOwogICAgeSA9IGdsX0ZyYWdDb29y\nZC55ICsgc2luKGFuZ2xlKSpyYWRpdXM7CiAgICBhbmdsZSArPSBhbmdsZV9zdGVwOwogICAgaWYg\nKHggPCAwLjAgfHwgeSA8IDAuMCB8fCB4ID49IG1ncmxfYnVmZmVyX3dpZHRoIHx8IHkgPj0gbWdy\nbF9idWZmZXJfaGVpZ2h0KSB7CiAgICAgIGNvbnRpbnVlOwogICAgfQogICAgY29sb3IgKz0gdGV4\ndHVyZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQodmVjMih4LCB5KSkp\nOwogICAgY291bnQgKz0gMS4wOwogICAgaWYgKGNvdW50ID49IHNhbXBsZXMpIHsKICAgICAgYnJl\nYWs7CiAgICB9CiAgfQogIAogIGlmIChjb3VudCA9PSAwLjApIHsKICAgIGNvbG9yID0gdGV4dHVy\nZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nvb3JkLnh5\nKSk7CiAgICBjb3VudCA9IDEuMDsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3IgLyBjb3VudDsK\nfQo=\n"};
     please.prop_map(please.__bundled_glsl, function (name, src) {
         addEventListener("mgrl_gl_context_created", function () {
             // see m.media.js's please.media.handlers.glsl for reference:

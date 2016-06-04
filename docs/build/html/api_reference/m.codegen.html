@@ -63,10 +63,13 @@ is intended for internal use only.</p>
 <p><em>please.format_invocation</em> <strong>(method, arg1, arg2, etc)</strong></p>
 <p>Returns a string containing what is hopefully valid JS source code for
 calling the specified method with hardcoded arguments.</p>
+<p>If the method string is equal to &#8220;=&#8221;, then the invocation will be
+formatted as an assignment statement, and exactly two arguments will be
+expected.</p>
 </div>
 <div class="section" id="please-jsir">
 <h2>please.JSIR<a class="headerlink" href="#please-jsir" title="Permalink to this headline">¶</a></h2>
-<p><em>please.JSIR</em> <strong>(force_dynamic, method_name, arg1, arg2, etc)</strong></p>
+<p><em>please.JSIR</em> <strong>(method_name, arg1, arg2, etc)</strong></p>
 <p>Constructor. Arguments are similar to &#8216;please.format_invocation&#8217; -
 first is the string for the method invocation this wraps, and the
 remaining params represent the arguments to said wrapped method.</p>
@@ -74,7 +77,9 @@ remaining params represent the arguments to said wrapped method.</p>
 be changed on the fly.</p>
 <p>Call the &#8216;compile&#8217; method with a cache object to produce the final
 output.</p>
-<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">ir</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">JSIR</span><span class="p">(</span><span class="kc">true</span><span class="p">,</span> <span class="s2">&quot;alert&quot;</span><span class="p">,</span> <span class="s2">&quot;hello world!&quot;</span><span class="p">);</span>
+<p>To mark a particular argument as being a non-static value, precede it by
+a &#8216;&#64;&#8217; like in the example below.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">ir</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">JSIR</span><span class="p">(</span><span class="s2">&quot;alert&quot;</span><span class="p">,</span> <span class="s1">&#39;@&#39;</span><span class="p">,</span> <span class="s2">&quot;hello world!&quot;</span><span class="p">);</span>
 <span class="kd">var</span> <span class="nx">cache</span> <span class="o">=</span> <span class="p">{};</span>
 <span class="kd">var</span> <span class="nx">generated</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Function</span><span class="p">(</span><span class="nx">ir</span><span class="p">.</span><span class="nx">compile</span><span class="p">(</span><span class="nx">cache</span><span class="p">)).</span><span class="nx">bind</span><span class="p">(</span><span class="nx">cache</span><span class="p">);</span>
 <span class="nx">generated</span><span class="p">();</span>
@@ -82,6 +87,33 @@ output.</p>
 <span class="nx">generated</span><span class="p">();</span>
 </pre></div>
 </div>
+</div>
+<div class="section" id="please-drawable-ir">
+<h2>please.__drawable_ir<a class="headerlink" href="#please-drawable-ir" title="Permalink to this headline">¶</a></h2>
+<p>*please.<a href="#id1"><span class="problematic" id="id2">**</span></a>drawable_ir* <a href="#id3"><span class="problematic" id="id4">**</span></a>(prog, vbo, ibo, ranges, defaults,
+graph_node)__</p>
+<p>Creates a list of IR objects needed to render a partical VBO/IBO of
+data. The only required params are &#8216;prog&#8217; and &#8216;vbo&#8217;.</p>
+<ul class="simple">
+<li><strong>prog</strong> a compiled shader program object</li>
+<li><strong>vbo</strong> a vbo object, as defined in m.gl.buffers.js</li>
+<li><strong>ibo</strong> an ibo object, as defined in m.gl.buffers.js</li>
+<li><strong>ranges</strong> is a list of two element lists. The values represent
+ranges to be passed into the draw calls. The first value is the
+starting vertex or face, the second value is the total number of
+vertices or faces to draw. If ommitted, it will default to [[null,
+null]], which will draw the entire buffer.</li>
+<li><strong>defaults</strong> a key-value store for the default uniform values</li>
+<li><strong>graph_node</strong> a graph node object to optionally data bind against</li>
+</ul>
+<p>This method returns a list of strings and IR objects that can be used to
+generate a function.</p>
+</div>
+<div class="section" id="please-compile-ir">
+<h2>please.__compile_ir<a class="headerlink" href="#please-compile-ir" title="Permalink to this headline">¶</a></h2>
+<p>*please.<a href="#id5"><span class="problematic" id="id6">**</span></a>compile_ir* <a href="#id7"><span class="problematic" id="id8">**</span></a>(ir_tokens, cache)__</p>
+<p>Takes a list of IR tokens and strings and generates a function from
+them.</p>
 </div>
 </div>
 
@@ -96,6 +128,8 @@ output.</p>
 <li><a class="reference internal" href="#">m.codegen.js</a><ul>
 <li><a class="reference internal" href="#please-format-invocation">please.format_invocation</a></li>
 <li><a class="reference internal" href="#please-jsir">please.JSIR</a></li>
+<li><a class="reference internal" href="#please-drawable-ir">please.__drawable_ir</a></li>
+<li><a class="reference internal" href="#please-compile-ir">please.__compile_ir</a></li>
 </ul>
 </li>
 </ul>
