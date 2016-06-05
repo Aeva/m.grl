@@ -79,7 +79,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     please.glsl(
         "mgrl_illumination",
         "deferred_renderer/main.vert",
-        "deferred_renderer/main.frag").activate();
+        "deferred_renderer/main.frag"
+    ).activate();
     
     // Scere Graph object
     var graph = demo.graph = new please.SceneGraph();
