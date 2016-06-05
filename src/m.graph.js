@@ -404,6 +404,7 @@ please.GraphNode = function () {
                     }
                     please.make_animatable(
                         this, name, initial_value, this.shader, false, this.__uniform_update);
+                    //this.__uniform_update(this.shader, name, this);
                 }
             }
 
@@ -412,6 +413,9 @@ please.GraphNode = function () {
                 var old_value = old_data[name];
                 if (old_value !== undefined && old_value !== null) {
                     this.__ani_store[name] = old_value;
+                    if (this.__ani_debug[name]) {
+                        //this.__uniform_update(this.shader, name, this);
+                    }
                 }
             }
         }.bind(this);
@@ -701,19 +705,37 @@ please.SceneGraph = function () {
     // changes.
     this.__flat = [];
     this.__lights = [];
+    this.__statics = [];
+    var find_draw_group = function (node) {
+        if (node.__is_light) {
+            return this.__lights;
+        }
+        else if (node.__static_draw_ir) {
+            return this.__statics;
+        }
+        else {
+            return this.__flat;
+        }
+    }.bind(this);
     this.__track = function (node) {
-        var group = node.__is_light ? this.__lights : this.__flat;
+        var group = find_draw_group(node);
         if (group.indexOf(node) === -1) {
             group.push(node);
+            if (group === this.__statics) {
+                node.graph_root.__regen_static_draw();
+            }
         }
     };
     this.__ignore = function (node) {
-        var group = node.__is_light ? this.__lights : this.__flat;
+        var group = find_draw_group(node);
         var index = group.indexOf(node);
         if (index !== -1) {
             group.splice(index, 1);
             ITER(i, node.children) {
                 this.__ignore(node.children[i]);
+            }
+            if (group === this.__statics) {
+                node.graph_root.__regen_static_draw();
             }
         }
     };
@@ -771,6 +793,40 @@ please.SceneGraph = function () {
 
     
 #ifdef WEBGL
+    this.__static_draw = null;
+    this.__static_cache = {"prog" : please.gl.__cache.current};
+    this.__regen_static_draw = new please.Signal(this);
+
+    this.__dirty_draw = false;
+    this.__recompiles = 0;
+    var recompile_draw = function () {
+        // rebuild the static draw function
+        var ir = [];
+        ITER(s, this.__statics) {
+            var node = this.__statics[s];
+            ir = ir.concat(node.__static_draw_ir);
+        }
+        var src = please.__compile_ir(ir, this.__static_cache);
+        this.__static_draw = new Function(src).bind(this.__static_cache);
+        this.__static_draw_src = src;
+        this.__static_draw_ir = ir;
+        this.__dirty_draw = false;
+        this.__recompiles += 1;
+        console.info(
+            "recompiled static draw function " + this.__recompiles + " times.");
+    }.bind(this);
+
+    // Mark the static draw function as being dirty, schedule a
+    // 'recompile_draw' call.  Using set timeout to run the call
+    // after the current callstack returns, so as to prevent
+    // some redundant recompiles.
+    this.__regen_static_draw.connect(function () {
+        if (!this.__dirty_draw) {
+            this.__dirty_draw = true;
+            window.setTimeout(recompile_draw, 0);
+        }
+    });
+    
     var gl_tick = function () {
         this.__last_framestart = please.time.__framestart;
 
@@ -815,7 +871,7 @@ please.SceneGraph = function () {
             this.camera.update_camera();
         }
 
-        var prog = please.gl.get_program();
+        var prog = this.__static_cache.prog = please.gl.get_program();
         if (this.camera) {
             prog.vars.projection_matrix = this.camera.projection_matrix;
             prog.vars.view_matrix = this.camera.view_matrix;
@@ -831,6 +887,9 @@ please.SceneGraph = function () {
         }
         else {
             throw new Error("The scene graph has no camera in it!");
+        }
+        if (this.__static_draw) {
+            this.__static_draw();
         }
         if (this.__states) {
             ITER_PROPS(hint, this.__states) {

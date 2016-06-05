@@ -173,11 +173,9 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
         }
     }
     var bindings = {};
-    ITER(u, uniforms) {
-        // generate the IR for uniforms and if applicable, set up the
-        // appropriate bindings to the supplied GraphNode
-        var name = uniforms[u];
-        var value = uniform_defaults[name];
+    // index for inserting new uniform bindings
+    var uniforms_offset = ir.length;
+    var add_binding = function (name, value) {
         var target = prog.samplers.hasOwnProperty(name) ? "samplers" : "vars";
         var cmd = "this.prog." + target + "['"+name+"']";
 
@@ -186,7 +184,10 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
             if (!graph_node.__ani_store[name]) {
                 graph_node.__ani_store[name] = value;
             }
-            if (typeof(graph_node.__ani_store[name]) == "function") {
+            if (!graph_node.__ani_store[name]) {
+                value = null;
+            }
+            else if (typeof(graph_node.__ani_store[name]) == "function") {
                 value = graph_node.__ani_debug[name].get;
             }
             else {
@@ -196,21 +197,40 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
                 }
             }
             var token = new please.JSIR('=', cmd, value);
-            bindings[name] = token;
         }
         else {
             // otherwise, just use static bindings
             var token = new please.JSIR('=', cmd, '@', value);
         }
-        ir.push(token);
+        // Using splice here instead of push so that we can insert
+        // before things added after the uniforms.
+        ir.splice(uniforms_offset, 0, token);
+        uniforms_offset += 1;
+        bindings[name] = token;
+    }
+    
+    ITER(u, uniforms) {
+        // generate the IR for uniforms and if applicable, set up the
+        // appropriate bindings to the supplied GraphNode
+        var name = uniforms[u];
+        var value = uniform_defaults[name];
+        add_binding(name, value);
     }
 
-    graph_node.__uniform_update.connect(function (target, prop, obj) {
-        if (bindings[prop]) {
-            bindings[prop].update_arg(1, obj.__ani_debug[prop].get);
-            ir.dirty();
-        }
-    });
+    if (graph_node) {
+        graph_node.__uniform_update.connect(function (target, prop, obj) {
+            if (bindings[prop]) {
+                bindings[prop].update_arg(1, obj.__ani_debug[prop].get);
+                ir.dirty();
+            }
+            else if (obj.__ani_store[prop] && obj.__ani_debug[prop]) {
+                add_binding(prop, obj.__ani_debug[prop].get);
+            }
+            else if (obj.__ani_store[prop]) {
+                add_binding(prop, obj.__ani_store[prop]);
+            }
+        });
+    }
 
     // add IR for appropriate draw call
     if (!ranges) {

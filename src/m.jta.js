@@ -206,9 +206,10 @@ please.gl.__jta_model = function (src, uri) {
                     var ir = please.__drawable_ir(
                         prog, model.vbo, model.ibo, draw_ranges, null, node);
                     ir.dirty.connect(function () {
-                        var src = please.__compile_ir(ir, cache)
-                        node.__static_draw = new Function(src).bind(cache);
-                        node.__debug_draw_src = src;
+                        node.__static_draw_ir = ir;
+                        if (node.graph_root) {
+                            node.graph_root.__regen_static_draw();
+                        }
                     });
                     ir.dirty();
                     node.__buffers = {
