@@ -63,6 +63,7 @@ please.JSIR = function (method_string/*, args */) {
     var args = Array.apply(null, arguments).slice(1);
     this.method = method_string;
     this.params = [];
+    this.compiled = false;
 
     var force_dynamic = false;
     ITER(a, args) {
@@ -106,7 +107,9 @@ please.JSIR.prototype.compile = function (cache) {
 please.JSIR.prototype.update_arg = function (index, value, cache) {
     var param = this.params[index];
     param.value = value;
-    param.dynamic = true;
+    if (this.compiled) {
+        param.dynamic = true;
+    }
     if (cache) {
         cache[param.id] = value;
     }

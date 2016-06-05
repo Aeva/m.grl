@@ -804,7 +804,13 @@ please.SceneGraph = function () {
         var ir = [];
         ITER(s, this.__statics) {
             var node = this.__statics[s];
-            ir = ir.concat(node.__static_draw_ir);
+            ITER(p, node.__static_draw_ir) {
+                var token = node.__static_draw_ir[p];
+                if (token.constructor == please.JSIR) {
+                    token.compiled = true;
+                }
+                ir.push(token);
+            }
         }
         var src = please.__compile_ir(ir, this.__static_cache);
         this.__static_draw = new Function(src).bind(this.__static_cache);
