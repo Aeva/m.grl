@@ -100,14 +100,22 @@ please.JSIR.prototype.compile = function (cache) {
         }
         args.push(lookup);
     }
-    return please.format_invocation.apply(please, args);
+    var prefix = '';
+    if (this.method == "=" && lookup == "null") {
+        // Dummy out the return value if we're setting something to
+        // null.  This should be made to be more specific to only
+        // dummy out the return value if we're setting something in
+        // prog.vars to null.
+        prefix = "// ";
+    }
+    return prefix + please.format_invocation.apply(please, args);
 };
 
 
 please.JSIR.prototype.update_arg = function (index, value, cache) {
     var param = this.params[index];
     param.value = value;
-    if (this.compiled) {
+    if (this.compiled || typeof(value) == "function") {
         param.dynamic = true;
     }
     if (cache) {
