@@ -186,19 +186,16 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
     var bindings = {};
     // index for inserting new uniform bindings
     var uniforms_offset = ir.length;
-    var add_binding = function (name, value) {
-        var target = prog.samplers.hasOwnProperty(name) ? "samplers" : "vars";
-        var cmd = "this.prog." + target + "['"+name+"']";
+    var bind_or_update_uniform = function (name, value) {
+        var binding = bindings[name] ? bindings[name] : null;
+        var compiled = binding ? binding.compiled : false;
 
         if (graph_node) {
-            // setup dynamic bindings
-            if (!graph_node.__ani_store[name]) {
+            var store = graph_node.__ani_store[name];
+            if (!store) {
                 graph_node.__ani_store[name] = value;
             }
-            if (!graph_node.__ani_store[name]) {
-                value = null;
-            }
-            else if (typeof(graph_node.__ani_store[name]) == "function") {
+            else if (typeof(store) == "function" || compiled) {
                 value = graph_node.__ani_debug[name].get;
             }
             else {
@@ -207,17 +204,33 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
                     value = '"' + value + '"';
                 }
             }
-            var token = new please.JSIR('=', cmd, value);
+        }
+
+        if (binding) {
+            if (binding.compiled) {
+                binding.update_arg(1, value);
+            }
+            else {
+                binding.update_arg(1, value);
+            }
         }
         else {
-            // otherwise, just use static bindings
-            var token = new please.JSIR('=', cmd, '@', value);
+            // create a new token for the uniform binding:
+            var target = prog.samplers.hasOwnProperty(name) ? "samplers" : "vars";
+            var cmd = "this.prog." + target + "['"+name+"']";
+            var token;
+            if (typeof(value) == "function") {
+                token = new please.JSIR('=', cmd, '@', value);
+            }
+            else {
+                token = new please.JSIR('=', cmd, value);
+            }
+            // Using splice here instead of push so that we can insert
+            // before things added after the uniforms if needed.
+            ir.splice(uniforms_offset, 0, token);
+            uniforms_offset += 1;
+            bindings[name] = token;
         }
-        // Using splice here instead of push so that we can insert
-        // before things added after the uniforms.
-        ir.splice(uniforms_offset, 0, token);
-        uniforms_offset += 1;
-        bindings[name] = token;
     }
     
     ITER(u, uniforms) {
@@ -225,21 +238,13 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
         // appropriate bindings to the supplied GraphNode
         var name = uniforms[u];
         var value = uniform_defaults[name];
-        add_binding(name, value);
+        bind_or_update_uniform(name, value);
     }
 
     if (graph_node) {
         graph_node.__uniform_update.connect(function (target, prop, obj) {
-            if (bindings[prop]) {
-                bindings[prop].update_arg(1, obj.__ani_debug[prop].get);
-                ir.dirty();
-            }
-            else if (obj.__ani_store[prop] && obj.__ani_debug[prop]) {
-                add_binding(prop, obj.__ani_debug[prop].get);
-            }
-            else if (obj.__ani_store[prop]) {
-                add_binding(prop, obj.__ani_store[prop]);
-            }
+            bind_or_update_uniform(prop, obj.__ani_store[prop]);
+            ir.dirty();
         });
     }
 

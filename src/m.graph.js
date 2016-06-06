@@ -413,9 +413,6 @@ please.GraphNode = function () {
                 var old_value = old_data[name];
                 if (old_value !== undefined && old_value !== null) {
                     this.__ani_store[name] = old_value;
-                    if (this.__ani_debug[name]) {
-                        //this.__uniform_update(this.shader, name, this);
-                    }
                 }
             }
         }.bind(this);
