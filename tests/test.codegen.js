@@ -16,8 +16,7 @@ test["codegen dynamic IR integration"] = function () {
 
     var ir = new please.JSIR("this.test_method", '@', 1, '@', 2);
     var src = ir.compile(cache);
-    assert(ir.dirty === false);
-
+ 
     var expected = 'this.test_method(this["';
     expected += ir.params[0].id + '"], ';
     expected += 'this["' + ir.params[1].id + '"]);';
@@ -28,7 +27,6 @@ test["codegen dynamic IR integration"] = function () {
     assert(cache.test_result === 3);
 
     ir.update_arg(0, "potato");
-    assert(ir.dirty === false);
     assert(cache[ir.params[0].id] == 1);
 
     ir.compile(cache);
@@ -49,7 +47,6 @@ test["codegen partial dynamic IR integration"] = function () {
 
     var ir = new please.JSIR("this.test_method", 1, '@', 2);
     var src = ir.compile(cache);
-    assert(ir.dirty === false);
 
     var expected = 'this.test_method(1, ';
     expected += 'this["' + ir.params[1].id + '"]);';
@@ -71,7 +68,6 @@ test["codegen static IR integration"] = function () {
 
     var ir = new please.JSIR("this.test_method", 1, 2);
     var src = ir.compile(cache);
-    assert(ir.dirty === false);
 
     var expected = 'this.test_method(1, 2);';
     assert(src === expected);
@@ -80,12 +76,11 @@ test["codegen static IR integration"] = function () {
     method();
     assert(cache.test_result === 3);
 
+    ir.compiled = true; // simulate that a compiled event occurred
     ir.update_arg(0, 3);
-    assert(ir.dirty === true);
     assert(cache[ir.params[0].id] == undefined);
 
     src = ir.compile(cache);
-    assert(ir.dirty === false);
     assert(cache[ir.params[0].id] == 3);
     assert(cache.test_result === 3); // unchanged
 

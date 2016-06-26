@@ -81,6 +81,9 @@ please.JSIR = function (method_string/*, args */) {
 };
 
 
+// Generates a line of javascript from the IR objcet.  The values of
+// dynamic variables will be updated into the object provided via the
+// 'cache' parameter.
 please.JSIR.prototype.compile = function (cache) {
     var args = [this.method];
     ITER(p, this.params) {
@@ -112,6 +115,10 @@ please.JSIR.prototype.compile = function (cache) {
 };
 
 
+// Updates the value of one of the parameters in the IR object.  If
+// the IR object was used in the compilation of a draw function
+// already, then this will also force the parameter to become dynamic
+// if it was not already.
 please.JSIR.prototype.update_arg = function (index, value, cache) {
     var param = this.params[index];
     param.value = value;
@@ -146,7 +153,7 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
 //  - **graph_node** a graph node object to optionally data bind against
 //
 // This method returns a list of strings and IR objects that can be
-// used to generate a function.
+// used to generate a function to draw the described object.
 //
 please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
     var ir = [];
