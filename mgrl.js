@@ -345,9 +345,20 @@ please.Signal = function (wrapped) {
     };
     signal.connect = function (callback) {
         callbacks.push(callback);
-    }
+    };
+    signal.disconnect = function (callback) {
+ while (true) {
+     var search = callbacks.indexOf(callback);
+     if (search == -1) {
+  break;
+     }
+     else {
+  callbacks.splice(search, 1);
+     }
+ };
+    };
     return signal;
-}
+};
 // [+] please.array_hash(array, digits)
 // 
 // Returns a string that represents the array.  This is mainly used
@@ -1243,7 +1254,7 @@ please.JSIR = function (method_string/*, args */) {
     var args = Array.apply(null, arguments).slice(1);
     this.method = method_string;
     this.params = [];
-    this.dirty = true;
+    this.compiled = false;
     var force_dynamic = false;
     for (var a=0; a<args.length; a+=1) {
         if (args[a] === '@') {
@@ -1258,6 +1269,9 @@ please.JSIR = function (method_string/*, args */) {
         force_dynamic = false;
     }
 };
+// Generates a line of javascript from the IR objcet.  The values of
+// dynamic variables will be updated into the object provided via the
+// 'cache' parameter.
 please.JSIR.prototype.compile = function (cache) {
     var args = [this.method];
     for (var p=0; p<this.params.length; p+=1) {
@@ -1277,16 +1291,26 @@ please.JSIR.prototype.compile = function (cache) {
         }
         args.push(lookup);
     }
-    this.dirty = false;
-    return please.format_invocation.apply(please, args);
+    var prefix = '';
+    if (this.method == "=" && lookup == "null") {
+        // Dummy out the return value if we're setting something to
+        // null.  This should be made to be more specific to only
+        // dummy out the return value if we're setting something in
+        // prog.vars to null.
+        prefix = "// ";
+    }
+    return prefix + please.format_invocation.apply(please, args);
 };
+// Updates the value of one of the parameters in the IR object.  If
+// the IR object was used in the compilation of a draw function
+// already, then this will also force the parameter to become dynamic
+// if it was not already.
 please.JSIR.prototype.update_arg = function (index, value, cache) {
     var param = this.params[index];
-    if (!param.dynamic) {
-        this.dirty = true;
-    }
     param.value = value;
-    param.dynamic = true;
+    if (this.compiled || typeof(value) == "function") {
+        param.dynamic = true;
+    }
     if (cache) {
         cache[param.id] = value;
     }
@@ -1313,7 +1337,7 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
 //  - **graph_node** a graph node object to optionally data bind against
 //
 // This method returns a list of strings and IR objects that can be
-// used to generate a function.
+// used to generate a function to draw the described object.
 //
 please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
     var ir = [];
@@ -1323,6 +1347,8 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
     if (ibo) {
         ir.push(ibo.static_bind);
     }
+    // recompile signal
+    ir.dirty = new please.Signal();
     // add IR for uniforms
     var uniforms = [];
     var uniform_defaults = defaults || {};
@@ -1345,26 +1371,65 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
             uniforms.push(name);
         }
     }
+    var bindings = {};
+    // index for inserting new uniform bindings
+    var uniforms_offset = ir.length;
+    var bind_or_update_uniform = function (name, value) {
+        var binding = bindings[name] ? bindings[name] : null;
+        var compiled = binding ? binding.compiled : false;
+        if (graph_node) {
+            var store = graph_node.__ani_store[name];
+            if (!store) {
+                graph_node.__ani_store[name] = value;
+            }
+            else if (typeof(store) == "function" || compiled) {
+                value = graph_node.__ani_debug[name].get;
+            }
+            else {
+                value = graph_node.__ani_store[name];
+                if (typeof(value) == "string") {
+                    value = '"' + value + '"';
+                }
+            }
+        }
+        if (binding) {
+            if (binding.compiled) {
+                binding.update_arg(1, value);
+            }
+            else {
+                binding.update_arg(1, value);
+            }
+        }
+        else {
+            // create a new token for the uniform binding:
+            var target = prog.samplers.hasOwnProperty(name) ? "samplers" : "vars";
+            var cmd = "this.prog." + target + "['"+name+"']";
+            var token;
+            if (typeof(value) == "function") {
+                token = new please.JSIR('=', cmd, '@', value);
+            }
+            else {
+                token = new please.JSIR('=', cmd, value);
+            }
+            // Using splice here instead of push so that we can insert
+            // before things added after the uniforms if needed.
+            ir.splice(uniforms_offset, 0, token);
+            uniforms_offset += 1;
+            bindings[name] = token;
+        }
+    }
     for (var u=0; u<uniforms.length; u+=1) {
         // generate the IR for uniforms and if applicable, set up the
         // appropriate bindings to the supplied GraphNode
         var name = uniforms[u];
         var value = uniform_defaults[name];
-        var target = prog.samplers.hasOwnProperty(name) ? "samplers" : "vars";
-        var cmd = "this.prog." + target + "['"+name+"']";
-        if (graph_node) {
-            // setup dynamic bindings
-            if (!graph_node.__ani_store[name]) {
-                graph_node.__ani_store[name] = value;
-            }
-            value = graph_node.__ani_debug[name].get;
-            var token = new please.JSIR('=', cmd, value);
-        }
-        else {
-            // otherwise, just use static bindings
-            var token = new please.JSIR('=', cmd, '@', value);
-        }
-        ir.push(token);
+        bind_or_update_uniform(name, value);
+    }
+    if (graph_node) {
+        graph_node.__uniform_update.connect(function (target, prop, obj) {
+            bind_or_update_uniform(prop, obj.__ani_store[prop]);
+            ir.dirty();
+        });
     }
     // add IR for appropriate draw call
     if (!ranges) {
@@ -6701,8 +6766,13 @@ please.gl.__jta_model = function (src, uri) {
                     cache.prog = prog;
                     var ir = please.__drawable_ir(
                         prog, model.vbo, model.ibo, draw_ranges, null, node);
-                    var src = please.__compile_ir(ir, cache)
-                    node.__static_draw = new Function(src).bind(cache);
+                    ir.dirty.connect(function () {
+                        node.__static_draw_ir = ir;
+                        if (node.graph_root) {
+                            node.graph_root.__regen_static_draw();
+                        }
+                    });
+                    ir.dirty();
                     node.__buffers = {
                         "vbo" : model.vbo,
                         "ibo" : model.ibo,
@@ -8412,8 +8482,17 @@ please.GraphNode = function () {
     var prog = please.gl.get_program();
     this.__local_matrix_cache = mat4.create();
     this.__world_matrix_cache = mat4.create();
+    this.__uniform_update = new please.Signal();
     if (please.renderer.name === "gl") {
         // code specific to the webgl renderer
+        var bind_driver = function (name, value) {
+            please.make_animatable(
+                this, name, value, this.shader, true, this.__uniform_update);
+        }.bind(this);
+        var bind_vec_driver = function (name, channels, value) {
+            please.make_animatable_tripple(
+                this, name, channels, value, this.shader, true, this.__uniform_update);
+        }.bind(this);
         this.__regen_glsl_bindings = function (event) {
             // GLSL bindings with default driver methods:
             var prog = please.gl.__cache.current;
@@ -8425,21 +8504,15 @@ please.GraphNode = function () {
             var old_data = this.__ani_store;
             this.__ani_store = {};
             this.shader = {};
-            please.make_animatable(
-                this, "world_matrix", this.__world_matrix_driver, this.shader, true);
-            please.make_animatable(
-                this, "normal_matrix", this.__normal_matrix_driver, this.shader, true);
+            bind_driver("world_matrix", this.__world_matrix_driver);
+            bind_driver("normal_matrix", this.__normal_matrix_driver);
             // GLSLS bindings with default behaviors
             please.make_animatable(
-                this, "alpha", 1.0, this.shader);
-            please.make_animatable(
-                this, "is_sprite", this.__is_sprite_driver, this.shader, true);
-            please.make_animatable(
-                this, "is_transparent", this.__is_transparent_driver, this.shader, true);
-            please.make_animatable_tripple(
-                this, "object_index", "rgb", this.__object_id_driver, this.shader, true);
-            please.make_animatable(
-                this, "billboard_mode", this.__billboard_driver, this.shader, true);
+                this, "alpha", 1.0, this.shader, false, this.__uniform_update);
+            bind_driver("is_sprite", this.__is_sprite_driver);
+            bind_driver("is_transparent", this.__is_transparent_driver);
+            bind_vec_driver("object_index", "rgb", this.__object_id_driver);
+            bind_driver("billboard_mode", this.__billboard_driver);
             // prog.samplers is a subset of prog.vars
             for (var name, i=0; i<prog.uniform_list.length; i+=1) {
                 name = prog.uniform_list[i];
@@ -8448,7 +8521,9 @@ please.GraphNode = function () {
                     if (prog.binding_ctx["GraphNode"].indexOf(name) > -1) {
                         initial_value = prog.__uniform_initial_value(name);
                     }
-                    please.make_animatable(this, name, initial_value, this.shader);
+                    please.make_animatable(
+                        this, name, initial_value, this.shader, false, this.__uniform_update);
+                    //this.__uniform_update(this.shader, name, this);
                 }
             }
             // restore old values that were wiped out
@@ -8729,19 +8804,37 @@ please.SceneGraph = function () {
     // changes.
     this.__flat = [];
     this.__lights = [];
+    this.__statics = [];
+    var find_draw_group = function (node) {
+        if (node.__is_light) {
+            return this.__lights;
+        }
+        else if (node.__static_draw_ir) {
+            return this.__statics;
+        }
+        else {
+            return this.__flat;
+        }
+    }.bind(this);
     this.__track = function (node) {
-        var group = node.__is_light ? this.__lights : this.__flat;
+        var group = find_draw_group(node);
         if (group.indexOf(node) === -1) {
             group.push(node);
+            if (group === this.__statics) {
+                node.graph_root.__regen_static_draw();
+            }
         }
     };
     this.__ignore = function (node) {
-        var group = node.__is_light ? this.__lights : this.__flat;
+        var group = find_draw_group(node);
         var index = group.indexOf(node);
         if (index !== -1) {
             group.splice(index, 1);
             for (var i=0; i<node.children.length; i+=1) {
                 this.__ignore(node.children[i]);
+            }
+            if (group === this.__statics) {
+                node.graph_root.__regen_static_draw();
             }
         }
     };
@@ -8790,6 +8883,7 @@ please.SceneGraph = function () {
     var z_sort_function = function (lhs, rhs) {
         return rhs.__z_depth - lhs.__z_depth;
     };
+    this.__regen_static_draw = new please.Signal(this);
     var gl_tick = function () {
         this.__last_framestart = please.time.__framestart;
         // nodes in the z-sorting path
@@ -8821,71 +8915,7 @@ please.SceneGraph = function () {
         };
     };
     var gl_draw = function (exclude_test) {
-        if (this.__last_framestart < please.time.__framestart) {
-            // note, this.__last_framestart can be null, but
-            // null<positive_number will evaluate to true anyway.
-            this.tick();
-        }
-        if (this.camera) {
-            this.camera.update_camera();
-        }
-        var prog = please.gl.get_program();
-        if (this.camera) {
-            prog.vars.projection_matrix = this.camera.projection_matrix;
-            prog.vars.view_matrix = this.camera.view_matrix;
-            prog.vars.focal_distance = this.camera.focal_distance;
-            prog.vars.depth_of_field = this.camera.depth_of_field;
-            prog.vars.depth_falloff = this.camera.depth_falloff;
-            if (this.camera.__projection_mode === "orthographic") {
-                prog.vars.mgrl_orthographic_scale = 32/this.camera.orthographic_grid;
-            }
-            else {
-                prog.vars.mgrl_orthographic_scale = 1.0;
-            }
-        }
-        else {
-            throw new Error("The scene graph has no camera in it!");
-        }
-        if (this.__states) {
-            for (var hint in this.__states) if (this.__states.hasOwnProperty(hint)) {
-                var children = this.__states[hint];
-                for (var i=0; i<children.length; i+=1) {
-                    var child = children[i];
-                    if (!(exclude_test && exclude_test(child))) {
-                        if (child.__static_draw) {
-                            child.__static_draw();
-                        }
-                        else {
-                            child.__bind(prog);
-                            child.__draw(prog);
-                        }
-                    }
-                }
-            }
-        }
-        if (this.__alpha) {
-            // sort the transparent items by z
-            var screen_matrix = mat4.create();
-            mat4.multiply(
-                screen_matrix,
-                this.camera.projection_matrix,
-                this.camera.view_matrix);
-            for (var i=0; i<this.__alpha.length; i+=1) {
-                var child = this.__alpha[i];
-                child.__z_sort_prep(screen_matrix);
-            };
-            this.__alpha.sort(z_sort_function);
-            // draw translucent elements
-            gl.depthMask(false);
-            for (var i=0; i<this.__alpha.length; i+=1) {
-                var child = this.__alpha[i];
-                if (!(exclude_test && exclude_test(child))) {
-                    child.__bind(prog);
-                    child.__draw(prog);
-                }
-            }
-            gl.depthMask(true);
-        }
+        throw new Error("Use a RenderNode to draw the scene graph!");
     };
     var dom_draw = function () {
         if (this.__last_framestart < please.time.__framestart) {
@@ -9688,24 +9718,168 @@ please.RenderNode = function (prog, options) {
     }
     // clear color for this pass
     please.make_animatable_tripple(this, "clear_color", "rgba", [1, 1, 1, 1]);
-    // caching stuff
+    // Book keeping for tracking how many times this is node is
+    // rendered in a frame, to allow results to be cached.
     this.__last_framestart = null;
-    this.__cached = null;
-    // optional mechanism for specifying that a graph should be
-    // rendered, without giving a custom render function.
-    this.graph = null;
+    this.__cached_framebuffer = null;
+    // The "graph" property is an optional mechanism for which a scene
+    // graph may be associated with a compositing node.  A custom
+    // rendering function will be generated for the graph to make
+    // rendering as efficient as possible.
+    this.__static_draw_cache = {
+ "prog" : prog,
+ "graph" : null,
+    };
+    this.__dirty_draw = false;
+    this.__graph = null;
+    var recompile_me = __recompile_draw.bind(this);
+    var node = this;
+    Object.defineProperty(node, "graph", {
+        "get" : function () {
+            return node.__graph;
+        },
+        "set" : function (new_graph) {
+     var old_graph = node.__graph;
+     if (old_graph !== new_graph) {
+  if (old_graph) {
+      old_graph.__regen_static_draw.disconnect(recompile_me);
+  }
+  if (new_graph) {
+      new_graph.__regen_static_draw.connect(recompile_me);
+  }
+  node.__graph = !!new_graph ? new_graph : null;
+  node.__static_draw_cache.graph = new_graph;
+  node.__recompile_draw();
+     }
+     else {
+  return new_graph;
+     }
+        },
+    });
     prog.cache_clear();
+    this.__recompile_draw();
 };
 please.RenderNode.prototype = {
     "peek" : null,
-    "render" : function () {
-        if (this.graph !== null) {
-            this.graph.draw();
+    "render" : function () {},
+};
+please.RenderNode.prototype.__splat_draw = function () {
+    // Render this node as a full screen quad.
+    please.gl.splat();
+};
+please.RenderNode.prototype.__recompile_draw = function () {
+    // Mark the static draw function as being dirty, schedule a
+    // 'recompile_draw' call.  Using set timeout to run the call
+    // after the current callstack returns, so as to prevent
+    // some redundant recompiles.
+    if (!this.__graph) {
+ this.render = this.__splat_draw;
+    }
+    else if (!this.__dirty_draw) {
+        this.__dirty_draw = true;
+        window.setTimeout(function () {
+     this.__compile_graph_draw();
+ }.bind(this), 0);
+    }
+};
+please.RenderNode.prototype.__compile_graph_draw = function () {
+    // (Re)compiles the draw function for this RenderNode, so as to
+    // most efficiently render the information described in the
+    // assigned graph root.
+    var graph = this.__graph;
+    var ir = [];
+    // Generate render function prefix IR.
+    ir.push(
+"var camera = this.graph.camera || null;" +
+"var graph = this.graph;" +
+"var prog = this.prog;" +
+"if (graph.__last_framestart < please.time.__framestart) {" +
+"// note, this.__last_framestart can be null, but" +
+"// null<positive_number will evaluate to true anyway." +
+"graph.tick();" +
+"}" +
+"if (camera) {" +
+"graph.camera.update_camera();" +
+"prog.vars.projection_matrix = camera.projection_matrix;" +
+"prog.vars.view_matrix = camera.view_matrix;" +
+"prog.vars.focal_distance = camera.focal_distance;" +
+"prog.vars.depth_of_field = camera.depth_of_field;" +
+"prog.vars.depth_falloff = camera.depth_falloff;" +
+'if (camera.__projection_mode === "orthographic") {' +
+"prog.vars.mgrl_orthographic_scale = 32/camera.orthographic_grid;" +
+"}" +
+"else {" +
+"prog.vars.mgrl_orthographic_scale = 1.0;" +
+"}" +
+"else {" +
+'throw new Error("The scene graph has no camera in it!");' +
+"}" +
+"}" +
+"" +
+"// BEGIN GENERATED GRAPH RENDERING CODE" );
+    // Generate the IR for rendering the individual graph nodes.
+    for (var s=0; s<graph.__statics.length; s+=1) {
+        var node = graph.__statics[s];
+        for (var p=0; p<node.__static_draw_ir.length; p+=1) {
+            var token = node.__static_draw_ir[p];
+            if (token.constructor == please.JSIR) {
+                token.compiled = true;
+            }
+            ir.push(token);
         }
-        else {
-            please.gl.splat();
-        }
-    },
+    }
+    // Generate render function suffix IR.
+    ir.push(
+"// END GENERATED GRAPH RENDERING CODE" +
+"" +
+"// Legacy dynamic rendering code follows:" +
+"if (graph.__states) {" +
+"ITER_PROPS(hint, graph.__states) {" +
+"var children = graph.__states[hint];" +
+"ITER(i, children) {" +
+"var child = children[i];" +
+"if (!(exclude_test && exclude_test(child))) {" +
+"if (child.__static_draw) {" +
+"child.__static_draw();" +
+"}" +
+"else {" +
+"child.__bind(prog);" +
+"child.__draw(prog);" +
+"}" +
+"}" +
+"}" +
+"}" +
+"}" +
+"if (graph.__alpha) {" +
+"// sort the transparent items by z" +
+"var screen_matrix = mat4.create();" +
+"mat4.multiply(" +
+"screen_matrix," +
+"camera.projection_matrix," +
+"camera.view_matrix);" +
+"ITER(i, graph.__alpha) {" +
+"var child = graph.__alpha[i];" +
+"child.__z_sort_prep(screen_matrix);" +
+"};" +
+"graph.__alpha.sort(z_sort_function);" +
+"" +
+"// draw translucent elements" +
+"gl.depthMask(false);" +
+"ITER(i, graph.__alpha) {" +
+"var child = graph.__alpha[i];" +
+"if (!(exclude_test && exclude_test(child))) {" +
+"child.__bind(prog);" +
+"child.__draw(prog);" +
+"}" +
+"}" +
+"gl.depthMask(true);" +
+"}" );
+    var src = please.__compile_ir(ir, this.__static_draw_cache);
+    graph.render = new Function(src).bind(this.__static_draw_cache);
+    graph.__render_src = src;
+    graph.__render_ir = ir;
+    graph.__dirty_draw = false;
+    console.info("recompiled a static draw function");
 };
 // [+] please.set_viewport(render_node)
 //
@@ -9744,8 +9918,8 @@ please.render = function(node) {
     if (node.frequency) {
         delay = (1/node.frequency)*1000;
     }
-    if (stack.length > 0 && (node.__last_framestart+delay) >= expire && node.__cached) {
-        return node.__cached;
+    if (stack.length > 0 && (node.__last_framestart+delay) >= expire && node.__cached_framebuffer) {
+        return node.__cached_framebuffer;
     }
     else {
         node.__last_framestart = please.time.__framestart;
@@ -9797,7 +9971,7 @@ please.render = function(node) {
     // activate the shader program
     node.__prog.activate();
     // use an indirect texture if the stack length is greater than 1
-    node.__cached = stack.length > 0 ? node.__id : null;
+    node.__cached_framebuffer = stack.length > 0 ? node.__id : null;
     // upload shader vars
     for (var name in node.shader) {
         if (node.__prog.vars.hasOwnProperty(name)) {
@@ -9814,20 +9988,20 @@ please.render = function(node) {
     }
     for (var i=0; i<node.__prog.sampler_list.length; i+=1) {
         var name = node.__prog.sampler_list[i];
-        if (node.__prog.samplers[name] === node.__cached) {
+        if (node.__prog.samplers[name] === node.__cached_framebuffer) {
             node.__prog.samplers[name] = "error_image";
         }
     }
     // call the rendering logic
-    please.gl.set_framebuffer(node.__cached);
+    please.gl.set_framebuffer(node.__cached_framebuffer);
     gl.clearColor.apply(gl, node.clear_color);
     node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     node.render();
     // optionally pull the texture data into an array and trigger a
     // callback
-    if (node.stream_callback && node.__cached) {
-        var fbo = please.gl.__cache.textures[node.__cached].fbo;
+    if (node.stream_callback && node.__cached_framebuffer) {
+        var fbo = please.gl.__cache.textures[node.__cached_framebuffer].fbo;
         var width = fbo.options.width;
         var height = fbo.options.height;
         var format = fbo.options.format;
@@ -9870,11 +10044,11 @@ please.render = function(node) {
         gl.clearColor.apply(gl, please.__clear_color);
     }
     // return the uuid of the render node if we're doing indirect rendering
-    if (node.__cached && node.selected_texture) {
+    if (node.__cached_framebuffer && node.selected_texture) {
         return node.__id + "::" + node.selected_texture;
     }
     else {
-        return node.__cached;
+        return node.__cached_framebuffer;
     }
 };
 // [+] please.indirect_render(node)

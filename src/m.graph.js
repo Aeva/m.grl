@@ -618,6 +618,9 @@ please.GraphNode.prototype = {
         var position = vec3.transformMat4(vec3.create(), this.location, matrix);
         this.__z_depth = position[2];
     },
+    "__z_sort_function" : function (lhs, rhs) {
+        return rhs.__z_depth - lhs.__z_depth;
+    },
 #ifdef WEBGL
     "__static_draw" : null,
     "__bind" : function (prog) {
@@ -783,11 +786,6 @@ please.SceneGraph = function () {
         "writable" : false,
         "value" : null,
     });
-
-    var z_sort_function = function (lhs, rhs) {
-        return rhs.__z_depth - lhs.__z_depth;
-    };
-
     
 #ifdef WEBGL
     this.__regen_static_draw = new please.Signal(this);
@@ -1007,6 +1005,7 @@ please.__picking_pass = function () {
 // Picking RenderNode
 //
 please.SceneGraph.prototype.__create_picking_node = function () {
+    /*
     var node = new please.RenderNode("object_picking");
     var exclude_test = function (item) {
         return !!item.__is_particle_tracker
@@ -1016,6 +1015,7 @@ please.SceneGraph.prototype.__create_picking_node = function () {
     };
     node.graph = this;
     return node;
+    */
 };
 
 

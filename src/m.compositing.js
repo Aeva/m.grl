@@ -150,9 +150,9 @@ please.RenderNode = function (prog, options) {
     };
     this.__dirty_draw = false;
     this.__graph = null;
-    var recompile_me = __recompile_draw.bind(this);
+    var recompile_me = this.__recompile_draw.bind(this);
     var node = this;
-    Object.defineProperty(node, "graph", {
+    Object.defineProperty(this, "graph", {
         "get" : function () {
             return node.__graph;
         },
@@ -234,9 +234,9 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
             else {
                 prog.vars.mgrl_orthographic_scale = 1.0;
             }
-            else {
-                throw new Error("The scene graph has no camera in it!");
-            }
+        }
+        else {
+            throw new Error("The scene graph has no camera in it!");
         }
         
         // BEGIN GENERATED GRAPH RENDERING CODE
@@ -262,11 +262,13 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
         
         // Legacy dynamic rendering code follows:
         if (graph.__states) {
-            ITER_PROPS(hint, graph.__states) {
+            //ITER_PROPS(hint, graph.__states) {
+            for (var hint in graph.__states) if (graph.__states.hasOwnProperty(hint)) {
                 var children = graph.__states[hint];
-                ITER(i, children) {
+                //ITER(i, children) {
+                for (var i=0; i<children.length; i+=1) {
                     var child = children[i];
-                    if (!(exclude_test && exclude_test(child))) {
+                    //if (!(exclude_test && exclude_test(child))) {
                         if (child.__static_draw) {
                             child.__static_draw();
                         }
@@ -274,7 +276,7 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
                             child.__bind(prog);
                             child.__draw(prog);
                         }
-                    }
+                    //}
                 }
             }
         }
@@ -285,20 +287,22 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
                 screen_matrix,
                 camera.projection_matrix,
                 camera.view_matrix);
-            ITER(i, graph.__alpha) {
+            //ITER(i, graph.__alpha) {
+            for (var i=0; i<graph.__alpha.length; i+=1) {
                 var child = graph.__alpha[i];
                 child.__z_sort_prep(screen_matrix);
             };
-            graph.__alpha.sort(z_sort_function);
+            graph.__alpha.sort(graph.__z_sort_function);
             
             // draw translucent elements
             gl.depthMask(false);
-            ITER(i, graph.__alpha) {
+            //ITER(i, graph.__alpha) {
+            for (var i=0; i<graph.__alpha.length; i+=1) {
                 var child = graph.__alpha[i];
-                if (!(exclude_test && exclude_test(child))) {
+                //if (!(exclude_test && exclude_test(child))) {
                     child.__bind(prog);
                     child.__draw(prog);
-                }
+                //}
             }
             gl.depthMask(true);
         }
@@ -306,10 +310,10 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     );
     
     var src = please.__compile_ir(ir, this.__static_draw_cache);
-    graph.render = new Function(src).bind(this.__static_draw_cache);
-    graph.__render_src = src;
-    graph.__render_ir = ir;
-    graph.__dirty_draw = false;
+    this.__render_src = src;
+    this.__render_ir = ir;
+    this.render = new Function(src).bind(this.__static_draw_cache);
+    this.__dirty_draw = false;
     console.info("recompiled a static draw function");
 };
 

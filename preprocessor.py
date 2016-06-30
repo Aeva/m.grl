@@ -15,7 +15,7 @@ def quote_macro(src):
                 raise "%s: Cannot quote a line that contains both a quotation mark or an apostrophy." % LAST_FILE
             quote = '"' if line.count('"') == 0 else "'"
             suffix = '' if last else " +\n"
-            buf += "{0}{1}{0}{2}".format(quote, line.strip(), suffix)
+            buf += "{0}{1}\\n{0}{2}".format(quote, line.strip(), suffix)
             counter += 1
         
         return buf
