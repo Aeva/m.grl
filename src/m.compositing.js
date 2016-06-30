@@ -145,8 +145,8 @@ please.RenderNode = function (prog, options) {
     // rendering function will be generated for the graph to make
     // rendering as efficient as possible.
     this.__static_draw_cache = {
-	"prog" : prog,
-	"graph" : null,
+        "prog" : prog,
+        "graph" : null,
     };
     this.__dirty_draw = false;
     this.__graph = null;
@@ -157,21 +157,21 @@ please.RenderNode = function (prog, options) {
             return node.__graph;
         },
         "set" : function (new_graph) {
-	    var old_graph = node.__graph;
-	    if (old_graph !== new_graph) {
-		if (old_graph) {
-		    old_graph.__regen_static_draw.disconnect(recompile_me);
-		}
-		if (new_graph) {
-		    new_graph.__regen_static_draw.connect(recompile_me);
-		}
-		node.__graph = !!new_graph ? new_graph : null;
-		node.__static_draw_cache.graph = new_graph;
-		node.__recompile_draw();
-	    }
-	    else {
-		return new_graph;
-	    }
+            var old_graph = node.__graph;
+            if (old_graph !== new_graph) {
+                if (old_graph) {
+                    old_graph.__regen_static_draw.disconnect(recompile_me);
+                }
+                if (new_graph) {
+                    new_graph.__regen_static_draw.connect(recompile_me);
+                }
+                node.__graph = !!new_graph ? new_graph : null;
+                node.__static_draw_cache.graph = new_graph;
+                node.__recompile_draw();
+            }
+            else {
+                return new_graph;
+            }
         },
     });
 
@@ -193,13 +193,13 @@ please.RenderNode.prototype.__recompile_draw = function () {
     // some redundant recompiles.
 
     if (!this.__graph) {
-	this.render = this.__splat_draw;
+        this.render = this.__splat_draw;
     }
     else if (!this.__dirty_draw) {
         this.__dirty_draw = true;
         window.setTimeout(function () {
-	    this.__compile_graph_draw();
-	}.bind(this), 0);
+            this.__compile_graph_draw();
+        }.bind(this), 0);
     }
 };
 please.RenderNode.prototype.__compile_graph_draw = function () {
@@ -213,33 +213,33 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     // Generate render function prefix IR.
     ir.push(
 #quote
-	var camera = this.graph.camera || null;
-	var graph = this.graph;
-	var prog = this.prog;
-	if (graph.__last_framestart < please.time.__framestart) {
-	    // note, this.__last_framestart can be null, but
-	    // null<positive_number will evaluate to true anyway.
-	    graph.tick();
-	}
-	if (camera) {
-	    graph.camera.update_camera();
-	    prog.vars.projection_matrix = camera.projection_matrix;
-	    prog.vars.view_matrix = camera.view_matrix;
-	    prog.vars.focal_distance = camera.focal_distance;
-	    prog.vars.depth_of_field = camera.depth_of_field;
-	    prog.vars.depth_falloff = camera.depth_falloff;
-	    if (camera.__projection_mode === "orthographic") {
-                prog.vars.mgrl_orthographic_scale = 32/camera.orthographic_grid;
-	    }
-	    else {
-                prog.vars.mgrl_orthographic_scale = 1.0;
-	    }
-	    else {
-		throw new Error("The scene graph has no camera in it!");
-	    }
+        var camera = this.graph.camera || null;
+        var graph = this.graph;
+        var prog = this.prog;
+        if (graph.__last_framestart < please.time.__framestart) {
+            // note, this.__last_framestart can be null, but
+            // null<positive_number will evaluate to true anyway.
+            graph.tick();
         }
-	
-	// BEGIN GENERATED GRAPH RENDERING CODE
+        if (camera) {
+            graph.camera.update_camera();
+            prog.vars.projection_matrix = camera.projection_matrix;
+            prog.vars.view_matrix = camera.view_matrix;
+            prog.vars.focal_distance = camera.focal_distance;
+            prog.vars.depth_of_field = camera.depth_of_field;
+            prog.vars.depth_falloff = camera.depth_falloff;
+            if (camera.__projection_mode === "orthographic") {
+                prog.vars.mgrl_orthographic_scale = 32/camera.orthographic_grid;
+            }
+            else {
+                prog.vars.mgrl_orthographic_scale = 1.0;
+            }
+            else {
+                throw new Error("The scene graph has no camera in it!");
+            }
+        }
+        
+        // BEGIN GENERATED GRAPH RENDERING CODE
 #endquote
     );
 
@@ -258,50 +258,50 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     // Generate render function suffix IR.
     ir.push(
 #quote
-	// END GENERATED GRAPH RENDERING CODE
-	
-	// Legacy dynamic rendering code follows:
-	if (graph.__states) {
-	    ITER_PROPS(hint, graph.__states) {
+        // END GENERATED GRAPH RENDERING CODE
+        
+        // Legacy dynamic rendering code follows:
+        if (graph.__states) {
+            ITER_PROPS(hint, graph.__states) {
                 var children = graph.__states[hint];
                 ITER(i, children) {
-		    var child = children[i];
-		    if (!(exclude_test && exclude_test(child))) {
+                    var child = children[i];
+                    if (!(exclude_test && exclude_test(child))) {
                         if (child.__static_draw) {
-			    child.__static_draw();
+                            child.__static_draw();
                         }
                         else {
-			    child.__bind(prog);
-			    child.__draw(prog);
+                            child.__bind(prog);
+                            child.__draw(prog);
                         }
-		    }
+                    }
                 }
-	    }
+            }
         }
         if (graph.__alpha) {
-	    // sort the transparent items by z
-	    var screen_matrix = mat4.create();
-	    mat4.multiply(
+            // sort the transparent items by z
+            var screen_matrix = mat4.create();
+            mat4.multiply(
                 screen_matrix,
                 camera.projection_matrix,
                 camera.view_matrix);
-	    ITER(i, graph.__alpha) {
+            ITER(i, graph.__alpha) {
                 var child = graph.__alpha[i];
                 child.__z_sort_prep(screen_matrix);
-	    };
-	    graph.__alpha.sort(z_sort_function);
-	    
-	    // draw translucent elements
-	    gl.depthMask(false);
-	    ITER(i, graph.__alpha) {
+            };
+            graph.__alpha.sort(z_sort_function);
+            
+            // draw translucent elements
+            gl.depthMask(false);
+            ITER(i, graph.__alpha) {
                 var child = graph.__alpha[i];
                 if (!(exclude_test && exclude_test(child))) {
-		    child.__bind(prog);
-		    child.__draw(prog);
+                    child.__bind(prog);
+                    child.__draw(prog);
                 }
-	    }
-	    gl.depthMask(true);
-	}
+            }
+            gl.depthMask(true);
+        }
 #endquote
     );
     

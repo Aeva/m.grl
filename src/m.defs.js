@@ -184,15 +184,15 @@ please.Signal = function (wrapped) {
         callbacks.push(callback);
     };
     signal.disconnect = function (callback) {
-	while (true) {
-	    var search = callbacks.indexOf(callback);
-	    if (search == -1) {
-		break;
-	    }
-	    else {
-		callbacks.splice(search, 1);
-	    }
-	};
+        while (true) {
+            var search = callbacks.indexOf(callback);
+            if (search == -1) {
+                break;
+            }
+            else {
+                callbacks.splice(search, 1);
+            }
+        };
     };
     return signal;
 };
