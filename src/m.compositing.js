@@ -135,26 +135,182 @@ please.RenderNode = function (prog, options) {
     // clear color for this pass
     please.make_animatable_tripple(this, "clear_color", "rgba", [1, 1, 1, 1]);
 
-    // caching stuff
+    // Book keeping for tracking how many times this is node is
+    // rendered in a frame, to allow results to be cached.
     this.__last_framestart = null;
-    this.__cached = null;
+    this.__cached_framebuffer = null;
 
-    // optional mechanism for specifying that a graph should be
-    // rendered, without giving a custom render function.
-    this.graph = null;
+    // The "graph" property is an optional mechanism for which a scene
+    // graph may be associated with a compositing node.  A custom
+    // rendering function will be generated for the graph to make
+    // rendering as efficient as possible.
+    this.__static_draw_cache = {
+	"prog" : prog,
+	"graph" : null,
+    };
+    this.__dirty_draw = false;
+    this.__graph = null;
+    var recompile_me = __recompile_draw.bind(this);
+    var node = this;
+    Object.defineProperty(node, "graph", {
+        "get" : function () {
+            return node.__graph;
+        },
+        "set" : function (new_graph) {
+	    var old_graph = node.__graph;
+	    if (old_graph !== new_graph) {
+		if (old_graph) {
+		    old_graph.__regen_static_draw.disconnect(recompile_me);
+		}
+		if (new_graph) {
+		    new_graph.__regen_static_draw.connect(recompile_me);
+		}
+		node.__graph = !!new_graph ? new_graph : null;
+		node.__static_draw_cache.graph = new_graph;
+		node.__recompile_draw();
+	    }
+	    else {
+		return new_graph;
+	    }
+        },
+    });
 
     prog.cache_clear();
+    this.__recompile_draw();
 };
 please.RenderNode.prototype = {
     "peek" : null,
-    "render" : function () {
-        if (this.graph !== null) {
-            this.graph.draw();
+    "render" : function () {},
+};
+please.RenderNode.prototype.__splat_draw = function () {
+    // Render this node as a full screen quad.
+    please.gl.splat();
+};
+please.RenderNode.prototype.__recompile_draw = function () {
+    // Mark the static draw function as being dirty, schedule a
+    // 'recompile_draw' call.  Using set timeout to run the call
+    // after the current callstack returns, so as to prevent
+    // some redundant recompiles.
+
+    if (!this.__graph) {
+	this.render = this.__splat_draw;
+    }
+    else if (!this.__dirty_draw) {
+        this.__dirty_draw = true;
+        window.setTimeout(function () {
+	    this.__compile_graph_draw();
+	}.bind(this), 0);
+    }
+};
+please.RenderNode.prototype.__compile_graph_draw = function () {
+    // (Re)compiles the draw function for this RenderNode, so as to
+    // most efficiently render the information described in the
+    // assigned graph root.
+    
+    var graph = this.__graph;
+    var ir = [];
+
+    // Generate render function prefix IR.
+    ir.push(
+#quote
+	var camera = this.graph.camera || null;
+	var graph = this.graph;
+	var prog = this.prog;
+	if (graph.__last_framestart < please.time.__framestart) {
+	    // note, this.__last_framestart can be null, but
+	    // null<positive_number will evaluate to true anyway.
+	    graph.tick();
+	}
+	if (camera) {
+	    graph.camera.update_camera();
+	    prog.vars.projection_matrix = camera.projection_matrix;
+	    prog.vars.view_matrix = camera.view_matrix;
+	    prog.vars.focal_distance = camera.focal_distance;
+	    prog.vars.depth_of_field = camera.depth_of_field;
+	    prog.vars.depth_falloff = camera.depth_falloff;
+	    if (camera.__projection_mode === "orthographic") {
+                prog.vars.mgrl_orthographic_scale = 32/camera.orthographic_grid;
+	    }
+	    else {
+                prog.vars.mgrl_orthographic_scale = 1.0;
+	    }
+	    else {
+		throw new Error("The scene graph has no camera in it!");
+	    }
         }
-        else {
-            please.gl.splat();
+	
+	// BEGIN GENERATED GRAPH RENDERING CODE
+#endquote
+    );
+
+    // Generate the IR for rendering the individual graph nodes.
+    ITER(s, graph.__statics) {
+        var node = graph.__statics[s];
+        ITER(p, node.__static_draw_ir) {
+            var token = node.__static_draw_ir[p];
+            if (token.constructor == please.JSIR) {
+                token.compiled = true;
+            }
+            ir.push(token);
         }
-    },
+    }
+
+    // Generate render function suffix IR.
+    ir.push(
+#quote
+	// END GENERATED GRAPH RENDERING CODE
+	
+	// Legacy dynamic rendering code follows:
+	if (graph.__states) {
+	    ITER_PROPS(hint, graph.__states) {
+                var children = graph.__states[hint];
+                ITER(i, children) {
+		    var child = children[i];
+		    if (!(exclude_test && exclude_test(child))) {
+                        if (child.__static_draw) {
+			    child.__static_draw();
+                        }
+                        else {
+			    child.__bind(prog);
+			    child.__draw(prog);
+                        }
+		    }
+                }
+	    }
+        }
+        if (graph.__alpha) {
+	    // sort the transparent items by z
+	    var screen_matrix = mat4.create();
+	    mat4.multiply(
+                screen_matrix,
+                camera.projection_matrix,
+                camera.view_matrix);
+	    ITER(i, graph.__alpha) {
+                var child = graph.__alpha[i];
+                child.__z_sort_prep(screen_matrix);
+	    };
+	    graph.__alpha.sort(z_sort_function);
+	    
+	    // draw translucent elements
+	    gl.depthMask(false);
+	    ITER(i, graph.__alpha) {
+                var child = graph.__alpha[i];
+                if (!(exclude_test && exclude_test(child))) {
+		    child.__bind(prog);
+		    child.__draw(prog);
+                }
+	    }
+	    gl.depthMask(true);
+	}
+#endquote
+    );
+    
+    var src = please.__compile_ir(ir, this.__static_draw_cache);
+    graph.render = new Function(src).bind(this.__static_draw_cache);
+    graph.__render_src = src;
+    graph.__render_ir = ir;
+    graph.__dirty_draw = false;
+    console.info("recompiled a static draw function");
 };
 
 
@@ -199,8 +355,8 @@ please.render = function(node) {
         delay = (1/node.frequency)*1000;
     }
 
-    if (stack.length > 0 && (node.__last_framestart+delay) >= expire && node.__cached) {
-        return node.__cached;
+    if (stack.length > 0 && (node.__last_framestart+delay) >= expire && node.__cached_framebuffer) {
+        return node.__cached_framebuffer;
     }
     else {
         node.__last_framestart = please.time.__framestart;
@@ -259,7 +415,7 @@ please.render = function(node) {
     node.__prog.activate();
 
     // use an indirect texture if the stack length is greater than 1
-    node.__cached = stack.length > 0 ? node.__id : null;
+    node.__cached_framebuffer = stack.length > 0 ? node.__id : null;
 
     // upload shader vars
     for (var name in node.shader) {
@@ -277,13 +433,13 @@ please.render = function(node) {
     }
     ITER(i, node.__prog.sampler_list) {
         var name = node.__prog.sampler_list[i];
-        if (node.__prog.samplers[name] === node.__cached) {
+        if (node.__prog.samplers[name] === node.__cached_framebuffer) {
             node.__prog.samplers[name] = "error_image";
         }
     }
 
     // call the rendering logic
-    please.gl.set_framebuffer(node.__cached);
+    please.gl.set_framebuffer(node.__cached_framebuffer);
     gl.clearColor.apply(gl, node.clear_color);
     node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -291,8 +447,8 @@ please.render = function(node) {
 
     // optionally pull the texture data into an array and trigger a
     // callback
-    if (node.stream_callback && node.__cached) {
-        var fbo = please.gl.__cache.textures[node.__cached].fbo;
+    if (node.stream_callback && node.__cached_framebuffer) {
+        var fbo = please.gl.__cache.textures[node.__cached_framebuffer].fbo;
         var width = fbo.options.width;
         var height = fbo.options.height;
         var format = fbo.options.format;
@@ -340,11 +496,11 @@ please.render = function(node) {
     }
 
     // return the uuid of the render node if we're doing indirect rendering
-    if (node.__cached && node.selected_texture) {
+    if (node.__cached_framebuffer && node.selected_texture) {
         return node.__id + "::" + node.selected_texture;
     }
     else {
-        return node.__cached;
+        return node.__cached_framebuffer;
     }
 };
 

@@ -790,45 +790,7 @@ please.SceneGraph = function () {
 
     
 #ifdef WEBGL
-    this.__static_draw = null;
-    this.__static_cache = {"prog" : please.gl.__cache.current};
     this.__regen_static_draw = new please.Signal(this);
-
-    this.__dirty_draw = false;
-    this.__recompiles = 0;
-    var recompile_draw = function () {
-        // rebuild the static draw function
-        var ir = [];
-        ITER(s, this.__statics) {
-            var node = this.__statics[s];
-            ITER(p, node.__static_draw_ir) {
-                var token = node.__static_draw_ir[p];
-                if (token.constructor == please.JSIR) {
-                    token.compiled = true;
-                }
-                ir.push(token);
-            }
-        }
-        var src = please.__compile_ir(ir, this.__static_cache);
-        this.__static_draw = new Function(src).bind(this.__static_cache);
-        this.__static_draw_src = src;
-        this.__static_draw_ir = ir;
-        this.__dirty_draw = false;
-        this.__recompiles += 1;
-        console.info(
-            "recompiled static draw function " + this.__recompiles + " times.");
-    }.bind(this);
-
-    // Mark the static draw function as being dirty, schedule a
-    // 'recompile_draw' call.  Using set timeout to run the call
-    // after the current callstack returns, so as to prevent
-    // some redundant recompiles.
-    this.__regen_static_draw.connect(function () {
-        if (!this.__dirty_draw) {
-            this.__dirty_draw = true;
-            window.setTimeout(recompile_draw, 0);
-        }
-    });
     
     var gl_tick = function () {
         this.__last_framestart = please.time.__framestart;
@@ -865,76 +827,7 @@ please.SceneGraph = function () {
     };
 
     var gl_draw = function (exclude_test) {
-        if (this.__last_framestart < please.time.__framestart) {
-            // note, this.__last_framestart can be null, but
-            // null<positive_number will evaluate to true anyway.
-            this.tick();
-        }
-        if (this.camera) {
-            this.camera.update_camera();
-        }
-
-        var prog = this.__static_cache.prog = please.gl.get_program();
-        if (this.camera) {
-            prog.vars.projection_matrix = this.camera.projection_matrix;
-            prog.vars.view_matrix = this.camera.view_matrix;
-            prog.vars.focal_distance = this.camera.focal_distance;
-            prog.vars.depth_of_field = this.camera.depth_of_field;
-            prog.vars.depth_falloff = this.camera.depth_falloff;
-            if (this.camera.__projection_mode === "orthographic") {
-                prog.vars.mgrl_orthographic_scale = 32/this.camera.orthographic_grid;
-            }
-            else {
-                prog.vars.mgrl_orthographic_scale = 1.0;
-            }
-        }
-        else {
-            throw new Error("The scene graph has no camera in it!");
-        }
-        if (this.__static_draw) {
-            this.__static_draw();
-        }
-        if (this.__states) {
-            ITER_PROPS(hint, this.__states) {
-                var children = this.__states[hint];
-                ITER(i, children) {
-                    var child = children[i];
-                    if (!(exclude_test && exclude_test(child))) {
-                        if (child.__static_draw) {
-                            child.__static_draw();
-                        }
-                        else {
-                            child.__bind(prog);
-                            child.__draw(prog);
-                        }
-                    }
-                }
-            }
-        }
-        if (this.__alpha) {
-            // sort the transparent items by z
-            var screen_matrix = mat4.create();
-            mat4.multiply(
-                screen_matrix,
-                this.camera.projection_matrix,
-                this.camera.view_matrix);
-            ITER(i, this.__alpha) {
-                var child = this.__alpha[i];
-                child.__z_sort_prep(screen_matrix);
-            };
-            this.__alpha.sort(z_sort_function);
-
-            // draw translucent elements
-            gl.depthMask(false);
-            ITER(i, this.__alpha) {
-                var child = this.__alpha[i];
-                if (!(exclude_test && exclude_test(child))) {
-                    child.__bind(prog);
-                    child.__draw(prog);
-                }
-            }
-            gl.depthMask(true);
-        }
+        throw new Error("Use a RenderNode to draw the scene graph!");
     };
 #endif
     
