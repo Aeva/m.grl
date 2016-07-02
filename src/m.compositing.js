@@ -212,7 +212,7 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
 
     // Generate render function prefix IR.
     ir.push(
-#quote
+// ☿ quote
         var camera = this.graph.camera || null;
         var graph = this.graph;
         var prog = this.prog;
@@ -240,7 +240,7 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
         }
         
         // BEGIN GENERATED GRAPH RENDERING CODE
-#endquote
+// ☿ endquote
     );
 
     // Generate the IR for rendering the individual graph nodes.
@@ -257,7 +257,7 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
 
     // Generate render function suffix IR.
     ir.push(
-#quote
+// ☿ quote
         // END GENERATED GRAPH RENDERING CODE
         
         // Legacy dynamic rendering code follows:
@@ -306,7 +306,7 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
             }
             gl.depthMask(true);
         }
-#endquote
+// ☿ endquote
     );
     
     var src = please.__compile_ir(ir, this.__static_draw_cache);
