@@ -19,13 +19,26 @@ def quote_macro(src):
     def apply_quote(lines, shift_left=0):
         buf = '';
         counter = 0
+        min_indent = None
+        for line in lines:
+            indent = len(re.findall(r'^\s*', line)[0])
+            if min_indent is None:
+                min_indent = indent
+            else:
+                min_indent = min(indent, min_indent)
+            
         for line in lines:
             last = counter == len(lines)-1
             if line.count('"') and line.count("'"):
                 raise "%s: Cannot quote a line that contains both a quotation mark or an apostrophy." % LAST_FILE
             quote = '"' if line.count('"') == 0 else "'"
             suffix = '' if last else " +\n"
-            buf += "{0}{1}\\n{0}{2}".format(quote, line.strip(), suffix)
+            quote_indent = len(re.findall(r'^\s*', line)[0]) - min_indent
+            shift = ''.join([' ' for i in range(quote_indent)])
+            new_line = shift + line.strip()
+            new_indent = ''.join([' ' for i in range(min_indent)])
+            buf += "{0}{1}{2}\\n{1}{3}".format(
+                new_indent, quote, new_line, suffix)
             counter += 1
         
         return buf
@@ -59,7 +72,7 @@ def quote_macro(src):
             continue
         
         out.append(line)
-
+        
     if quoted is not None:
         raise "%s: Expected #endquote before end of file" % LAST_FILE
     return out
