@@ -7,4 +7,3 @@
 *.blend?
 /src/tmp/
 /src/Makefile
-tmp

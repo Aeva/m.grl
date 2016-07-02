@@ -6,11 +6,11 @@ cp -r src tmp
 # bundle assets
 python regen_asset_bundle.py
 
-# preprocessors
-python preprocessor.py
-
 # build m.grl
 sh jspp.sh tmp/m.header.js mgrl.js -DBSIDES -DDOM -DWEBGL -DGLSL_ASSETS -DASSETS
+
+# apply extra transforms
+python reflow.py mgrl.js
 
 # copy core lib into the project templates
 cp mgrl.js templates/common_assets/libs/
