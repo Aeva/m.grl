@@ -262,11 +262,9 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
         
         // Legacy dynamic rendering code follows:
         if (graph.__states) {
-            //ITER_PROPS(hint, graph.__states) {
-            for (var hint in graph.__states) if (graph.__states.hasOwnProperty(hint)) {
+            ITER_PROPS(hint, graph.__states) {
                 var children = graph.__states[hint];
-                //ITER(i, children) {
-                for (var i=0; i<children.length; i+=1) {
+                ITER(i, children) {
                     var child = children[i];
                     //if (!(exclude_test && exclude_test(child))) {
                         if (child.__static_draw) {
@@ -287,8 +285,7 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
                 screen_matrix,
                 camera.projection_matrix,
                 camera.view_matrix);
-            //ITER(i, graph.__alpha) {
-            for (var i=0; i<graph.__alpha.length; i+=1) {
+            ITER(i, graph.__alpha) {
                 var child = graph.__alpha[i];
                 child.__z_sort_prep(screen_matrix);
             };
@@ -296,8 +293,7 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
             
             // draw translucent elements
             gl.depthMask(false);
-            //ITER(i, graph.__alpha) {
-            for (var i=0; i<graph.__alpha.length; i+=1) {
+            ITER(i, graph.__alpha) {
                 var child = graph.__alpha[i];
                 //if (!(exclude_test && exclude_test(child))) {
                     child.__bind(prog);
