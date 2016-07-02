@@ -347,15 +347,15 @@ please.Signal = function (wrapped) {
         callbacks.push(callback);
     };
     signal.disconnect = function (callback) {
- while (true) {
-     var search = callbacks.indexOf(callback);
-     if (search == -1) {
-  break;
-     }
-     else {
-  callbacks.splice(search, 1);
-     }
- };
+        while (true) {
+            var search = callbacks.indexOf(callback);
+            if (search == -1) {
+                break;
+            }
+            else {
+                callbacks.splice(search, 1);
+            }
+        };
     };
     return signal;
 };
@@ -8729,6 +8729,9 @@ please.GraphNode.prototype = {
         var position = vec3.transformMat4(vec3.create(), this.location, matrix);
         this.__z_depth = position[2];
     },
+    "__z_sort_function" : function (lhs, rhs) {
+        return rhs.__z_depth - lhs.__z_depth;
+    },
     "__static_draw" : null,
     "__bind" : function (prog) {
         // calls this.bind if applicable.
@@ -8880,9 +8883,6 @@ please.SceneGraph = function () {
         "writable" : false,
         "value" : null,
     });
-    var z_sort_function = function (lhs, rhs) {
-        return rhs.__z_depth - lhs.__z_depth;
-    };
     this.__regen_static_draw = new please.Signal(this);
     var gl_tick = function () {
         this.__last_framestart = please.time.__framestart;
@@ -9069,6 +9069,7 @@ please.__picking_pass = function () {
 // Picking RenderNode
 //
 please.SceneGraph.prototype.__create_picking_node = function () {
+    /*
     var node = new please.RenderNode("object_picking");
     var exclude_test = function (item) {
         return !!item.__is_particle_tracker
@@ -9078,6 +9079,7 @@ please.SceneGraph.prototype.__create_picking_node = function () {
     };
     node.graph = this;
     return node;
+    */
 };
 //
 // Once a opengl context is created, automatically attach picking
@@ -9727,33 +9729,33 @@ please.RenderNode = function (prog, options) {
     // rendering function will be generated for the graph to make
     // rendering as efficient as possible.
     this.__static_draw_cache = {
- "prog" : prog,
- "graph" : null,
+        "prog" : prog,
+        "graph" : null,
     };
     this.__dirty_draw = false;
     this.__graph = null;
-    var recompile_me = __recompile_draw.bind(this);
+    var recompile_me = this.__recompile_draw.bind(this);
     var node = this;
-    Object.defineProperty(node, "graph", {
+    Object.defineProperty(this, "graph", {
         "get" : function () {
             return node.__graph;
         },
         "set" : function (new_graph) {
-     var old_graph = node.__graph;
-     if (old_graph !== new_graph) {
-  if (old_graph) {
-      old_graph.__regen_static_draw.disconnect(recompile_me);
-  }
-  if (new_graph) {
-      new_graph.__regen_static_draw.connect(recompile_me);
-  }
-  node.__graph = !!new_graph ? new_graph : null;
-  node.__static_draw_cache.graph = new_graph;
-  node.__recompile_draw();
-     }
-     else {
-  return new_graph;
-     }
+            var old_graph = node.__graph;
+            if (old_graph !== new_graph) {
+                if (old_graph) {
+                    old_graph.__regen_static_draw.disconnect(recompile_me);
+                }
+                if (new_graph) {
+                    new_graph.__regen_static_draw.connect(recompile_me);
+                }
+                node.__graph = !!new_graph ? new_graph : null;
+                node.__static_draw_cache.graph = new_graph;
+                node.__recompile_draw();
+            }
+            else {
+                return new_graph;
+            }
         },
     });
     prog.cache_clear();
@@ -9773,13 +9775,13 @@ please.RenderNode.prototype.__recompile_draw = function () {
     // after the current callstack returns, so as to prevent
     // some redundant recompiles.
     if (!this.__graph) {
- this.render = this.__splat_draw;
+        this.render = this.__splat_draw;
     }
     else if (!this.__dirty_draw) {
         this.__dirty_draw = true;
         window.setTimeout(function () {
-     this.__compile_graph_draw();
- }.bind(this), 0);
+            this.__compile_graph_draw();
+        }.bind(this), 0);
     }
 };
 please.RenderNode.prototype.__compile_graph_draw = function () {
@@ -9790,33 +9792,32 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     var ir = [];
     // Generate render function prefix IR.
     ir.push(
-"var camera = this.graph.camera || null;" +
-"var graph = this.graph;" +
-"var prog = this.prog;" +
-"if (graph.__last_framestart < please.time.__framestart) {" +
-"// note, this.__last_framestart can be null, but" +
-"// null<positive_number will evaluate to true anyway." +
-"graph.tick();" +
-"}" +
-"if (camera) {" +
-"graph.camera.update_camera();" +
-"prog.vars.projection_matrix = camera.projection_matrix;" +
-"prog.vars.view_matrix = camera.view_matrix;" +
-"prog.vars.focal_distance = camera.focal_distance;" +
-"prog.vars.depth_of_field = camera.depth_of_field;" +
-"prog.vars.depth_falloff = camera.depth_falloff;" +
-'if (camera.__projection_mode === "orthographic") {' +
-"prog.vars.mgrl_orthographic_scale = 32/camera.orthographic_grid;" +
-"}" +
-"else {" +
-"prog.vars.mgrl_orthographic_scale = 1.0;" +
-"}" +
-"else {" +
-'throw new Error("The scene graph has no camera in it!");' +
-"}" +
-"}" +
-"" +
-"// BEGIN GENERATED GRAPH RENDERING CODE" );
+        "var camera = this.graph.camera || null;\n" +
+        "var graph = this.graph;\n" +
+        "var prog = this.prog;\n" +
+        "if (graph.__last_framestart < please.time.__framestart) {\n" +
+        "    // note, this.__last_framestart can be null, but\n" +
+        "    // null<positive_number will evaluate to true anyway.\n" +
+        "    graph.tick();\n" +
+        "}\n" +
+        "if (camera) {\n" +
+        "    graph.camera.update_camera();\n" +
+        "    prog.vars.projection_matrix = camera.projection_matrix;\n" +
+        "    prog.vars.view_matrix = camera.view_matrix;\n" +
+        "    prog.vars.focal_distance = camera.focal_distance;\n" +
+        "    prog.vars.depth_of_field = camera.depth_of_field;\n" +
+        "    prog.vars.depth_falloff = camera.depth_falloff;\n" +
+        '    if (camera.__projection_mode === "orthographic") {\n' +
+        "        prog.vars.mgrl_orthographic_scale = 32/camera.orthographic_grid;\n" +
+        "    }\n" +
+        "    else {\n" +
+        "        prog.vars.mgrl_orthographic_scale = 1.0;\n" +
+        "    }\n" +
+        "}\n" +
+        "else {\n" +
+        '    throw new Error("The scene graph has no camera in it!");\n' +
+        "}\n" +
+        "// BEGIN GENERATED GRAPH RENDERING CODE\n"    );
     // Generate the IR for rendering the individual graph nodes.
     for (var s=0; s<graph.__statics.length; s+=1) {
         var node = graph.__statics[s];
@@ -9830,55 +9831,53 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     }
     // Generate render function suffix IR.
     ir.push(
-"// END GENERATED GRAPH RENDERING CODE" +
-"" +
-"// Legacy dynamic rendering code follows:" +
-"if (graph.__states) {" +
-"ITER_PROPS(hint, graph.__states) {" +
-"var children = graph.__states[hint];" +
-"ITER(i, children) {" +
-"var child = children[i];" +
-"if (!(exclude_test && exclude_test(child))) {" +
-"if (child.__static_draw) {" +
-"child.__static_draw();" +
-"}" +
-"else {" +
-"child.__bind(prog);" +
-"child.__draw(prog);" +
-"}" +
-"}" +
-"}" +
-"}" +
-"}" +
-"if (graph.__alpha) {" +
-"// sort the transparent items by z" +
-"var screen_matrix = mat4.create();" +
-"mat4.multiply(" +
-"screen_matrix," +
-"camera.projection_matrix," +
-"camera.view_matrix);" +
-"ITER(i, graph.__alpha) {" +
-"var child = graph.__alpha[i];" +
-"child.__z_sort_prep(screen_matrix);" +
-"};" +
-"graph.__alpha.sort(z_sort_function);" +
-"" +
-"// draw translucent elements" +
-"gl.depthMask(false);" +
-"ITER(i, graph.__alpha) {" +
-"var child = graph.__alpha[i];" +
-"if (!(exclude_test && exclude_test(child))) {" +
-"child.__bind(prog);" +
-"child.__draw(prog);" +
-"}" +
-"}" +
-"gl.depthMask(true);" +
-"}" );
+        "// END GENERATED GRAPH RENDERING CODE\n" +
+        "// Legacy dynamic rendering code follows:\n" +
+        "if (graph.__states) {\n" +
+        "    for (var hint in graph.__states) if (graph.__states.hasOwnProperty(hint)) {\n" +
+        "        var children = graph.__states[hint];\n" +
+        "        for (var i=0; i<children.length; i+=1) {\n" +
+        "            var child = children[i];\n" +
+        "            //if (!(exclude_test && exclude_test(child))) {\n" +
+        "                if (child.__static_draw) {\n" +
+        "                    child.__static_draw();\n" +
+        "                }\n" +
+        "                else {\n" +
+        "                    child.__bind(prog);\n" +
+        "                    child.__draw(prog);\n" +
+        "                }\n" +
+        "            //}\n" +
+        "        }\n" +
+        "    }\n" +
+        "}\n" +
+        "if (graph.__alpha) {\n" +
+        "    // sort the transparent items by z\n" +
+        "    var screen_matrix = mat4.create();\n" +
+        "    mat4.multiply(\n" +
+        "        screen_matrix,\n" +
+        "        camera.projection_matrix,\n" +
+        "        camera.view_matrix);\n" +
+        "    for (var i=0; i<graph.__alpha.length; i+=1) {\n" +
+        "        var child = graph.__alpha[i];\n" +
+        "        child.__z_sort_prep(screen_matrix);\n" +
+        "    };\n" +
+        "    graph.__alpha.sort(graph.__z_sort_function);\n" +
+        "    // draw translucent elements\n" +
+        "    gl.depthMask(false);\n" +
+        "    for (var i=0; i<graph.__alpha.length; i+=1) {\n" +
+        "        var child = graph.__alpha[i];\n" +
+        "        //if (!(exclude_test && exclude_test(child))) {\n" +
+        "            child.__bind(prog);\n" +
+        "            child.__draw(prog);\n" +
+        "        //}\n" +
+        "    }\n" +
+        "    gl.depthMask(true);\n" +
+        "}\n"    );
     var src = please.__compile_ir(ir, this.__static_draw_cache);
-    graph.render = new Function(src).bind(this.__static_draw_cache);
-    graph.__render_src = src;
-    graph.__render_ir = ir;
-    graph.__dirty_draw = false;
+    this.__render_src = src;
+    this.__render_ir = ir;
+    this.render = new Function(src).bind(this.__static_draw_cache);
+    this.__dirty_draw = false;
     console.info("recompiled a static draw function");
 };
 // [+] please.set_viewport(render_node)
