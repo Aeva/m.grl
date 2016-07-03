@@ -131,12 +131,11 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
 };
 
 
-// [+] please.__drawable_ir(prog, vbo, ibo, ranges, defaults, graph_node)
-// 
-// Creates a list of IR objects needed to render a partical VBO/IBO of
-// data.  The only required params are 'prog' and 'vbo'.
+// [+] please.__DrawableIR(vbo, ibo, ranges, defaults, graph_node)
 //
-//  - **prog** a compiled shader program object
+// Creates an DrawableIR object, which has a "generate" function to
+// produce a list of the IR objects needed to render a particular
+// VBO/IBO of data.  The only required param is 'vbo'.
 //
 //  - **vbo** a vbo object, as defined in m.gl.buffers.js
 //
@@ -152,11 +151,17 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
 //
 //  - **graph_node** a graph node object to optionally data bind against
 //
-// This method returns a list of strings and IR objects that can be
-// used to generate a function to draw the described object.
+// Call the 'generate' method with a shader program object as the
+// first argument to receive a list of strings and IR objects that can
+// be used to generate a function to draw the described object.
 //
-please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
+please.__DrawableIR = function (vbo, ibo, ranges, defaults, graph_node) {
     var ir = [];
+    this.__ir = ir;
+
+    // bind against current running shader program
+    var prog = please.gl.__cache.current;
+    
     // add IR for VBO bind
     ir.push(vbo.static_bind(prog));
     
@@ -166,7 +171,7 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
     }
 
     // recompile signal
-    ir.dirty = new please.Signal();
+    this.dirty = new please.Signal();
     
     // add IR for uniforms
     var uniforms = [];
@@ -251,8 +256,8 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
     if (graph_node) {
         graph_node.__uniform_update.connect(function (target, prop, obj) {
             bind_or_update_uniform(prop, obj.__ani_store[prop]);
-            ir.dirty();
-        });
+            this.dirty();
+        }.bind(this));
     }
 
     // add IR for appropriate draw call
@@ -265,8 +270,14 @@ please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
         var total = ranges[r][1];
         ir.push(draw_buffer.static_draw(start, total));
     }
-    
-    return ir;
+};
+
+
+please.__DrawableIR.prototype = {};
+
+
+please.__DrawableIR.prototype.generate = function (prog) {
+    return this.__ir;
 };
 
 

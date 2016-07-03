@@ -195,23 +195,21 @@ please.gl.__jta_model = function (src, uri) {
                         };
                     };
                     */
+                    
                     var draw_ranges = [];
                     ITER_PROPS(group_name, model.groups) {
                         var group = model.groups[group_name];
                         draw_ranges.push([group.start, group.count]);
                     };
-                    var prog = please.gl.__cache.current;
-                    var cache = {};
-                    cache.prog = prog;
-                    var ir = please.__drawable_ir(
-                        prog, model.vbo, model.ibo, draw_ranges, null, node);
-                    ir.dirty.connect(function () {
-                        node.__static_draw_ir = ir;
+                    node.__ir = new please.__DrawableIR(
+                        model.vbo, model.ibo, draw_ranges, null, node);
+                    node.__ir.dirty.connect(function () {
                         if (node.graph_root) {
                             node.graph_root.__regen_static_draw();
                         }
                     });
-                    ir.dirty();
+                    node.__ir.dirty();
+
                     node.__buffers = {
                         "vbo" : model.vbo,
                         "ibo" : model.ibo,
@@ -353,7 +351,7 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
 
 // Reads the raw animation data defined in the jta file and returns a
 // similar object tree.  The main difference is instead of storing
-// vectors and quats as dictionaries of their channels to values, the
+// vectors and quats as dictionaries of channels to values, the
 // result is vec3 or quat objects as defined in gl-matrix.
 please.gl.__jta_extract_keyframes = function (data) {
     var animations = please.prop_map(data, function (name, data) {

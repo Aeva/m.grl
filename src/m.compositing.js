@@ -246,8 +246,9 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     // Generate the IR for rendering the individual graph nodes.
     ITER(s, graph.__statics) {
         var node = graph.__statics[s];
-        ITER(p, node.__static_draw_ir) {
-            var token = node.__static_draw_ir[p];
+        var node_ir = node.__ir.generate(this.prog) || [];
+        ITER(p, node_ir) {
+            var token = node_ir[p];
             if (token.constructor == please.JSIR) {
                 token.compiled = true;
             }

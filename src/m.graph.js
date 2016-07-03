@@ -710,7 +710,7 @@ please.SceneGraph = function () {
         if (node.__is_light) {
             return this.__lights;
         }
-        else if (node.__static_draw_ir) {
+        else if (node.__ir) {
             return this.__statics;
         }
         else {
