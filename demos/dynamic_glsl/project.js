@@ -76,6 +76,9 @@ demo.build_shader = function () {
         demo.last_index += 1;
         demo.last_build = prog;
         demo.reset_model_effects(old_enums, new_enums);
+        if (demo.renderer) {
+            demo.renderer.retarget(prog);
+        }
     }
     catch (error) {
         // build failed: show an error message
@@ -182,8 +185,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var graph = demo.graph = new please.SceneGraph();
     var asset = please.access("suzanne.jta");
 
-    graph.picking.enabled = true;
-    graph.picking.skip_location_info = true;
+    //graph.picking.enabled = true;
+    //graph.picking.skip_location_info = true;
 
     // add some objects onscreen
     var names = ["vibrant", "weird_noise", "water"];
@@ -199,6 +202,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var scene = please.access("holodeck.jta").instance();
     scene.children.map(function (model) {
         demo.models.push(model);
+    });
+    scene.propogate(function (node) {
+        node.freeze();
     });
     
     graph.add(scene);
@@ -224,23 +230,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     };
 
     // add a render pass
-    var renderer = new DynamicRenderNode();
-    renderer.graph = graph;
-    please.set_viewport(renderer);
-    renderer.clear_color = [0.5, 0.5, 0.5, 1.0];
+    demo.renderer = new please.RenderNode(demo.last_build);
+    demo.renderer.graph = graph;
+    please.set_viewport(demo.renderer);
+    demo.renderer.clear_color = [0.5, 0.5, 0.5, 1.0];
 }));
-
-
-// fancy hack to bypass the assumption in the RenderNode constructor
-// that the rendernode represents a specific shader
-var DynamicRenderNode = function () {
-    please.RenderNode.call(this, "default");
-    this.render = function () {
-        this.graph.draw();
-    };
-    Object.defineProperty(this, "__prog", {
-        get: function () {
-            return demo.last_build;
-        },
-    });
-};
