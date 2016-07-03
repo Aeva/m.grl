@@ -296,7 +296,16 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker) {
         var name = prog.uniform_list[u];
         var token = this.__uniforms[name];
         if (token) {
-            ir.push(token);
+            var value = token.params[1];
+            var state_key = "uniform:"+name;
+            if (value.dynamic) {
+                ir.push(token);
+                delete state_tracker[state_key];
+            }
+            else if (state_tracker[state_key] !== value.value) {
+                ir.push(token);
+                state_tracker[state_key] = value.value;
+            }
         }
     }
 
