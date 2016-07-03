@@ -113,6 +113,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
             if (x%2) {
                 tile.rotation_x += 180;
             }
+            tile.freeze();
             tile_set.add(tile);
         }
     }
