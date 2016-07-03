@@ -63,12 +63,6 @@ please.RenderNode = function (prog, options) {
 
     // shader program
     this.__prog = prog;
-    Object.defineProperty(this, "__prog", {
-        enumerable : false,
-        configurable: true,
-        writable : false,
-        value : prog,
-    });
 
     // optional render frequency
     this.frequency = null;
@@ -181,6 +175,12 @@ please.RenderNode.prototype = {
     "peek" : null,
     "render" : function () {},
 };
+please.RenderNode.prototype.retarget = function (prog) {
+    // Provide a new shader program for the RenderNode to use.
+    this.__prog = typeof(prog) === "string" ? please.gl.get_program(prog) : prog;
+    this.__static_draw_cache.prog = this.__prog;
+    this.__recompile_draw();
+};
 please.RenderNode.prototype.__splat_draw = function () {
     // Render this node as a full screen quad.
     please.gl.splat();
@@ -235,7 +235,8 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
             }
         }
         else {
-            throw new Error("The scene graph has no camera in it!");
+            console.error("The scene graph has no camera in it!");
+            return;
         }
         
         // BEGIN GENERATED GRAPH RENDERING CODE
