@@ -64,6 +64,7 @@ please.JSIR = function (method_string/*, args */) {
     this.method = method_string;
     this.params = [];
     this.compiled = false;
+    this.frozen = false;
 
     var force_dynamic = false;
     ITER(a, args) {
@@ -98,6 +99,21 @@ please.JSIR.prototype.compile = function (cache) {
         else if (param.value === null) {
             lookup = "null";
         }
+        else if (param.value.constructor.name.indexOf("Array") > -1) {
+            var builder = "[";
+            var first = true;
+            ITER(i, param.value) {
+                if (!first) {
+                    builder += ", ";
+                }
+                else {
+                    first = false;
+                }
+                builder += param.value[i];
+            }
+            builder += "]";
+            lookup = builder;
+        }
         else {
             lookup = param.value.toString();
         }
@@ -112,6 +128,24 @@ please.JSIR.prototype.compile = function (cache) {
         prefix = "// ";
     }
     return prefix + please.format_invocation.apply(please, args);
+};
+
+
+// Force the IR to be static and the param values to be cache function
+// returns.
+please.JSIR.prototype.freeze = function () {
+    this.frozen = true;
+    Object.freeze(this.frozen);
+    ITER(p, this.params) {
+        var param = this.params[p];
+        param.dynamic = false;
+        if (typeof(param.value) == "function") {
+            param.value = param.value();
+        }
+        if (typeof(param.value) == "function") {
+            param.value = null;
+        }
+    };
 };
 
 
@@ -162,6 +196,7 @@ please.__DrawableIR = function (vbo, ibo, ranges, defaults, graph_node) {
     this.__ranges = ranges;
     this.__defaults = defaults || {};
     this.__node = graph_node;
+    this.__frozen = false;
 
     // recompile signal
     this.dirty = new please.Signal();
@@ -193,6 +228,17 @@ please.__DrawableIR = function (vbo, ibo, ranges, defaults, graph_node) {
 
 
 please.__DrawableIR.prototype = {};
+
+
+// mark all uniforms as being static, cache the current driver values
+please.__DrawableIR.prototype.freeze = function () {
+    if (this.__frozen) {
+        return;
+    }
+    this.__frozen = true;
+    Object.freeze(this.__frozen);
+    this.dirty();
+};
 
 
 please.__DrawableIR.prototype.bindings_for_shader = function (prog) {
@@ -296,6 +342,9 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker) {
         var name = prog.uniform_list[u];
         var token = this.__uniforms[name];
         if (token) {
+            if (this.__frozen && !token.frozen) {
+                token.freeze();
+            }
             var value = token.params[1];
             var state_key = "uniform:"+name;
             if (value.dynamic) {

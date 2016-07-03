@@ -530,6 +530,14 @@ please.GraphNode.prototype = {
             }
         }
     },
+    "freeze" : function () {
+        if (this.__ir) {
+            this.__ir.freeze();
+        }
+        else {
+            console.warn("Called 'freeze' method of unfreezable GraphNode.");
+        }
+    },
     "__set_graph_root" : function (root) {
         // Used to recursively set the "graph root" (scene graph
         // object) for all children of this object.
