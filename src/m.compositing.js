@@ -151,13 +151,12 @@ please.RenderNode = function (prog, options) {
     this.__dirty_draw = false;
     this.__graph = null;
     var recompile_me = this.__recompile_draw.bind(this);
-    var node = this;
     Object.defineProperty(this, "graph", {
         "get" : function () {
-            return node.__graph;
-        },
+            return this.__graph;
+        }.bind(this),
         "set" : function (new_graph) {
-            var old_graph = node.__graph;
+            var old_graph = this.__graph;
             if (old_graph !== new_graph) {
                 if (old_graph) {
                     old_graph.__regen_static_draw.disconnect(recompile_me);
@@ -165,14 +164,14 @@ please.RenderNode = function (prog, options) {
                 if (new_graph) {
                     new_graph.__regen_static_draw.connect(recompile_me);
                 }
-                node.__graph = !!new_graph ? new_graph : null;
-                node.__static_draw_cache.graph = new_graph;
-                node.__recompile_draw();
+                this.__graph = !!new_graph ? new_graph : null;
+                this.__static_draw_cache.graph = new_graph;
+                this.__recompile_draw();
             }
             else {
                 return new_graph;
             }
-        },
+        }.bind(this),
     });
 
     prog.cache_clear();
@@ -246,7 +245,7 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     // Generate the IR for rendering the individual graph nodes.
     ITER(s, graph.__statics) {
         var node = graph.__statics[s];
-        var node_ir = node.__ir.generate(this.prog) || [];
+        var node_ir = node.__ir.generate(this.__prog) || [];
         ITER(p, node_ir) {
             var token = node_ir[p];
             if (token.constructor == please.JSIR) {

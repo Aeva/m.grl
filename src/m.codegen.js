@@ -156,106 +156,23 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
 // be used to generate a function to draw the described object.
 //
 please.__DrawableIR = function (vbo, ibo, ranges, defaults, graph_node) {
-    var ir = [];
-    this.__ir = ir;
-
-    // bind against current running shader program
-    var prog = please.gl.__cache.current;
-    
-    // add IR for VBO bind
-    ir.push(vbo.static_bind(prog));
-    
-    // add IR for IBO bind, if applicable
-    if (ibo) {
-        ir.push(ibo.static_bind);
-    }
+    this.__uniforms = {};
+    this.__vbo = vbo;
+    this.__ibo = ibo;
+    this.__ranges = ranges;
+    this.__defaults = defaults || {};
+    this.__node = graph_node;
 
     // recompile signal
     this.dirty = new please.Signal();
-    
-    // add IR for uniforms
-    var uniforms = [];
-    var uniform_defaults = defaults || {};
-    var named_defaults = defaults ? please.get_properties(defaults) : [];
-    ITER(u, prog.uniform_list) {
-        // determine which uniforms apply to this object
-        var name = prog.uniform_list[u];
-        if (named_defaults.indexOf(name) > -1) {
-            // uniforms in the defaults list are always used if the
-            // shader program features them
-            uniforms.push(name);
-        }
-        else if (prog.binding_ctx["GraphNode"].indexOf(name) > -1) {
-            // otherwise, only use uniforms that are in the GraphNode
-            // binding context.
-            uniforms.push(name);
-            uniform_defaults[name] = prog.__uniform_initial_value(name);
-        }
-        else if (graph_node && graph_node.__ani_store[name]) {
-            uniforms.push(name);
-        }
-    }
-    var bindings = {};
-    // index for inserting new uniform bindings
-    var uniforms_offset = ir.length;
-    var bind_or_update_uniform = function (name, value) {
-        var binding = bindings[name] ? bindings[name] : null;
-        var compiled = binding ? binding.compiled : false;
 
-        if (graph_node) {
-            var store = graph_node.__ani_store[name];
-            if (!store) {
-                graph_node.__ani_store[name] = value;
-            }
-            else if (typeof(store) == "function" || compiled) {
-                value = graph_node.__ani_debug[name].get;
-            }
-            else {
-                value = graph_node.__ani_store[name];
-                if (typeof(value) == "string") {
-                    value = '"' + value + '"';
-                }
-            }
-        }
+    // add initial uniform bindings
+    this.bindings_for_shader(null);
 
-        if (binding) {
-            if (binding.compiled) {
-                binding.update_arg(1, value);
-            }
-            else {
-                binding.update_arg(1, value);
-            }
-        }
-        else {
-            // create a new token for the uniform binding:
-            var target = prog.samplers.hasOwnProperty(name) ? "samplers" : "vars";
-            var cmd = "this.prog." + target + "['"+name+"']";
-            var token;
-            if (typeof(value) == "function") {
-                token = new please.JSIR('=', cmd, '@', value);
-            }
-            else {
-                token = new please.JSIR('=', cmd, value);
-            }
-            // Using splice here instead of push so that we can insert
-            // before things added after the uniforms if needed.
-            ir.splice(uniforms_offset, 0, token);
-            uniforms_offset += 1;
-            bindings[name] = token;
-        }
-    }
-    
-    ITER(u, uniforms) {
-        // generate the IR for uniforms and if applicable, set up the
-        // appropriate bindings to the supplied GraphNode
-        var name = uniforms[u];
-        var value = uniform_defaults[name];
-        bind_or_update_uniform(name, value);
-    }
-
+    // connect to GraphNode's dirty signal
     if (graph_node) {
         graph_node.__uniform_update.connect(function (target, prop, obj) {
-            bind_or_update_uniform(prop, obj.__ani_store[prop]);
+            this.bind_or_update_uniform(prop, obj.__ani_store[prop]);
             this.dirty();
         }.bind(this));
     }
@@ -264,11 +181,13 @@ please.__DrawableIR = function (vbo, ibo, ranges, defaults, graph_node) {
     if (!ranges) {
         ranges = [[null, null]];
     }
+
+    this.__draw_invocation = "";
     var draw_buffer = ibo || vbo;
     ITER(r, ranges) {
         var start = ranges[r][0];
         var total = ranges[r][1];
-        ir.push(draw_buffer.static_draw(start, total));
+        this.__draw_invocation = draw_buffer.static_draw(start, total);
     }
 };
 
@@ -276,8 +195,110 @@ please.__DrawableIR = function (vbo, ibo, ranges, defaults, graph_node) {
 please.__DrawableIR.prototype = {};
 
 
+please.__DrawableIR.prototype.bindings_for_shader = function (prog) {
+    if (!prog) {
+        prog = please.gl.__cache.current;
+    }
+    var named_uniforms = [];
+    var named_defaults = please.get_properties(this.__defaults);
+
+    // Populate 'named_uniforms' to see what we need bindings for.
+    ITER(u, prog.uniform_list) {
+        // determine which uniforms apply to this object
+        var name = prog.uniform_list[u];
+        if (this.__uniforms[name]) {
+            // skip uniforms with existing bindings
+            continue;
+        }
+        else if (named_defaults.indexOf(name) > -1) {
+            // uniforms in the defaults list are always used if the
+            // shader program features them
+            named_uniforms.push(name);
+        }
+        else if (prog.binding_ctx["GraphNode"].indexOf(name) > -1) {
+            // otherwise, only use uniforms that are in the GraphNode
+            // binding context.
+            named_uniforms.push(name);
+            this.__defaults[name] = prog.__uniform_initial_value(name);
+        }
+        else if (this.__node && this.__node.__ani_store[name]) {
+            // or ones that have been assigned explicit values already.
+            named_uniforms.push(name);
+        }
+    }
+
+    // generate the IR for the above divined uniforms
+    ITER(u, named_uniforms) {
+        var name = named_uniforms[u];
+        var value = this.__defaults[name];
+        this.bind_or_update_uniform(name, value);
+    }
+};
+
+
+please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
+    var binding = this.__uniforms[name] ||  null;
+    var compiled = binding ? binding.compiled : false;
+
+    if (this.__node) {
+        var store = this.__node.__ani_store[name];
+        if (!store) {
+            this.__node.__ani_store[name] = value;
+        }
+        else if (typeof(store) == "function" || compiled) {
+            value = this.__node.__ani_debug[name].get;
+        }
+        else {
+            value = this.__node.__ani_store[name];
+            if (typeof(value) == "string") {
+                value = '"' + value + '"';
+            }
+        }
+    }
+
+    if (binding) {
+        if (compiled) {
+            binding.update_arg(1, value);
+        }
+        else {
+            binding.update_arg(1, value);
+        }
+    }
+    else {
+        // create a new token for the uniform binding:
+        var target = value !== null && value.constructor == String ? "samplers" : "vars";
+        var cmd = "this.prog." + target + "['"+name+"']";
+        var token;
+        if (typeof(value) == "function") {
+            token = new please.JSIR('=', cmd, '@', value);
+        }
+        else {
+            token = new please.JSIR('=', cmd, value);
+        }
+        this.__uniforms[name] = token;
+    }    
+};
+
+
 please.__DrawableIR.prototype.generate = function (prog) {
-    return this.__ir;
+    this.bindings_for_shader(prog);
+    var ir = [];
+    ir.push(this.__vbo.static_bind(prog));
+    if (this.__ibo) {
+        ir.push(this.__ibo.static_bind);
+    }
+
+    ITER(u, prog.uniform_list) {
+        // determine which uniforms apply to this object
+        var name = prog.uniform_list[u];
+        var token = this.__uniforms[name];
+        if (token) {
+            ir.push(token);
+        }
+    }
+
+    ir.push(this.__draw_invocation);
+    return ir;
 };
 
 
