@@ -185,8 +185,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var graph = demo.graph = new please.SceneGraph();
     var asset = please.access("suzanne.jta");
 
-    //graph.picking.enabled = true;
-    //graph.picking.skip_location_info = true;
+    graph.picking.enabled = true;
+    graph.picking.skip_location_info = true;
 
     // add some objects onscreen
     var names = ["vibrant", "weird_noise", "water"];
