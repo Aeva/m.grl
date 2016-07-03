@@ -227,13 +227,21 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
 
 
     // For generating static bind methods.
-    vbo.static_bind = function (prog, instanced) {
+    vbo.static_bind = function (prog, state_tracker, instanced) {
         var src = "";
-
-        for (var name in vbo.stats) {
-            var glsl_name = "mgrl_model_local_" + name;
-            if (prog.vars.hasOwnProperty(glsl_name)) {
-                src += "this.prog.vars["+glsl_name+"] = "+vbo.stats[name]+";";
+        state_tracker = state_tracker || {};
+        var redundant = state_tracker["vbo"] == this.id;
+        state_tracker["vbo"] = this.id;
+        // we don't just return here if this is a redundant call,
+        // because instancing will have an effect on how attrs are
+        // bound
+        
+        if (!redundant) {
+            for (var name in vbo.stats) {
+                var glsl_name = "mgrl_model_local_" + name;
+                if (prog.vars.hasOwnProperty(glsl_name)) {
+                    src += "this.prog.vars["+glsl_name+"] = "+vbo.stats[name]+";";
+                }
             }
         }
 
@@ -242,53 +250,61 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             // don't disable other arrays
             ITER(a, attr_names) {
                 var name = attr_names[a];
-                if (prog.attrs[name]) {
+                var state = "attr:" + name;
+                if (prog.attrs[name] && !state_tracker[state]) {
                     src += "this.prog.attrs['"+name+"'].enabled = true;\n";
                 }
+                state_tracker[state] = true;
             }
         }
         else {
             // only enable what we need, disable everything else
             for (var name in prog.attrs) {
                 var enabled = attr_names.indexOf(name) !== -1;
-                src += "this.prog.attrs['"+name+"'].enabled = "+enabled+";\n";
+                var state = "attr:" + name;
+                if (state_tracker[state] != enabled) {
+                    src += "this.prog.attrs['"+name+"'].enabled = "+enabled+";\n";
+                }
+                state_tracker[state] = enabled
             }
         }
 
-        // upload vbo spacial statistics
-        if (attr_map.position) {
-            for (var name in vbo.stats) {
-                var glsl_name = "mgrl_model_local_" + name;
-                if (prog.vars.hasOwnProperty(glsl_name)) {
-                    src += "this.prog.vars['"+glsl_name+"'] = "+vbo.stats[name]+";\n";
+        if (!redundant) {
+            // upload vbo spacial statistics
+            if (attr_map.position) {
+                for (var name in vbo.stats) {
+                    var glsl_name = "mgrl_model_local_" + name;
+                    if (prog.vars.hasOwnProperty(glsl_name)) {
+                        src += "this.prog.vars['"+glsl_name+"'] = "+vbo.stats[name]+";\n";
+                    }
                 }
             }
-        }
-        
-        // bind the buffer for use
-        src += please.format_invocation(
-            "gl.bindBuffer",
-            "gl.ARRAY_BUFFER",
-            "please.gl.__buffers.all[" + vbo.buffer_index + "].id") + "\n";
-
-        if (attr_names.length === 1) {
-            // single attribute buffer binding
+            
+            // bind the buffer for use
             src += please.format_invocation(
-                "gl.vertexAttribPointer",
-                "this.prog.attrs['" + attr + "'].loc",
-                item_size, opt.type, false, 0, 0) + "\n";
-        }
-        else {
-            // multi-attribute buffer bindings
-            for (var i=0; i<bind_order.length; i+=1) {
-                var attr = bind_order[i];
-                var offset = bind_offset[i];
-                var item_size = item_sizes[attr];
-                if (prog.attrs[attr]) {
-                    src += please.format_invocation(
-                        "gl.vertexAttribPointer",
-                        "this.prog.attrs['" + attr + "'].loc",
-                        item_size, opt.type, false, stride*4, offset*4) + "\n";
+                "gl.bindBuffer",
+                "gl.ARRAY_BUFFER",
+                "please.gl.__buffers.all[" + vbo.buffer_index + "].id") + "\n";
+
+            if (attr_names.length === 1) {
+                // single attribute buffer binding
+                src += please.format_invocation(
+                    "gl.vertexAttribPointer",
+                    "this.prog.attrs['" + attr + "'].loc",
+                    item_size, opt.type, false, 0, 0) + "\n";
+            }
+            else {
+                // multi-attribute buffer bindings
+                for (var i=0; i<bind_order.length; i+=1) {
+                    var attr = bind_order[i];
+                    var offset = bind_offset[i];
+                    var item_size = item_sizes[attr];
+                    if (prog.attrs[attr]) {
+                        src += please.format_invocation(
+                            "gl.vertexAttribPointer",
+                            "this.prog.attrs['" + attr + "'].loc",
+                            item_size, opt.type, false, stride*4, offset*4) + "\n";
+                    }
                 }
             }
         }

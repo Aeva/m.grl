@@ -280,12 +280,15 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
 };
 
 
-please.__DrawableIR.prototype.generate = function (prog) {
+please.__DrawableIR.prototype.generate = function (prog, state_tracker) {
     this.bindings_for_shader(prog);
     var ir = [];
-    ir.push(this.__vbo.static_bind(prog));
+    ir.push(this.__vbo.static_bind(prog, state_tracker));
     if (this.__ibo) {
-        ir.push(this.__ibo.static_bind);
+        if (state_tracker["ibo"] !== this.__ibo.id) {
+            ir.push(this.__ibo.static_bind);
+            state_tracker["ibo"] = this.__ibo.id;
+        }
     }
 
     ITER(u, prog.uniform_list) {
