@@ -454,6 +454,8 @@ please.GraphNode = function () {
     this.on_mouseup = null;
     this.on_click = null;
     this.on_doubleclick = null;
+    
+    this.__on_graphroot_changed = new please.Signal();
 };
 please.GraphNode.prototype = {
     "has_child" : function (entity) {
@@ -486,6 +488,7 @@ please.GraphNode.prototype = {
             var children = please.graph_index[this.__id].children;
             children.splice(children.indexOf(entity.__id), 1);
         }
+        entity.__set_graph_root(null);
     },
     "destroy" : function () {
         var parent = this.parent;
@@ -549,6 +552,7 @@ please.GraphNode.prototype = {
         if (root) {
             root.__track(this);
         }
+        this.__on_graphroot_changed();
     },
     "__world_matrix_driver" : function () {
         var parent = this.parent;

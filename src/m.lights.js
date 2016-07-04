@@ -122,27 +122,20 @@ please.SpotLightNode = function (options) {
     DEFAULT(options.min_filter, gl.LINEAR)
 
     this.depth_pass = new please.RenderNode(prog, options);
-    Object.defineProperty(this.depth_pass, "graph", {
-        "configurable" : true,
-        "get" : function () {
-            return this.graph_root;
-        },
-    });
+    this.__on_graphroot_changed.connect(function () {
+        this.depth_pass.graph = this.graph_root;
+    }.bind(this));
+
     this.depth_pass.shader.cast_shadows = function () { return light.cast_shadows; };
     this.depth_pass.shader.shader_pass = 1;
     this.depth_pass.shader.geometry_pass = true;
-    this.depth_pass.render = function () {
-        this.activate();
-        this.graph_root.draw(function (node) { return !node.cast_shadows; });
-        this.deactivate();
-    }.bind(this);
     this.depth_pass.clear_color = function () {
         var max_depth = this.camera.far;
         return [max_depth, max_depth, max_depth, max_depth];
     }.bind(this);
 };
 please.SpotLightNode.prototype = Object.create(please.GraphNode.prototype);
-please.SpotLightNode.prototype.activate = function () {
+please.SpotLightNode.prototype.before_render = function () {
     var graph = this.graph_root;
     if (graph !== null) {
         if (graph.camera && typeof(graph.camera.on_inactive) === "function") {
@@ -155,7 +148,7 @@ please.SpotLightNode.prototype.activate = function () {
         graph.camera = this.camera;
     }
 };
-please.SpotLightNode.prototype.deactivate = function () {
+please.SpotLightNode.prototype.after_render = function () {
     this.camera.on_inactive();
     this.graph_root.camera = this.__last_camera;
 };
@@ -175,16 +168,21 @@ please.DeferredRenderer = function () {
             "deferred_renderer/main.vert",
             "deferred_renderer/main.frag");
     }
-    
-    var assembly = new please.RenderNode(prog, {"buffers" : ["color"]});
+
+    // The assembly pass will be the return value for this
+    // constructor.  The graph property will be a handle for gbuffers
+    // to use, as well as for lighting passes to introspect, but this
+    // pass will always render as a splat because it is a compositing
+    // pass.
+    var assembly = new please.RenderNode(prog, {
+        "buffers" : ["color"],
+        "force_splat" : true,
+    });
     assembly.clear_color = [0.15, 0.15, 0.15, 1.0];
     assembly.shader.shader_pass = 3;
     assembly.shader.geometry_pass = false;
-    assembly.render = function () {
-        please.gl.splat();
-    }
     assembly.graph = null;
-
+    
     
     var gbuffer_options = {
         "buffers" : ["color", "spatial", "normal"],
@@ -194,11 +192,10 @@ please.DeferredRenderer = function () {
     gbuffers.clear_color = [-1, -1, -1, -1];
     gbuffers.shader.shader_pass = 0;
     gbuffers.shader.geometry_pass = true;
-    gbuffers.render = function () {
-        if (assembly.graph !== null) {
-            assembly.graph.draw();
-        }
-    }
+
+    assembly.__graph_set.connect(function() {
+        gbuffers.graph = this.graph;
+    }.bind(this));
 
 
     var light_options = {
@@ -219,7 +216,7 @@ please.DeferredRenderer = function () {
                 if (assembly.graph.__lights[i].cast_shadows) {
                     var node = assembly.graph.__lights[i].depth_pass;
                     please.indirect_render(node)
-                    this.targets.push(node.__cached);
+                    this.targets.push(node.__cached_framebuffer);
                 }
                 else {
                     this.targets.push(null);

@@ -70,6 +70,14 @@ please.RenderNode = function (prog, options) {
         this.frequency = options.frequency;
     }
 
+    // option to always use please.gl.splat regardless of the presence
+    // of graph
+    this.__force_splat = false;
+    if (options && options.force_splat) {
+        this.__force_splat = !!options.force_splat;
+    }
+    Object.freeze(this.__force_splat);
+
     // optional streaming callback
     this.__stream_cache = null;
     this.stream_callback = null;
@@ -143,33 +151,57 @@ please.RenderNode = function (prog, options) {
         "graph" : null,
     };
     this.__dirty_draw = false;
+    this.__graph_set = new please.Signal();
     this.__graph = null;
-    var recompile_me = this.__recompile_draw.bind(this);
-    Object.defineProperty(this, "graph", {
-        "get" : function () {
-            return this.__graph;
-        }.bind(this),
-        "set" : function (new_graph) {
-            var old_graph = this.__graph;
-            if (old_graph !== new_graph) {
-                if (old_graph) {
-                    old_graph.__regen_static_draw.disconnect(recompile_me);
-                }
-                if (new_graph) {
-                    new_graph.__regen_static_draw.connect(recompile_me);
-                }
-                this.__graph = !!new_graph ? new_graph : null;
-                this.__static_draw_cache.graph = new_graph;
-                this.__recompile_draw();
-            }
-            else {
-                return new_graph;
-            }
-        }.bind(this),
-    });
 
+    if (this.__force_splat) {
+        this.__recompile_draw = null;
+        this.__compile_graph_draw = null;
+        Object.defineProperty(this, "graph", {
+            "get" : function () {
+                return this.__graph;
+            }.bind(this),
+            "set" : function (new_graph) {
+                var old_graph = this.__graph;
+                if (old_graph !== new_graph) {
+                    this.__graph = !!new_graph ? new_graph : null;
+                    this.__graph_set();
+                }
+                else {
+                    return new_graph;
+                }
+            }.bind(this),
+        });
+    }
+    else {
+        var recompile_me = this.__recompile_draw.bind(this);
+        this.__graph_set.connect(recompile_me);
+
+        Object.defineProperty(this, "graph", {
+            "get" : function () {
+                return this.__graph;
+            }.bind(this),
+            "set" : function (new_graph) {
+                var old_graph = this.__graph;
+                if (old_graph !== new_graph) {
+                    if (old_graph) {
+                        old_graph.__regen_static_draw.disconnect(recompile_me);
+                    }
+                    if (new_graph) {
+                        new_graph.__regen_static_draw.connect(recompile_me);
+                    }
+                    this.__graph = !!new_graph ? new_graph : null;
+                    this.__static_draw_cache.graph = new_graph;
+                    this.__graph_set();
+                }
+                else {
+                    return new_graph;
+                }
+            }.bind(this),
+        });
+        this.__recompile_draw();
+    }
     prog.cache_clear();
-    this.__recompile_draw();
 };
 please.RenderNode.prototype = {
     "peek" : null,
@@ -490,6 +522,11 @@ please.render = function(node) {
             gl.readPixels(0, 0, width, height, format, type, node.__stream_cache);
             node.stream_callback(node.__stream_cache, info);
         }
+    }
+
+    // call the after_render method, if applicable
+    if (node.after_render) {
+        node.after_render();
     }
 
     // clean up
