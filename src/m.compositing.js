@@ -149,6 +149,7 @@ please.RenderNode = function (prog, options) {
     this.__static_draw_cache = {
         "prog" : prog,
         "graph" : null,
+        "exclude_test" : null,
     };
     this.__dirty_draw = false;
     this.__graph_set = new please.Signal();
@@ -172,6 +173,11 @@ please.RenderNode = function (prog, options) {
                 }
             }.bind(this),
         });
+
+        this.graph_filter = null;
+        this.__graph_filter = null;
+        Object.freeze(this.graph_filter);
+        Object.freeze(this.__graph_filter);
     }
     else {
         var recompile_me = this.__recompile_draw.bind(this);
@@ -199,6 +205,25 @@ please.RenderNode = function (prog, options) {
                 }
             }.bind(this),
         });
+
+        this.__graph_filter = null;
+        Object.defineProperty(this, "graph_filter", {
+            "get" : function () {
+                return this.__graph_filter;
+            }.bind(this),
+            "set" : function (new_filter) {
+                var old_filter = this.__graph_filter;
+                if (old_filter !== new_filter) {
+                    this.__graph_filter = typeof(new_filter) == "function" ? new_filter : null;
+                    this.__static_draw_cache.exclude_test = this.__graph_filter;
+                    this.__recompile_draw();
+                }
+                else {
+                    return new_graph;
+                }
+            }.bind(this),
+        });
+
         this.__recompile_draw();
     }
     prog.cache_clear();
@@ -279,13 +304,15 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     var state_tracker = {};
     ITER(s, graph.__statics) {
         var node = graph.__statics[s];
-        var node_ir = node.__ir.generate(this.__prog, state_tracker) || [];
-        ITER(p, node_ir) {
-            var token = node_ir[p];
-            if (token.constructor == please.JSIR) {
-                token.compiled = true;
+        if (!this.__graph_filter || this.__graph_filter(node)) {
+            var node_ir = node.__ir.generate(this.__prog, state_tracker) || [];
+            ITER(p, node_ir) {
+                var token = node_ir[p];
+                if (token.constructor == please.JSIR) {
+                    token.compiled = true;
+                }
+                ir.push(token);
             }
-            ir.push(token);
         }
     }
 
@@ -300,15 +327,10 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
                 var children = graph.__states[hint];
                 ITER(i, children) {
                     var child = children[i];
-                    //if (!(exclude_test && exclude_test(child))) {
-                        if (child.__static_draw) {
-                            child.__static_draw();
-                        }
-                        else {
-                            child.__bind(prog);
-                            child.__draw(prog);
-                        }
-                    //}
+                    if (!this.exclude_test || this.exclude_test(child)) {
+                        child.__bind(prog);
+                        child.__draw(prog);
+                    }
                 }
             }
         }
@@ -329,10 +351,10 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
             gl.depthMask(false);
             ITER(i, graph.__alpha) {
                 var child = graph.__alpha[i];
-                //if (!(exclude_test && exclude_test(child))) {
+                if (!this.exclude_test || this.exclude_test(child)) {
                     child.__bind(prog);
                     child.__draw(prog);
-                //}
+                }
             }
             gl.depthMask(true);
         }

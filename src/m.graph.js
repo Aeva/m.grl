@@ -634,7 +634,6 @@ please.GraphNode.prototype = {
         return rhs.__z_depth - lhs.__z_depth;
     },
 #ifdef WEBGL
-    "__static_draw" : null,
     "__bind" : function (prog) {
         // calls this.bind if applicable.
         if (this.__drawable && typeof(this.bind) === "function") {

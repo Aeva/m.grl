@@ -122,9 +122,17 @@ please.SpotLightNode = function (options) {
     DEFAULT(options.min_filter, gl.LINEAR)
 
     this.depth_pass = new please.RenderNode(prog, options);
+    
+    this.depth_pass.graph_filter = function (node) {
+        return node.cast_shadows;
+    }
+    
     this.__on_graphroot_changed.connect(function () {
         this.depth_pass.graph = this.graph_root;
     }.bind(this));
+    
+    this.depth_pass.before_render = this.before_render.bind(this);
+    this.depth_pass.after_render = this.after_render.bind(this);
 
     this.depth_pass.shader.cast_shadows = function () { return light.cast_shadows; };
     this.depth_pass.shader.shader_pass = 1;
@@ -195,8 +203,9 @@ please.DeferredRenderer = function () {
 
     assembly.__graph_set.connect(function() {
         gbuffers.graph = this.graph;
-    }.bind(this));
+    }.bind(assembly));
 
+    assembly.__gbuffers = gbuffers;
 
     var light_options = {
         "buffers" : ["color"],
