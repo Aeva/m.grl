@@ -97,6 +97,24 @@ please.picking.__etc.event_listener = function (event) {
 
 
 //
+// Decodes a picking ID from a given color, and returns the
+// corresponding GraphNode from the picking graph.
+//
+please.picking.__etc.decode_color = function (color_array) {
+    if (r===0 && g===0 && b===0) {
+        return null;
+    }
+    else {
+        var r = color_array[0];
+        var g = color_array[1];
+        var b = color_array[2];
+        var color_index = r + g*256 + b*65536;
+        return this.opt.graph.__flat[color_index-1];
+    }
+};
+
+
+//
 // Once a opengl context is created, automatically attach picking
 // event bindings to the canvas.
 //
@@ -159,7 +177,7 @@ please.picking_pass = function () {
         id_color = please.gl.pick(req.x, req.y);
         
         // picked is the object actually clicked on
-        info.picked = graph.__picked_node(id_color);
+        info.picked = please.picking.__etc.decode_color(id_color);
         if (info.picked) {
             // selected is who should recieve an event
             info.selected = info.picked.__find_selection();
