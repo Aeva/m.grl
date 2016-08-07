@@ -46,12 +46,12 @@ please.picking = {
 //
 (function () {
     var _private = please.picking.__etc.opt = {};
-    ITER_PROPS(name, please.picking) {
+    please.prop_map(please.picking, function (name, initial) {
         var initial = please.picking[name];
         if (name.startsWith("_") || !!initial) {
             // skip if the property name starts with an underscore, or
             // the value of the property is not a falsey value.
-            continue;
+            return;
         }
         _private[name] = initial;
         delete please.picking[name];
@@ -68,7 +68,7 @@ please.picking = {
                 return value;
             }
         });
-    }
+    });
 })();
 
 
