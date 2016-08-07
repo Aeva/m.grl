@@ -198,6 +198,24 @@ please.Signal = function (wrapped) {
 };
 
 
+// [+] please.array_src(array)
+//
+// Returns a string representation of a provided array or typed array.
+//
+please.array_src = function(array) {
+    if (array.constructor == Array) {
+        return "[" + array + "]";
+    }
+    else {
+        var new_array = [];
+        ITER(i, array) {
+            new_array.push(array[i]);
+        }
+        return please.array_src(new_array);
+    }
+};
+
+
 // [+] please.array_hash(array, digits)
 // 
 // Returns a string that represents the array.  This is mainly used

@@ -236,15 +236,6 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         // because instancing will have an effect on how attrs are
         // bound
         
-        if (!redundant) {
-            for (var name in vbo.stats) {
-                var glsl_name = "mgrl_model_local_" + name;
-                if (prog.vars.hasOwnProperty(glsl_name)) {
-                    src += "this.prog.vars["+glsl_name+"] = "+vbo.stats[name]+";";
-                }
-            }
-        }
-
         // enable attributes
         if (instanced) {
             // don't disable other arrays
@@ -275,7 +266,8 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 for (var name in vbo.stats) {
                     var glsl_name = "mgrl_model_local_" + name;
                     if (prog.vars.hasOwnProperty(glsl_name)) {
-                        src += "this.prog.vars['"+glsl_name+"'] = "+vbo.stats[name]+";\n";
+                        src += "this.prog.vars['"+glsl_name+"'] = ";
+                        src += please.array_src(vbo.stats[name]) + ";\n";
                     }
                 }
             }
