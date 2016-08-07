@@ -168,11 +168,11 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
 
     // Activate picking passes for the scene graph:
-    graph.picking.enabled = true;
+    please.picking.graph = graph;
 
     // For fun, let's also print out the world coordinate that was
     // clicked.  First we need to enable location picking:
-    graph.picking.skip_location_info = false;
+    please.picking.enable_location_info = true
 
     // Next we add an event handler on the graph for the on_mouseup
     // event.  Other events also exist.
