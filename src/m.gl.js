@@ -114,6 +114,9 @@ please.gl.set_context = function (canvas_id, options) {
 
         // create the default shader
         please.glsl("default", "simple.vert", "diffuse.frag").activate();
+
+        // initialize the picking system
+        please.__init_picking();
     }
 },
 

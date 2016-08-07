@@ -46,19 +46,6 @@ please.picking = {
 //
 (function () {
     var _private = please.picking.__etc.opt = {};
-    var gettersetters = {
-        enumerable: true,
-        get : function () {
-            return _private[name];
-        },
-        set : function (value) {
-            if (_private[name] != value) {
-                _private[name] = value;
-                please.picking.__etc.settings_changed(name, value);
-            }
-            return value;
-        },
-    };
     ITER_PROPS(name, please.picking) {
         var initial = please.picking[name];
         if (name.startsWith("_") || !!initial) {
@@ -68,7 +55,19 @@ please.picking = {
         }
         _private[name] = initial;
         delete please.picking[name];
-        Object.defineProperty(please.picking, name, gettersetters);
+        Object.defineProperty(please.picking, name, {
+            enumerable: true,
+            get : function () {
+                return _private[name];
+            },
+            set : function (value) {
+                if (_private[name] != value) {
+                    _private[name] = value;
+                    please.picking.__etc.settings_changed(name, value);
+                }
+                return value;
+            }
+        });
     }
 })();
 
@@ -101,28 +100,28 @@ please.picking.__etc.event_listener = function (event) {
 // Once a opengl context is created, automatically attach picking
 // event bindings to the canvas.
 //
-addEventListener("mgrl_gl_context_created", function (event) {
+please.__init_picking = function () {
     var canvas = please.gl.canvas;
     var event_listener = please.picking.__etc.event_listener;
     canvas.addEventListener("mousemove", event_listener);
     canvas.addEventListener("mousedown", event_listener);
     window.addEventListener("mouseup", event_listener);
-
+    
     please.picking.__etc.picking_singleton = new please.RenderNode("object_picking");
-
+    
     please.time.__frame.register(-1, "mgrl/picking_pass", please.picking_pass).skip_when(
         function () {
             return please.picking.__etc.queue.length === 0 && please.picking.__etc.move_event === null;
         }
     );
-
+    
     please.picking.__etc.settings_changed.connect(function (name, value) {
         console.info("Picking setting '"+name+"' changed to: " + value);
         if (name == "graph") {
             please.picking.__etc.picking_singleton.graph = value;
         }
     });
-});
+};
 
 
 //
