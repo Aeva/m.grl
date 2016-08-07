@@ -751,42 +751,6 @@ please.SceneGraph = function () {
         }
     };
 
-#ifdef WEBGL
-    if (please.renderer.name === "gl") {
-        this.picking = {
-            "enabled" : false,
-            "skip_location_info" : true,
-            "skip_on_move_event" : true,
-            "compositing_root" : null,
-            "__reference_node" : this.__create_picking_node(),
-            // __click_test stores what was selected on the last
-            // mouse_down event.  If mouse up matches, the objects gets a
-            // "click" event after it's mouse up event.  __last_click
-            // stores what object recieved a click last, and is reset
-            // whenever a contradicting mouseup occurs.  It also stores
-            // when that object was clicked on for the double click
-            // threshold.
-            "__click_test" : null,
-            "__last_click" : null,
-            "__clear_timer" : null,
-        };
-        this.picking.compositing_root = this.picking.__reference_node;
-
-        this.__picked_node = function (color_array) {
-            if (r===0 && g===0 && b===0) {
-                return null;
-            }
-            else {
-                var r = color_array[0];
-                var g = color_array[1];
-                var b = color_array[2];
-                var color_index = r + g*256 + b*65536;
-                return this.__flat[color_index-1];
-            }
-        };
-    }
-#endif
-
     Object.defineProperty(this, "graph_root", {
         "configurable" : false,
         "writable" : false,
