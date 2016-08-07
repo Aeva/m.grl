@@ -100,7 +100,7 @@ please.picking.__etc.event_listener = function (event) {
 // Decodes a picking ID from a given color, and returns the
 // corresponding GraphNode from the picking graph.
 //
-please.picking.__etc.decode_color = function (color_array) {
+please.picking.__etc.node_lookup = function (color_array) {
     if (r===0 && g===0 && b===0) {
         return null;
     }
@@ -127,7 +127,7 @@ please.__init_picking = function () {
     
     please.picking.__etc.picking_singleton = new please.RenderNode("object_picking");
     
-    please.time.__frame.register(-1, "mgrl/picking_pass", please.picking_pass).skip_when(
+    please.time.__frame.register(-1, "mgrl/picking_pass", please.picking.__etc.picking_pass).skip_when(
         function () {
             return please.picking.__etc.queue.length === 0 && please.picking.__etc.move_event === null;
         }
@@ -145,7 +145,7 @@ please.__init_picking = function () {
 //
 // This code facilitates color based picking, when relevant. 
 //
-please.picking_pass = function () {
+please.picking.__etc.picking_pass = function () {
     var graph = this.opt.graph;
     if (!graph) {
         return;
@@ -177,7 +177,7 @@ please.picking_pass = function () {
         id_color = please.gl.pick(req.x, req.y);
         
         // picked is the object actually clicked on
-        info.picked = please.picking.__etc.decode_color(id_color);
+        info.picked = please.picking.__etc.node_lookup(id_color);
         if (info.picked) {
             // selected is who should recieve an event
             info.selected = info.picked.__find_selection();
