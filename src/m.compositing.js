@@ -91,6 +91,13 @@ please.RenderNode = function (prog, options) {
         }
     }
 
+    // graph is a picking pass
+    this.__is_picking_pass = false;
+    if (options && options.is_picking_pass) {
+        this.__is_picking_pass = !!options.is_picking_pass;
+    }
+    Object.freeze(this.__is_picking_pass);
+
     // render buffer
     DEFAULT(options, {});
     please.gl.register_framebuffer(this.__id, options);
@@ -304,6 +311,12 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     var state_tracker = {};
     ITER(s, graph.__statics) {
         var node = graph.__statics[s];
+        if (this.__is_picking_pass) {
+            var pick_id = graph.__statics.indexOf(node) + 1;
+            var color_string = please.picking.__etc.color_encode(pick_id);
+            var pick_uni = "this.prog.vars['object_index'] = " + color_string + ";";
+            ir.push(pick_uni);
+        }
         if (!this.__graph_filter || this.__graph_filter(node)) {
             var node_ir = node.__ir.generate(this.__prog, state_tracker) || [];
             ITER(p, node_ir) {

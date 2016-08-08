@@ -391,7 +391,6 @@ please.GraphNode = function () {
                 this, "alpha", 1.0, this.shader, false, this.__uniform_update);
             bind_driver("is_sprite", this.__is_sprite_driver);
             bind_driver("is_transparent", this.__is_transparent_driver);
-            bind_vec_driver("object_index", "rgb", this.__object_id_driver);
             bind_driver("billboard_mode", this.__billboard_driver);
 
             // prog.samplers is a subset of prog.vars
@@ -441,7 +440,6 @@ please.GraphNode = function () {
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__z_depth = null; // overwritten by z-sorting
     this.selectable = false; // object can be selected via picking
-    this.__pick_index = null; // used internally for tracking picking
     this.__last_vbo = null; // stores the vbo that was bound last draw
     this.cast_shadows = true;
 
@@ -588,14 +586,6 @@ please.GraphNode.prototype = {
     },
     "__is_transparent_driver" : function () {
         return this.sort_mode === "alpha";
-    },
-    "__object_id_driver" : function () {
-        var r = this.__pick_index & 255; // 255 = 2**8-1
-        var g = (this.__pick_index & 65280) >> 8; // 65280 = (2**8-1) << 8;
-        var b = (this.__pick_index & 16711680) >> 16; // 16711680 = (2**8-1) << 16;
-        var id = [r/255, g/255, b/255];
-        id.dirty = true;
-        return id;
     },
     "__billboard_driver" : function () {
         if (!this.billboard) {
@@ -778,7 +768,6 @@ please.SceneGraph = function () {
         // and sort nodes into their correct render pathways
         ITER(i, this.__flat) {
             var element = this.__flat[i];
-            element.__pick_index = i+1;
             if (element.__drawable) {
                 if (element.sort_mode === "alpha") {
                     this.__alpha.push(element);
@@ -828,24 +817,6 @@ please.SceneGraph = function () {
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
 
 
-// Used by the dispatcher function below
-please.SceneGraph.prototype.__set_click_counter = function (val) {
-    this.picking.__last_click = val;
-    window.clearTimeout(this.picking.__clear_timer);
-    if (val) {
-        this.picking.__clear_timer = window.setTimeout(function () {
-            this.picking.__last_click = null;
-        }.bind(this), 500);
-    }
-};
-
-
-// Makes SceneGraph instance the geometry provider for the picking pass.
-please.SceneGraph.prototype.make_picking_target = function () {
-    please.__picking.set_picking_graph(this);
-};
-
-
 // Special event dispatcher for SceneGraphs
 please.SceneGraph.prototype.dispatch = function (event_name, event_info) {
     // call the dispatcher logic inherited from GraphNode first
@@ -854,34 +825,35 @@ please.SceneGraph.prototype.dispatch = function (event_name, event_info) {
 
     // determine if a click or double click event has happened
     if (event_info.selected) {
+        var picking = please.picking.__etc;
         var event_type = event_info.trigger.event.type;
         if (event_type === "mousedown") {
             // set the click counter
-            this.picking.__click_test = event_info.selected;
+            picking.click_test = event_info.selected;
         }
         else if (event_type === "mouseup") {
-            if (this.picking.__click_test === event_info.selected) {
+            if (picking.click_test === event_info.selected) {
                 // single click
                 event_info.selected.dispatch("click", event_info);
                 inherited_dispatch.call(this, "click", event_info);
                 
-                if (this.picking.__last_click === event_info.selected) {
+                if (picking.last_click === event_info.selected) {
                     // double click
-                    this.__set_click_counter(null);
+                    picking.set_click_counter(null);
                     event_info.selected.dispatch("doubleclick", event_info);
                     inherited_dispatch.call(this, "doubleclick", event_info);
                 }
                 else {
                     // double click pending
-                    this.__set_click_counter(event_info.selected);
+                    picking.set_click_counter(event_info.selected);
                 }
             }
             else {
                 // clear double click counter
-                this.__set_click_counter(null);
+                picking.set_click_counter(null);
             }
             // clear the click test counter
-            this.picking.__click_test = null;
+            picking.click_test = null;
         }
     }
 };

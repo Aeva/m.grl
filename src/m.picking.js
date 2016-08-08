@@ -97,6 +97,18 @@ please.picking.__etc.event_listener = function (event) {
 
 
 //
+//
+//
+please.picking.__etc.color_encode = function (pick_index) {
+    var r = (pick_index & 255); // 255 = 2**8-1
+    var g = (pick_index & 65280) >> 8; // 65280 = (2**8-1) << 8;
+    var b = (pick_index & 16711680) >> 16; // 16711680 = (2**8-1) << 16;
+    var id = [r/255, g/255, b/255];
+    return please.array_src(id);
+};
+
+
+//
 // Decodes a picking ID from a given color, and returns the
 // corresponding GraphNode from the picking graph.
 //
@@ -109,7 +121,7 @@ please.picking.__etc.node_lookup = function (color_array) {
         var g = color_array[1];
         var b = color_array[2];
         var color_index = r + g*256 + b*65536;
-        return this.opt.graph.__flat[color_index-1];
+        return this.opt.graph.__statics[color_index-1];
     }
 };
 
@@ -125,7 +137,10 @@ please.__init_picking = function () {
     canvas.addEventListener("mousedown", event_listener);
     window.addEventListener("mouseup", event_listener);
     
-    please.picking.__etc.picking_singleton = new please.RenderNode("object_picking");
+    please.picking.__etc.picking_singleton = new please.RenderNode(
+        "object_picking",
+        {"is_picking_pass" : true}
+    );
     
     please.time.__frame.register(-1, "mgrl/picking_pass", please.picking.__etc.picking_pass).skip_when(
         function () {
@@ -187,7 +202,7 @@ please.picking.__etc.picking_pass = function () {
                 this.picking_singleton.shader.mgrl_select_mode = false;
                 please.render(this.picking_singleton);
                 loc_color = please.gl.pick(req.x, req.y);
-                var vbo = info.picked.__last_vbo;
+                var vbo = info.picked.__buffers.vbo;
 
                 var tmp_coord = new Float32Array(3);
                 var local_coord = new Float32Array(3);
@@ -213,3 +228,15 @@ please.picking.__etc.picking_pass = function () {
     // restore original clear color
     gl.clearColor.apply(gl, please.__clear_color);
 }.bind(please.picking.__etc);
+
+
+// Used by the dispatcher function below
+please.picking.__etc.set_click_counter = function (val) {
+    this.last_click = val;
+    window.clearTimeout(this.clear_timer);
+    if (val) {
+        this.clear_timer = window.setTimeout(function () {
+            this.last_click = null;
+        }.bind(this), 500);
+    }
+};
