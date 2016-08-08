@@ -136,11 +136,13 @@ please.__init_picking = function () {
     canvas.addEventListener("mousemove", event_listener);
     canvas.addEventListener("mousedown", event_listener);
     window.addEventListener("mouseup", event_listener);
-    
-    please.picking.__etc.picking_singleton = new please.RenderNode(
-        "object_picking",
-        {"is_picking_pass" : true}
-    );
+
+    var picker = new please.RenderNode("object_picking", {"is_picking_pass" : true});
+    please.picking.__etc.picking_singleton = picker;
+    picker.req = {x:0, y:0};
+    picker.stream_callback = function (picked_color) {
+        this.selected_color = picked_color;
+    };
     
     please.time.__frame.register(-1, "mgrl/picking_pass", please.picking.__etc.picking_pass).skip_when(
         function () {
@@ -188,8 +190,9 @@ please.picking.__etc.picking_pass = function () {
     if (req.x >= 0 && req.x <= 1 && req.y >= 0 && req.y <= 1) {
         // perform object picking pass
         this.picking_singleton.shader.mgrl_select_mode = true;
-        please.render(this.picking_singleton);
-        id_color = please.gl.pick(req.x, req.y);
+        this.picking_singleton.req = req;
+        please.indirect_render(this.picking_singleton);
+        id_color = this.picking_singleton.selected_color;
         
         // picked is the object actually clicked on
         info.picked = please.picking.__etc.node_lookup(id_color);
@@ -200,8 +203,8 @@ please.picking.__etc.picking_pass = function () {
             // optionally perform object location picking
             if (this.opt.enable_location_info) {
                 this.picking_singleton.shader.mgrl_select_mode = false;
-                please.render(this.picking_singleton);
-                loc_color = please.gl.pick(req.x, req.y);
+                please.indirect_render(this.picking_singleton);
+                loc_color = this.picking_singleton.selected_color;
                 var vbo = info.picked.__buffers.vbo;
 
                 var tmp_coord = new Float32Array(3);

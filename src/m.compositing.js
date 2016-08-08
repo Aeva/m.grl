@@ -543,9 +543,6 @@ please.render = function(node) {
         }
 
         if (type && period) {
-            if (!node.__stream_cache) {
-                node.__stream_cache = new ArrayType(width*height*period);
-            }
             var info = {
                 "width" : width,
                 "height" : height,
@@ -554,8 +551,22 @@ please.render = function(node) {
                 "period" : period,
             };
             gl.finish();
-            gl.readPixels(0, 0, width, height, format, type, node.__stream_cache);
-            node.stream_callback(node.__stream_cache, info);
+            if (node.__is_picking_pass) {
+                var x = Math.floor((width-1) * node.req.x);
+                var y = Math.floor((height-1) * (1.0-node.req.y));
+                if (!node.__stream_cache) {
+                    node.__stream_cache = new ArrayType(period);
+                }
+                gl.readPixels(x, y, 1, 1, format, type, node.__stream_cache);
+                node.stream_callback(node.__stream_cache, info);
+            }
+            else {
+                if (!node.__stream_cache) {
+                    node.__stream_cache = new ArrayType(width*height*period);
+                }
+                gl.readPixels(0, 0, width, height, format, type, node.__stream_cache);
+                node.stream_callback(node.__stream_cache, info);
+            }
         }
     }
 
