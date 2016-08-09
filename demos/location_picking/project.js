@@ -141,15 +141,16 @@ addEventListener("mgrl_media_ready", please.once(function () {
     label.style.bottom = "100px";
     
     // Activate picking passes for the scene graph:
-    graph.picking.enabled = true;
+    please.picking.graph = graph;
 
     // For fun, let's also print out the world coordinate that was
     // clicked.  First we need to enable location picking:
-    graph.picking.skip_location_info = false;
+    please.picking.enable_location_info = true;
+    //please.picking.enable_mouse_move_event = true;
 
     // Next we add an event handler on the graph for the on_mouseup
     // event.  Other events also exist.
-    graph.on_mouseup = function (event) {
+    graph.on_mousedown.connect(function (event) {
         var coord = event.world_location;
         if (coord) {
             if (event.selected != player) {
@@ -160,7 +161,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
                     
             }
         }
-    };
+    });
     
     // Now that we have defined our scene, lets create a render node
     // for it all, and set up a nice transition effect from the
