@@ -71,18 +71,25 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // this variable we use to store what is currently selected
     var selected = null;
     
-    // build the scene graph
+    // scene graph root
     var graph = demo.graph = new please.SceneGraph();
-    graph.add(new FloorNode());
+
+    // add a floor object, and bind some mouse events
+    var floor = new FloorNode()
+    graph.add(floor);
 
     // Enable mouse events for the main graph.  In this case, we
     // define a mouseup event on the graph itself, and mousedown
-    // events on the red gavroche objects.  A second graph with just
-    // the floor in it is used to handle mouse move events.
-    graph.picking.enabled = true;
-    graph.on_mouseup = function (event) {
+    // events on the red gavroche objects.  Mouse move events are
+    // enabled only while dragging objects.
+    please.picking.graph = graph;
+    please.picking.enable_location_info = true;
+    please.picking.enable_mouse_move_event = false;
+
+    graph.on_mouseup.connect(function (event) {
         selected = null;
-    };
+        please.picking.enable_mouse_move_event = false;
+    });
 
     // add a camera
     var camera = demo.camera = new please.CameraNode();
@@ -94,26 +101,12 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(camera);
     camera.activate();
 
-    // add a second graph to be used for location picking only
-    var picking_graph = new please.SceneGraph();
-    picking_graph.add(new FloorNode());
-    picking_graph.camera = camera;
-    picking_graph.picking.skip_location_info = false;
-    picking_graph.picking.skip_on_move_event = false;
-    // picking for this graph will only be enabled when it is needed.
-    picking_graph.picking.enabled = false;
-
     // add the mouse move event handler
-    picking_graph.on_mousemove = function (event) {
+    graph.on_mousemove.connect(function (event) {
         if (selected) {
             selected.location = event.world_location;
         }
-        else {
-            // disable the picking graph as nothing is selected
-            picking_graph.picking.enabled = false;
-        }
-    };
-    
+    });
 
     // add some control points for our bezier curve
     var controls = window.controls = [];
@@ -134,10 +127,10 @@ addEventListener("mgrl_media_ready", please.once(function () {
         controls.push(point);
 
         point.selectable = true;
-        point.on_mousedown = function (event) {
+        point.on_mousedown.connect(function (event) {
             selected = this;
-            picking_graph.picking.enabled = true;
-        };
+            please.picking.enable_mouse_move_event = true;
+        });
     }
 
     // bezier curve formed by the control point positions
