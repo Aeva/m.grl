@@ -165,18 +165,23 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var renderer = new please.RenderNode("default");
     renderer.graph = graph;
 
-    // Add a distortion effect
+    // Add a distortion effect to the scene.
     please.glsl("warp_effect", "splat.vert", "warp_effect.frag");
     var screen_warp = new please.RenderNode("warp_effect");
     screen_warp.shader.splat_texture = renderer;
 
-    // Add another for the picking pass to use
-    var pick_warp = new please.RenderNode("warp_effect");
-    //pick_warp.shader.splat_texture = graph.picking.compositing_root;
+    // Add a distortion function to the picking system.
+    please.picking.distortion_function = function (now, pick_x, pick_y) {
+        // equivalent to gl_FragCoord.xy in the shader:
+        var FragCoord_x = please.gl.canvas.width * pick_x;
+        // apply distortion:
+        var new_x = pick_x;
+        var new_y = pick_y + Math.sin((FragCoord_x+(now*200.0))/100.0) * pick_x * 0.25;
+        return [new_x, new_y];
+    };
 
     // Set the render pass to be our main renderer
     demo.renderer = screen_warp;
-    //graph.picking.compositing_root = pick_warp;
 
     // Transition from the loading screen prefab to our renderer
     please.set_viewport(demo.renderer);

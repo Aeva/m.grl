@@ -16,6 +16,7 @@ please.picking = {
     "graph" : null,
     "enable_location_info" : false,
     "enable_mouse_move_event" : false,
+    "distortion_function" : null,
 
     "__etc" : {
         "queue" : [],
@@ -87,6 +88,27 @@ please.picking.__etc.event_listener = function (event) {
         "y" : (event.pageY - top_edge) / (rect.height-1),
         "event" : event,
     };
+    
+    if (this.opt.distortion_function) {
+        var pick_x = picking_event.x;
+        var pick_y = 1.0 - picking_event.y;
+        var time = please.__compositing_viewport.__last_framestart/1000.0;
+        //var time = performance.now()/1000.0;
+        var new_coords = this.opt.distortion_function(time, pick_x, pick_y);
+        var new_x = new_coords[0];
+        var new_y = new_coords[1];
+        if (new_x < 0.0 || new_x > 1.0) {
+            var fract = new_x % 1;
+            new_x = new_x < 0.0 ? 1.0 - fract : fract;
+        }
+        if (new_y < 0.0 || new_y > 1.0) {
+            var fract = new_y % 1;
+            new_y = new_y < 0.0 ? 1.0 - fract : fract;
+        }
+        picking_event.x = new_x;
+        picking_event.y = 1.0 - new_y;
+    };
+
     if (event.type === "mousemove") {
         this.move_event = picking_event
     }
@@ -140,6 +162,7 @@ please.__init_picking = function () {
     var picker = new please.RenderNode("object_picking", {"is_picking_pass" : true});
     please.picking.__etc.picking_singleton = picker;
     picker.req = {x:0, y:0};
+    picker.clear_color = [0.0, 0.0, 0.0, 0.0];
     picker.stream_callback = function (picked_color) {
         this.selected_color = picked_color;
     };
@@ -186,7 +209,6 @@ please.picking.__etc.picking_pass = function () {
         "trigger" : req,
     };
 
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
     if (req.x >= 0 && req.x <= 1 && req.y >= 0 && req.y <= 1) {
         // perform object picking pass
         this.picking_singleton.shader.mgrl_select_mode = true;
