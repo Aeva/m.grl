@@ -120,7 +120,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
         var critter = char_model.instance();
         critter.selectable = true;
 
-        critter.on_mouseup = function (event) {
+        critter.on_mouseup.connect(function (event) {
             if (selected !== this) {
                 if (selected) {
                     // if there was something selected, freeze it's animation
@@ -131,7 +131,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
                 this.rotation_z = please.repeating_driver(360, 0, 900);
                 this.location_z = please.oscillating_driver(0, 1, 1000);
             }
-        };
+        });
 
         if (i === 0) {
             // fake a click event to select the middle one
@@ -142,20 +142,20 @@ addEventListener("mgrl_media_ready", please.once(function () {
     }
 
     // Activate picking passes for the scene graph:
-    graph.picking.enabled = true;
+    please.picking.graph = graph;
 
     // For fun, let's also print out the world coordinate that was
     // clicked.  First we need to enable location picking:
-    graph.picking.skip_location_info = false;
+    please.picking.enable_location_info = true;
 
     // Next we add an event handler on the graph for the on_mouseup
     // event.  Other events also exist.
-    graph.on_mouseup = function (event) {
+    graph.on_mouseup.connect(function (event) {
         var coord = event.world_location;
         if (coord) {
             console.info("Click coordinate: (" + coord.join(", ") + ")");
         }
-    };
+    });
     
     // Now that we have defined our scene, lets create a render node
     // for it all, and set up a nice transition effect from the
@@ -172,11 +172,11 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // Add another for the picking pass to use
     var pick_warp = new please.RenderNode("warp_effect");
-    pick_warp.shader.splat_texture = graph.picking.compositing_root;
+    //pick_warp.shader.splat_texture = graph.picking.compositing_root;
 
     // Set the render pass to be our main renderer
     demo.renderer = screen_warp;
-    graph.picking.compositing_root = pick_warp;
+    //graph.picking.compositing_root = pick_warp;
 
     // Transition from the loading screen prefab to our renderer
     please.set_viewport(demo.renderer);
