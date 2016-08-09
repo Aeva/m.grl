@@ -139,7 +139,7 @@ demo.cycle_effect = function(model) {
         next += 1;
     }
     model.__ani_store.diffuse_color = next;
-    
+    model.__uniform_update(model.shader, "diffuse_color", model);
 };
 
 
@@ -185,8 +185,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var graph = demo.graph = new please.SceneGraph();
     var asset = please.access("suzanne.jta");
 
-    graph.picking.enabled = true;
-    graph.picking.skip_location_info = true;
+    // enable object picking
+    please.picking.graph = graph;
 
     // add some objects onscreen
     var names = ["vibrant", "weird_noise", "water"];
@@ -210,11 +210,11 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(scene);
     demo.initial_model_settings();
 
-    graph.on_mousedown = function (event) {
+    graph.on_mousedown.connect(function (event) {
         if (event.picked) {
             demo.cycle_effect(event.picked);
         }
-    };
+    });
 
 
     // add a camera object to the scene graph
