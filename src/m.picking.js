@@ -93,7 +93,6 @@ please.picking.__etc.event_listener = function (event) {
         var pick_x = picking_event.x;
         var pick_y = 1.0 - picking_event.y;
         var time = please.__compositing_viewport.__last_framestart/1000.0;
-        //var time = performance.now()/1000.0;
         var new_coords = this.opt.distortion_function(time, pick_x, pick_y);
         var new_x = new_coords[0];
         var new_y = new_coords[1];
