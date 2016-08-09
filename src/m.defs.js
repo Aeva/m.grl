@@ -177,7 +177,7 @@ please.Signal = function (wrapped) {
     var represented = typeof(wrapped) == "object" ? wrapped : null;
     var signal = function () {
         for (var c=0; c<callbacks.length; c+=1) {
-            callbacks[c].apply(represented, arguments);
+            callbacks[c].apply(represented || this, arguments);
         }
     };
     signal.connect = function (callback) {

@@ -454,12 +454,13 @@ please.GraphNode = function () {
     this.__buffers = null;
 
     // some event handles
-    this.on_mousemove = null;
-    this.on_mousedown = null;
-    this.on_mouseup = null;
-    this.on_click = null;
-    this.on_doubleclick = null;
-    
+    this.on_mousemove = new please.Signal();
+    this.on_mousedown = new please.Signal();
+    this.on_mouseup = new please.Signal();
+    this.on_click = new please.Signal();
+    this.on_doubleclick = new please.Signal();
+
+    // internal signals
     this.__on_graphroot_changed = new please.Signal();
 };
 please.GraphNode.prototype = {
@@ -527,13 +528,8 @@ please.GraphNode.prototype = {
         if (this.hasOwnProperty(method_name)) {
             var method = this[method_name];
             if (method) {
-                if (typeof(method) === "function") {
+                if (method.constructor === Function) {
                     method.call(this, event_info);
-                }
-                else if (typeof(method) === "object") {
-                    ITER(i, method) {
-                        method[i].call(this, event_info);
-                    }
                 }
             }
         }
@@ -822,45 +818,3 @@ please.SceneGraph = function () {
     }
 };
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
-
-
-// Special event dispatcher for SceneGraphs
-please.SceneGraph.prototype.dispatch = function (event_name, event_info) {
-    // call the dispatcher logic inherited from GraphNode first
-    var inherited_dispatch = please.GraphNode.prototype.dispatch;
-    inherited_dispatch.call(this, event_name, event_info);
-
-    // determine if a click or double click event has happened
-    if (event_info.selected) {
-        var picking = please.picking.__etc;
-        var event_type = event_info.trigger.event.type;
-        if (event_type === "mousedown") {
-            // set the click counter
-            picking.click_test = event_info.selected;
-        }
-        else if (event_type === "mouseup") {
-            if (picking.click_test === event_info.selected) {
-                // single click
-                event_info.selected.dispatch("click", event_info);
-                inherited_dispatch.call(this, "click", event_info);
-                
-                if (picking.last_click === event_info.selected) {
-                    // double click
-                    picking.set_click_counter(null);
-                    event_info.selected.dispatch("doubleclick", event_info);
-                    inherited_dispatch.call(this, "doubleclick", event_info);
-                }
-                else {
-                    // double click pending
-                    picking.set_click_counter(event_info.selected);
-                }
-            }
-            else {
-                // clear double click counter
-                picking.set_click_counter(null);
-            }
-            // clear the click test counter
-            picking.click_test = null;
-        }
-    }
-};

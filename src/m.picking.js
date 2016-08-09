@@ -223,15 +223,55 @@ please.picking.__etc.picking_pass = function () {
     }
     
     // emit event
-    if (info.selected) {
-        info.selected.dispatch(req.event.type, info);
-    }
-    graph.dispatch(req.event.type, info);
-
+    please.picking.__etc.dispatch_events(graph, req.event.type, info);
     
     // restore original clear color
     gl.clearColor.apply(gl, please.__clear_color);
 }.bind(please.picking.__etc);
+
+//
+please.picking.__etc.dispatch_events = function (graph, event_name, event_info) {
+    var event_type = event_info.trigger.event.type;    
+    var selected = event_info.selected || null;
+    var events = [event_type];
+    
+    if (selected) {
+        if (event_type === "mousedown") {
+            // set the click counter
+            this.click_test = selected;
+        }
+        else if (event_type === "mouseup") {
+            if (this.click_test === selected) {
+                // single click
+                events.push("click");
+                
+                if (this.last_click === event_info.selected) {
+                    // double click
+                    this.set_click_counter(null);
+                    events.push("doubleclick");
+                }
+                else {
+                    // double click pending
+                    this.set_click_counter(selected);
+                }
+            }
+            else {
+                // clear double click counter
+                this.set_click_counter(null);
+            }
+            // clear the click test counter
+            this.click_test = null;
+        }
+    }
+
+    ITER(e, events) {
+        var event = events[e];
+        if (selected) {
+            selected.dispatch(event, event_info);
+        }
+        graph.dispatch(event, event_info);
+    }
+};
 
 
 // Used by the dispatcher function below
