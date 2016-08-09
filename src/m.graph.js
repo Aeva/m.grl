@@ -94,12 +94,14 @@
 //  - **scale** Animatable tripple, used to generate the node's local
 //    matrix.
 //
-//  - **shader** An object, automatically contains bindings for most
-//    GLSL shader variables.  Variables with non-zero defaults are be
-//    listed below.
-//
 //  - **selectable** Defaults to false.  May be set to true to allow
 //    the object to be considered for picking.
+//
+//  - **override_location_picking** Defaults to null.  This is used
+//     to override the 'enable_location_info' global setting on a
+//     per-object basis. If null, the global setting will be used,
+//     otherwise false will disable location info picking for this
+//     object, and true will enable it.
 //
 //  - **visible** Defaults to true.  May be set to false to prevent
 //    the node and its children from being drawn.
@@ -439,8 +441,13 @@ please.GraphNode = function () {
     this.__is_camera = false; // set to true if the object is a camera
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__z_depth = null; // overwritten by z-sorting
-    this.selectable = false; // object can be selected via picking
     this.__last_vbo = null; // stores the vbo that was bound last draw
+
+    // picking related properties
+    this.selectable = false; // object can be selected via picking
+    this.override_location_picking = null; // override for global 'enable_location_info' var
+
+    // lighting related properties
     this.cast_shadows = true;
 
     // should either be null or an object with properties "ibo" and "vbo"

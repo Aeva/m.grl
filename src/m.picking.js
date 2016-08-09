@@ -201,7 +201,8 @@ please.picking.__etc.picking_pass = function () {
             info.selected = info.picked.__find_selection();
 
             // optionally perform object location picking
-            if (this.opt.enable_location_info) {
+            var override = info.picked.override_location_picking
+            if ((this.opt.enable_location_info && override !== false) || override === true) {
                 this.picking_singleton.shader.mgrl_select_mode = false;
                 please.indirect_render(this.picking_singleton);
                 loc_color = this.picking_singleton.selected_color;
