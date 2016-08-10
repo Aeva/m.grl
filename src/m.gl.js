@@ -110,7 +110,7 @@ please.gl.set_context = function (canvas_id, options) {
         window.dispatchEvent(ctx_event);
 
         // create the picking shader
-        please.glsl("object_picking", "simple.vert", "picking.frag");
+        please.glsl("object_picking", "picking.vert", "picking.frag");
 
         // create the default shader
         please.glsl("default", "simple.vert", "diffuse.frag").activate();

@@ -158,7 +158,12 @@ please.__init_picking = function () {
     canvas.addEventListener("mousedown", event_listener);
     window.addEventListener("mouseup", event_listener);
 
-    var picker = new please.RenderNode("object_picking", {"is_picking_pass" : true});
+    var options = {
+        "is_picking_pass" : true,
+        "width" : 8,
+        "height" : 8,
+    };
+    var picker = new please.RenderNode("object_picking", options);
     please.picking.__etc.picking_singleton = picker;
     picker.req = {x:0, y:0};
     picker.clear_color = [0.0, 0.0, 0.0, 0.0];
@@ -212,6 +217,8 @@ please.picking.__etc.picking_pass = function () {
         // perform object picking pass
         this.picking_singleton.shader.mgrl_select_mode = true;
         this.picking_singleton.req = req;
+        this.picking_singleton.shader.frame_offset = [ req.x, 1.0-req.y ];
+
         please.indirect_render(this.picking_singleton);
         id_color = this.picking_singleton.selected_color;
         
