@@ -17,6 +17,7 @@ please.picking = {
     "enable_location_info" : false,
     "enable_mouse_move_event" : false,
     "distortion_function" : null,
+    "current_layer" : 0,
 
     "__etc" : {
         "queue" : [],
@@ -135,7 +136,7 @@ please.picking.__etc.color_encode = function (pick_index) {
 // Decodes a picking ID from a given color, and returns the
 // corresponding GraphNode from the picking graph.
 //
-please.picking.__etc.node_lookup = function (color_array) {
+please.picking.__etc.node_lookup = function (graph, color_array) {
     if (r===0 && g===0 && b===0) {
         return null;
     }
@@ -144,8 +145,33 @@ please.picking.__etc.node_lookup = function (color_array) {
         var g = color_array[1];
         var b = color_array[2];
         var color_index = r + g*256 + b*65536;
-        return this.opt.graph.__statics[color_index-1];
+        return graph.__statics[color_index-1];
     }
+};
+
+
+//
+// This is responsible for selecting the picking graph being rendered.
+// If it differs from the one on the singleton, then it will update
+// the singleton, which will in turn trigger a recompile event and
+// probably cause lag depending on where this was triggered.
+//
+please.picking.__etc.get_layer = function () {
+    var selected = this.opt.graph;
+    if (selected.length) {
+        var layer = this.opt.current_layer;
+        selected = selected[layer];
+        if (!selected) {
+            console.warn("Picking layer out of bounds: " + layer);
+            return null;
+        }
+    }
+    
+    var singleton = please.picking.__etc.picking_singleton;
+    if (selected !== singleton.graph) {
+        singleton.graph = selected;
+    }
+    return selected;
 };
 
 
@@ -185,8 +211,11 @@ please.__init_picking = function () {
     
     please.picking.__etc.settings_changed.connect(function (name, value) {
         console.info("Picking setting '"+name+"' changed to: " + value);
-        if (name == "graph") {
-            please.picking.__etc.picking_singleton.graph = value;
+        if (name == "graph" || name == "current_layer") {
+            var opt = please.picking.__etc.opt;
+            if (opt.graph && opt.current_layer) {
+                please.picking.__etc.get_layer();
+            }
         }
     });
 };
@@ -196,7 +225,7 @@ please.__init_picking = function () {
 // This code facilitates color based picking, when relevant. 
 //
 please.picking.__etc.picking_pass = function () {
-    var graph = this.opt.graph;
+    var graph = please.picking.__etc.get_layer();
     if (!graph) {
         return;
     }
@@ -240,7 +269,7 @@ please.picking.__etc.picking_pass = function () {
         id_color = this.picking_singleton.selected_color;
         
         // picked is the object actually clicked on
-        info.picked = please.picking.__etc.node_lookup(id_color);
+        info.picked = please.picking.__etc.node_lookup(graph, id_color);
         if (info.picked) {
             // selected is who should recieve an event
             info.selected = info.picked.__find_selection();
