@@ -21,6 +21,7 @@ please.picking = {
     "__etc" : {
         "queue" : [],
         "move_event" : null,
+        "delay" : -1,
         // __click_test stores what was selected on the last
         // mouse_down event.  If mouse up matches, the objects gets a
         // "click" event after it's mouse up event.  __last_click
@@ -113,6 +114,7 @@ please.picking.__etc.event_listener = function (event) {
     }
     else {
         this.queue.push(picking_event);
+        this.delay = -1;
     }
 }.bind(please.picking.__etc);
 
@@ -173,7 +175,11 @@ please.__init_picking = function () {
     
     please.time.__frame.register(-1, "mgrl/picking_pass", please.picking.__etc.picking_pass).skip_when(
         function () {
-            return please.picking.__etc.queue.length === 0 && please.picking.__etc.move_event === null;
+            var delay = please.picking.__etc.delay;
+            var start_time = please.__compositing_viewport.__last_framestart;
+            var items_in_queue = please.picking.__etc.queue.length;
+            var pending_move = please.picking.__etc.move_event;
+            return (delay > start_time) || !(items_in_queue || pending_move);
         }
     );
     
@@ -199,6 +205,17 @@ please.picking.__etc.picking_pass = function () {
     if (!req) {
         req = please.picking.__etc.move_event;
         please.picking.__etc.move_event = null;
+        if (req) {
+            var start_time = please.__compositing_viewport.__last_framestart;
+            if (please.picking.__etc.delay < start_time) {
+                please.picking.__etc.delay = start_time + (1/24 * 1000);
+            }
+            else {
+                // skip rendering for this move event, because it is
+                // too soon.
+                return;
+            }
+        }
     }
     var is_move_event = req.event.type === "mousemove";
     if (is_move_event && !this.opt.enable_mouse_move_event) {
