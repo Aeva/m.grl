@@ -78,19 +78,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var floor = new FloorNode()
     graph.add(floor);
 
-    // Enable mouse events for the main graph.  In this case, we
-    // define a mouseup event on the graph itself, and mousedown
-    // events on the red gavroche objects.  Mouse move events are
-    // enabled only while dragging objects.
-    please.picking.graph = graph;
-    please.picking.enable_location_info = true;
-    please.picking.enable_mouse_move_event = false;
-
-    graph.on_mouseup.connect(function (event) {
-        selected = null;
-        please.picking.enable_mouse_move_event = false;
-    });
-
     // add a camera
     var camera = demo.camera = new please.CameraNode();
     camera.fov = please.path_driver(
@@ -101,10 +88,39 @@ addEventListener("mgrl_media_ready", please.once(function () {
     graph.add(camera);
     camera.activate();
 
+    // add a second graph to be used for location picking only
+    var picking_graph = new please.SceneGraph();
+    picking_graph.add(new FloorNode());
+    picking_graph.camera = camera;
+    
+    // Enable mouse events for the main graph.  In this case, we
+    // define a mouseup event on the graph itself, and mousedown
+    // events on the red gavroche objects.  Mouse move events are
+    // enabled only while dragging objects.
+    please.picking.graph = [graph, picking_graph];
+
+    var selection_mode = function () {
+        selected = null;
+        please.picking.enable_location_info = false;
+        please.picking.enable_mouse_move_event = false;
+        please.picking.current_layer = 0;
+    };
+    var drag_mode = function () {
+        please.picking.enable_location_info = true;
+        please.picking.enable_mouse_move_event = true;
+        please.picking.current_layer = 1;
+    };
+    selection_mode();
+    graph.on_mouseup.connect(selection_mode);
+    picking_graph.on_mouseup.connect(selection_mode);
+
     // add the mouse move event handler
-    graph.on_mousemove.connect(function (event) {
+    picking_graph.on_mousemove.connect(function (event) {
         if (selected) {
             selected.location = event.world_location;
+        }
+        else {
+            selection_mode();
         }
     });
 
@@ -129,7 +145,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
         point.selectable = true;
         point.on_mousedown.connect(function (event) {
             selected = this;
-            please.picking.enable_mouse_move_event = true;
+            drag_mode();
         });
     }
 

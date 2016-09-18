@@ -705,11 +705,17 @@ please.SceneGraph = function () {
     this.__states = {};
 
     // Rather than flattening the graph every frame, we keep a cache
-    // of what the graph looks like and only update it when the graph
-    // changes.
+    // of what the graph contains and only update it when the graph
+    // changes.  "__flat" contains objects that render in the legacy
+    // "dynamic" path, "__statics" contains objects that can be
+    // produce a compiled rendering function.  Both of these sets are
+    // updated as the graph is updated.  "__all_drawables" is the
+    // intersection of both sets, and is only updated when the graph's
+    // draw function is compiled.
     this.__flat = [];
     this.__lights = [];
     this.__statics = [];
+    this.__all_drawables = [];
     var find_draw_group = function (node) {
         if (node.__is_light) {
             return this.__lights;

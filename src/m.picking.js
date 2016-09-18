@@ -128,7 +128,7 @@ please.picking.__etc.color_encode = function (pick_index) {
     var g = (pick_index & 65280) >> 8; // 65280 = (2**8-1) << 8;
     var b = (pick_index & 16711680) >> 16; // 16711680 = (2**8-1) << 16;
     var id = [r/255, g/255, b/255];
-    return please.array_src(id);
+    return id;
 };
 
 
@@ -145,7 +145,7 @@ please.picking.__etc.node_lookup = function (graph, color_array) {
         var g = color_array[1];
         var b = color_array[2];
         var color_index = r + g*256 + b*65536;
-        return graph.__statics[color_index-1];
+        return graph.__all_drawables[color_index-1];
     }
 };
 

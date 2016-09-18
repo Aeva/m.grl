@@ -273,6 +273,9 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     var graph = this.__graph;
     var ir = [];
 
+    // regen master list of drawable objects
+    graph.__all_drawables = graph.__statics.concat(graph.__flat);
+
     // Generate render function prefix IR.
     ir.push(
 // ☿ quote
@@ -312,8 +315,9 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     ITER(s, graph.__statics) {
         var node = graph.__statics[s];
         if (this.__is_picking_pass) {
-            var pick_id = graph.__statics.indexOf(node) + 1;
-            var color_string = please.picking.__etc.color_encode(pick_id);
+            var obj_index = graph.__all_drawables.indexOf(node) + 1;
+            var picking_color = please.picking.__etc.color_encode(obj_index);
+            var color_string = please.array_src(picking_color);
             var pick_uni = "this.prog.vars['object_index'] = " + color_string + ";";
             ir.push(pick_uni);
         }
@@ -329,6 +333,15 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
         }
     }
 
+    if (this.__is_picking_pass) {
+        ITER(f, graph.__flat) {
+            var node = graph.__flat[f];
+            var obj_index = graph.__all_drawables.indexOf(node) + 1;
+            node.shader.object_index = please.picking.__etc.color_encode(obj_index);
+            
+        }
+    }
+    
     // Generate render function suffix IR.
     ir.push(
 // ☿ quote
