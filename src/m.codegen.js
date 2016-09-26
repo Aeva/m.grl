@@ -363,12 +363,15 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker) {
 };
 
 
-// [+] please.__compile_ir(ir_tokens, cache)
+// [+] please.__compile_ir(ir_tokens, cache, [src_name])
 //
 // Takes a list of IR tokens and strings and generates a function from
-// them.
+// them.  Optionally you can pass a name for this function, which is
+// used to add a sourceURL directive to the funtion, so that it can be
+// debugged in firefox.  If src_name is omitted, then a UUID will be
+// assigned.
 //
-please.__compile_ir = function (ir_tokens, cache) {
+please.__compile_ir = function (ir_tokens, cache, src_name) {
     var src = "";
     ITER(t, ir_tokens) {
         var token = ir_tokens[t];
@@ -383,5 +386,9 @@ please.__compile_ir = function (ir_tokens, cache) {
         }
         src += "\n";
     }
+    if (!src_name) {
+        src_name = please.uuid();
+    }
+    src += "\n\n//# sourceURL=" + src_name + ".js"
     return src;
 };

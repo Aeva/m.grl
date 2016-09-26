@@ -386,8 +386,9 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
         }
 // ☿ endquote
     );
-    
-    var src = please.__compile_ir(ir, this.__static_draw_cache);
+
+    var src_url = "rendernode:" + this.__graph.__id + ":" + this.__prog.name;
+    var src = please.__compile_ir(ir, this.__static_draw_cache, src_url);
     this.__render_src = src;
     this.__render_ir = ir;
     this.render = new Function(src).bind(this.__static_draw_cache);
