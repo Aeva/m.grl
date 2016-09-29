@@ -334,20 +334,10 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     }
 
     if (this.__is_picking_pass) {
-        ITER_PROPS(hint, graph.__states) {
-            var children = graph.__states[hint];
-            ITER(c, children) {
-                var node = children[c];
-                var obj_index = graph.__all_drawables.indexOf(node) + 1;
-                node.__ani_store.object_index = please.picking.__etc.color_encode(obj_index);
-            }
-        }
-        if (graph.__alpha) {
-            ITER(a, graph.__alpha) {
-                var node = graph.__alpha[a];
-                var obj_index = graph.__all_drawables.indexOf(node) + 1;
-                node.__ani_store.object_index = please.picking.__etc.color_encode(obj_index);
-            }
+        ITER(f, graph.__flat) {
+            var node = graph.__flat[f];
+            var obj_index = graph.__all_drawables.indexOf(node) + 1;
+            node.__ani_store.object_index = please.picking.__etc.color_encode(obj_index);
         }
     }
     
