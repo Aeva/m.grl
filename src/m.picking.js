@@ -33,7 +33,6 @@ please.picking = {
         "click_test" : null,
         "last_click" : null,
         "clear_timer" : null,
-        "picking_singleton" : null,
 
         // signal to inform when picking features are enabled or disabled
         "settings_changed" : new please.Signal(),
@@ -151,25 +150,50 @@ please.picking.__etc.node_lookup = function (graph, color_array) {
 
 
 //
+// Adds a picking RenderNode to the provided GraphNode object.
+//
+please.picking.__etc.attach_renderer = function(graph) {
+    if (graph.__picking_renderer) {
+        throw new Error("Attempted to attach a redundant picking RenderNode to graph.");
+    }
+
+    var options = {
+        "is_picking_pass" : true,
+        "width" : 8,
+        "height" : 8,
+    };
+    var renderer = new please.RenderNode("object_picking", options);
+    renderer.req = {x:0, y:0};
+    renderer.clear_color = [0.0, 0.0, 0.0, 0.0];
+    renderer.stream_callback = function (picked_color) {
+        this.selected_color = picked_color;
+    };
+    renderer.graph = graph;
+    graph.__picking_renderer = renderer;
+};
+
+
+//
 // This is responsible for selecting the picking graph being rendered.
-// If it differs from the one on the singleton, then it will update
-// the singleton, which will in turn trigger a recompile event and
-// probably cause lag depending on where this was triggered.
+// If there is no associated picking RenderNode for the graph, one
+// will be created.  This will cause lag depending on where it is
+// triggered.
+//
+// Returns null if no appropriate picking graph could be found.
 //
 please.picking.__etc.get_layer = function () {
     var selected = this.opt.graph;
-    if (selected.length) {
+    if (selected && selected.length) {
         var layer = this.opt.current_layer;
         selected = selected[layer];
-        if (!selected) {
-            console.warn("Picking layer out of bounds: " + layer);
-            return null;
-        }
     }
-    
-    var singleton = please.picking.__etc.picking_singleton;
-    if (selected !== singleton.graph) {
-        singleton.graph = selected;
+    if (!selected) {
+        console.warn("Picking layer out of bounds: " + layer);
+        return null;
+    }
+
+    if (!selected.__picking_renderer) {
+        please.picking.__etc.attach_renderer(selected);
     }
     return selected;
 };
@@ -185,19 +209,6 @@ please.__init_picking = function () {
     canvas.addEventListener("mousemove", event_listener);
     canvas.addEventListener("mousedown", event_listener);
     window.addEventListener("mouseup", event_listener);
-
-    var options = {
-        "is_picking_pass" : true,
-        "width" : 8,
-        "height" : 8,
-    };
-    var picker = new please.RenderNode("object_picking", options);
-    please.picking.__etc.picking_singleton = picker;
-    picker.req = {x:0, y:0};
-    picker.clear_color = [0.0, 0.0, 0.0, 0.0];
-    picker.stream_callback = function (picked_color) {
-        this.selected_color = picked_color;
-    };
     
     please.time.__frame.register(-1, "mgrl/picking_pass", please.picking.__etc.picking_pass).skip_when(
         function () {
@@ -259,14 +270,15 @@ please.picking.__etc.picking_pass = function () {
         "trigger" : req,
     };
 
+    var renderer = graph.__picking_renderer;
     if (req.x >= 0 && req.x <= 1 && req.y >= 0 && req.y <= 1) {
         // perform object picking pass
-        this.picking_singleton.shader.mgrl_select_mode = true;
-        this.picking_singleton.req = req;
-        this.picking_singleton.shader.frame_offset = [ req.x, 1.0-req.y ];
+        renderer.shader.mgrl_select_mode = true;
+        renderer.req = req;
+        renderer.shader.frame_offset = [ req.x, 1.0-req.y ];
 
-        please.indirect_render(this.picking_singleton);
-        id_color = this.picking_singleton.selected_color;
+        please.indirect_render(renderer);
+        id_color = renderer.selected_color;
         
         // picked is the object actually clicked on
         info.picked = please.picking.__etc.node_lookup(graph, id_color);
@@ -277,9 +289,9 @@ please.picking.__etc.picking_pass = function () {
             // optionally perform object location picking
             var override = info.picked.override_location_picking
             if ((this.opt.enable_location_info && override !== false) || override === true) {
-                this.picking_singleton.shader.mgrl_select_mode = false;
-                please.indirect_render(this.picking_singleton);
-                loc_color = this.picking_singleton.selected_color;
+                renderer.shader.mgrl_select_mode = false;
+                please.indirect_render(renderer);
+                loc_color = renderer.selected_color;
                 var vbo = info.picked.__buffers.vbo;
 
                 var tmp_coord = new Float32Array(3);
