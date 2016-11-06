@@ -159,8 +159,6 @@ please.picking.__etc.attach_renderer = function(graph) {
 
     var options = {
         "is_picking_pass" : true,
-        "width" : 8,
-        "height" : 8,
     };
     var renderer = new please.RenderNode("object_picking", options);
     renderer.req = {x:0, y:0};
@@ -212,11 +210,16 @@ please.__init_picking = function () {
     
     please.time.__frame.register(-1, "mgrl/picking_pass", please.picking.__etc.picking_pass).skip_when(
         function () {
-            var delay = please.picking.__etc.delay;
-            var start_time = please.__compositing_viewport.__last_framestart;
-            var items_in_queue = please.picking.__etc.queue.length;
-            var pending_move = please.picking.__etc.move_event;
-            return (delay > start_time) || !(items_in_queue || pending_move);
+            if (please.__compositing_viewport) {
+                var delay = please.picking.__etc.delay;
+                var start_time = please.__compositing_viewport.__last_framestart;
+                var items_in_queue = please.picking.__etc.queue.length;
+                var pending_move = please.picking.__etc.move_event;
+                return (delay > start_time) || !(items_in_queue || pending_move);
+            }
+            else {
+                return true;
+            }
         }
     );
     

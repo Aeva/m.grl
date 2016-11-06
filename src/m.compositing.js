@@ -568,7 +568,9 @@ please.render = function(node) {
                 if (!node.__stream_cache) {
                     node.__stream_cache = new ArrayType(period);
                 }
-                gl.readPixels(0, 0, 1, 1, format, type, node.__stream_cache);
+                var pick_x = Math.floor(node.req.x * width);
+                var pick_y = Math.floor((1.0-node.req.y) * height);
+                gl.readPixels(pick_x, pick_y, 1, 1, format, type, node.__stream_cache);
                 node.stream_callback(node.__stream_cache, info);
             }
             else {

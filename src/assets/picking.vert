@@ -44,14 +44,5 @@ void main(void) {
   }
 
   // various coordinate transforms
-  vec4 clip_space = projection_matrix * model_view * vec4(local_position, 1.0);
-  clip_space = vec4(clip_space.xyz / clip_space.w, 1.0);
-  vec2 screen_space = (clip_space.xy + 1.0) / 2.0;
-  
-  vec2 frame_scale = vec2(mgrl_buffer_width, mgrl_buffer_height);
-  screen_space = (screen_space - frame_offset) * frame_scale;
-  clip_space.x = (screen_space.x * 2.0) - 1.0;
-  clip_space.y = (screen_space.y * 2.0) - 1.0;
-
-  gl_Position = clip_space;
+  gl_Position = projection_matrix * model_view * vec4(local_position, 1.0);
 }
