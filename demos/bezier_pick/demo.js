@@ -198,6 +198,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
 var FloorNode = function () {
     console.assert(this !== window);
     please.GraphNode.call(this);
+    this.__asset_hint = "Generated Floor Node";
 
     this.__vbo = please.gl.make_quad(100, 100);
     this.__drawable = true;
@@ -209,5 +210,21 @@ var FloorNode = function () {
     this.draw = function () {
         this.__vbo.draw();
     };
+
+    // ----------------------------------------------------
+    // dummy out the remaining lines in this constructor to
+    // force this to be rendered in the legacy path
+    // ----------------------------------------------------
+    this.__buffers = {
+        "vbo" : this.__vbo,
+        "ibo" : null,
+    };
+    this.__ir = new please.__DrawableIR(this.__vbo, null, null, null, this);
+    this.__ir.dirty.connect(function () {
+        if (this.graph_root) {
+            this.graph_root.__regen_static_draw();
+        }
+    });
+    this.__ir.dirty();
 };
 FloorNode.prototype = please.GraphNode.prototype;
