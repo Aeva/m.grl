@@ -12,12 +12,6 @@ uniform float mgrl_orthographic_scale;
 uniform float mgrl_buffer_width;
 uniform float mgrl_buffer_height;
 
-// durring picking, we render to a small frame buffer, but pretend
-// that we're rendering to a normal one.  Thus, 'frame_offest' is
-// needed for proper cropping.
-uniform vec2 frame_offset;
-//uniform vec2 frame_scale;
-
 binding_context GraphNode {
   uniform mat4 world_matrix;
   uniform float billboard_mode;
