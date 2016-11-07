@@ -293,6 +293,7 @@ please.picking.__etc.picking_pass = function () {
             var override = info.picked.override_location_picking
             if ((this.opt.enable_location_info && override !== false) || override === true) {
                 renderer.shader.mgrl_select_mode = false;
+                renderer.__cached_framebuffer = null; // force cache bypass
                 please.indirect_render(renderer);
                 loc_color = renderer.selected_color;
                 var vbo = info.picked.__buffers.vbo;
