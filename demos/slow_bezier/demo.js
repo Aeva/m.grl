@@ -23,7 +23,9 @@
 
 
 // local namespace
-var demo = {};
+var demo = {
+    "viewport" : null, // the render pass that will be rendered
+};
 
 
 addEventListener("load", function() {
@@ -71,19 +73,13 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // build the scene graph
     var graph = demo.graph = new please.SceneGraph();
-    graph.add(new FloorNode());
 
-    // Enable mouse events for the main graph.  In this case, we
-    // define a mouseup event on the graph itself, and mousedown
-    // events on the red gavroche objects.  A second graph with just
-    // the floor in it is used to handle mouse move events.
-    graph.picking.enabled = true;
-    graph.on_mouseup = function (event) {
-        selected = null;
-    };
+    // add a floor object, and bind some mouse events
+    var floor = new FloorNode()
+    graph.add(floor);
 
     // add a camera
-    var camera = window.camera = new please.CameraNode();
+    var camera = demo.camera = new please.CameraNode();
     camera.fov = please.path_driver(
         please.bezier_path([15, 40, 55, 59, 60]),
         5000, false, false);
@@ -96,21 +92,37 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var picking_graph = new please.SceneGraph();
     picking_graph.add(new FloorNode());
     picking_graph.camera = camera;
-    picking_graph.picking.skip_location_info = false;
-    picking_graph.picking.skip_on_move_event = false;
-    // picking for this graph will only be enabled when it is needed.
-    picking_graph.picking.enabled = false;
+    
+    // Enable mouse events for the main graph.  In this case, we
+    // define a mouseup event on the graph itself, and mousedown
+    // events on the red gavroche objects.  Mouse move events are
+    // enabled only while dragging objects.
+    please.picking.graph = [graph, picking_graph];
+
+    var selection_mode = function () {
+        selected = null;
+        please.picking.enable_location_info = false;
+        please.picking.enable_mouse_move_event = false;
+        please.picking.current_layer = 0;
+    };
+    var drag_mode = function () {
+        please.picking.enable_location_info = true;
+        please.picking.enable_mouse_move_event = true;
+        please.picking.current_layer = 1;
+    };
+    selection_mode();
+    graph.on_mouseup.connect(selection_mode);
+    picking_graph.on_mouseup.connect(selection_mode);
 
     // add the mouse move event handler
-    picking_graph.on_mousemove = function (event) {
+    picking_graph.on_mousemove.connect(function (event) {
         if (selected) {
             selected.location = event.world_location;
         }
         else {
-            // disable the picking graph as nothing is selected
-            picking_graph.picking.enabled = false;
+            selection_mode();
         }
-    };
+    });
     
     // add some control points
     var controls = window.controls = [];
@@ -126,7 +138,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
             return performance.now()/10;
         };
         point.location_x = please.mix(low, high, i/(count-1));
-        //point.location_y = Math.random()*30 - 10;
         point.selectable = true;
         graph.add(point);
         controls.push(point);
@@ -134,7 +145,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
         point.selectable = true;
         point.on_mousedown = function (event) {
             selected = this;
-            picking_graph.picking.enabled = true;
+            drag_mode();
         };
     }
 
@@ -227,5 +238,22 @@ var FloorNode = function () {
     this.draw = function () {
         this.__vbo.draw();
     };
+
+    this.__buffers = {
+        "vbo" : this.__vbo,
+        "ibo" : null,
+    };
+
+    // ----------------------------------------------------
+    // dummy out the remaining lines in this constructor to
+    // force this to be rendered in the legacy path
+    // ----------------------------------------------------
+    this.__ir = new please.__DrawableIR(this.__vbo, null, null, null, this);
+    this.__ir.dirty.connect(function () {
+        if (this.graph_root) {
+            this.graph_root.__regen_static_draw();
+        }
+    });
+    this.__ir.dirty();
 };
 FloorNode.prototype = please.GraphNode.prototype;
