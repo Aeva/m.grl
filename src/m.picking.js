@@ -242,17 +242,18 @@ please.picking.__etc.attach_renderer = function(graph) {
 // Returns null if no appropriate picking graph could be found.
 //
 please.picking.__etc.get_layer = function () {
-    var selected = this.opt.graph;
+    var selected = this.opt.graph || null;
+    var layer = this.opt.current_layer;
     if (selected && selected.length) {
-        var layer = this.opt.current_layer;
-        selected = selected[layer];
+        if (layer < selected.length) {
+            selected = selected[layer];
+        }
+        else {
+            console.error("Picking layer out of bounds: " + layer);
+            return null;
+        }
     }
-    if (!selected) {
-        console.warn("Picking layer out of bounds: " + layer);
-        return null;
-    }
-
-    if (!selected.__picking_renderer) {
+    if (selected && !selected.__picking_renderer) {
         please.picking.__etc.attach_renderer(selected);
     }
     return selected;
