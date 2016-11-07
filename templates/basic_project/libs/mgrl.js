@@ -340,7 +340,7 @@ please.Signal = function (wrapped) {
     var represented = typeof(wrapped) == "object" ? wrapped : null;
     var signal = function () {
         for (var c=0; c<callbacks.length; c+=1) {
-            callbacks[c].apply(represented, arguments);
+            callbacks[c].apply(represented || this, arguments);
         }
     };
     signal.connect = function (callback) {
@@ -358,6 +358,22 @@ please.Signal = function (wrapped) {
         };
     };
     return signal;
+};
+// [+] please.array_src(array)
+//
+// Returns a string representation of a provided array or typed array.
+//
+please.array_src = function(array) {
+    if (array.constructor == Array) {
+        return "[" + array + "]";
+    }
+    else {
+        var new_array = [];
+        for (var i=0; i<array.length; i+=1) {
+            new_array.push(array[i]);
+        }
+        return please.array_src(new_array);
+    }
 };
 // [+] please.array_hash(array, digits)
 // 
@@ -1255,6 +1271,7 @@ please.JSIR = function (method_string/*, args */) {
     this.method = method_string;
     this.params = [];
     this.compiled = false;
+    this.frozen = false;
     var force_dynamic = false;
     for (var a=0; a<args.length; a+=1) {
         if (args[a] === '@') {
@@ -1286,6 +1303,21 @@ please.JSIR.prototype.compile = function (cache) {
         else if (param.value === null) {
             lookup = "null";
         }
+        else if (param.value.constructor.name.indexOf("Array") > -1) {
+            var builder = "[";
+            var first = true;
+            for (var i=0; i<param.value.length; i+=1) {
+                if (!first) {
+                    builder += ", ";
+                }
+                else {
+                    first = false;
+                }
+                builder += param.value[i];
+            }
+            builder += "]";
+            lookup = builder;
+        }
         else {
             lookup = param.value.toString();
         }
@@ -1301,6 +1333,22 @@ please.JSIR.prototype.compile = function (cache) {
     }
     return prefix + please.format_invocation.apply(please, args);
 };
+// Force the IR to be static and the param values to be cache function
+// returns.
+please.JSIR.prototype.freeze = function () {
+    this.frozen = true;
+    Object.freeze(this.frozen);
+    for (var p=0; p<this.params.length; p+=1) {
+        var param = this.params[p];
+        param.dynamic = false;
+        if (typeof(param.value) == "function") {
+            param.value = param.value();
+        }
+        if (typeof(param.value) == "function") {
+            param.value = null;
+        }
+    };
+};
 // Updates the value of one of the parameters in the IR object.  If
 // the IR object was used in the compilation of a draw function
 // already, then this will also force the parameter to become dynamic
@@ -1315,12 +1363,11 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
         cache[param.id] = value;
     }
 };
-// [+] please.__drawable_ir(prog, vbo, ibo, ranges, defaults, graph_node)
-// 
-// Creates a list of IR objects needed to render a partical VBO/IBO of
-// data.  The only required params are 'prog' and 'vbo'.
+// [+] please.__DrawableIR(vbo, ibo, ranges, defaults, graph_node)
 //
-//  - **prog** a compiled shader program object
+// Creates an DrawableIR object, which has a "generate" function to
+// produce a list of the IR objects needed to render a particular
+// VBO/IBO of data.  The only required param is 'vbo'.
 //
 //  - **vbo** a vbo object, as defined in m.gl.buffers.js
 //
@@ -1336,119 +1383,170 @@ please.JSIR.prototype.update_arg = function (index, value, cache) {
 //
 //  - **graph_node** a graph node object to optionally data bind against
 //
-// This method returns a list of strings and IR objects that can be
-// used to generate a function to draw the described object.
+// Call the 'generate' method with a shader program object as the
+// first argument to receive a list of strings and IR objects that can
+// be used to generate a function to draw the described object.
 //
-please.__drawable_ir = function (prog, vbo, ibo, ranges, defaults, graph_node) {
-    var ir = [];
-    // add IR for VBO bind
-    ir.push(vbo.static_bind(prog));
-    // add IR for IBO bind, if applicable
-    if (ibo) {
-        ir.push(ibo.static_bind);
-    }
+please.__DrawableIR = function (vbo, ibo, ranges, defaults, graph_node) {
+    this.__uniforms = {};
+    this.__vbo = vbo;
+    this.__ibo = ibo;
+    this.__ranges = ranges;
+    this.__defaults = defaults || {};
+    this.__node = graph_node;
+    this.__frozen = false;
     // recompile signal
-    ir.dirty = new please.Signal();
-    // add IR for uniforms
-    var uniforms = [];
-    var uniform_defaults = defaults || {};
-    var named_defaults = defaults ? please.get_properties(defaults) : [];
-    for (var u=0; u<prog.uniform_list.length; u+=1) {
-        // determine which uniforms apply to this object
-        var name = prog.uniform_list[u];
-        if (named_defaults.indexOf(name) > -1) {
-            // uniforms in the defaults list are always used if the
-            // shader program features them
-            uniforms.push(name);
-        }
-        else if (prog.binding_ctx["GraphNode"].indexOf(name) > -1) {
-            // otherwise, only use uniforms that are in the GraphNode
-            // binding context.
-            uniforms.push(name);
-            uniform_defaults[name] = prog.__uniform_initial_value(name);
-        }
-        else if (graph_node && graph_node.__ani_store[name]) {
-            uniforms.push(name);
-        }
-    }
-    var bindings = {};
-    // index for inserting new uniform bindings
-    var uniforms_offset = ir.length;
-    var bind_or_update_uniform = function (name, value) {
-        var binding = bindings[name] ? bindings[name] : null;
-        var compiled = binding ? binding.compiled : false;
-        if (graph_node) {
-            var store = graph_node.__ani_store[name];
-            if (!store) {
-                graph_node.__ani_store[name] = value;
-            }
-            else if (typeof(store) == "function" || compiled) {
-                value = graph_node.__ani_debug[name].get;
-            }
-            else {
-                value = graph_node.__ani_store[name];
-                if (typeof(value) == "string") {
-                    value = '"' + value + '"';
-                }
-            }
-        }
-        if (binding) {
-            if (binding.compiled) {
-                binding.update_arg(1, value);
-            }
-            else {
-                binding.update_arg(1, value);
-            }
-        }
-        else {
-            // create a new token for the uniform binding:
-            var target = prog.samplers.hasOwnProperty(name) ? "samplers" : "vars";
-            var cmd = "this.prog." + target + "['"+name+"']";
-            var token;
-            if (typeof(value) == "function") {
-                token = new please.JSIR('=', cmd, '@', value);
-            }
-            else {
-                token = new please.JSIR('=', cmd, value);
-            }
-            // Using splice here instead of push so that we can insert
-            // before things added after the uniforms if needed.
-            ir.splice(uniforms_offset, 0, token);
-            uniforms_offset += 1;
-            bindings[name] = token;
-        }
-    }
-    for (var u=0; u<uniforms.length; u+=1) {
-        // generate the IR for uniforms and if applicable, set up the
-        // appropriate bindings to the supplied GraphNode
-        var name = uniforms[u];
-        var value = uniform_defaults[name];
-        bind_or_update_uniform(name, value);
-    }
+    this.dirty = new please.Signal();
+    // add initial uniform bindings
+    this.bindings_for_shader(null);
+    // connect to GraphNode's dirty signal
     if (graph_node) {
         graph_node.__uniform_update.connect(function (target, prop, obj) {
-            bind_or_update_uniform(prop, obj.__ani_store[prop]);
-            ir.dirty();
-        });
+            this.bind_or_update_uniform(prop, obj.__ani_store[prop]);
+            this.dirty();
+        }.bind(this));
     }
     // add IR for appropriate draw call
     if (!ranges) {
         ranges = [[null, null]];
     }
+    this.__draw_invocation = "";
     var draw_buffer = ibo || vbo;
     for (var r=0; r<ranges.length; r+=1) {
         var start = ranges[r][0];
         var total = ranges[r][1];
-        ir.push(draw_buffer.static_draw(start, total));
+        this.__draw_invocation = draw_buffer.static_draw(start, total);
     }
+};
+please.__DrawableIR.prototype = {};
+// mark all uniforms as being static, cache the current driver values
+please.__DrawableIR.prototype.freeze = function () {
+    if (this.__frozen) {
+        return;
+    }
+    this.__frozen = true;
+    Object.freeze(this.__frozen);
+    this.dirty();
+};
+please.__DrawableIR.prototype.bindings_for_shader = function (prog) {
+    if (!prog) {
+        prog = please.gl.__cache.current;
+    }
+    var named_uniforms = [];
+    var named_defaults = please.get_properties(this.__defaults);
+    // Populate 'named_uniforms' to see what we need bindings for.
+    for (var u=0; u<prog.uniform_list.length; u+=1) {
+        // determine which uniforms apply to this object
+        var name = prog.uniform_list[u];
+        if (this.__uniforms[name]) {
+            // skip uniforms with existing bindings
+            continue;
+        }
+        else if (named_defaults.indexOf(name) > -1) {
+            // uniforms in the defaults list are always used if the
+            // shader program features them
+            named_uniforms.push(name);
+        }
+        else if (prog.binding_ctx["GraphNode"].indexOf(name) > -1) {
+            // otherwise, only use uniforms that are in the GraphNode
+            // binding context.
+            named_uniforms.push(name);
+            this.__defaults[name] = prog.__uniform_initial_value(name);
+        }
+        else if (this.__node && this.__node.__ani_store[name]) {
+            // or ones that have been assigned explicit values already.
+            named_uniforms.push(name);
+        }
+    }
+    // generate the IR for the above divined uniforms
+    for (var u=0; u<named_uniforms.length; u+=1) {
+        var name = named_uniforms[u];
+        var value = this.__defaults[name];
+        this.bind_or_update_uniform(name, value);
+    }
+};
+please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
+    var binding = this.__uniforms[name] || null;
+    var compiled = binding ? binding.compiled : false;
+    if (this.__node) {
+        var store = this.__node.__ani_store[name];
+        if (!store) {
+            this.__node.__ani_store[name] = value;
+        }
+        else if (typeof(store) == "function" || compiled) {
+            value = this.__node.__ani_debug[name].get;
+        }
+        else {
+            value = this.__node.__ani_store[name];
+            if (typeof(value) == "string") {
+                value = '"' + value + '"';
+            }
+        }
+    }
+    if (binding) {
+        if (compiled) {
+            binding.update_arg(1, value);
+        }
+        else {
+            binding.update_arg(1, value);
+        }
+    }
+    else {
+        // create a new token for the uniform binding:
+        var target = value !== null && value.constructor == String ? "samplers" : "vars";
+        var cmd = "this.prog." + target + "['"+name+"']";
+        var token;
+        if (typeof(value) == "function") {
+            token = new please.JSIR('=', cmd, '@', value);
+        }
+        else {
+            token = new please.JSIR('=', cmd, value);
+        }
+        this.__uniforms[name] = token;
+    }
+};
+please.__DrawableIR.prototype.generate = function (prog, state_tracker) {
+    this.bindings_for_shader(prog);
+    var ir = [];
+    ir.push(this.__vbo.static_bind(prog, state_tracker));
+    if (this.__ibo) {
+        if (state_tracker["ibo"] !== this.__ibo.id) {
+            ir.push(this.__ibo.static_bind);
+            state_tracker["ibo"] = this.__ibo.id;
+        }
+    }
+    for (var u=0; u<prog.uniform_list.length; u+=1) {
+        // determine which uniforms apply to this object
+        var name = prog.uniform_list[u];
+        var token = this.__uniforms[name];
+        if (token) {
+            if (this.__frozen && !token.frozen) {
+                token.freeze();
+            }
+            var value = token.params[1];
+            var state_key = "uniform:"+name;
+            if (value.dynamic) {
+                ir.push(token);
+                delete state_tracker[state_key];
+            }
+            else if (state_tracker[state_key] !== value.value) {
+                ir.push(token);
+                state_tracker[state_key] = value.value;
+            }
+        }
+    }
+    ir.push(this.__draw_invocation);
     return ir;
 };
-// [+] please.__compile_ir(ir_tokens, cache)
+// [+] please.__compile_ir(ir_tokens, cache, [src_name])
 //
 // Takes a list of IR tokens and strings and generates a function from
-// them.
+// them.  Optionally you can pass a name for this function, which is
+// used to add a sourceURL directive to the funtion, so that it can be
+// debugged in firefox.  If src_name is omitted, then a UUID will be
+// assigned.
 //
-please.__compile_ir = function (ir_tokens, cache) {
+please.__compile_ir = function (ir_tokens, cache, src_name) {
     var src = "";
     for (var t=0; t<ir_tokens.length; t+=1) {
         var token = ir_tokens[t];
@@ -1463,6 +1561,10 @@ please.__compile_ir = function (ir_tokens, cache) {
         }
         src += "\n";
     }
+    if (!src_name) {
+        src_name = please.uuid();
+    }
+    src += "\n\n//# sourceURL=" + src_name + ".js"
     return src;
 };
 // - m.pages.js  ------------------------------------------------------------ //
@@ -3170,8 +3272,6 @@ please.gl.set_context = function (canvas_id, options) {
     });
     this.canvas = document.getElementById(canvas_id);
     please.__create_canvas_overlay(this.canvas);
-    please.time.__frame.register(-1, "mgrl/picking_pass", please.__picking_pass).skip_when(
-        function () { return please.__picking.queue.length === 0 && please.__picking.move_event === null; });
     try {
         var names = ["webgl", "experimental-webgl"];
         for (var n=0; n<names.length; n+=1) {
@@ -3223,9 +3323,11 @@ please.gl.set_context = function (canvas_id, options) {
         var ctx_event = new CustomEvent("mgrl_gl_context_created");
         window.dispatchEvent(ctx_event);
         // create the picking shader
-        please.glsl("object_picking", "simple.vert", "picking.frag");
+        please.glsl("object_picking", "picking.vert", "picking.frag");
         // create the default shader
         please.glsl("default", "simple.vert", "diffuse.frag").activate();
+        // initialize the picking system
+        please.__init_picking();
     }
 },
 // [+] please.gl.get_program(name)
@@ -4549,63 +4651,72 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         }
     }
     // For generating static bind methods.
-    vbo.static_bind = function (prog, instanced) {
+    vbo.static_bind = function (prog, state_tracker, instanced) {
         var src = "";
-        for (var name in vbo.stats) {
-            var glsl_name = "mgrl_model_local_" + name;
-            if (prog.vars.hasOwnProperty(glsl_name)) {
-                src += "this.prog.vars["+glsl_name+"] = "+vbo.stats[name]+";";
-            }
-        }
+        state_tracker = state_tracker || {};
+        var redundant = state_tracker["vbo"] == this.id;
+        state_tracker["vbo"] = this.id;
+        // we don't just return here if this is a redundant call,
+        // because instancing will have an effect on how attrs are
+        // bound
         // enable attributes
         if (instanced) {
             // don't disable other arrays
             for (var a=0; a<attr_names.length; a+=1) {
                 var name = attr_names[a];
-                if (prog.attrs[name]) {
+                var state = "attr:" + name;
+                if (prog.attrs[name] && !state_tracker[state]) {
                     src += "this.prog.attrs['"+name+"'].enabled = true;\n";
                 }
+                state_tracker[state] = true;
             }
         }
         else {
             // only enable what we need, disable everything else
             for (var name in prog.attrs) {
                 var enabled = attr_names.indexOf(name) !== -1;
-                src += "this.prog.attrs['"+name+"'].enabled = "+enabled+";\n";
+                var state = "attr:" + name;
+                if (state_tracker[state] != enabled) {
+                    src += "this.prog.attrs['"+name+"'].enabled = "+enabled+";\n";
+                }
+                state_tracker[state] = enabled
             }
         }
-        // upload vbo spacial statistics
-        if (attr_map.position) {
-            for (var name in vbo.stats) {
-                var glsl_name = "mgrl_model_local_" + name;
-                if (prog.vars.hasOwnProperty(glsl_name)) {
-                    src += "this.prog.vars['"+glsl_name+"'] = "+vbo.stats[name]+";\n";
+        if (!redundant) {
+            // upload vbo spacial statistics
+            if (attr_map.position) {
+                for (var name in vbo.stats) {
+                    var glsl_name = "mgrl_model_local_" + name;
+                    if (prog.vars.hasOwnProperty(glsl_name)) {
+                        src += "this.prog.vars['"+glsl_name+"'] = ";
+                        src += please.array_src(vbo.stats[name]) + ";\n";
+                    }
                 }
             }
-        }
-        // bind the buffer for use
-        src += please.format_invocation(
-            "gl.bindBuffer",
-            "gl.ARRAY_BUFFER",
-            "please.gl.__buffers.all[" + vbo.buffer_index + "].id") + "\n";
-        if (attr_names.length === 1) {
-            // single attribute buffer binding
+            // bind the buffer for use
             src += please.format_invocation(
-                "gl.vertexAttribPointer",
-                "this.prog.attrs['" + attr + "'].loc",
-                item_size, opt.type, false, 0, 0) + "\n";
-        }
-        else {
-            // multi-attribute buffer bindings
-            for (var i=0; i<bind_order.length; i+=1) {
-                var attr = bind_order[i];
-                var offset = bind_offset[i];
-                var item_size = item_sizes[attr];
-                if (prog.attrs[attr]) {
-                    src += please.format_invocation(
-                        "gl.vertexAttribPointer",
-                        "this.prog.attrs['" + attr + "'].loc",
-                        item_size, opt.type, false, stride*4, offset*4) + "\n";
+                "gl.bindBuffer",
+                "gl.ARRAY_BUFFER",
+                "please.gl.__buffers.all[" + vbo.buffer_index + "].id") + "\n";
+            if (attr_names.length === 1) {
+                // single attribute buffer binding
+                src += please.format_invocation(
+                    "gl.vertexAttribPointer",
+                    "this.prog.attrs['" + attr + "'].loc",
+                    item_size, opt.type, false, 0, 0) + "\n";
+            }
+            else {
+                // multi-attribute buffer bindings
+                for (var i=0; i<bind_order.length; i+=1) {
+                    var attr = bind_order[i];
+                    var offset = bind_offset[i];
+                    var item_size = item_sizes[attr];
+                    if (prog.attrs[attr]) {
+                        src += please.format_invocation(
+                            "gl.vertexAttribPointer",
+                            "this.prog.attrs['" + attr + "'].loc",
+                            item_size, opt.type, false, stride*4, offset*4) + "\n";
+                    }
                 }
             }
         }
@@ -6761,18 +6872,14 @@ please.gl.__jta_model = function (src, uri) {
                         var group = model.groups[group_name];
                         draw_ranges.push([group.start, group.count]);
                     };
-                    var prog = please.gl.__cache.current;
-                    var cache = {};
-                    cache.prog = prog;
-                    var ir = please.__drawable_ir(
-                        prog, model.vbo, model.ibo, draw_ranges, null, node);
-                    ir.dirty.connect(function () {
-                        node.__static_draw_ir = ir;
+                    node.__ir = new please.__DrawableIR(
+                        model.vbo, model.ibo, draw_ranges, null, node);
+                    node.__ir.dirty.connect(function () {
                         if (node.graph_root) {
                             node.graph_root.__regen_static_draw();
                         }
                     });
-                    ir.dirty();
+                    node.__ir.dirty();
                     node.__buffers = {
                         "vbo" : model.vbo,
                         "ibo" : model.ibo,
@@ -6903,7 +7010,7 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
 };
 // Reads the raw animation data defined in the jta file and returns a
 // similar object tree.  The main difference is instead of storing
-// vectors and quats as dictionaries of their channels to values, the
+// vectors and quats as dictionaries of channels to values, the
 // result is vec3 or quat objects as defined in gl-matrix.
 please.gl.__jta_extract_keyframes = function (data) {
     var animations = please.prop_map(data, function (name, data) {
@@ -8236,12 +8343,14 @@ please.gani.sprite_to_html = function (ani_object, sprite_id, x, y) {
 //  - **scale** Animatable tripple, used to generate the node's local
 //    matrix.
 //
-//  - **shader** An object, automatically contains bindings for most
-//    GLSL shader variables.  Variables with non-zero defaults are be
-//    listed below.
+//  - **selectable** Defaults to false.  Set to true if you want this
+//    object to receive picking events.
 //
-//  - **selectable** Defaults to false.  May be set to true to allow
-//    the object to be considered for picking.
+//  - **override_location_picking** Defaults to null.  This is used
+//    to override the 'enable_location_info' global setting on a
+//    per-object basis. If null, the global setting will be used,
+//    otherwise false will disable location info picking for this
+//    object, and true will enable it.
 //
 //  - **visible** Defaults to true.  May be set to false to prevent
 //    the node and its children from being drawn.
@@ -8511,7 +8620,6 @@ please.GraphNode = function () {
                 this, "alpha", 1.0, this.shader, false, this.__uniform_update);
             bind_driver("is_sprite", this.__is_sprite_driver);
             bind_driver("is_transparent", this.__is_transparent_driver);
-            bind_vec_driver("object_index", "rgb", this.__object_id_driver);
             bind_driver("billboard_mode", this.__billboard_driver);
             // prog.samplers is a subset of prog.vars
             for (var name, i=0; i<prog.uniform_list.length; i+=1) {
@@ -8553,18 +8661,22 @@ please.GraphNode = function () {
     this.__is_camera = false; // set to true if the object is a camera
     this.__drawable = false; // set to true to call .bind and .draw functions
     this.__z_depth = null; // overwritten by z-sorting
-    this.selectable = false; // object can be selected via picking
-    this.__pick_index = null; // used internally for tracking picking
     this.__last_vbo = null; // stores the vbo that was bound last draw
+    // picking related properties
+    this.selectable = false; // object can be selected via picking
+    this.override_location_picking = null; // override for global 'enable_location_info' var
+    // lighting related properties
     this.cast_shadows = true;
     // should either be null or an object with properties "ibo" and "vbo"
     this.__buffers = null;
     // some event handles
-    this.on_mousemove = null;
-    this.on_mousedown = null;
-    this.on_mouseup = null;
-    this.on_click = null;
-    this.on_doubleclick = null;
+    this.on_mousemove = new please.Signal();
+    this.on_mousedown = new please.Signal();
+    this.on_mouseup = new please.Signal();
+    this.on_click = new please.Signal();
+    this.on_doubleclick = new please.Signal();
+    // internal signals
+    this.__on_graphroot_changed = new please.Signal();
 };
 please.GraphNode.prototype = {
     "has_child" : function (entity) {
@@ -8597,6 +8709,7 @@ please.GraphNode.prototype = {
             var children = please.graph_index[this.__id].children;
             children.splice(children.indexOf(entity.__id), 1);
         }
+        entity.__set_graph_root(null);
     },
     "destroy" : function () {
         var parent = this.parent;
@@ -8630,15 +8743,18 @@ please.GraphNode.prototype = {
         if (this.hasOwnProperty(method_name)) {
             var method = this[method_name];
             if (method) {
-                if (typeof(method) === "function") {
+                if (method.constructor === Function) {
                     method.call(this, event_info);
                 }
-                else if (typeof(method) === "object") {
-                    for (var i=0; i<method.length; i+=1) {
-                        method[i].call(this, event_info);
-                    }
-                }
             }
+        }
+    },
+    "freeze" : function () {
+        if (this.__ir) {
+            this.__ir.freeze();
+        }
+        else {
+            console.warn("Called 'freeze' method of unfreezable GraphNode.");
         }
     },
     "__set_graph_root" : function (root) {
@@ -8652,6 +8768,7 @@ please.GraphNode.prototype = {
         if (root) {
             root.__track(this);
         }
+        this.__on_graphroot_changed();
     },
     "__world_matrix_driver" : function () {
         var parent = this.parent;
@@ -8687,14 +8804,6 @@ please.GraphNode.prototype = {
     },
     "__is_transparent_driver" : function () {
         return this.sort_mode === "alpha";
-    },
-    "__object_id_driver" : function () {
-        var r = this.__pick_index & 255; // 255 = 2**8-1
-        var g = (this.__pick_index & 65280) >> 8; // 65280 = (2**8-1) << 8;
-        var b = (this.__pick_index & 16711680) >> 16; // 16711680 = (2**8-1) << 16;
-        var id = [r/255, g/255, b/255];
-        id.dirty = true;
-        return id;
     },
     "__billboard_driver" : function () {
         if (!this.billboard) {
@@ -8732,7 +8841,6 @@ please.GraphNode.prototype = {
     "__z_sort_function" : function (lhs, rhs) {
         return rhs.__z_depth - lhs.__z_depth;
     },
-    "__static_draw" : null,
     "__bind" : function (prog) {
         // calls this.bind if applicable.
         if (this.__drawable && typeof(this.bind) === "function") {
@@ -8803,16 +8911,22 @@ please.SceneGraph = function () {
     this.__alpha = [];
     this.__states = {};
     // Rather than flattening the graph every frame, we keep a cache
-    // of what the graph looks like and only update it when the graph
-    // changes.
+    // of what the graph contains and only update it when the graph
+    // changes.  "__flat" contains objects that render in the legacy
+    // "dynamic" path, "__statics" contains objects that can be
+    // produce a compiled rendering function.  Both of these sets are
+    // updated as the graph is updated.  "__all_drawables" is the
+    // intersection of both sets, and is only updated when the graph's
+    // draw function is compiled.
     this.__flat = [];
     this.__lights = [];
     this.__statics = [];
+    this.__all_drawables = [];
     var find_draw_group = function (node) {
         if (node.__is_light) {
             return this.__lights;
         }
-        else if (node.__static_draw_ir) {
+        else if (node.__ir) {
             return this.__statics;
         }
         else {
@@ -8841,38 +8955,6 @@ please.SceneGraph = function () {
             }
         }
     };
-    if (please.renderer.name === "gl") {
-        this.picking = {
-            "enabled" : false,
-            "skip_location_info" : true,
-            "skip_on_move_event" : true,
-            "compositing_root" : null,
-            "__reference_node" : this.__create_picking_node(),
-            // __click_test stores what was selected on the last
-            // mouse_down event.  If mouse up matches, the objects gets a
-            // "click" event after it's mouse up event.  __last_click
-            // stores what object recieved a click last, and is reset
-            // whenever a contradicting mouseup occurs.  It also stores
-            // when that object was clicked on for the double click
-            // threshold.
-            "__click_test" : null,
-            "__last_click" : null,
-            "__clear_timer" : null,
-        };
-        this.picking.compositing_root = this.picking.__reference_node;
-        this.__picked_node = function (color_array) {
-            if (r===0 && g===0 && b===0) {
-                return null;
-            }
-            else {
-                var r = color_array[0];
-                var g = color_array[1];
-                var b = color_array[2];
-                var color_index = r + g*256 + b*65536;
-                return this.__flat[color_index-1];
-            }
-        };
-    }
     Object.defineProperty(this, "graph_root", {
         "configurable" : false,
         "writable" : false,
@@ -8894,7 +8976,6 @@ please.SceneGraph = function () {
         // and sort nodes into their correct render pathways
         for (var i=0; i<this.__flat.length; i+=1) {
             var element = this.__flat[i];
-            element.__pick_index = i+1;
             if (element.__drawable) {
                 if (element.sort_mode === "alpha") {
                     this.__alpha.push(element);
@@ -8936,170 +9017,6 @@ please.SceneGraph = function () {
     }
 };
 please.SceneGraph.prototype = Object.create(please.GraphNode.prototype);
-// Used by the dispatcher function below
-please.SceneGraph.prototype.__set_click_counter = function (val) {
-    this.picking.__last_click = val;
-    window.clearTimeout(this.picking.__clear_timer);
-    if (val) {
-        this.picking.__clear_timer = window.setTimeout(function () {
-            this.picking.__last_click = null;
-        }.bind(this), 500);
-    }
-};
-// Special event dispatcher for SceneGraphs
-please.SceneGraph.prototype.dispatch = function (event_name, event_info) {
-    // call the dispatcher logic inherited from GraphNode first
-    var inherited_dispatch = please.GraphNode.prototype.dispatch;
-    inherited_dispatch.call(this, event_name, event_info);
-    // determine if a click or double click event has happened
-    if (event_info.selected) {
-        var event_type = event_info.trigger.event.type;
-        if (event_type === "mousedown") {
-            // set the click counter
-            this.picking.__click_test = event_info.selected;
-        }
-        else if (event_type === "mouseup") {
-            if (this.picking.__click_test === event_info.selected) {
-                // single click
-                event_info.selected.dispatch("click", event_info);
-                inherited_dispatch.call(this, "click", event_info);
-                if (this.picking.__last_click === event_info.selected) {
-                    // double click
-                    this.__set_click_counter(null);
-                    event_info.selected.dispatch("doubleclick", event_info);
-                    inherited_dispatch.call(this, "doubleclick", event_info);
-                }
-                else {
-                    // double click pending
-                    this.__set_click_counter(event_info.selected);
-                }
-            }
-            else {
-                // clear double click counter
-                this.__set_click_counter(null);
-            }
-            // clear the click test counter
-            this.picking.__click_test = null;
-        }
-    }
-};
-//
-// Machinery for activating a picking event.
-//
-please.__picking = {
-    "queue" : [],
-    "move_event" : null,
-}
-please.__req_object_pick = function (x, y, event_info) {
-    var data = {
-        "x" : x,
-        "y" : y,
-        "event" : event_info,
-    };
-    if (event_info.type === "mousemove") {
-        please.__picking.move_event = data
-    }
-    else {
-        please.__picking.queue.push(data);
-    }
-};
-//
-// This code facilitates color based picking, when relevant. 
-//
-please.__picking_pass = function () {
-    var req = please.__picking.queue.shift();
-    if (!req) {
-        req = please.__picking.move_event;
-        please.__picking.move_event = null;
-    }
-    var is_move_event = req.event.type === "mousemove";
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
-    for (var i=0; i<please.graph_index.roots.length; i+=1) {
-        var graph = please.graph_index.roots[i];
-        if (graph.picking.enabled && !(is_move_event && graph.picking.skip_on_move_event)) {
-            var picking_node = graph.picking.__reference_node;
-            var root_node = graph.picking.compositing_root;
-            var id_color, loc_color = null;
-            var info = {
-                "picked" : null,
-                "selected" : null,
-                "local_location" : null,
-                "world_location" : null,
-                "trigger" : req,
-            };
-            if (req.x >= 0 && req.x <= 1 && req.y >= 0 && req.y <= 1) {
-                // perform object picking pass
-                picking_node.shader.mgrl_select_mode = true;
-                please.render(root_node);
-                id_color = please.gl.pick(req.x, req.y);
-                // picked is the object actually clicked on
-                info.picked = graph.__picked_node(id_color);
-                if (info.picked) {
-                    // selected is who should recieve an event
-                    info.selected = info.picked.__find_selection();
-                    // optionally perform object location picking
-                    if (!graph.picking.skip_location_info) {
-                        picking_node.shader.mgrl_select_mode = false;
-                        please.render(root_node);
-                        loc_color = please.gl.pick(req.x, req.y);
-                        var vbo = info.picked.__last_vbo;
-                        var tmp_coord = new Float32Array(3);
-                        var local_coord = new Float32Array(3);
-                        vec3.div(tmp_coord, loc_color, [255, 255, 255]);
-                        vec3.mul(tmp_coord, tmp_coord, vbo.stats.size);
-                        vec3.add(local_coord, tmp_coord, vbo.stats.min);
-                        var world_coord = new Float32Array(3);
-                        vec3.transformMat4(world_coord, local_coord, info.picked.shader.world_matrix);
-                        info.local_location = local_coord;
-                        info.world_location = world_coord;
-                    }
-                }
-            }
-            // emit event
-            if (info.selected) {
-                info.selected.dispatch(req.event.type, info);
-            }
-            graph.dispatch(req.event.type, info);
-        }
-    }
-    // restore original clear color
-    gl.clearColor.apply(gl, please.__clear_color);
-};
-//
-// Picking RenderNode
-//
-please.SceneGraph.prototype.__create_picking_node = function () {
-    /*
-    var node = new please.RenderNode("object_picking");
-    var exclude_test = function (item) {
-        return !!item.__is_particle_tracker
-    };
-    node.render = function () {
-        this.graph.draw(exclude_test);
-    };
-    node.graph = this;
-    return node;
-    */
-};
-//
-// Once a opengl context is created, automatically attach picking
-// event bindings to the canvas.
-//
-addEventListener("mgrl_gl_context_created", function (event) {
-    var canvas = please.gl.canvas;
-    var pick_trigger = function (event) {
-        var rect = canvas.getBoundingClientRect();
-        var left_edge = rect.left + window.pageXOffset;
-        var top_edge = rect.top + window.pageYOffset;
-        var pick_x = (event.pageX - left_edge) / (rect.width-1);
-        var pick_y = (event.pageY - top_edge) / (rect.height-1);
-        // x and y are normalized to be in the range 0.0 to 1.0
-        please.__req_object_pick(pick_x, pick_y, event);
-    };
-    canvas.addEventListener("mousemove", pick_trigger);
-    canvas.addEventListener("mousedown", pick_trigger);
-    window.addEventListener("mouseup", pick_trigger);
-});
 // - m.camera.js ------------------------------------------------------------ //
 // [+] please.CameraNode()
 //
@@ -9657,17 +9574,18 @@ please.RenderNode = function (prog, options) {
     });
     // shader program
     this.__prog = prog;
-    Object.defineProperty(this, "__prog", {
-        enumerable : false,
-        configurable: true,
-        writable : false,
-        value : prog,
-    });
     // optional render frequency
     this.frequency = null;
     if (options && options.frequency) {
         this.frequency = options.frequency;
     }
+    // option to always use please.gl.splat regardless of the presence
+    // of graph
+    this.__force_splat = false;
+    if (options && options.force_splat) {
+        this.__force_splat = !!options.force_splat;
+    }
+    Object.freeze(this.__force_splat);
     // optional streaming callback
     this.__stream_cache = null;
     this.stream_callback = null;
@@ -9680,6 +9598,12 @@ please.RenderNode = function (prog, options) {
             delete options.stream_callback;
         }
     }
+    // graph is a picking pass
+    this.__is_picking_pass = false;
+    if (options && options.is_picking_pass) {
+        this.__is_picking_pass = !!options.is_picking_pass;
+    }
+    Object.freeze(this.__is_picking_pass);
     // render buffer
     if (options === undefined) { options = {}; };
     please.gl.register_framebuffer(this.__id, options);
@@ -9731,39 +9655,89 @@ please.RenderNode = function (prog, options) {
     this.__static_draw_cache = {
         "prog" : prog,
         "graph" : null,
+        "exclude_test" : null,
     };
     this.__dirty_draw = false;
+    this.__graph_set = new please.Signal();
     this.__graph = null;
-    var recompile_me = this.__recompile_draw.bind(this);
-    var node = this;
-    Object.defineProperty(this, "graph", {
-        "get" : function () {
-            return node.__graph;
-        },
-        "set" : function (new_graph) {
-            var old_graph = node.__graph;
-            if (old_graph !== new_graph) {
-                if (old_graph) {
-                    old_graph.__regen_static_draw.disconnect(recompile_me);
+    if (this.__force_splat) {
+        this.__recompile_draw = null;
+        this.__compile_graph_draw = null;
+        Object.defineProperty(this, "graph", {
+            "get" : function () {
+                return this.__graph;
+            }.bind(this),
+            "set" : function (new_graph) {
+                var old_graph = this.__graph;
+                if (old_graph !== new_graph) {
+                    this.__graph = !!new_graph ? new_graph : null;
+                    this.__graph_set();
                 }
-                if (new_graph) {
-                    new_graph.__regen_static_draw.connect(recompile_me);
+                else {
+                    return new_graph;
                 }
-                node.__graph = !!new_graph ? new_graph : null;
-                node.__static_draw_cache.graph = new_graph;
-                node.__recompile_draw();
-            }
-            else {
-                return new_graph;
-            }
-        },
-    });
+            }.bind(this),
+        });
+        this.graph_filter = null;
+        this.__graph_filter = null;
+        Object.freeze(this.graph_filter);
+        Object.freeze(this.__graph_filter);
+    }
+    else {
+        var recompile_me = this.__recompile_draw.bind(this);
+        this.__graph_set.connect(recompile_me);
+        Object.defineProperty(this, "graph", {
+            "get" : function () {
+                return this.__graph;
+            }.bind(this),
+            "set" : function (new_graph) {
+                var old_graph = this.__graph;
+                if (old_graph !== new_graph) {
+                    if (old_graph) {
+                        old_graph.__regen_static_draw.disconnect(recompile_me);
+                    }
+                    if (new_graph) {
+                        new_graph.__regen_static_draw.connect(recompile_me);
+                    }
+                    this.__graph = !!new_graph ? new_graph : null;
+                    this.__static_draw_cache.graph = new_graph;
+                    this.__graph_set();
+                }
+                else {
+                    return new_graph;
+                }
+            }.bind(this),
+        });
+        this.__graph_filter = null;
+        Object.defineProperty(this, "graph_filter", {
+            "get" : function () {
+                return this.__graph_filter;
+            }.bind(this),
+            "set" : function (new_filter) {
+                var old_filter = this.__graph_filter;
+                if (old_filter !== new_filter) {
+                    this.__graph_filter = typeof(new_filter) == "function" ? new_filter : null;
+                    this.__static_draw_cache.exclude_test = this.__graph_filter;
+                    this.__recompile_draw();
+                }
+                else {
+                    return new_graph;
+                }
+            }.bind(this),
+        });
+        this.__recompile_draw();
+    }
     prog.cache_clear();
-    this.__recompile_draw();
 };
 please.RenderNode.prototype = {
     "peek" : null,
     "render" : function () {},
+};
+please.RenderNode.prototype.retarget = function (prog) {
+    // Provide a new shader program for the RenderNode to use.
+    this.__prog = typeof(prog) === "string" ? please.gl.get_program(prog) : prog;
+    this.__static_draw_cache.prog = this.__prog;
+    this.__recompile_draw();
 };
 please.RenderNode.prototype.__splat_draw = function () {
     // Render this node as a full screen quad.
@@ -9790,6 +9764,8 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     // assigned graph root.
     var graph = this.__graph;
     var ir = [];
+    // regen master list of drawable objects
+    graph.__all_drawables = graph.__statics.concat(graph.__flat);
     // Generate render function prefix IR.
     ir.push(
         "var camera = this.graph.camera || null;\n" +
@@ -9815,18 +9791,37 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
         "    }\n" +
         "}\n" +
         "else {\n" +
-        '    throw new Error("The scene graph has no camera in it!");\n' +
+        '    console.error("The scene graph has no camera in it!");\n' +
+        "    return;\n" +
         "}\n" +
         "// BEGIN GENERATED GRAPH RENDERING CODE\n"    );
     // Generate the IR for rendering the individual graph nodes.
+    var state_tracker = {};
     for (var s=0; s<graph.__statics.length; s+=1) {
         var node = graph.__statics[s];
-        for (var p=0; p<node.__static_draw_ir.length; p+=1) {
-            var token = node.__static_draw_ir[p];
-            if (token.constructor == please.JSIR) {
-                token.compiled = true;
+        if (this.__is_picking_pass) {
+            var obj_index = graph.__all_drawables.indexOf(node) + 1;
+            var picking_color = please.picking.__etc.color_encode(obj_index);
+            var color_string = please.array_src(picking_color);
+            var pick_uni = "this.prog.vars['object_index'] = " + color_string + ";";
+            ir.push(pick_uni);
+        }
+        if (!this.__graph_filter || this.__graph_filter(node)) {
+            var node_ir = node.__ir.generate(this.__prog, state_tracker) || [];
+            for (var p=0; p<node_ir.length; p+=1) {
+                var token = node_ir[p];
+                if (token.constructor == please.JSIR) {
+                    token.compiled = true;
+                }
+                ir.push(token);
             }
-            ir.push(token);
+        }
+    }
+    if (this.__is_picking_pass) {
+        for (var f=0; f<graph.__flat.length; f+=1) {
+            var node = graph.__flat[f];
+            var obj_index = graph.__all_drawables.indexOf(node) + 1;
+            node.__ani_store.object_index = please.picking.__etc.color_encode(obj_index);
         }
     }
     // Generate render function suffix IR.
@@ -9838,15 +9833,10 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
         "        var children = graph.__states[hint];\n" +
         "        for (var i=0; i<children.length; i+=1) {\n" +
         "            var child = children[i];\n" +
-        "            //if (!(exclude_test && exclude_test(child))) {\n" +
-        "                if (child.__static_draw) {\n" +
-        "                    child.__static_draw();\n" +
-        "                }\n" +
-        "                else {\n" +
-        "                    child.__bind(prog);\n" +
-        "                    child.__draw(prog);\n" +
-        "                }\n" +
-        "            //}\n" +
+        "            if (!this.exclude_test || this.exclude_test(child)) {\n" +
+        "                child.__bind(prog);\n" +
+        "                child.__draw(prog);\n" +
+        "            }\n" +
         "        }\n" +
         "    }\n" +
         "}\n" +
@@ -9866,14 +9856,15 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
         "    gl.depthMask(false);\n" +
         "    for (var i=0; i<graph.__alpha.length; i+=1) {\n" +
         "        var child = graph.__alpha[i];\n" +
-        "        //if (!(exclude_test && exclude_test(child))) {\n" +
+        "        if (!this.exclude_test || this.exclude_test(child)) {\n" +
         "            child.__bind(prog);\n" +
         "            child.__draw(prog);\n" +
-        "        //}\n" +
+        "        }\n" +
         "    }\n" +
         "    gl.depthMask(true);\n" +
         "}\n"    );
-    var src = please.__compile_ir(ir, this.__static_draw_cache);
+    var src_url = "rendernode:" + this.__graph.__id + ":" + this.__prog.name;
+    var src = please.__compile_ir(ir, this.__static_draw_cache, src_url);
     this.__render_src = src;
     this.__render_ir = ir;
     this.render = new Function(src).bind(this.__static_draw_cache);
@@ -10023,9 +10014,6 @@ please.render = function(node) {
             console.warn("Cannot read pixels from non-rgba buffers!");
         }
         if (type && period) {
-            if (!node.__stream_cache) {
-                node.__stream_cache = new ArrayType(width*height*period);
-            }
             var info = {
                 "width" : width,
                 "height" : height,
@@ -10034,9 +10022,27 @@ please.render = function(node) {
                 "period" : period,
             };
             gl.finish();
-            gl.readPixels(0, 0, width, height, format, type, node.__stream_cache);
-            node.stream_callback(node.__stream_cache, info);
+            if (node.__is_picking_pass) {
+                if (!node.__stream_cache) {
+                    node.__stream_cache = new ArrayType(period);
+                }
+                var pick_x = Math.floor(node.req.x * width);
+                var pick_y = Math.floor((1.0-node.req.y) * height);
+                gl.readPixels(pick_x, pick_y, 1, 1, format, type, node.__stream_cache);
+                node.stream_callback(node.__stream_cache, info);
+            }
+            else {
+                if (!node.__stream_cache) {
+                    node.__stream_cache = new ArrayType(width*height*period);
+                }
+                gl.readPixels(0, 0, width, height, format, type, node.__stream_cache);
+                node.stream_callback(node.__stream_cache, info);
+            }
         }
+    }
+    // call the after_render method, if applicable
+    if (node.after_render) {
+        node.after_render();
     }
     // clean up
     if (stack.length === 0) {
@@ -10119,6 +10125,403 @@ please.TransitionEffect.prototype.blend_to = function (texture, time) {
 please.TransitionEffect.prototype.blend_between = function (texture_a, texture_b, time) {
     this.reset_to(texture_a);
     this.blend_to(texture_b, time);
+};
+// - m.picking.js -------------------------------------------------------- //
+/* [+]
+ *
+ * This part of the module implements the object picking functionality
+ * for M.GRL.  This allows for rudimentry 3D mouse events.
+ *
+ * Here is an example of the most basic usage of this - assigning an
+ * event handler to a GraphNode, so that it can receive mouse events:
+ *
+ * ```
+ * var graph_root = new please.SceneGraph();
+ * please.picking.graph = graph_root;
+ * var some_critter = please.access("fancy_critter.jta").instance();
+ * some_critter.selectable = true;
+ * some_critter.on_click.connect(function (event) {
+ *     console.info("Hi Mom!");
+ * });
+ * graph_root.add(some_critter);
+ * ```
+ *
+ * It is possible to get the 3D location of the mouse click as well:
+ *
+ * ```
+ * var graph_root = new please.SceneGraph();
+ * please.picking.graph = graph_root;
+ * please.picking.enable_location_info = true; // <----------
+ * graph_root.on_mouseup.connect(function (event) {
+ *     var coord = event.world_location;
+ *     if (coord) {
+ *         console.info("Click coordinate: (" + coord.join(", ") + ")");
+ *     }
+ * });
+ * ```
+ *
+ * The following event handlers may be used on either selectable
+ * GraphNodes (as defined above) or on the root graph node:
+ *
+ *  - mousedown
+ *
+ *  - mouseup
+ *
+ *  - click
+ *
+ *  - doubleclick
+ *
+ * For more advanced uses, you can define multiple picking graphs, and
+ * assign them as "layers".  Only one layer may be active at any given
+ * moment, but you can use an event handler to change the current
+ * layer.  This can be used to implement click-and-drag functionality.
+ * 
+ * ```
+ * var picking_graph_a = new please.SceneGraph();
+ * var picking_graph_b = new please.SceneGraph();
+ * please.picking.graph = [picking_graph_a, picking_graph_b];
+ * please.picking.current_layer = 0;
+ * 
+ * picking_graph_a.on_mousedown.connect(function (event) {
+ *     please.picking.current_layer = 1;
+ *     console.info("picking layer is now 1");
+ * });
+ *
+ * picking_graph_b.on_mouseup.connect(function (event) {
+ *     please.picking.current_layer = 0;
+ *     console.info("picking layer is now 0");
+ * });
+ * ```
+ *
+ * The "bezier_pick" demo implements click-and-drag using the picking
+ * layer API.
+ */
+//
+// Picking settings object.
+//
+please.picking = {
+    "graph" : null,
+    "enable_location_info" : false,
+    "enable_mouse_move_event" : false,
+    "distortion_function" : null,
+    "current_layer" : 0,
+    "__etc" : {
+        "queue" : [],
+        "move_event" : null,
+        "delay" : -1,
+        // __click_test stores what was selected on the last
+        // mouse_down event.  If mouse up matches, the objects gets a
+        // "click" event after it's mouse up event.  __last_click
+        // stores what object recieved a click last, and is reset
+        // whenever a contradicting mouseup occurs.  It also stores
+        // when that object was clicked on for the double click
+        // threshold.
+        "click_test" : null,
+        "last_click" : null,
+        "clear_timer" : null,
+        // signal to inform when picking features are enabled or disabled
+        "settings_changed" : new please.Signal(),
+    },
+};
+//
+//  Redefine enabler properties in the picking namespace, so that they
+//  are getter / setters.  This is used to trigger the
+//  "settings_changed" signal, so that M.GRL can automatically
+//  activate / disable / and optimize picking related functionality.
+//
+(function () {
+    var _private = please.picking.__etc.opt = {};
+    please.prop_map(please.picking, function (name, initial) {
+        var initial = please.picking[name];
+        if (name.startsWith("_") || !!initial) {
+            // skip if the property name starts with an underscore, or
+            // the value of the property is not a falsey value.
+            return;
+        }
+        _private[name] = initial;
+        delete please.picking[name];
+        Object.defineProperty(please.picking, name, {
+            enumerable: true,
+            get : function () {
+                return _private[name];
+            },
+            set : function (value) {
+                if (_private[name] != value) {
+                    _private[name] = value;
+                    please.picking.__etc.settings_changed(name, value);
+                }
+                return value;
+            }
+        });
+    });
+})();
+//
+// Eventlistener that converts dom mouse events to M.GRL's internal
+// picking event representation.
+//
+please.picking.__etc.event_listener = function (event) {
+    var rect = please.gl.canvas.getBoundingClientRect();
+    var left_edge = rect.left + window.pageXOffset;
+    var top_edge = rect.top + window.pageYOffset;
+    // x and y are normalized to be in the range 0.0 to 1.0
+    var picking_event = {
+        "x" : (event.pageX - left_edge) / (rect.width-1),
+        "y" : (event.pageY - top_edge) / (rect.height-1),
+        "event" : event,
+    };
+    if (this.opt.distortion_function) {
+        var pick_x = picking_event.x;
+        var pick_y = 1.0 - picking_event.y;
+        var time = please.__compositing_viewport.__last_framestart/1000.0;
+        var new_coords = this.opt.distortion_function(time, pick_x, pick_y);
+        var new_x = new_coords[0];
+        var new_y = new_coords[1];
+        if (new_x < 0.0 || new_x > 1.0) {
+            var fract = new_x % 1;
+            new_x = new_x < 0.0 ? 1.0 - fract : fract;
+        }
+        if (new_y < 0.0 || new_y > 1.0) {
+            var fract = new_y % 1;
+            new_y = new_y < 0.0 ? 1.0 - fract : fract;
+        }
+        picking_event.x = new_x;
+        picking_event.y = 1.0 - new_y;
+    };
+    if (event.type === "mousemove") {
+        this.move_event = picking_event
+    }
+    else {
+        this.queue.push(picking_event);
+        this.delay = -1;
+    }
+}.bind(please.picking.__etc);
+//
+//
+//
+please.picking.__etc.color_encode = function (pick_index) {
+    var r = (pick_index & 255); // 255 = 2**8-1
+    var g = (pick_index & 65280) >> 8; // 65280 = (2**8-1) << 8;
+    var b = (pick_index & 16711680) >> 16; // 16711680 = (2**8-1) << 16;
+    var id = [r/255, g/255, b/255];
+    return id;
+};
+//
+// Decodes a picking ID from a given color, and returns the
+// corresponding GraphNode from the picking graph.
+//
+please.picking.__etc.node_lookup = function (graph, color_array) {
+    if (r===0 && g===0 && b===0) {
+        return null;
+    }
+    else {
+        var r = color_array[0];
+        var g = color_array[1];
+        var b = color_array[2];
+        var color_index = r + g*256 + b*65536;
+        return graph.__all_drawables[color_index-1];
+    }
+};
+//
+// Adds a picking RenderNode to the provided GraphNode object.
+//
+please.picking.__etc.attach_renderer = function(graph) {
+    if (graph.__picking_renderer) {
+        throw new Error("Attempted to attach a redundant picking RenderNode to graph.");
+    }
+    var options = {
+        "is_picking_pass" : true,
+    };
+    var renderer = new please.RenderNode("object_picking", options);
+    renderer.req = {x:0, y:0};
+    renderer.clear_color = [0.0, 0.0, 0.0, 0.0];
+    renderer.stream_callback = function (picked_color) {
+        this.selected_color = picked_color;
+    };
+    renderer.graph = graph;
+    graph.__picking_renderer = renderer;
+};
+//
+// This is responsible for selecting the picking graph being rendered.
+// If there is no associated picking RenderNode for the graph, one
+// will be created.  This will cause lag depending on where it is
+// triggered.
+//
+// Returns null if no appropriate picking graph could be found.
+//
+please.picking.__etc.get_layer = function () {
+    var selected = this.opt.graph || null;
+    var layer = this.opt.current_layer;
+    if (selected && selected.length) {
+        if (layer < selected.length) {
+            selected = selected[layer];
+        }
+        else {
+            console.error("Picking layer out of bounds: " + layer);
+            return null;
+        }
+    }
+    if (selected && !selected.__picking_renderer) {
+        please.picking.__etc.attach_renderer(selected);
+    }
+    return selected;
+};
+//
+// Once a opengl context is created, automatically attach picking
+// event bindings to the canvas.
+//
+please.__init_picking = function () {
+    var canvas = please.gl.canvas;
+    var event_listener = please.picking.__etc.event_listener;
+    canvas.addEventListener("mousemove", event_listener);
+    canvas.addEventListener("mousedown", event_listener);
+    window.addEventListener("mouseup", event_listener);
+    please.time.__frame.register(-1, "mgrl/picking_pass", please.picking.__etc.picking_pass).skip_when(
+        function () {
+            if (please.__compositing_viewport) {
+                var delay = please.picking.__etc.delay;
+                var start_time = please.__compositing_viewport.__last_framestart;
+                var items_in_queue = please.picking.__etc.queue.length;
+                var pending_move = please.picking.__etc.move_event;
+                return (delay > start_time) || !(items_in_queue || pending_move);
+            }
+            else {
+                return true;
+            }
+        }
+    );
+    please.picking.__etc.settings_changed.connect(function (name, value) {
+        console.info("Picking setting '"+name+"' changed to: " + value);
+        if (name == "graph" || name == "current_layer") {
+            var opt = please.picking.__etc.opt;
+            if (opt.graph && opt.current_layer) {
+                please.picking.__etc.get_layer();
+            }
+        }
+    });
+};
+//
+// This code facilitates color based picking, when relevant. 
+//
+please.picking.__etc.picking_pass = function () {
+    var graph = please.picking.__etc.get_layer();
+    if (!graph) {
+        return;
+    }
+    var req = please.picking.__etc.queue.shift();
+    if (!req) {
+        req = please.picking.__etc.move_event;
+        please.picking.__etc.move_event = null;
+        if (req) {
+            var start_time = please.__compositing_viewport.__last_framestart;
+            if (please.picking.__etc.delay < start_time) {
+                please.picking.__etc.delay = start_time + (1/24 * 1000);
+            }
+            else {
+                // skip rendering for this move event, because it is
+                // too soon.
+                return;
+            }
+        }
+    }
+    var is_move_event = req.event.type === "mousemove";
+    if (is_move_event && !this.opt.enable_mouse_move_event) {
+        return;
+    }
+    var id_color, loc_color = null;
+    var info = {
+        "picked" : null,
+        "selected" : null,
+        "local_location" : null,
+        "world_location" : null,
+        "trigger" : req,
+    };
+    var renderer = graph.__picking_renderer;
+    if (req.x >= 0 && req.x <= 1 && req.y >= 0 && req.y <= 1) {
+        // perform object picking pass
+        renderer.shader.mgrl_select_mode = true;
+        renderer.req = req;
+        renderer.shader.frame_offset = [ req.x, 1.0-req.y ];
+        please.indirect_render(renderer);
+        id_color = renderer.selected_color;
+        // picked is the object actually clicked on
+        info.picked = please.picking.__etc.node_lookup(graph, id_color);
+        if (info.picked) {
+            // selected is who should recieve an event
+            info.selected = info.picked.__find_selection();
+            // optionally perform object location picking
+            var override = info.picked.override_location_picking
+            if ((this.opt.enable_location_info && override !== false) || override === true) {
+                renderer.shader.mgrl_select_mode = false;
+                renderer.__cached_framebuffer = null; // force cache bypass
+                please.indirect_render(renderer);
+                loc_color = renderer.selected_color;
+                var vbo = info.picked.__buffers.vbo;
+                var tmp_coord = new Float32Array(3);
+                var local_coord = new Float32Array(3);
+                vec3.div(tmp_coord, loc_color, [255, 255, 255]);
+                vec3.mul(tmp_coord, tmp_coord, vbo.stats.size);
+                vec3.add(local_coord, tmp_coord, vbo.stats.min);
+                var world_coord = new Float32Array(3);
+                vec3.transformMat4(world_coord, local_coord, info.picked.shader.world_matrix);
+                info.local_location = local_coord;
+                info.world_location = world_coord;
+            }
+        }
+    }
+    // emit event
+    please.picking.__etc.dispatch_events(graph, req.event.type, info);
+    // restore original clear color
+    gl.clearColor.apply(gl, please.__clear_color);
+}.bind(please.picking.__etc);
+//
+please.picking.__etc.dispatch_events = function (graph, event_name, event_info) {
+    var event_type = event_info.trigger.event.type;
+    var selected = event_info.selected || null;
+    var events = [event_type];
+    if (selected) {
+        if (event_type === "mousedown") {
+            // set the click counter
+            this.click_test = selected;
+        }
+        else if (event_type === "mouseup") {
+            if (this.click_test === selected) {
+                // single click
+                events.push("click");
+                if (this.last_click === event_info.selected) {
+                    // double click
+                    this.set_click_counter(null);
+                    events.push("doubleclick");
+                }
+                else {
+                    // double click pending
+                    this.set_click_counter(selected);
+                }
+            }
+            else {
+                // clear double click counter
+                this.set_click_counter(null);
+            }
+            // clear the click test counter
+            this.click_test = null;
+        }
+    }
+    for (var e=0; e<events.length; e+=1) {
+        var event = events[e];
+        if (selected) {
+            selected.dispatch(event, event_info);
+        }
+        graph.dispatch(event, event_info);
+    }
+};
+// Used by the dispatcher function below
+please.picking.__etc.set_click_counter = function (val) {
+    this.last_click = val;
+    window.clearTimeout(this.clear_timer);
+    if (val) {
+        this.clear_timer = window.setTimeout(function () {
+            this.last_click = null;
+        }.bind(this), 500);
+    }
 };
 // - m.effects.js ----------------------------------------------------------- //
 // [+] please.DiagonalWipe()
@@ -10337,27 +10740,24 @@ please.SpotLightNode = function (options) {
     if (options.mag_filter === undefined) { options.mag_filter = gl.LINEAR; }
     if (options.min_filter === undefined) { options.min_filter = gl.LINEAR; }
     this.depth_pass = new please.RenderNode(prog, options);
-    Object.defineProperty(this.depth_pass, "graph", {
-        "configurable" : true,
-        "get" : function () {
-            return this.graph_root;
-        },
-    });
+    this.depth_pass.graph_filter = function (node) {
+        return node.cast_shadows;
+    }
+    this.__on_graphroot_changed.connect(function () {
+        this.depth_pass.graph = this.graph_root;
+    }.bind(this));
+    this.depth_pass.before_render = this.before_render.bind(this);
+    this.depth_pass.after_render = this.after_render.bind(this);
     this.depth_pass.shader.cast_shadows = function () { return light.cast_shadows; };
     this.depth_pass.shader.shader_pass = 1;
     this.depth_pass.shader.geometry_pass = true;
-    this.depth_pass.render = function () {
-        this.activate();
-        this.graph_root.draw(function (node) { return !node.cast_shadows; });
-        this.deactivate();
-    }.bind(this);
     this.depth_pass.clear_color = function () {
         var max_depth = this.camera.far;
         return [max_depth, max_depth, max_depth, max_depth];
     }.bind(this);
 };
 please.SpotLightNode.prototype = Object.create(please.GraphNode.prototype);
-please.SpotLightNode.prototype.activate = function () {
+please.SpotLightNode.prototype.before_render = function () {
     var graph = this.graph_root;
     if (graph !== null) {
         if (graph.camera && typeof(graph.camera.on_inactive) === "function") {
@@ -10370,7 +10770,7 @@ please.SpotLightNode.prototype.activate = function () {
         graph.camera = this.camera;
     }
 };
-please.SpotLightNode.prototype.deactivate = function () {
+please.SpotLightNode.prototype.after_render = function () {
     this.camera.on_inactive();
     this.graph_root.camera = this.__last_camera;
 };
@@ -10388,13 +10788,18 @@ please.DeferredRenderer = function () {
             "deferred_renderer/main.vert",
             "deferred_renderer/main.frag");
     }
-    var assembly = new please.RenderNode(prog, {"buffers" : ["color"]});
+    // The assembly pass will be the return value for this
+    // constructor.  The graph property will be a handle for gbuffers
+    // to use, as well as for lighting passes to introspect, but this
+    // pass will always render as a splat because it is a compositing
+    // pass.
+    var assembly = new please.RenderNode(prog, {
+        "buffers" : ["color"],
+        "force_splat" : true,
+    });
     assembly.clear_color = [0.15, 0.15, 0.15, 1.0];
     assembly.shader.shader_pass = 3;
     assembly.shader.geometry_pass = false;
-    assembly.render = function () {
-        please.gl.splat();
-    }
     assembly.graph = null;
     var gbuffer_options = {
         "buffers" : ["color", "spatial", "normal"],
@@ -10404,11 +10809,10 @@ please.DeferredRenderer = function () {
     gbuffers.clear_color = [-1, -1, -1, -1];
     gbuffers.shader.shader_pass = 0;
     gbuffers.shader.geometry_pass = true;
-    gbuffers.render = function () {
-        if (assembly.graph !== null) {
-            assembly.graph.draw();
-        }
-    }
+    assembly.__graph_set.connect(function() {
+        gbuffers.graph = this.graph;
+    }.bind(assembly));
+    assembly.__gbuffers = gbuffers;
     var light_options = {
         "buffers" : ["color"],
         "type" : gl.FLOAT,
@@ -10427,7 +10831,7 @@ please.DeferredRenderer = function () {
                 if (assembly.graph.__lights[i].cast_shadows) {
                     var node = assembly.graph.__lights[i].depth_pass;
                     please.indirect_render(node)
-                    this.targets.push(node.__cached);
+                    this.targets.push(node.__cached_framebuffer);
                 }
                 else {
                     this.targets.push(null);
@@ -10895,7 +11299,7 @@ addEventListener("mgrl_gl_context_created", function () {
 });
 // - bundled glsl shader assets --------------------------------------------- //
 (function () {
-    please.__bundled_glsl = {"deferred_renderer/geometry_buffers.frag": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CgoKLy8gc2FtcGxlcnMK\nYmluZGluZ19jb250ZXh0IEdyYXBoTm9kZSB7CiAgdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90\nZXh0dXJlOwogIHVuaWZvcm0gc2FtcGxlcjJEIG5vcm1hbF90ZXh0dXJlOwogIG1vZGVfc3dpdGNo\nIGRpZmZ1c2VfY29sb3JfZnVuY3Rpb247CiAgbW9kZV9zd2l0Y2ggdGV4dHVyZV9jb29yZGluYXRl\nX2Z1bmN0aW9uOwoKICB1bmlmb3JtIGJvb2wgaGFzX25vcm1hbF9tYXA7Cn0KCgpzd2FwcGFibGUg\ndmVjMiB0ZXh0dXJlX2Nvb3JkaW5hdGVfZnVuY3Rpb24oKSB7CiAgcmV0dXJuIGxvY2FsX3Rjb29y\nZHM7Cn0KCgpzd2FwcGFibGUgdmVjNCBkaWZmdXNlX2NvbG9yX2Z1bmN0aW9uKCkgewogIHZlYzIg\ndGNvb3JkcyA9IHRleHR1cmVfY29vcmRpbmF0ZV9mdW5jdGlvbigpOwogIHJldHVybiB0ZXh0dXJl\nMkQoZGlmZnVzZV90ZXh0dXJlLCB0Y29vcmRzKTsKfQoKCnZvaWQgZ2J1ZmZlcnNfbWFpbigpIHsK\nICAvLyBnLWJ1ZmZlciBwYXNzCiAgdmVjNCBkaWZmdXNlID0gZGlmZnVzZV9jb2xvcl9mdW5jdGlv\nbigpOwogIGlmIChkaWZmdXNlLmEgPCAwLjUpIHsKICAgIGRpc2NhcmQ7CiAgfQogIGdsX0ZyYWdE\nYXRhWzBdID0gZGlmZnVzZTsKICBnbF9GcmFnRGF0YVsxXSA9IHZlYzQod29ybGRfcG9zaXRpb24s\nIGxpbmVhcl9kZXB0aCk7CiAgZ2xfRnJhZ0RhdGFbMl0gPSB2ZWM0KHdvcmxkX25vcm1hbCwgMC4w\nKTsKfQo=\n", "deferred_renderer/simple_brdf.glsl": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7Cgp1bmlmb3JtIHNhbXBs\nZXIyRCBkaWZmdXNlX3RleHR1cmU7CnVuaWZvcm0gdmVjMyBhbWJpZW50X2NvbG9yOwp1bmlmb3Jt\nIGZsb2F0IGFtYmllbnRfaW50ZW5zaXR5OwoKdmVjMyBicmRmX2Z1bmN0aW9uKGJyZGZfaW5wdXQg\ncGFyYW1zKSB7CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9GcmFn\nQ29vcmQueHkpOwogIHZlYzMgYmFzZV9jb2xvciA9IHRleHR1cmUyRChkaWZmdXNlX3RleHR1cmUs\nIHRjb29yZHMpLnJnYjsKCiAgZmxvYXQgaW5jaWRlbmNlID0gZG90KHBhcmFtcy5ub3JtYWxfdmVj\ndG9yLCBwYXJhbXMubGlnaHRfdmVjdG9yKTsKICB2ZWMzIHJlZmxlY3Rpb24gPSAyLjAgKiBwYXJh\nbXMubm9ybWFsX3ZlY3RvciAqIGluY2lkZW5jZSAtIHBhcmFtcy5saWdodF92ZWN0b3I7CgogIGZs\nb2F0IGludGVuc2l0eSA9IHBhcmFtcy5pbnRlbnNpdHkgKiBwYXJhbXMuZmFsbG9mZjsKCiAgdmVj\nMyBhbWJpZW50ID0gYW1iaWVudF9jb2xvciAqIGJhc2VfY29sb3IgKiBhbWJpZW50X2ludGVuc2l0\neTsKICB2ZWMzIGRpZmZ1c2UgPSBwYXJhbXMuY29sb3IgKiBpbmNpZGVuY2UgKiBiYXNlX2NvbG9y\nICogaW50ZW5zaXR5ICogcGFyYW1zLm9jY2x1c2lvbjsKICB2ZWMzIHNwZWN1bGFyID0gcGFyYW1z\nLmNvbG9yICogcG93KG1heChkb3QocmVmbGVjdGlvbiwgcGFyYW1zLnZpZXdfdmVjdG9yKSwgMC4w\nKSwgaW50ZW5zaXR5KSAqIHBhcmFtcy5vY2NsdXNpb247CgogIHJldHVybiBhbWJpZW50ICsgZGlm\nZnVzZSArIHNwZWN1bGFyOwp9Cg==\n", "picture_in_picture.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl93aWR0\naDsKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl9oZWlnaHQ7Cgp1bmlmb3JtIHZlYzIgcGlwX3Np\nemU7CnVuaWZvcm0gdmVjMiBwaXBfY29vcmQ7CnVuaWZvcm0gZmxvYXQgcGlwX2FscGhhOwp1bmlm\nb3JtIHNhbXBsZXIyRCBtYWluX3RleHR1cmU7CnVuaWZvcm0gc2FtcGxlcjJEIHBpcF90ZXh0dXJl\nOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2\nb2lkKSB7CiAgdmVjMiBzY3JlZW5fY29vcmQgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0Zy\nYWdDb29yZC54eSk7CiAgdmVjNCBjb2xvciA9IHRleHR1cmUyRChtYWluX3RleHR1cmUsIHNjcmVl\nbl9jb29yZCk7CgogIC8vIHNjYWxlIHRoZSBzY3JlZW5fY29vcmQgdG8gcmVwcmVzZW50IGEgcGVy\nY2VudAogIHNjcmVlbl9jb29yZCAqPSAxMDAuMDsKICB2ZWMyIHBpcF90ZXN0ID0gc2NyZWVuX2Nv\nb3JkIC0gcGlwX2Nvb3JkOwogIGlmIChwaXBfdGVzdC54ID49IDAuMCAmJiBwaXBfdGVzdC55ID49\nIDAuMCAmJiBwaXBfdGVzdC54IDw9IHBpcF9zaXplLnggJiYgcGlwX3Rlc3QueSA8PSBwaXBfc2l6\nZS55KSB7CiAgICB2ZWM0IHBpcF9jb2xvciA9IHRleHR1cmUyRChwaXBfdGV4dHVyZSwgcGlwX3Rl\nc3QgLyBwaXBfc2l6ZSk7CiAgICBjb2xvciA9IG1peChjb2xvciwgcGlwX2NvbG9yLCBwaXBfY29s\nb3IuYSAvIHBpcF9hbHBoYSk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "splat.vert": "CnVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7CnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5p\nZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4OwphdHRyaWJ1dGUgdmVjMyBwb3NpdGlvbjsKCgp2\nb2lkIG1haW4odm9pZCkgewogIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2aWV3\nX21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7Cn0K\n", "simple.vert": "Ci8vIHZlcnRleCBkYXRhCmF0dHJpYnV0ZSB2ZWMzIHBvc2l0aW9uOwphdHRyaWJ1dGUgdmVjMyBu\nb3JtYWw7CmF0dHJpYnV0ZSB2ZWMyIHRjb29yZHM7CgovLyBnbG9hYmwgbWF0cmljZXMKdW5pZm9y\nbSBtYXQ0IHZpZXdfbWF0cml4Owp1bmlmb3JtIG1hdDQgcGFydGljbGVfbWF0cml4Owp1bmlmb3Jt\nIG1hdDQgcHJvamVjdGlvbl9tYXRyaXg7CgovLyBtaXNjIGFkanVzdG1lbnRzCnVuaWZvcm0gZmxv\nYXQgbWdybF9vcnRob2dyYXBoaWNfc2NhbGU7CgoKYmluZGluZ19jb250ZXh0IEdyYXBoTm9kZSB7\nCiAgdW5pZm9ybSBtYXQ0IHdvcmxkX21hdHJpeDsKICB1bmlmb3JtIGZsb2F0IGJpbGxib2FyZF9t\nb2RlOwp9CgoKLy8gaW50ZXJwb2xhdGVkIHZlcnRleCBkYXRhIGluIHZhcmlvdXMgdHJhbnNmb3Jt\nYXRpb25zCnZhcnlpbmcgdmVjMyBsb2NhbF9wb3NpdGlvbjsKdmFyeWluZyB2ZWMzIGxvY2FsX25v\ncm1hbDsKdmFyeWluZyB2ZWMyIGxvY2FsX3Rjb29yZHM7CnZhcnlpbmcgdmVjMyB3b3JsZF9wb3Np\ndGlvbjsKdmFyeWluZyB2ZWMzIHdvcmxkX25vcm1hbDsKdmFyeWluZyB2ZWMzIHNjcmVlbl9ub3Jt\nYWw7CnZhcnlpbmcgZmxvYXQgbGluZWFyX2RlcHRoOwoKCnZvaWQgbWFpbih2b2lkKSB7CiAgLy8g\ncGFzcyBhbG9uZyB0byB0aGUgZnJhZ21lbnQgc2hhZGVyCiAgbG9jYWxfcG9zaXRpb24gPSBwb3Np\ndGlvbiAqIG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwogIGxvY2FsX25vcm1hbCA9IG5vcm1hbDsK\nICBsb2NhbF90Y29vcmRzID0gdGNvb3JkczsKCiAgLy8gY2FsY3VsYXRlIG1vZGVsdmlldyBtYXRy\naXgKICBtYXQ0IG1vZGVsX3ZpZXcgPSB2aWV3X21hdHJpeCAqIHdvcmxkX21hdHJpeDsKICBpZiAo\nYmlsbGJvYXJkX21vZGUgPiAwLjApIHsKICAgIC8vIGNsZWFyIG91dCByb3RhdGlvbiBpbmZvcm1h\ndGlvbgogICAgbW9kZWxfdmlld1swXS54eXogPSB3b3JsZF9tYXRyaXhbMF0ueHl6OwogICAgbW9k\nZWxfdmlld1syXS54eXogPSB3b3JsZF9tYXRyaXhbMl0ueHl6OwogICAgaWYgKGJpbGxib2FyZF9t\nb2RlID09IDIuMCkgewogICAgICBtb2RlbF92aWV3WzFdLnh5eiA9IHdvcmxkX21hdHJpeFsxXS54\neXo7CiAgICB9CiAgfQoKICAvLyB2YXJpb3VzIGNvb3JkaW5hdGUgdHJhbnNmb3JtcwogIHZlYzQg\nZmluYWxfcG9zaXRpb24gPSBwcm9qZWN0aW9uX21hdHJpeCAqIG1vZGVsX3ZpZXcgKiB2ZWM0KGxv\nY2FsX3Bvc2l0aW9uLCAxLjApOwogIHdvcmxkX3Bvc2l0aW9uID0gKHdvcmxkX21hdHJpeCAqIHZl\nYzQobG9jYWxfcG9zaXRpb24sIDEuMCkpLnh5ejsKICB3b3JsZF9ub3JtYWwgPSBub3JtYWxpemUo\nbWF0Myh3b3JsZF9tYXRyaXgpICogbm9ybWFsKS54eXo7CiAgc2NyZWVuX25vcm1hbCA9IG5vcm1h\nbGl6ZShtYXQzKHByb2plY3Rpb25fbWF0cml4ICogbW9kZWxfdmlldykgKiBub3JtYWwpLnh5ejsK\nICBsaW5lYXJfZGVwdGggPSBsZW5ndGgobW9kZWxfdmlldyAqIHZlYzQobG9jYWxfcG9zaXRpb24s\nIDEuMCkpOwogIGdsX1Bvc2l0aW9uID0gZmluYWxfcG9zaXRpb247Cn0K\n", "picking.frag": "CnZhcnlpbmcgdmVjMyBsb2NhbF9wb3NpdGlvbjsKdW5pZm9ybSB2ZWMzIG9iamVjdF9pbmRleDsK\ndW5pZm9ybSBib29sIG1ncmxfc2VsZWN0X21vZGU7CnVuaWZvcm0gdmVjMyBtZ3JsX21vZGVsX2xv\nY2FsX21pbjsKdW5pZm9ybSB2ZWMzIG1ncmxfbW9kZWxfbG9jYWxfc2l6ZTsKCgp2b2lkIG1haW4o\ndm9pZCkgewogIGlmIChtZ3JsX3NlbGVjdF9tb2RlKSB7CiAgICBnbF9GcmFnQ29sb3IgPSB2ZWM0\nKG9iamVjdF9pbmRleCwgMS4wKTsKICB9CiAgZWxzZSB7CiAgICB2ZWMzIHNoaWZ0ZWQgPSBsb2Nh\nbF9wb3NpdGlvbiAtIG1ncmxfbW9kZWxfbG9jYWxfbWluOwogICAgdmVjMyBzY2FsZWQgPSBzaGlm\ndGVkIC8gbWdybF9tb2RlbF9sb2NhbF9zaXplOwogICAgZ2xfRnJhZ0NvbG9yID0gdmVjNChzY2Fs\nZWQsIDEuMCk7CiAgfTsKfQo=\n", "diffuse.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKLy8gc2FtcGxlcnMKYmluZGluZ19jb250ZXh0IEdy\nYXBoTm9kZSB7CiAgdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0dXJlOwogIHVuaWZvcm0g\nZmxvYXQgYWxwaGE7CiAgdW5pZm9ybSBib29sIGlzX3Nwcml0ZTsKICB1bmlmb3JtIGJvb2wgaXNf\ndHJhbnNwYXJlbnQ7CgogIG1vZGVfc3dpdGNoIGRpZmZ1c2VfY29sb3JfZnVuY3Rpb247CiAgbW9k\nZV9zd2l0Y2ggdGV4dHVyZV9jb29yZGluYXRlX2Z1bmN0aW9uOwp9CgoKdmFyeWluZyB2ZWMzIGxv\nY2FsX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2YXJ5aW5nIHZlYzIgbG9j\nYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwoKCnN3YXBwYWJsZSB2ZWMy\nIHRleHR1cmVfY29vcmRpbmF0ZV9mdW5jdGlvbigpIHsKICByZXR1cm4gbG9jYWxfdGNvb3JkczsK\nfQoKCnN3YXBwYWJsZSB2ZWM0IGRpZmZ1c2VfY29sb3JfZnVuY3Rpb24oKSB7CiAgdmVjMiB0Y29v\ncmRzID0gdGV4dHVyZV9jb29yZGluYXRlX2Z1bmN0aW9uKCk7CiAgcmV0dXJuIHRleHR1cmUyRChk\naWZmdXNlX3RleHR1cmUsIHRjb29yZHMpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsKICB2ZWM0IGRp\nZmZ1c2UgPSBkaWZmdXNlX2NvbG9yX2Z1bmN0aW9uKCk7CiAgaWYgKGlzX3Nwcml0ZSkgewogICAg\nZmxvYXQgY3V0b2ZmID0gaXNfdHJhbnNwYXJlbnQgPyAwLjEgOiAxLjA7CiAgICBpZiAoZGlmZnVz\nZS5hIDwgY3V0b2ZmKSB7CiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgfQogIGRpZmZ1c2UuYSAqPSBh\nbHBoYTsKICBnbF9GcmFnQ29sb3IgPSBkaWZmdXNlOwp9Cg==\n", "stereo.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnVuaWZvcm0gdmVjNCBtZ3Js\nX2NsZWFyX2NvbG9yOwp1bmlmb3JtIGZsb2F0IG1ncmxfZnJhbWVfc3RhcnQ7CnVuaWZvcm0gZmxv\nYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfaGVpZ2h0OwoK\ndW5pZm9ybSBzYW1wbGVyMkQgbGVmdF9leWVfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgcmln\naHRfZXllX3RleHR1cmU7Cgp1bmlmb3JtIGJvb2wgc3RlcmVvX3NwbGl0Owp1bmlmb3JtIHZlYzMg\nbGVmdF9jb2xvcjsKdW5pZm9ybSB2ZWMzIHJpZ2h0X2NvbG9yOwoKdmVjNCBzYW1wbGVfb3JfY2xl\nYXIoc2FtcGxlcjJEIHNhbXBsZXIsIHZlYzIgY29vcmQpIHsKICB2ZWM0IGNvbG9yID0gdGV4dHVy\nZTJEKHNhbXBsZXIsIGNvb3JkKTsKICBpZiAoY29sb3IuYSA9PSAwLjApIHsKICAgIGNvbG9yID0g\nbWdybF9jbGVhcl9jb2xvcjsKICB9CiAgcmV0dXJuIGNvbG9yOwp9Cgp2b2lkIG1haW4odm9pZCkg\newogIHZlYzIgY29vcmQgPSBnbF9GcmFnQ29vcmQueHkgLyB2ZWMyKG1ncmxfYnVmZmVyX3dpZHRo\nLCBtZ3JsX2J1ZmZlcl9oZWlnaHQpOwogIHZlYzQgY29sb3I7CgogIGlmIChzdGVyZW9fc3BsaXQp\nIHsKICAgIC8vIEZJWE1FOiBhcHBseSBkaXN0b3J0aW9uIGVmZmVjdCBuZWVkZWQgZm9yIFZSIGds\nYXNzZXMKICAgIGlmIChjb29yZC54IDwgMC41KSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKGxl\nZnRfZXllX3RleHR1cmUsIHZlYzIoY29vcmQueCoyLjAsIGNvb3JkLnkpKTsKICAgIH0KICAgIGVs\nc2UgewogICAgICBjb2xvciA9IHRleHR1cmUyRChyaWdodF9leWVfdGV4dHVyZSwgdmVjMigoY29v\ncmQueCAtIDAuNSkqMi4wLCBjb29yZC55KSk7CiAgICB9CiAgfQoKICBlbHNlIHsKICAgIHZlYzMg\nbGVmdCA9IHNhbXBsZV9vcl9jbGVhcihsZWZ0X2V5ZV90ZXh0dXJlLCBjb29yZCkucmdiICogbGVm\ndF9jb2xvcjsKICAgIHZlYzMgcmlnaHQgPSBzYW1wbGVfb3JfY2xlYXIocmlnaHRfZXllX3RleHR1\ncmUsIGNvb3JkKS5yZ2IgKiByaWdodF9jb2xvcjsKICAgIGNvbG9yID0gdmVjNCgobGVmdCtyaWdo\ndCksIDEuMCk7CiAgfQogIAogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "diagonal_wipe.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBibHVyX3JhZGl1czsKdW5pZm9ybSBib29sIGZsaXBfYXhpczsK\ndW5pZm9ybSBib29sIGZsaXBfZGlyZWN0aW9uOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2b2lkKSB7CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFs\naXplX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkpOwogIGZsb2F0IHNsb3BlID0gbWdybF9i\ndWZmZXJfaGVpZ2h0IC8gbWdybF9idWZmZXJfd2lkdGg7CiAgaWYgKGZsaXBfYXhpcykgewogICAg\nc2xvcGUgKj0gLTEuMDsKICB9CiAgZmxvYXQgaGFsZl9oZWlnaHQgPSBtZ3JsX2J1ZmZlcl9oZWln\naHQgKiAwLjU7CiAgZmxvYXQgaGlnaF9wb2ludCA9IG1ncmxfYnVmZmVyX2hlaWdodCArIGhhbGZf\naGVpZ2h0ICsgYmx1cl9yYWRpdXMgKyAxLjA7CiAgZmxvYXQgbG93X3BvaW50ID0gKGhhbGZfaGVp\nZ2h0ICogLTEuMCkgLSBibHVyX3JhZGl1cyAtIDEuMDsKICBmbG9hdCBtaWRwb2ludCA9IG1peCho\naWdoX3BvaW50LCBsb3dfcG9pbnQsIGZsaXBfZGlyZWN0aW9uID8gMS4wIC0gcHJvZ3Jlc3MgOiBw\ncm9ncmVzcyk7CiAgZmxvYXQgdGVzdCA9ICgoZ2xfRnJhZ0Nvb3JkLnggLSBtZ3JsX2J1ZmZlcl93\naWR0aC8yLjApICogc2xvcGUpICsgbWlkcG9pbnQ7CgogIHZlYzQgY29sb3I7CiAgZmxvYXQgZGlz\ndCA9IGdsX0ZyYWdDb29yZC55IC0gdGVzdDsKICBpZiAoZGlzdCA8PSBibHVyX3JhZGl1cyAmJiBk\naXN0ID49IChibHVyX3JhZGl1cyotMS4wKSkgewogICAgdmVjNCBjb2xvcl9hID0gdGV4dHVyZTJE\nKHRleHR1cmVfYSwgdGNvb3Jkcyk7CiAgICB2ZWM0IGNvbG9yX2IgPSB0ZXh0dXJlMkQodGV4dHVy\nZV9iLCB0Y29vcmRzKTsKICAgIGZsb2F0IGJsZW5kID0gKGRpc3QgKyBibHVyX3JhZGl1cykgLyAo\nYmx1cl9yYWRpdXMqMi4wKTsKICAgIGNvbG9yID0gbWl4KGNvbG9yX2EsIGNvbG9yX2IsIGZsaXBf\nZGlyZWN0aW9uID8gMS4wIC0gYmxlbmQgOiBibGVuZCk7CiAgfQogIGVsc2UgewogICAgaWYgKChn\nbF9GcmFnQ29vcmQueSA8IHRlc3QgJiYgIWZsaXBfZGlyZWN0aW9uKSB8fCAoZ2xfRnJhZ0Nvb3Jk\nLnkgPiB0ZXN0ICYmIGZsaXBfZGlyZWN0aW9uKSkgewogICAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2EsIHRjb29yZHMpOwogICAgfQogICAgZWxzZSB7CiAgICAgIGNvbG9yID0gdGV4dHVy\nZTJEKHRleHR1cmVfYiwgdGNvb3Jkcyk7CiAgICB9CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9y\nOwp9Cg==\n", "deferred_renderer/main.frag": "I2V4dGVuc2lvbiBHTF9FWFRfZHJhd19idWZmZXJzIDogcmVxdWlyZQoKaW5jbHVkZSgiZGVmZXJy\nZWRfcmVuZGVyZXIvZ2VvbWV0cnlfYnVmZmVycy5mcmFnIik7CmluY2x1ZGUoImRlZmVycmVkX3Jl\nbmRlcmVyL3NoYWRvd19idWZmZXJzLmZyYWciKTsKaW5jbHVkZSgiZGVmZXJyZWRfcmVuZGVyZXIv\nbGlnaHRpbmdfcGFzc2VzLmZyYWciKTsKaW5jbHVkZSgiZGVmZXJyZWRfcmVuZGVyZXIvZmluaXNo\naW5nX3Bhc3MuZnJhZyIpOwoKdW5pZm9ybSBpbnQgc2hhZGVyX3Bhc3M7CgoKdm9pZCBtYWluKHZv\naWQpIHsKICBpZiAoc2hhZGVyX3Bhc3MgPT0gMCkgewogICAgLy8gVGhlIGdidWZmZXJzIHBhc3Mg\naXMgY2FsbGVkIG9uY2UgZnJvbSB0aGUgY2FtZXJhJ3MgcGVyc3BlY3RpdmUKICAgIC8vIHRvIHBv\ncHVsYXRlIHRoZSBnZW9tZXRyeSBidWZmZXJzLgogICAgZ2J1ZmZlcnNfbWFpbigpOwogIH0KICBl\nbHNlIGlmIChzaGFkZXJfcGFzcyA9PSAxKSB7CiAgICAvLyBUaGUgc2hhZG93IGJ1ZmZlcnMgcGFz\ncyBpcyBjYWxsZWQgbWFueSB0aW1lcywgYXQgbGVhc3Qgb25jZSBwZXIKICAgIC8vIGVhY2ggbGln\naHQgdGhhdCBjYXN0cyBhIHNoYWRvdy4gIFRoZSByZXN1bHRzIHdpbGwgYmUgdXNlZCBpbgogICAg\nLy8gdGhlIGxpZ2h0aW5nIHBhc3NlLgogICAgc2hhZG93X2J1ZmZlcnMoKTsKICB9CiAgZWxzZSBp\nZiAoc2hhZGVyX3Bhc3MgPT0gMikgewogICAgLy8gVGhlIGxpZ2h0aW5nIHBhc3MgaXMgY2FsbGVk\nIGF0IGxlYXN0IG9uY2UgcGVyIGxpZ2h0LiAgVGhlCiAgICAvLyBsaWdodGluZyBwYXNzZXMgYXJl\nIHNjcmVlbnNwYWNlIHBhc3NlcywgYW5kIHV0aWxpemUgaW5mb3JtYXRpb24KICAgIC8vIGluIHNv\nbWUgb2YgdGhlIGdidWZmZXJzIHRvIGFjY3VtdWxhdGUgYSBsaWdodG1hcC4KICAgIGxpZ2h0aW5n\nX3Bhc3MoKTsKICB9CiAgZWxzZSBpZiAoc2hhZGVyX3Bhc3MgPT0gMykgewogICAgLy8gVGhlIGZp\nbmlzaGluZyBwYXNzIGlzIGNhbGxlZCBvbmNlIHBlciBmcmFtZSwgYW5kIHRoZSByZXN1bHQgZnJv\nbQogICAgLy8gdGhlIGxpZ2h0aW5nIHBhc3NlcyBpcyBjb21wb3NpdGVkIHdpdGggdGhlIGRpZmZ1\nc2UgZ2J1ZmZlci4KICAgIGZpbmlzaGluZ19wYXNzKCk7CiAgfQp9Cg==\n", "deferred_renderer/main.vert": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2dlb21ldHJ5X2J1ZmZlcnMudmVydCIpOwoKYXR0\ncmlidXRlIHZlYzMgcG9zaXRpb247CmF0dHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZl\nYzIgdGNvb3JkczsKCmJpbmRpbmdfY29udGV4dCBHcmFwaE5vZGUgewogIC8vIG9iamVjdCBtYXRy\naWNlcwogIHVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7Cn0KCnVuaWZvcm0gbWF0NCB2aWV3X21h\ndHJpeDsKdW5pZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4Owp1bmlmb3JtIGJvb2wgZ2VvbWV0\ncnlfcGFzczsKCgp2b2lkIG1haW4odm9pZCkgewogIGlmIChnZW9tZXRyeV9wYXNzKSB7CiAgICBn\nbF9Qb3NpdGlvbiA9IGdidWZmZXJzX21haW4oKTsKICB9CiAgZWxzZSB7CiAgICBnbF9Qb3NpdGlv\nbiA9IHByb2plY3Rpb25fbWF0cml4ICogdmlld19tYXRyaXggKiB3b3JsZF9tYXRyaXggKiB2ZWM0\nKHBvc2l0aW9uLCAxLjApOwogIH0KfQo=\n", "normalize_screen_coord.glsl": "CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZm\nZXJfaGVpZ2h0OwoKLy8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0Zy\nYWdDb29yZC54eSwgd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNj\ncmVlbiBjb29yZGluYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0\nZSB0aGF0IGlzIG5vcm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0\nbyAxLjAuCi8vCnZlYzIgbm9ybWFsaXplX3NjcmVlbl9jb29yZCh2ZWMyIGNvb3JkKSB7CiAgcmV0\ndXJuIHZlYzIoY29vcmQueC9tZ3JsX2J1ZmZlcl93aWR0aCwgY29vcmQueS9tZ3JsX2J1ZmZlcl9o\nZWlnaHQpOwp9Cgo=\n", "color_curve.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gY3VydmUgZmxvYXQgdmFsdWVfY3VydmVbMTZdOwp1bmlmb3Jt\nIGN1cnZlIGZsb2F0IHJlZF9jdXJ2ZVsxNl07CnVuaWZvcm0gY3VydmUgZmxvYXQgZ3JlZW5fY3Vy\ndmVbMTZdOwp1bmlmb3JtIGN1cnZlIGZsb2F0IGJsdWVfY3VydmVbMTZdOwoKCmluY2x1ZGUoIm5v\ncm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCmZsb2F0IHZhbHVlKHZlYzMgY29sb3IpIHsK\nICByZXR1cm4gbWF4KGNvbG9yLnIsIG1heChjb2xvci5nLCBjb2xvci5iKSk7Cn0KCgp2b2lkIG1h\naW4odm9pZCkgewogIHZlYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJh\nZ0Nvb3JkLnh5KTsKICB2ZWMzIGNvbG9yID0gdGV4dHVyZTJEKGlucHV0X3RleHR1cmUsIHRjb29y\nZHMpLnJnYjsKCiAgZmxvYXQgdjEgPSB2YWx1ZShjb2xvcik7CiAgZmxvYXQgdjIgPSBzYW1wbGVf\nY3VydmUodmFsdWVfY3VydmUsIHYxKTsKICBmbG9hdCBzY2FsZSA9IDEuMCAvIHYxOwogIGNvbG9y\nID0gY29sb3IgKiBzY2FsZSAqIHYyOwogIAogIGNvbG9yLnIgPSBzYW1wbGVfY3VydmUocmVkX2N1\ncnZlLCBjb2xvci5yKTsKICBjb2xvci5nID0gc2FtcGxlX2N1cnZlKGdyZWVuX2N1cnZlLCBjb2xv\nci5nKTsKICBjb2xvci5iID0gc2FtcGxlX2N1cnZlKGJsdWVfY3VydmUsIGNvbG9yLmIpOwogIGds\nX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIDEuMCk7Cn0K\n", "deferred_renderer/common.glsl": "dmFyeWluZyB2ZWMzIGxvY2FsX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2\nYXJ5aW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2\nYXJ5aW5nIHZlYzMgd29ybGRfbm9ybWFsOwp2YXJ5aW5nIHZlYzMgc2NyZWVuX3Bvc2l0aW9uOwp2\nYXJ5aW5nIGZsb2F0IGxpbmVhcl9kZXB0aDsKCgpzdHJ1Y3QgYnJkZl9pbnB1dCB7CiAgdmVjMyB2\naWV3X3ZlY3RvcjsKICB2ZWMzIGxpZ2h0X3ZlY3RvcjsKICB2ZWMzIG5vcm1hbF92ZWN0b3I7CiAg\ndmVjMyBjb2xvcjsKICBmbG9hdCBmYWxsb2ZmOwogIGZsb2F0IGludGVuc2l0eTsKICBmbG9hdCBv\nY2NsdXNpb247Cn07CgoKc3RydWN0IGJyZGZfb3V0cHV0IHsKICB2ZWMzIGNvbG9yOwogIGZsb2F0\nIGludGVuc2l0eTsKfTsK\n", "deferred_renderer/shadow_buffers.frag": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CgoKdm9pZCBzaGFkb3df\nYnVmZmVycygpIHsKICBmbG9hdCBkZXB0aCA9IGxpbmVhcl9kZXB0aDsKICBnbF9GcmFnRGF0YVsw\nXSA9IHZlYzQoZGVwdGgsIGRlcHRoLCBkZXB0aCwgMS4wKTsKfQo=\n", "disintegrate.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBweF9zaXplOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCi8vIGh0dHBzOi8vc3RhY2tvdmVyZmxvdy5jb20vcXVlc3Rpb25zLzEy\nOTY0Mjc5L3doYXRzLXRoZS1vcmlnaW4tb2YtdGhpcy1nbHNsLXJhbmQtb25lLWxpbmVyCmZsb2F0\nIHJhbmRvbV9zZWVkKHZlYzIgY28pIHsKICByZXR1cm4gZnJhY3Qoc2luKGRvdChjby54eSAsdmVj\nMigxMi45ODk4LDc4LjIzMykpKSAqIDQzNzU4LjU0NTMpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsK\nICB2ZWMyIGdyaWQgPSBnbF9GcmFnQ29vcmQueHkgLyBweF9zaXplOwogIHZlYzIgb2Zmc2V0ID0g\nZnJhY3QoZ3JpZCkqMC41OwogIGZsb2F0IHJhbmRvbSA9IChyYW5kb21fc2VlZChmbG9vcihncmlk\nICsgb2Zmc2V0KSkqMC45KSArIDAuMTsKICByYW5kb20gKj0gKDEuMCAtIHByb2dyZXNzKTsKICB2\nZWMyIHRjb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAg\ndmVjNCBjb2xvcjsKICBpZiAocmFuZG9tIDwgMC4xKSB7CiAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2IsIHRjb29yZHMpOwogIH0KICBlbHNlIHsKICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYSwgdGNvb3Jkcyk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "deferred_renderer/finishing_pass.frag": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CmluY2x1ZGUoIm5vcm1h\nbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0\ndXJlOwp1bmlmb3JtIHNhbXBsZXIyRCBsaWdodF90ZXh0dXJlOwp1bmlmb3JtIGZsb2F0IGV4cG9z\ndXJlOwoKCnZvaWQgZmluaXNoaW5nX3Bhc3MoKSB7CiAgLy8gY29tYmluZSB0aGUgbGlnaHRpbmcg\nYW5kIGRpZmZ1c2UgcGFzc2VzIGFuZCBkaXNwbGF5CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXpl\nX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkpOwogIHZlYzQgZGlmZnVzZSA9IHRleHR1cmUy\nRChkaWZmdXNlX3RleHR1cmUsIHRjb29yZHMpOwogIGlmIChkaWZmdXNlLncgPT0gLTEuMCkgewog\nICAgZGlzY2FyZDsKICB9CiAgdmVjMyBsaWdodG1hcCA9IHRleHR1cmUyRChsaWdodF90ZXh0dXJl\nLCB0Y29vcmRzKS5yZ2I7CiAgZ2xfRnJhZ0RhdGFbMF0gPSB2ZWM0KGxpZ2h0bWFwIC8gZXhwb3N1\ncmUsIDEuMCk7Cn0K\n", "deferred_renderer/lighting_passes.frag": "CmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwppbmNsdWRlKCJkZWZlcnJl\nZF9yZW5kZXJlci9jb21tb24uZ2xzbCIpOwppbmNsdWRlKCJkZWZlcnJlZF9yZW5kZXJlci9zaW1w\nbGVfYnJkZi5nbHNsIik7Cgp1bmlmb3JtIHNhbXBsZXIyRCBzcGF0aWFsX3RleHR1cmU7CnVuaWZv\ncm0gc2FtcGxlcjJEIG5vcm1hbF90ZXh0dXJlOwoKdW5pZm9ybSBpbnQgbGlnaHRfdHlwZTsKCnVu\naWZvcm0gZmxvYXQgbGlnaHRfaW50ZW5zaXR5Owp1bmlmb3JtIG1hdDQgbGlnaHRfcHJvamVjdGlv\nbl9tYXRyaXg7CnVuaWZvcm0gbWF0NCBsaWdodF92aWV3X21hdHJpeDsKdW5pZm9ybSB2ZWMzIGxp\nZ2h0X3dvcmxkX3Bvc2l0aW9uOwp1bmlmb3JtIHZlYzMgbGlnaHRfY29sb3I7CnVuaWZvcm0gdmVj\nMyBjYW1lcmFfcG9zaXRpb247CnVuaWZvcm0gYm9vbCBjYXN0X3NoYWRvd3M7CgoKZmxvYXQgc3Bv\ndGxpZ2h0X3NoYWRvd3ModmVjMyB3b3JsZF9wb3NpdGlvbikgewogIC8vIFRoaXMgbWV0aG9kIGRl\ndGVybWluZXMgaWYgdGhlIGN1cnJlbnQgZnJhZ21lbnQgaXMgb2NjbHVkZWQgYnkgdGhlCiAgLy8g\nY3VycmVudCBsaWdodCdzIHNoYWRvdy4gIEEgcmV0dXJuIHZhbHVlIGJldHdlZW4gMC4wIGFuZCAx\nLjAgaXMKICAvLyBnaXZlbi4gIENhbGN1bGF0aW9ucyBhcmUgZG9uZSBpbiB0aGUgbGlnaHQncyB2\naWV3IHNwYWNlLgoKICAvLyB0aGUgcG9zaXRpb24gb2YgdGhlIGZyYWdtZW50IGluIHZpZXcgc3Bh\nY2UKICB2ZWMzIHZpZXdfcG9zaXRpb24gPSAobGlnaHRfdmlld19tYXRyaXggKiB2ZWM0KHdvcmxk\nX3Bvc2l0aW9uLCAxLjApKS54eXo7CgogIC8vIGFwcGx5IHRoZSBsaWdodCdzIHByb2plY3Rpb24g\nbWF0cml4CiAgdmVjNCBsaWdodF9wcm9qZWN0ZWQgPSBsaWdodF9wcm9qZWN0aW9uX21hdHJpeCAq\nIHZlYzQodmlld19wb3NpdGlvbiwgMS4wKTsKICAKICAvLyBkZXRlcm1pbmUgdGhlIHZlY3RvciBm\ncm9tIHRoZSBsaWdodCBzb3VyY2UgdG8gdGhlIGZyYWdtZW50CiAgdmVjMiBsaWdodF9ub3JtYWwg\nPSBsaWdodF9wcm9qZWN0ZWQueHkvbGlnaHRfcHJvamVjdGVkLnc7CiAgdmVjMiBsaWdodF91diA9\nIGxpZ2h0X25vcm1hbCowLjUrMC41OwoKICBpZiAobGlnaHRfdXYueCA8IDAuMCB8fCBsaWdodF91\ndi55IDwgMC4wIHx8IGxpZ2h0X3V2LnggPiAxLjAgfHwgbGlnaHRfdXYueSA+IDEuMCkgewogICAg\ncmV0dXJuIDAuMDsKICB9CiAgaWYgKGxlbmd0aChsaWdodF9ub3JtYWwpIDw9MS4wKSB7CiAgICBp\nZiAoY2FzdF9zaGFkb3dzKSB7CiAgICAgIGZsb2F0IGJpYXMgPSAwLjA7CiAgICAgIGZsb2F0IGxp\nZ2h0X2RlcHRoXzEgPSB0ZXh0dXJlMkQobGlnaHRfdGV4dHVyZSwgbGlnaHRfdXYpLnI7CiAgICAg\nIGZsb2F0IGxpZ2h0X2RlcHRoXzIgPSBsZW5ndGgodmlld19wb3NpdGlvbik7CiAgICAgIGZsb2F0\nIGlsbHVtaW5hdGVkID0gc3RlcChsaWdodF9kZXB0aF8yLCBsaWdodF9kZXB0aF8xICsgYmlhcyk7\nCiAgICAgIHJldHVybiBpbGx1bWluYXRlZDsKICAgIH0KICAgIGVsc2UgewogICAgICByZXR1cm4g\nMS4wOwogICAgfQogIH0KICBlbHNlIHsKICAgIHJldHVybiAwLjA7CiAgfQp9CgoKdmVjMyBzcG90\nbGlnaHRfaWxsdW1pbmF0aW9uKHZlYzMgd29ybGRfcG9zaXRpb24sIHZlYzMgd29ybGRfbm9ybWFs\nKSB7CiAgLy8gaWxsdW1pbmF0ZWQgdGVsbHMgdXMgaWYgdGhlIHBpeGVsIHdvdWxkIGJlIGluIHRo\nZSBjdXJyZW50IGxpZ2h0J3MKICAvLyBzaGFkb3cgb3Igbm90LgogIGZsb2F0IGlsbHVtaW5hdGVk\nID0gc3BvdGxpZ2h0X3NoYWRvd3Mod29ybGRfcG9zaXRpb24pOwogIGJyZGZfaW5wdXQgcGFyYW1z\nOwoKICBwYXJhbXMudmlld192ZWN0b3IgPSBub3JtYWxpemUoY2FtZXJhX3Bvc2l0aW9uIC0gd29y\nbGRfcG9zaXRpb24pOwogIHBhcmFtcy5saWdodF92ZWN0b3IgPSBub3JtYWxpemUobGlnaHRfd29y\nbGRfcG9zaXRpb24gLSB3b3JsZF9wb3NpdGlvbik7CiAgcGFyYW1zLm5vcm1hbF92ZWN0b3IgPSBu\nb3JtYWxpemUod29ybGRfbm9ybWFsKTsKICBwYXJhbXMuY29sb3IgPSBsaWdodF9jb2xvcjsKICBw\nYXJhbXMuaW50ZW5zaXR5ID0gbGlnaHRfaW50ZW5zaXR5OwogIHBhcmFtcy5mYWxsb2ZmID0gMS4w\nL3BvdyhkaXN0YW5jZSh3b3JsZF9ub3JtYWwsIHBhcmFtcy5saWdodF92ZWN0b3IpLCAyLjApOwog\nIHBhcmFtcy5vY2NsdXNpb24gPSBpbGx1bWluYXRlZDsKCiAgcmV0dXJuIGJyZGZfZnVuY3Rpb24o\ncGFyYW1zKTsKfQoKCnZlYzMgcG9pbnRsaWdodF9pbGx1bWluYXRpb24odmVjMyB3b3JsZF9wb3Np\ndGlvbiwgdmVjMyB3b3JsZF9ub3JtYWwpIHsKICAvLyBpbGx1bWluYXRlZCB0ZWxscyB1cyBpZiB0\naGUgcGl4ZWwgd291bGQgYmUgaW4gdGhlIGN1cnJlbnQgbGlnaHQncwogIC8vIHNoYWRvdyBvciBu\nb3QuCiAgZmxvYXQgaWxsdW1pbmF0ZWQgPSAxLjA7CiAgYnJkZl9pbnB1dCBwYXJhbXM7CgogIHBh\ncmFtcy52aWV3X3ZlY3RvciA9IG5vcm1hbGl6ZShjYW1lcmFfcG9zaXRpb24gLSB3b3JsZF9wb3Np\ndGlvbik7CiAgcGFyYW1zLmxpZ2h0X3ZlY3RvciA9IG5vcm1hbGl6ZShsaWdodF93b3JsZF9wb3Np\ndGlvbiAtIHdvcmxkX3Bvc2l0aW9uKTsKICBwYXJhbXMubm9ybWFsX3ZlY3RvciA9IG5vcm1hbGl6\nZSh3b3JsZF9ub3JtYWwpOwogIHBhcmFtcy5jb2xvciA9IGxpZ2h0X2NvbG9yOwogIHBhcmFtcy5p\nbnRlbnNpdHkgPSBsaWdodF9pbnRlbnNpdHk7CiAgcGFyYW1zLmZhbGxvZmYgPSAxLjAvcG93KGRp\nc3RhbmNlKHdvcmxkX25vcm1hbCwgcGFyYW1zLmxpZ2h0X3ZlY3RvciksIDIuMCk7CiAgcGFyYW1z\nLm9jY2x1c2lvbiA9IGlsbHVtaW5hdGVkOwoKICByZXR1cm4gYnJkZl9mdW5jdGlvbihwYXJhbXMp\nOwp9CgoKdmVjMyBzdW5saWdodF9pbGx1bWluYXRpb24odmVjMyB3b3JsZF9ub3JtYWwpIHsKICAv\nLyBpbGx1bWluYXRlZCB0ZWxscyB1cyBpZiB0aGUgcGl4ZWwgd291bGQgYmUgaW4gdGhlIGN1cnJl\nbnQgbGlnaHQncwogIC8vIHNoYWRvdyBvciBub3QuCiAgZmxvYXQgaWxsdW1pbmF0ZWQgPSAxLjA7\nCiAgYnJkZl9pbnB1dCBwYXJhbXM7CgogIHBhcmFtcy52aWV3X3ZlY3RvciA9IG5vcm1hbGl6ZShj\nYW1lcmFfcG9zaXRpb24gLSB3b3JsZF9wb3NpdGlvbik7CiAgcGFyYW1zLmxpZ2h0X3ZlY3RvciA9\nIG5vcm1hbGl6ZShsaWdodF93b3JsZF9wb3NpdGlvbik7CiAgcGFyYW1zLm5vcm1hbF92ZWN0b3Ig\nPSBub3JtYWxpemUod29ybGRfbm9ybWFsKTsKICBwYXJhbXMuY29sb3IgPSBsaWdodF9jb2xvcjsK\nICBwYXJhbXMuaW50ZW5zaXR5ID0gbGlnaHRfaW50ZW5zaXR5OwogIHBhcmFtcy5mYWxsb2ZmID0g\nMS4wOwogIHBhcmFtcy5vY2NsdXNpb24gPSBpbGx1bWluYXRlZDsKCiAgcmV0dXJuIGJyZGZfZnVu\nY3Rpb24ocGFyYW1zKTsKfQoKCnZvaWQgbGlnaHRpbmdfcGFzcygpIHsKICAvLyBsaWdodCBwZXJz\ncGVjdGl2ZSBwYXNzCiAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9G\ncmFnQ29vcmQueHkpOwogIHZlYzQgc3BhY2UgPSB0ZXh0dXJlMkQoc3BhdGlhbF90ZXh0dXJlLCB0\nY29vcmRzKTsKICB2ZWMzIG5vcm1hbCA9IHRleHR1cmUyRChub3JtYWxfdGV4dHVyZSwgdGNvb3Jk\ncykucmdiOwogIGlmIChzcGFjZS53ID09IC0xLjApIHsKICAgIGRpc2NhcmQ7CiAgfQogIGVsc2Ug\newogICAgdmVjMyBpcnJhZGlhbmNlOwogICAgaWYgKGxpZ2h0X3R5cGUgPT0gMCkgewogICAgICBp\ncnJhZGlhbmNlID0gc3BvdGxpZ2h0X2lsbHVtaW5hdGlvbihzcGFjZS54eXosIG5vcm1hbCk7CiAg\nICB9CiAgICBlbHNlIGlmIChsaWdodF90eXBlID09IDEpIHsKICAgICAgaXJyYWRpYW5jZSA9IHBv\naW50bGlnaHRfaWxsdW1pbmF0aW9uKHNwYWNlLnh5eiwgbm9ybWFsKTsKICAgIH0KICAgIGVsc2Ug\naWYgKGxpZ2h0X3R5cGUgPT0gMikgewogICAgICBpcnJhZGlhbmNlID0gc3VubGlnaHRfaWxsdW1p\nbmF0aW9uKG5vcm1hbCk7CiAgICB9CiAgICBnbF9GcmFnRGF0YVswXSA9IHZlYzQoaXJyYWRpYW5j\nZSwgMS4wKTsKICB9Cn0K\n", "curve_template.glsl": "Ly8gIERvIG5vdCBjYWxsIGluY2x1ZGUgb24gY3VydmVfdGVtcGxhdGUuZ2xzbCBpbiB5b3VyIHNv\ndXJjZSBmaWxlcy4KLy8gIFVzZSB0aGUgY3VydmUgbWFjcm8gaW5zdGVhZCEhIQoKR0xfVFlQRSBz\nYW1wbGVfY3VydmUoR0xfVFlQRSBzYW1wbGVzW0FSUkFZX0xFTl0sIGZsb2F0IGFscGhhKSB7CiAg\nZmxvYXQgcGljayA9IChBUlJBWV9MRU4uMCAtIDEuMCkgKiBhbHBoYTsKICBpbnQgbG93ID0gaW50\nKGZsb29yKHBpY2spKTsKICBpbnQgaGlnaCA9IGludChjZWlsKHBpY2spKTsKICBmbG9hdCBiZXRh\nID0gZnJhY3QocGljayk7CgogIEdMX1RZUEUgbG93X3NhbXBsZTsKICBHTF9UWVBFIGhpZ2hfc2Ft\ncGxlOwoKICAvLyB3b3JrYXJvdW5kIGJlY2F1c2UgZ2xzbCBkb2VzIG5vdCBhbGxvdyBmb3IgcmFu\nZG9tIGFjY2VzcyBvbiBhcnJheXMgPjpPCiAgZm9yIChpbnQgaT0wOyBpPEFSUkFZX0xFTjsgaSs9\nMSkgewogICAgaWYgKGkgPT0gbG93KSB7CiAgICAgIGxvd19zYW1wbGUgPSBzYW1wbGVzW2ldOwog\nICAgfQogICAgaWYgKGkgPT0gaGlnaCkgewogICAgICBoaWdoX3NhbXBsZSA9IHNhbXBsZXNbaV07\nCiAgICB9CiAgfQogIAogIHJldHVybiBtaXgobG93X3NhbXBsZSwgaGlnaF9zYW1wbGUsIGJldGEp\nOwp9Cg==\n", "deferred_renderer/geometry_buffers.vert": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CgoKYmluZGluZ19jb250\nZXh0IEdyYXBoTm9kZSB7CiAgLy8gb2JqZWN0IG1hdHJpY2VzCiAgdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKICB1bmlmb3JtIG1hdDQgcGFydGljbGVfbWF0cml4OwoKICAvLyBiaWxsYm9hcmQg\nc3ByaXRlcyBlbmFibGVyCiAgdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKfQoKCnVuaWZv\ncm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4Owp1bmlm\nb3JtIGZsb2F0IG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwoKCnZlYzQgZ2J1ZmZlcnNfbWFpbigp\nIHsKICAvLyBwYXNzIGFsb25nIHRvIHRoZSBmcmFnbWVudCBzaGFkZXIKICBsb2NhbF9wb3NpdGlv\nbiA9IHBvc2l0aW9uICogbWdybF9vcnRob2dyYXBoaWNfc2NhbGU7CiAgbG9jYWxfbm9ybWFsID0g\nbm9ybWFsOwogIGxvY2FsX3Rjb29yZHMgPSB0Y29vcmRzOwoKICAvLyBjYWxjdWxhdGUgbW9kZWx2\naWV3IG1hdHJpeAogIG1hdDQgbW9kZWxfdmlldyA9IHZpZXdfbWF0cml4ICogd29ybGRfbWF0cml4\nOwogIGlmIChiaWxsYm9hcmRfbW9kZSA+IDAuMCkgewogICAgLy8gY2xlYXIgb3V0IHJvdGF0aW9u\nIGluZm9ybWF0aW9uCiAgICBtb2RlbF92aWV3WzBdLnh5eiA9IHdvcmxkX21hdHJpeFswXS54eXo7\nCiAgICBtb2RlbF92aWV3WzJdLnh5eiA9IHdvcmxkX21hdHJpeFsyXS54eXo7CiAgICBpZiAoYmls\nbGJvYXJkX21vZGUgPT0gMi4wKSB7CiAgICAgIG1vZGVsX3ZpZXdbMV0ueHl6ID0gd29ybGRfbWF0\ncml4WzFdLnh5ejsKICAgIH0KICB9CgogIC8vIHZhcmlvdXMgY29vcmRpbmF0ZSB0cmFuc2Zvcm1z\nCiAgdmVjNCBmaW5hbF9wb3NpdGlvbiA9IHByb2plY3Rpb25fbWF0cml4ICogbW9kZWxfdmlldyAq\nIHZlYzQobG9jYWxfcG9zaXRpb24sIDEuMCk7CiAgd29ybGRfcG9zaXRpb24gPSAod29ybGRfbWF0\ncml4ICogdmVjNChsb2NhbF9wb3NpdGlvbiwgMS4wKSkueHl6OwogIHdvcmxkX25vcm1hbCA9IG5v\ncm1hbGl6ZShtYXQzKHdvcmxkX21hdHJpeCkgKiBub3JtYWwpLnh5ejsKICBzY3JlZW5fcG9zaXRp\nb24gPSBmaW5hbF9wb3NpdGlvbi54eXo7CiAgbGluZWFyX2RlcHRoID0gbGVuZ3RoKChtb2RlbF92\naWV3ICogdmVjNChsb2NhbF9wb3NpdGlvbiwgMS4wKSkpOwogIHJldHVybiBmaW5hbF9wb3NpdGlv\nbjsKfQo=\n", "scatter_blur.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gZmxvYXQgYmx1cl9yYWRpdXM7CnVuaWZvcm0gZmxvYXQgc2Ft\ncGxlczsKCmNvbnN0IGZsb2F0IG1heF9zYW1wbGVzID0gMzIuMDsKY29uc3QgZmxvYXQgdHdvX3Bp\nID0gNi4yODMxODUzMDcxODsKCgppbmNsdWRlKCJub3JtYWxpemVfc2NyZWVuX2Nvb3JkLmdsc2wi\nKTsKCgp2ZWMyIHNjcmVlbl9jbGFtcCh2ZWMyIGNvb3JkKSB7CiAgcmV0dXJuIGNsYW1wKGNvb3Jk\nLCB2ZWMyKDAuMCwgMC4wKSwgZ2xfRnJhZ0Nvb3JkLnh5KTsKfQoKCnZlYzIgcHJuZyh2ZWMyIGNv\nKSB7CiAgdmVjMiBhID0gZnJhY3QoY28ueXggKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7CiAgdmVj\nMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSArIGRvdChh\nLnl4LCBiKTsKICAvL3JldHVybiBmcmFjdChjLnggKiBjLnkgKiA5NS40MzM3KTsKICByZXR1cm4g\nZnJhY3QodmVjMihjLngqYy55Kjk1LjQzMzcsIGMueCpjLnkqOTcuNTk3KSk7Cn0KCgpmbG9hdCBw\ncm5nKGZsb2F0IG4pewogIHZlYzIgYSA9IGZyYWN0KG4gKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7\nCiAgdmVjMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSAr\nIGRvdChhLnl4LCBiKTsKICByZXR1cm4gZnJhY3QoYy54ICogYy55ICogOTUuNDMzNyk7Cn0KCgp2\nb2lkIG1haW4odm9pZCkgewogIGZsb2F0IGNvdW50ID0gMC4wOwogIHZlYzQgY29sb3IgPSB2ZWM0\nKDAuMCwgMC4wLCAwLjAsIDAuMCk7CgogIGZsb2F0IHgsIHksIHJhZGl1czsKICBmbG9hdCBhbmds\nZSA9IHR3b19waSAqIHBybmcoZ2xfRnJhZ0Nvb3JkLnh5KS54OwogIGZsb2F0IGFuZ2xlX3N0ZXAg\nPSB0d29fcGkgLyBzYW1wbGVzOwogIAogIGZvciAoZmxvYXQgaT0wLjA7IGk8bWF4X3NhbXBsZXM7\nIGkrPTEuMCkgewogICAgcmFkaXVzID0gYmx1cl9yYWRpdXMgKiBwcm5nKGFuZ2xlKTsKICAgIHgg\nPSBnbF9GcmFnQ29vcmQueCArIGNvcyhhbmdsZSkqcmFkaXVzOwogICAgeSA9IGdsX0ZyYWdDb29y\nZC55ICsgc2luKGFuZ2xlKSpyYWRpdXM7CiAgICBhbmdsZSArPSBhbmdsZV9zdGVwOwogICAgaWYg\nKHggPCAwLjAgfHwgeSA8IDAuMCB8fCB4ID49IG1ncmxfYnVmZmVyX3dpZHRoIHx8IHkgPj0gbWdy\nbF9idWZmZXJfaGVpZ2h0KSB7CiAgICAgIGNvbnRpbnVlOwogICAgfQogICAgY29sb3IgKz0gdGV4\ndHVyZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQodmVjMih4LCB5KSkp\nOwogICAgY291bnQgKz0gMS4wOwogICAgaWYgKGNvdW50ID49IHNhbXBsZXMpIHsKICAgICAgYnJl\nYWs7CiAgICB9CiAgfQogIAogIGlmIChjb3VudCA9PSAwLjApIHsKICAgIGNvbG9yID0gdGV4dHVy\nZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nvb3JkLnh5\nKSk7CiAgICBjb3VudCA9IDEuMDsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3IgLyBjb3VudDsK\nfQo=\n"};
+    please.__bundled_glsl = {"deferred_renderer/lighting_passes.frag": "CmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwppbmNsdWRlKCJkZWZlcnJl\nZF9yZW5kZXJlci9jb21tb24uZ2xzbCIpOwppbmNsdWRlKCJkZWZlcnJlZF9yZW5kZXJlci9zaW1w\nbGVfYnJkZi5nbHNsIik7Cgp1bmlmb3JtIHNhbXBsZXIyRCBzcGF0aWFsX3RleHR1cmU7CnVuaWZv\ncm0gc2FtcGxlcjJEIG5vcm1hbF90ZXh0dXJlOwoKdW5pZm9ybSBpbnQgbGlnaHRfdHlwZTsKCnVu\naWZvcm0gZmxvYXQgbGlnaHRfaW50ZW5zaXR5Owp1bmlmb3JtIG1hdDQgbGlnaHRfcHJvamVjdGlv\nbl9tYXRyaXg7CnVuaWZvcm0gbWF0NCBsaWdodF92aWV3X21hdHJpeDsKdW5pZm9ybSB2ZWMzIGxp\nZ2h0X3dvcmxkX3Bvc2l0aW9uOwp1bmlmb3JtIHZlYzMgbGlnaHRfY29sb3I7CnVuaWZvcm0gdmVj\nMyBjYW1lcmFfcG9zaXRpb247CnVuaWZvcm0gYm9vbCBjYXN0X3NoYWRvd3M7CgoKZmxvYXQgc3Bv\ndGxpZ2h0X3NoYWRvd3ModmVjMyB3b3JsZF9wb3NpdGlvbikgewogIC8vIFRoaXMgbWV0aG9kIGRl\ndGVybWluZXMgaWYgdGhlIGN1cnJlbnQgZnJhZ21lbnQgaXMgb2NjbHVkZWQgYnkgdGhlCiAgLy8g\nY3VycmVudCBsaWdodCdzIHNoYWRvdy4gIEEgcmV0dXJuIHZhbHVlIGJldHdlZW4gMC4wIGFuZCAx\nLjAgaXMKICAvLyBnaXZlbi4gIENhbGN1bGF0aW9ucyBhcmUgZG9uZSBpbiB0aGUgbGlnaHQncyB2\naWV3IHNwYWNlLgoKICAvLyB0aGUgcG9zaXRpb24gb2YgdGhlIGZyYWdtZW50IGluIHZpZXcgc3Bh\nY2UKICB2ZWMzIHZpZXdfcG9zaXRpb24gPSAobGlnaHRfdmlld19tYXRyaXggKiB2ZWM0KHdvcmxk\nX3Bvc2l0aW9uLCAxLjApKS54eXo7CgogIC8vIGFwcGx5IHRoZSBsaWdodCdzIHByb2plY3Rpb24g\nbWF0cml4CiAgdmVjNCBsaWdodF9wcm9qZWN0ZWQgPSBsaWdodF9wcm9qZWN0aW9uX21hdHJpeCAq\nIHZlYzQodmlld19wb3NpdGlvbiwgMS4wKTsKICAKICAvLyBkZXRlcm1pbmUgdGhlIHZlY3RvciBm\ncm9tIHRoZSBsaWdodCBzb3VyY2UgdG8gdGhlIGZyYWdtZW50CiAgdmVjMiBsaWdodF9ub3JtYWwg\nPSBsaWdodF9wcm9qZWN0ZWQueHkvbGlnaHRfcHJvamVjdGVkLnc7CiAgdmVjMiBsaWdodF91diA9\nIGxpZ2h0X25vcm1hbCowLjUrMC41OwoKICBpZiAobGlnaHRfdXYueCA8IDAuMCB8fCBsaWdodF91\ndi55IDwgMC4wIHx8IGxpZ2h0X3V2LnggPiAxLjAgfHwgbGlnaHRfdXYueSA+IDEuMCkgewogICAg\ncmV0dXJuIDAuMDsKICB9CiAgaWYgKGxlbmd0aChsaWdodF9ub3JtYWwpIDw9MS4wKSB7CiAgICBp\nZiAoY2FzdF9zaGFkb3dzKSB7CiAgICAgIGZsb2F0IGJpYXMgPSAwLjA7CiAgICAgIGZsb2F0IGxp\nZ2h0X2RlcHRoXzEgPSB0ZXh0dXJlMkQobGlnaHRfdGV4dHVyZSwgbGlnaHRfdXYpLnI7CiAgICAg\nIGZsb2F0IGxpZ2h0X2RlcHRoXzIgPSBsZW5ndGgodmlld19wb3NpdGlvbik7CiAgICAgIGZsb2F0\nIGlsbHVtaW5hdGVkID0gc3RlcChsaWdodF9kZXB0aF8yLCBsaWdodF9kZXB0aF8xICsgYmlhcyk7\nCiAgICAgIHJldHVybiBpbGx1bWluYXRlZDsKICAgIH0KICAgIGVsc2UgewogICAgICByZXR1cm4g\nMS4wOwogICAgfQogIH0KICBlbHNlIHsKICAgIHJldHVybiAwLjA7CiAgfQp9CgoKdmVjMyBzcG90\nbGlnaHRfaWxsdW1pbmF0aW9uKHZlYzMgd29ybGRfcG9zaXRpb24sIHZlYzMgd29ybGRfbm9ybWFs\nKSB7CiAgLy8gaWxsdW1pbmF0ZWQgdGVsbHMgdXMgaWYgdGhlIHBpeGVsIHdvdWxkIGJlIGluIHRo\nZSBjdXJyZW50IGxpZ2h0J3MKICAvLyBzaGFkb3cgb3Igbm90LgogIGZsb2F0IGlsbHVtaW5hdGVk\nID0gc3BvdGxpZ2h0X3NoYWRvd3Mod29ybGRfcG9zaXRpb24pOwogIGJyZGZfaW5wdXQgcGFyYW1z\nOwoKICBwYXJhbXMudmlld192ZWN0b3IgPSBub3JtYWxpemUoY2FtZXJhX3Bvc2l0aW9uIC0gd29y\nbGRfcG9zaXRpb24pOwogIHBhcmFtcy5saWdodF92ZWN0b3IgPSBub3JtYWxpemUobGlnaHRfd29y\nbGRfcG9zaXRpb24gLSB3b3JsZF9wb3NpdGlvbik7CiAgcGFyYW1zLm5vcm1hbF92ZWN0b3IgPSBu\nb3JtYWxpemUod29ybGRfbm9ybWFsKTsKICBwYXJhbXMuY29sb3IgPSBsaWdodF9jb2xvcjsKICBw\nYXJhbXMuaW50ZW5zaXR5ID0gbGlnaHRfaW50ZW5zaXR5OwogIHBhcmFtcy5mYWxsb2ZmID0gMS4w\nL3BvdyhkaXN0YW5jZSh3b3JsZF9ub3JtYWwsIHBhcmFtcy5saWdodF92ZWN0b3IpLCAyLjApOwog\nIHBhcmFtcy5vY2NsdXNpb24gPSBpbGx1bWluYXRlZDsKCiAgcmV0dXJuIGJyZGZfZnVuY3Rpb24o\ncGFyYW1zKTsKfQoKCnZlYzMgcG9pbnRsaWdodF9pbGx1bWluYXRpb24odmVjMyB3b3JsZF9wb3Np\ndGlvbiwgdmVjMyB3b3JsZF9ub3JtYWwpIHsKICAvLyBpbGx1bWluYXRlZCB0ZWxscyB1cyBpZiB0\naGUgcGl4ZWwgd291bGQgYmUgaW4gdGhlIGN1cnJlbnQgbGlnaHQncwogIC8vIHNoYWRvdyBvciBu\nb3QuCiAgZmxvYXQgaWxsdW1pbmF0ZWQgPSAxLjA7CiAgYnJkZl9pbnB1dCBwYXJhbXM7CgogIHBh\ncmFtcy52aWV3X3ZlY3RvciA9IG5vcm1hbGl6ZShjYW1lcmFfcG9zaXRpb24gLSB3b3JsZF9wb3Np\ndGlvbik7CiAgcGFyYW1zLmxpZ2h0X3ZlY3RvciA9IG5vcm1hbGl6ZShsaWdodF93b3JsZF9wb3Np\ndGlvbiAtIHdvcmxkX3Bvc2l0aW9uKTsKICBwYXJhbXMubm9ybWFsX3ZlY3RvciA9IG5vcm1hbGl6\nZSh3b3JsZF9ub3JtYWwpOwogIHBhcmFtcy5jb2xvciA9IGxpZ2h0X2NvbG9yOwogIHBhcmFtcy5p\nbnRlbnNpdHkgPSBsaWdodF9pbnRlbnNpdHk7CiAgcGFyYW1zLmZhbGxvZmYgPSAxLjAvcG93KGRp\nc3RhbmNlKHdvcmxkX25vcm1hbCwgcGFyYW1zLmxpZ2h0X3ZlY3RvciksIDIuMCk7CiAgcGFyYW1z\nLm9jY2x1c2lvbiA9IGlsbHVtaW5hdGVkOwoKICByZXR1cm4gYnJkZl9mdW5jdGlvbihwYXJhbXMp\nOwp9CgoKdmVjMyBzdW5saWdodF9pbGx1bWluYXRpb24odmVjMyB3b3JsZF9ub3JtYWwpIHsKICAv\nLyBpbGx1bWluYXRlZCB0ZWxscyB1cyBpZiB0aGUgcGl4ZWwgd291bGQgYmUgaW4gdGhlIGN1cnJl\nbnQgbGlnaHQncwogIC8vIHNoYWRvdyBvciBub3QuCiAgZmxvYXQgaWxsdW1pbmF0ZWQgPSAxLjA7\nCiAgYnJkZl9pbnB1dCBwYXJhbXM7CgogIHBhcmFtcy52aWV3X3ZlY3RvciA9IG5vcm1hbGl6ZShj\nYW1lcmFfcG9zaXRpb24gLSB3b3JsZF9wb3NpdGlvbik7CiAgcGFyYW1zLmxpZ2h0X3ZlY3RvciA9\nIG5vcm1hbGl6ZShsaWdodF93b3JsZF9wb3NpdGlvbik7CiAgcGFyYW1zLm5vcm1hbF92ZWN0b3Ig\nPSBub3JtYWxpemUod29ybGRfbm9ybWFsKTsKICBwYXJhbXMuY29sb3IgPSBsaWdodF9jb2xvcjsK\nICBwYXJhbXMuaW50ZW5zaXR5ID0gbGlnaHRfaW50ZW5zaXR5OwogIHBhcmFtcy5mYWxsb2ZmID0g\nMS4wOwogIHBhcmFtcy5vY2NsdXNpb24gPSBpbGx1bWluYXRlZDsKCiAgcmV0dXJuIGJyZGZfZnVu\nY3Rpb24ocGFyYW1zKTsKfQoKCnZvaWQgbGlnaHRpbmdfcGFzcygpIHsKICAvLyBsaWdodCBwZXJz\ncGVjdGl2ZSBwYXNzCiAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9G\ncmFnQ29vcmQueHkpOwogIHZlYzQgc3BhY2UgPSB0ZXh0dXJlMkQoc3BhdGlhbF90ZXh0dXJlLCB0\nY29vcmRzKTsKICB2ZWMzIG5vcm1hbCA9IHRleHR1cmUyRChub3JtYWxfdGV4dHVyZSwgdGNvb3Jk\ncykucmdiOwogIGlmIChzcGFjZS53ID09IC0xLjApIHsKICAgIGRpc2NhcmQ7CiAgfQogIGVsc2Ug\newogICAgdmVjMyBpcnJhZGlhbmNlOwogICAgaWYgKGxpZ2h0X3R5cGUgPT0gMCkgewogICAgICBp\ncnJhZGlhbmNlID0gc3BvdGxpZ2h0X2lsbHVtaW5hdGlvbihzcGFjZS54eXosIG5vcm1hbCk7CiAg\nICB9CiAgICBlbHNlIGlmIChsaWdodF90eXBlID09IDEpIHsKICAgICAgaXJyYWRpYW5jZSA9IHBv\naW50bGlnaHRfaWxsdW1pbmF0aW9uKHNwYWNlLnh5eiwgbm9ybWFsKTsKICAgIH0KICAgIGVsc2Ug\naWYgKGxpZ2h0X3R5cGUgPT0gMikgewogICAgICBpcnJhZGlhbmNlID0gc3VubGlnaHRfaWxsdW1p\nbmF0aW9uKG5vcm1hbCk7CiAgICB9CiAgICBnbF9GcmFnRGF0YVswXSA9IHZlYzQoaXJyYWRpYW5j\nZSwgMS4wKTsKICB9Cn0K\n", "simple.vert": "Ci8vIHZlcnRleCBkYXRhCmF0dHJpYnV0ZSB2ZWMzIHBvc2l0aW9uOwphdHRyaWJ1dGUgdmVjMyBu\nb3JtYWw7CmF0dHJpYnV0ZSB2ZWMyIHRjb29yZHM7CgovLyBnbG9hYmwgbWF0cmljZXMKdW5pZm9y\nbSBtYXQ0IHZpZXdfbWF0cml4Owp1bmlmb3JtIG1hdDQgcGFydGljbGVfbWF0cml4Owp1bmlmb3Jt\nIG1hdDQgcHJvamVjdGlvbl9tYXRyaXg7CgovLyBtaXNjIGFkanVzdG1lbnRzCnVuaWZvcm0gZmxv\nYXQgbWdybF9vcnRob2dyYXBoaWNfc2NhbGU7CgoKYmluZGluZ19jb250ZXh0IEdyYXBoTm9kZSB7\nCiAgdW5pZm9ybSBtYXQ0IHdvcmxkX21hdHJpeDsKICB1bmlmb3JtIGZsb2F0IGJpbGxib2FyZF9t\nb2RlOwp9CgoKLy8gaW50ZXJwb2xhdGVkIHZlcnRleCBkYXRhIGluIHZhcmlvdXMgdHJhbnNmb3Jt\nYXRpb25zCnZhcnlpbmcgdmVjMyBsb2NhbF9wb3NpdGlvbjsKdmFyeWluZyB2ZWMzIGxvY2FsX25v\ncm1hbDsKdmFyeWluZyB2ZWMyIGxvY2FsX3Rjb29yZHM7CnZhcnlpbmcgdmVjMyB3b3JsZF9wb3Np\ndGlvbjsKdmFyeWluZyB2ZWMzIHdvcmxkX25vcm1hbDsKdmFyeWluZyB2ZWMzIHNjcmVlbl9ub3Jt\nYWw7CnZhcnlpbmcgZmxvYXQgbGluZWFyX2RlcHRoOwoKCnZvaWQgbWFpbih2b2lkKSB7CiAgLy8g\ncGFzcyBhbG9uZyB0byB0aGUgZnJhZ21lbnQgc2hhZGVyCiAgbG9jYWxfcG9zaXRpb24gPSBwb3Np\ndGlvbiAqIG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwogIGxvY2FsX25vcm1hbCA9IG5vcm1hbDsK\nICBsb2NhbF90Y29vcmRzID0gdGNvb3JkczsKCiAgLy8gY2FsY3VsYXRlIG1vZGVsdmlldyBtYXRy\naXgKICBtYXQ0IG1vZGVsX3ZpZXcgPSB2aWV3X21hdHJpeCAqIHdvcmxkX21hdHJpeDsKICBpZiAo\nYmlsbGJvYXJkX21vZGUgPiAwLjApIHsKICAgIC8vIGNsZWFyIG91dCByb3RhdGlvbiBpbmZvcm1h\ndGlvbgogICAgbW9kZWxfdmlld1swXS54eXogPSB3b3JsZF9tYXRyaXhbMF0ueHl6OwogICAgbW9k\nZWxfdmlld1syXS54eXogPSB3b3JsZF9tYXRyaXhbMl0ueHl6OwogICAgaWYgKGJpbGxib2FyZF9t\nb2RlID09IDIuMCkgewogICAgICBtb2RlbF92aWV3WzFdLnh5eiA9IHdvcmxkX21hdHJpeFsxXS54\neXo7CiAgICB9CiAgfQoKICAvLyB2YXJpb3VzIGNvb3JkaW5hdGUgdHJhbnNmb3JtcwogIHZlYzQg\nZmluYWxfcG9zaXRpb24gPSBwcm9qZWN0aW9uX21hdHJpeCAqIG1vZGVsX3ZpZXcgKiB2ZWM0KGxv\nY2FsX3Bvc2l0aW9uLCAxLjApOwogIHdvcmxkX3Bvc2l0aW9uID0gKHdvcmxkX21hdHJpeCAqIHZl\nYzQobG9jYWxfcG9zaXRpb24sIDEuMCkpLnh5ejsKICB3b3JsZF9ub3JtYWwgPSBub3JtYWxpemUo\nbWF0Myh3b3JsZF9tYXRyaXgpICogbm9ybWFsKS54eXo7CiAgc2NyZWVuX25vcm1hbCA9IG5vcm1h\nbGl6ZShtYXQzKHByb2plY3Rpb25fbWF0cml4ICogbW9kZWxfdmlldykgKiBub3JtYWwpLnh5ejsK\nICBsaW5lYXJfZGVwdGggPSBsZW5ndGgobW9kZWxfdmlldyAqIHZlYzQobG9jYWxfcG9zaXRpb24s\nIDEuMCkpOwogIGdsX1Bvc2l0aW9uID0gZmluYWxfcG9zaXRpb247Cn0K\n", "deferred_renderer/finishing_pass.frag": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CmluY2x1ZGUoIm5vcm1h\nbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0\ndXJlOwp1bmlmb3JtIHNhbXBsZXIyRCBsaWdodF90ZXh0dXJlOwp1bmlmb3JtIGZsb2F0IGV4cG9z\ndXJlOwoKCnZvaWQgZmluaXNoaW5nX3Bhc3MoKSB7CiAgLy8gY29tYmluZSB0aGUgbGlnaHRpbmcg\nYW5kIGRpZmZ1c2UgcGFzc2VzIGFuZCBkaXNwbGF5CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXpl\nX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkpOwogIHZlYzQgZGlmZnVzZSA9IHRleHR1cmUy\nRChkaWZmdXNlX3RleHR1cmUsIHRjb29yZHMpOwogIGlmIChkaWZmdXNlLncgPT0gLTEuMCkgewog\nICAgZGlzY2FyZDsKICB9CiAgdmVjMyBsaWdodG1hcCA9IHRleHR1cmUyRChsaWdodF90ZXh0dXJl\nLCB0Y29vcmRzKS5yZ2I7CiAgZ2xfRnJhZ0RhdGFbMF0gPSB2ZWM0KGxpZ2h0bWFwIC8gZXhwb3N1\ncmUsIDEuMCk7Cn0K\n", "deferred_renderer/main.vert": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2dlb21ldHJ5X2J1ZmZlcnMudmVydCIpOwoKYXR0\ncmlidXRlIHZlYzMgcG9zaXRpb247CmF0dHJpYnV0ZSB2ZWMzIG5vcm1hbDsKYXR0cmlidXRlIHZl\nYzIgdGNvb3JkczsKCmJpbmRpbmdfY29udGV4dCBHcmFwaE5vZGUgewogIC8vIG9iamVjdCBtYXRy\naWNlcwogIHVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7Cn0KCnVuaWZvcm0gbWF0NCB2aWV3X21h\ndHJpeDsKdW5pZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4Owp1bmlmb3JtIGJvb2wgZ2VvbWV0\ncnlfcGFzczsKCgp2b2lkIG1haW4odm9pZCkgewogIGlmIChnZW9tZXRyeV9wYXNzKSB7CiAgICBn\nbF9Qb3NpdGlvbiA9IGdidWZmZXJzX21haW4oKTsKICB9CiAgZWxzZSB7CiAgICBnbF9Qb3NpdGlv\nbiA9IHByb2plY3Rpb25fbWF0cml4ICogdmlld19tYXRyaXggKiB3b3JsZF9tYXRyaXggKiB2ZWM0\nKHBvc2l0aW9uLCAxLjApOwogIH0KfQo=\n", "color_curve.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gY3VydmUgZmxvYXQgdmFsdWVfY3VydmVbMTZdOwp1bmlmb3Jt\nIGN1cnZlIGZsb2F0IHJlZF9jdXJ2ZVsxNl07CnVuaWZvcm0gY3VydmUgZmxvYXQgZ3JlZW5fY3Vy\ndmVbMTZdOwp1bmlmb3JtIGN1cnZlIGZsb2F0IGJsdWVfY3VydmVbMTZdOwoKCmluY2x1ZGUoIm5v\ncm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCmZsb2F0IHZhbHVlKHZlYzMgY29sb3IpIHsK\nICByZXR1cm4gbWF4KGNvbG9yLnIsIG1heChjb2xvci5nLCBjb2xvci5iKSk7Cn0KCgp2b2lkIG1h\naW4odm9pZCkgewogIHZlYzIgdGNvb3JkcyA9IG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJh\nZ0Nvb3JkLnh5KTsKICB2ZWMzIGNvbG9yID0gdGV4dHVyZTJEKGlucHV0X3RleHR1cmUsIHRjb29y\nZHMpLnJnYjsKCiAgZmxvYXQgdjEgPSB2YWx1ZShjb2xvcik7CiAgZmxvYXQgdjIgPSBzYW1wbGVf\nY3VydmUodmFsdWVfY3VydmUsIHYxKTsKICBmbG9hdCBzY2FsZSA9IDEuMCAvIHYxOwogIGNvbG9y\nID0gY29sb3IgKiBzY2FsZSAqIHYyOwogIAogIGNvbG9yLnIgPSBzYW1wbGVfY3VydmUocmVkX2N1\ncnZlLCBjb2xvci5yKTsKICBjb2xvci5nID0gc2FtcGxlX2N1cnZlKGdyZWVuX2N1cnZlLCBjb2xv\nci5nKTsKICBjb2xvci5iID0gc2FtcGxlX2N1cnZlKGJsdWVfY3VydmUsIGNvbG9yLmIpOwogIGds\nX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIDEuMCk7Cn0K\n", "picking.vert": "Ci8vIHZlcnRleCBkYXRhCmF0dHJpYnV0ZSB2ZWMzIHBvc2l0aW9uOwoKLy8gZ2xvYWJsIG1hdHJp\nY2VzCnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHBhcnRpY2xlX21hdHJp\neDsKdW5pZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4OwoKLy8gbWlzYyBhZGp1c3RtZW50cwp1\nbmlmb3JtIGZsb2F0IG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwp1bmlmb3JtIGZsb2F0IG1ncmxf\nYnVmZmVyX3dpZHRoOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCmJpbmRpbmdf\nY29udGV4dCBHcmFwaE5vZGUgewogIHVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7CiAgdW5pZm9y\nbSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKfQoKCi8vIGludGVycG9sYXRlZCB2ZXJ0ZXggZGF0YSBp\nbiB2YXJpb3VzIHRyYW5zZm9ybWF0aW9ucwp2YXJ5aW5nIHZlYzMgbG9jYWxfcG9zaXRpb247CgoK\ndm9pZCBtYWluKHZvaWQpIHsKICAvLyBwYXNzIGFsb25nIHRvIHRoZSBmcmFnbWVudCBzaGFkZXIK\nICBsb2NhbF9wb3NpdGlvbiA9IHBvc2l0aW9uICogbWdybF9vcnRob2dyYXBoaWNfc2NhbGU7Cgog\nIC8vIGNhbGN1bGF0ZSBtb2RlbHZpZXcgbWF0cml4CiAgbWF0NCBtb2RlbF92aWV3ID0gdmlld19t\nYXRyaXggKiB3b3JsZF9tYXRyaXg7CiAgaWYgKGJpbGxib2FyZF9tb2RlID4gMC4wKSB7CiAgICAv\nLyBjbGVhciBvdXQgcm90YXRpb24gaW5mb3JtYXRpb24KICAgIG1vZGVsX3ZpZXdbMF0ueHl6ID0g\nd29ybGRfbWF0cml4WzBdLnh5ejsKICAgIG1vZGVsX3ZpZXdbMl0ueHl6ID0gd29ybGRfbWF0cml4\nWzJdLnh5ejsKICAgIGlmIChiaWxsYm9hcmRfbW9kZSA9PSAyLjApIHsKICAgICAgbW9kZWxfdmll\nd1sxXS54eXogPSB3b3JsZF9tYXRyaXhbMV0ueHl6OwogICAgfQogIH0KCiAgLy8gdmFyaW91cyBj\nb29yZGluYXRlIHRyYW5zZm9ybXMKICBnbF9Qb3NpdGlvbiA9IHByb2plY3Rpb25fbWF0cml4ICog\nbW9kZWxfdmlldyAqIHZlYzQobG9jYWxfcG9zaXRpb24sIDEuMCk7Cn0K\n", "splat.vert": "CnVuaWZvcm0gbWF0NCB3b3JsZF9tYXRyaXg7CnVuaWZvcm0gbWF0NCB2aWV3X21hdHJpeDsKdW5p\nZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4OwphdHRyaWJ1dGUgdmVjMyBwb3NpdGlvbjsKCgp2\nb2lkIG1haW4odm9pZCkgewogIGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbl9tYXRyaXggKiB2aWV3\nX21hdHJpeCAqIHdvcmxkX21hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCk7Cn0K\n", "diagonal_wipe.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBibHVyX3JhZGl1czsKdW5pZm9ybSBib29sIGZsaXBfYXhpczsK\ndW5pZm9ybSBib29sIGZsaXBfZGlyZWN0aW9uOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2b2lkKSB7CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFs\naXplX3NjcmVlbl9jb29yZChnbF9GcmFnQ29vcmQueHkpOwogIGZsb2F0IHNsb3BlID0gbWdybF9i\ndWZmZXJfaGVpZ2h0IC8gbWdybF9idWZmZXJfd2lkdGg7CiAgaWYgKGZsaXBfYXhpcykgewogICAg\nc2xvcGUgKj0gLTEuMDsKICB9CiAgZmxvYXQgaGFsZl9oZWlnaHQgPSBtZ3JsX2J1ZmZlcl9oZWln\naHQgKiAwLjU7CiAgZmxvYXQgaGlnaF9wb2ludCA9IG1ncmxfYnVmZmVyX2hlaWdodCArIGhhbGZf\naGVpZ2h0ICsgYmx1cl9yYWRpdXMgKyAxLjA7CiAgZmxvYXQgbG93X3BvaW50ID0gKGhhbGZfaGVp\nZ2h0ICogLTEuMCkgLSBibHVyX3JhZGl1cyAtIDEuMDsKICBmbG9hdCBtaWRwb2ludCA9IG1peCho\naWdoX3BvaW50LCBsb3dfcG9pbnQsIGZsaXBfZGlyZWN0aW9uID8gMS4wIC0gcHJvZ3Jlc3MgOiBw\ncm9ncmVzcyk7CiAgZmxvYXQgdGVzdCA9ICgoZ2xfRnJhZ0Nvb3JkLnggLSBtZ3JsX2J1ZmZlcl93\naWR0aC8yLjApICogc2xvcGUpICsgbWlkcG9pbnQ7CgogIHZlYzQgY29sb3I7CiAgZmxvYXQgZGlz\ndCA9IGdsX0ZyYWdDb29yZC55IC0gdGVzdDsKICBpZiAoZGlzdCA8PSBibHVyX3JhZGl1cyAmJiBk\naXN0ID49IChibHVyX3JhZGl1cyotMS4wKSkgewogICAgdmVjNCBjb2xvcl9hID0gdGV4dHVyZTJE\nKHRleHR1cmVfYSwgdGNvb3Jkcyk7CiAgICB2ZWM0IGNvbG9yX2IgPSB0ZXh0dXJlMkQodGV4dHVy\nZV9iLCB0Y29vcmRzKTsKICAgIGZsb2F0IGJsZW5kID0gKGRpc3QgKyBibHVyX3JhZGl1cykgLyAo\nYmx1cl9yYWRpdXMqMi4wKTsKICAgIGNvbG9yID0gbWl4KGNvbG9yX2EsIGNvbG9yX2IsIGZsaXBf\nZGlyZWN0aW9uID8gMS4wIC0gYmxlbmQgOiBibGVuZCk7CiAgfQogIGVsc2UgewogICAgaWYgKChn\nbF9GcmFnQ29vcmQueSA8IHRlc3QgJiYgIWZsaXBfZGlyZWN0aW9uKSB8fCAoZ2xfRnJhZ0Nvb3Jk\nLnkgPiB0ZXN0ICYmIGZsaXBfZGlyZWN0aW9uKSkgewogICAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2EsIHRjb29yZHMpOwogICAgfQogICAgZWxzZSB7CiAgICAgIGNvbG9yID0gdGV4dHVy\nZTJEKHRleHR1cmVfYiwgdGNvb3Jkcyk7CiAgICB9CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9y\nOwp9Cg==\n", "picture_in_picture.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl93aWR0\naDsKdW5pZm9ybSBmbG9hdCBtZ3JsX2J1ZmZlcl9oZWlnaHQ7Cgp1bmlmb3JtIHZlYzIgcGlwX3Np\nemU7CnVuaWZvcm0gdmVjMiBwaXBfY29vcmQ7CnVuaWZvcm0gZmxvYXQgcGlwX2FscGhhOwp1bmlm\nb3JtIHNhbXBsZXIyRCBtYWluX3RleHR1cmU7CnVuaWZvcm0gc2FtcGxlcjJEIHBpcF90ZXh0dXJl\nOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5fY29vcmQuZ2xzbCIpOwoKCnZvaWQgbWFpbih2\nb2lkKSB7CiAgdmVjMiBzY3JlZW5fY29vcmQgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0Zy\nYWdDb29yZC54eSk7CiAgdmVjNCBjb2xvciA9IHRleHR1cmUyRChtYWluX3RleHR1cmUsIHNjcmVl\nbl9jb29yZCk7CgogIC8vIHNjYWxlIHRoZSBzY3JlZW5fY29vcmQgdG8gcmVwcmVzZW50IGEgcGVy\nY2VudAogIHNjcmVlbl9jb29yZCAqPSAxMDAuMDsKICB2ZWMyIHBpcF90ZXN0ID0gc2NyZWVuX2Nv\nb3JkIC0gcGlwX2Nvb3JkOwogIGlmIChwaXBfdGVzdC54ID49IDAuMCAmJiBwaXBfdGVzdC55ID49\nIDAuMCAmJiBwaXBfdGVzdC54IDw9IHBpcF9zaXplLnggJiYgcGlwX3Rlc3QueSA8PSBwaXBfc2l6\nZS55KSB7CiAgICB2ZWM0IHBpcF9jb2xvciA9IHRleHR1cmUyRChwaXBfdGV4dHVyZSwgcGlwX3Rl\nc3QgLyBwaXBfc2l6ZSk7CiAgICBjb2xvciA9IG1peChjb2xvciwgcGlwX2NvbG9yLCBwaXBfY29s\nb3IuYSAvIHBpcF9hbHBoYSk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "deferred_renderer/common.glsl": "dmFyeWluZyB2ZWMzIGxvY2FsX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2\nYXJ5aW5nIHZlYzIgbG9jYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwp2\nYXJ5aW5nIHZlYzMgd29ybGRfbm9ybWFsOwp2YXJ5aW5nIHZlYzMgc2NyZWVuX3Bvc2l0aW9uOwp2\nYXJ5aW5nIGZsb2F0IGxpbmVhcl9kZXB0aDsKCgpzdHJ1Y3QgYnJkZl9pbnB1dCB7CiAgdmVjMyB2\naWV3X3ZlY3RvcjsKICB2ZWMzIGxpZ2h0X3ZlY3RvcjsKICB2ZWMzIG5vcm1hbF92ZWN0b3I7CiAg\ndmVjMyBjb2xvcjsKICBmbG9hdCBmYWxsb2ZmOwogIGZsb2F0IGludGVuc2l0eTsKICBmbG9hdCBv\nY2NsdXNpb247Cn07CgoKc3RydWN0IGJyZGZfb3V0cHV0IHsKICB2ZWMzIGNvbG9yOwogIGZsb2F0\nIGludGVuc2l0eTsKfTsK\n", "disintegrate.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gZmxvYXQgcHJvZ3Jl\nc3M7CnVuaWZvcm0gc2FtcGxlcjJEIHRleHR1cmVfYTsKdW5pZm9ybSBzYW1wbGVyMkQgdGV4dHVy\nZV9iOwoKdW5pZm9ybSBmbG9hdCBweF9zaXplOwoKCmluY2x1ZGUoIm5vcm1hbGl6ZV9zY3JlZW5f\nY29vcmQuZ2xzbCIpOwoKCi8vIGh0dHBzOi8vc3RhY2tvdmVyZmxvdy5jb20vcXVlc3Rpb25zLzEy\nOTY0Mjc5L3doYXRzLXRoZS1vcmlnaW4tb2YtdGhpcy1nbHNsLXJhbmQtb25lLWxpbmVyCmZsb2F0\nIHJhbmRvbV9zZWVkKHZlYzIgY28pIHsKICByZXR1cm4gZnJhY3Qoc2luKGRvdChjby54eSAsdmVj\nMigxMi45ODk4LDc4LjIzMykpKSAqIDQzNzU4LjU0NTMpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsK\nICB2ZWMyIGdyaWQgPSBnbF9GcmFnQ29vcmQueHkgLyBweF9zaXplOwogIHZlYzIgb2Zmc2V0ID0g\nZnJhY3QoZ3JpZCkqMC41OwogIGZsb2F0IHJhbmRvbSA9IChyYW5kb21fc2VlZChmbG9vcihncmlk\nICsgb2Zmc2V0KSkqMC45KSArIDAuMTsKICByYW5kb20gKj0gKDEuMCAtIHByb2dyZXNzKTsKICB2\nZWMyIHRjb29yZHMgPSBub3JtYWxpemVfc2NyZWVuX2Nvb3JkKGdsX0ZyYWdDb29yZC54eSk7CiAg\ndmVjNCBjb2xvcjsKICBpZiAocmFuZG9tIDwgMC4xKSB7CiAgICBjb2xvciA9IHRleHR1cmUyRCh0\nZXh0dXJlX2IsIHRjb29yZHMpOwogIH0KICBlbHNlIHsKICAgIGNvbG9yID0gdGV4dHVyZTJEKHRl\neHR1cmVfYSwgdGNvb3Jkcyk7CiAgfQogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "deferred_renderer/geometry_buffers.vert": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CgoKYmluZGluZ19jb250\nZXh0IEdyYXBoTm9kZSB7CiAgLy8gb2JqZWN0IG1hdHJpY2VzCiAgdW5pZm9ybSBtYXQ0IHdvcmxk\nX21hdHJpeDsKICB1bmlmb3JtIG1hdDQgcGFydGljbGVfbWF0cml4OwoKICAvLyBiaWxsYm9hcmQg\nc3ByaXRlcyBlbmFibGVyCiAgdW5pZm9ybSBmbG9hdCBiaWxsYm9hcmRfbW9kZTsKfQoKCnVuaWZv\ncm0gbWF0NCB2aWV3X21hdHJpeDsKdW5pZm9ybSBtYXQ0IHByb2plY3Rpb25fbWF0cml4Owp1bmlm\nb3JtIGZsb2F0IG1ncmxfb3J0aG9ncmFwaGljX3NjYWxlOwoKCnZlYzQgZ2J1ZmZlcnNfbWFpbigp\nIHsKICAvLyBwYXNzIGFsb25nIHRvIHRoZSBmcmFnbWVudCBzaGFkZXIKICBsb2NhbF9wb3NpdGlv\nbiA9IHBvc2l0aW9uICogbWdybF9vcnRob2dyYXBoaWNfc2NhbGU7CiAgbG9jYWxfbm9ybWFsID0g\nbm9ybWFsOwogIGxvY2FsX3Rjb29yZHMgPSB0Y29vcmRzOwoKICAvLyBjYWxjdWxhdGUgbW9kZWx2\naWV3IG1hdHJpeAogIG1hdDQgbW9kZWxfdmlldyA9IHZpZXdfbWF0cml4ICogd29ybGRfbWF0cml4\nOwogIGlmIChiaWxsYm9hcmRfbW9kZSA+IDAuMCkgewogICAgLy8gY2xlYXIgb3V0IHJvdGF0aW9u\nIGluZm9ybWF0aW9uCiAgICBtb2RlbF92aWV3WzBdLnh5eiA9IHdvcmxkX21hdHJpeFswXS54eXo7\nCiAgICBtb2RlbF92aWV3WzJdLnh5eiA9IHdvcmxkX21hdHJpeFsyXS54eXo7CiAgICBpZiAoYmls\nbGJvYXJkX21vZGUgPT0gMi4wKSB7CiAgICAgIG1vZGVsX3ZpZXdbMV0ueHl6ID0gd29ybGRfbWF0\ncml4WzFdLnh5ejsKICAgIH0KICB9CgogIC8vIHZhcmlvdXMgY29vcmRpbmF0ZSB0cmFuc2Zvcm1z\nCiAgdmVjNCBmaW5hbF9wb3NpdGlvbiA9IHByb2plY3Rpb25fbWF0cml4ICogbW9kZWxfdmlldyAq\nIHZlYzQobG9jYWxfcG9zaXRpb24sIDEuMCk7CiAgd29ybGRfcG9zaXRpb24gPSAod29ybGRfbWF0\ncml4ICogdmVjNChsb2NhbF9wb3NpdGlvbiwgMS4wKSkueHl6OwogIHdvcmxkX25vcm1hbCA9IG5v\ncm1hbGl6ZShtYXQzKHdvcmxkX21hdHJpeCkgKiBub3JtYWwpLnh5ejsKICBzY3JlZW5fcG9zaXRp\nb24gPSBmaW5hbF9wb3NpdGlvbi54eXo7CiAgbGluZWFyX2RlcHRoID0gbGVuZ3RoKChtb2RlbF92\naWV3ICogdmVjNChsb2NhbF9wb3NpdGlvbiwgMS4wKSkpOwogIHJldHVybiBmaW5hbF9wb3NpdGlv\nbjsKfQo=\n", "scatter_blur.frag": "cHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7Cgp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX3dpZHRo\nOwp1bmlmb3JtIGZsb2F0IG1ncmxfYnVmZmVyX2hlaWdodDsKCnVuaWZvcm0gc2FtcGxlcjJEIGlu\ncHV0X3RleHR1cmU7CnVuaWZvcm0gZmxvYXQgYmx1cl9yYWRpdXM7CnVuaWZvcm0gZmxvYXQgc2Ft\ncGxlczsKCmNvbnN0IGZsb2F0IG1heF9zYW1wbGVzID0gMzIuMDsKY29uc3QgZmxvYXQgdHdvX3Bp\nID0gNi4yODMxODUzMDcxODsKCgppbmNsdWRlKCJub3JtYWxpemVfc2NyZWVuX2Nvb3JkLmdsc2wi\nKTsKCgp2ZWMyIHNjcmVlbl9jbGFtcCh2ZWMyIGNvb3JkKSB7CiAgcmV0dXJuIGNsYW1wKGNvb3Jk\nLCB2ZWMyKDAuMCwgMC4wKSwgZ2xfRnJhZ0Nvb3JkLnh5KTsKfQoKCnZlYzIgcHJuZyh2ZWMyIGNv\nKSB7CiAgdmVjMiBhID0gZnJhY3QoY28ueXggKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7CiAgdmVj\nMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSArIGRvdChh\nLnl4LCBiKTsKICAvL3JldHVybiBmcmFjdChjLnggKiBjLnkgKiA5NS40MzM3KTsKICByZXR1cm4g\nZnJhY3QodmVjMihjLngqYy55Kjk1LjQzMzcsIGMueCpjLnkqOTcuNTk3KSk7Cn0KCgpmbG9hdCBw\ncm5nKGZsb2F0IG4pewogIHZlYzIgYSA9IGZyYWN0KG4gKiB2ZWMyKDUuMzk4MywgNS40NDI3KSk7\nCiAgdmVjMiBiID0gYS54eSArIHZlYzIoMjEuNTM1MSwgMTQuMzEzNyk7CiAgdmVjMiBjID0gYSAr\nIGRvdChhLnl4LCBiKTsKICByZXR1cm4gZnJhY3QoYy54ICogYy55ICogOTUuNDMzNyk7Cn0KCgp2\nb2lkIG1haW4odm9pZCkgewogIGZsb2F0IGNvdW50ID0gMC4wOwogIHZlYzQgY29sb3IgPSB2ZWM0\nKDAuMCwgMC4wLCAwLjAsIDAuMCk7CgogIGZsb2F0IHgsIHksIHJhZGl1czsKICBmbG9hdCBhbmds\nZSA9IHR3b19waSAqIHBybmcoZ2xfRnJhZ0Nvb3JkLnh5KS54OwogIGZsb2F0IGFuZ2xlX3N0ZXAg\nPSB0d29fcGkgLyBzYW1wbGVzOwogIAogIGZvciAoZmxvYXQgaT0wLjA7IGk8bWF4X3NhbXBsZXM7\nIGkrPTEuMCkgewogICAgcmFkaXVzID0gYmx1cl9yYWRpdXMgKiBwcm5nKGFuZ2xlKTsKICAgIHgg\nPSBnbF9GcmFnQ29vcmQueCArIGNvcyhhbmdsZSkqcmFkaXVzOwogICAgeSA9IGdsX0ZyYWdDb29y\nZC55ICsgc2luKGFuZ2xlKSpyYWRpdXM7CiAgICBhbmdsZSArPSBhbmdsZV9zdGVwOwogICAgaWYg\nKHggPCAwLjAgfHwgeSA8IDAuMCB8fCB4ID49IG1ncmxfYnVmZmVyX3dpZHRoIHx8IHkgPj0gbWdy\nbF9idWZmZXJfaGVpZ2h0KSB7CiAgICAgIGNvbnRpbnVlOwogICAgfQogICAgY29sb3IgKz0gdGV4\ndHVyZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQodmVjMih4LCB5KSkp\nOwogICAgY291bnQgKz0gMS4wOwogICAgaWYgKGNvdW50ID49IHNhbXBsZXMpIHsKICAgICAgYnJl\nYWs7CiAgICB9CiAgfQogIAogIGlmIChjb3VudCA9PSAwLjApIHsKICAgIGNvbG9yID0gdGV4dHVy\nZTJEKGlucHV0X3RleHR1cmUsIG5vcm1hbGl6ZV9zY3JlZW5fY29vcmQoZ2xfRnJhZ0Nvb3JkLnh5\nKSk7CiAgICBjb3VudCA9IDEuMDsKICB9CiAgZ2xfRnJhZ0NvbG9yID0gY29sb3IgLyBjb3VudDsK\nfQo=\n", "diffuse.frag": "CnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwoKLy8gc2FtcGxlcnMKYmluZGluZ19jb250ZXh0IEdy\nYXBoTm9kZSB7CiAgdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90ZXh0dXJlOwogIHVuaWZvcm0g\nZmxvYXQgYWxwaGE7CiAgdW5pZm9ybSBib29sIGlzX3Nwcml0ZTsKICB1bmlmb3JtIGJvb2wgaXNf\ndHJhbnNwYXJlbnQ7CgogIG1vZGVfc3dpdGNoIGRpZmZ1c2VfY29sb3JfZnVuY3Rpb247CiAgbW9k\nZV9zd2l0Y2ggdGV4dHVyZV9jb29yZGluYXRlX2Z1bmN0aW9uOwp9CgoKdmFyeWluZyB2ZWMzIGxv\nY2FsX3Bvc2l0aW9uOwp2YXJ5aW5nIHZlYzMgbG9jYWxfbm9ybWFsOwp2YXJ5aW5nIHZlYzIgbG9j\nYWxfdGNvb3JkczsKdmFyeWluZyB2ZWMzIHdvcmxkX3Bvc2l0aW9uOwoKCnN3YXBwYWJsZSB2ZWMy\nIHRleHR1cmVfY29vcmRpbmF0ZV9mdW5jdGlvbigpIHsKICByZXR1cm4gbG9jYWxfdGNvb3JkczsK\nfQoKCnN3YXBwYWJsZSB2ZWM0IGRpZmZ1c2VfY29sb3JfZnVuY3Rpb24oKSB7CiAgdmVjMiB0Y29v\ncmRzID0gdGV4dHVyZV9jb29yZGluYXRlX2Z1bmN0aW9uKCk7CiAgcmV0dXJuIHRleHR1cmUyRChk\naWZmdXNlX3RleHR1cmUsIHRjb29yZHMpOwp9CgoKdm9pZCBtYWluKHZvaWQpIHsKICB2ZWM0IGRp\nZmZ1c2UgPSBkaWZmdXNlX2NvbG9yX2Z1bmN0aW9uKCk7CiAgaWYgKGlzX3Nwcml0ZSkgewogICAg\nZmxvYXQgY3V0b2ZmID0gaXNfdHJhbnNwYXJlbnQgPyAwLjEgOiAxLjA7CiAgICBpZiAoZGlmZnVz\nZS5hIDwgY3V0b2ZmKSB7CiAgICAgIGRpc2NhcmQ7CiAgICB9CiAgfQogIGRpZmZ1c2UuYSAqPSBh\nbHBoYTsKICBnbF9GcmFnQ29sb3IgPSBkaWZmdXNlOwp9Cg==\n", "stereo.frag": "CiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7\nCiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwojZW5kaWYKCnVuaWZvcm0gdmVjNCBtZ3Js\nX2NsZWFyX2NvbG9yOwp1bmlmb3JtIGZsb2F0IG1ncmxfZnJhbWVfc3RhcnQ7CnVuaWZvcm0gZmxv\nYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfaGVpZ2h0OwoK\ndW5pZm9ybSBzYW1wbGVyMkQgbGVmdF9leWVfdGV4dHVyZTsKdW5pZm9ybSBzYW1wbGVyMkQgcmln\naHRfZXllX3RleHR1cmU7Cgp1bmlmb3JtIGJvb2wgc3RlcmVvX3NwbGl0Owp1bmlmb3JtIHZlYzMg\nbGVmdF9jb2xvcjsKdW5pZm9ybSB2ZWMzIHJpZ2h0X2NvbG9yOwoKdmVjNCBzYW1wbGVfb3JfY2xl\nYXIoc2FtcGxlcjJEIHNhbXBsZXIsIHZlYzIgY29vcmQpIHsKICB2ZWM0IGNvbG9yID0gdGV4dHVy\nZTJEKHNhbXBsZXIsIGNvb3JkKTsKICBpZiAoY29sb3IuYSA9PSAwLjApIHsKICAgIGNvbG9yID0g\nbWdybF9jbGVhcl9jb2xvcjsKICB9CiAgcmV0dXJuIGNvbG9yOwp9Cgp2b2lkIG1haW4odm9pZCkg\newogIHZlYzIgY29vcmQgPSBnbF9GcmFnQ29vcmQueHkgLyB2ZWMyKG1ncmxfYnVmZmVyX3dpZHRo\nLCBtZ3JsX2J1ZmZlcl9oZWlnaHQpOwogIHZlYzQgY29sb3I7CgogIGlmIChzdGVyZW9fc3BsaXQp\nIHsKICAgIC8vIEZJWE1FOiBhcHBseSBkaXN0b3J0aW9uIGVmZmVjdCBuZWVkZWQgZm9yIFZSIGds\nYXNzZXMKICAgIGlmIChjb29yZC54IDwgMC41KSB7CiAgICAgIGNvbG9yID0gdGV4dHVyZTJEKGxl\nZnRfZXllX3RleHR1cmUsIHZlYzIoY29vcmQueCoyLjAsIGNvb3JkLnkpKTsKICAgIH0KICAgIGVs\nc2UgewogICAgICBjb2xvciA9IHRleHR1cmUyRChyaWdodF9leWVfdGV4dHVyZSwgdmVjMigoY29v\ncmQueCAtIDAuNSkqMi4wLCBjb29yZC55KSk7CiAgICB9CiAgfQoKICBlbHNlIHsKICAgIHZlYzMg\nbGVmdCA9IHNhbXBsZV9vcl9jbGVhcihsZWZ0X2V5ZV90ZXh0dXJlLCBjb29yZCkucmdiICogbGVm\ndF9jb2xvcjsKICAgIHZlYzMgcmlnaHQgPSBzYW1wbGVfb3JfY2xlYXIocmlnaHRfZXllX3RleHR1\ncmUsIGNvb3JkKS5yZ2IgKiByaWdodF9jb2xvcjsKICAgIGNvbG9yID0gdmVjNCgobGVmdCtyaWdo\ndCksIDEuMCk7CiAgfQogIAogIGdsX0ZyYWdDb2xvciA9IGNvbG9yOwp9Cg==\n", "deferred_renderer/geometry_buffers.frag": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CgoKLy8gc2FtcGxlcnMK\nYmluZGluZ19jb250ZXh0IEdyYXBoTm9kZSB7CiAgdW5pZm9ybSBzYW1wbGVyMkQgZGlmZnVzZV90\nZXh0dXJlOwogIHVuaWZvcm0gc2FtcGxlcjJEIG5vcm1hbF90ZXh0dXJlOwogIG1vZGVfc3dpdGNo\nIGRpZmZ1c2VfY29sb3JfZnVuY3Rpb247CiAgbW9kZV9zd2l0Y2ggdGV4dHVyZV9jb29yZGluYXRl\nX2Z1bmN0aW9uOwoKICB1bmlmb3JtIGJvb2wgaGFzX25vcm1hbF9tYXA7Cn0KCgpzd2FwcGFibGUg\ndmVjMiB0ZXh0dXJlX2Nvb3JkaW5hdGVfZnVuY3Rpb24oKSB7CiAgcmV0dXJuIGxvY2FsX3Rjb29y\nZHM7Cn0KCgpzd2FwcGFibGUgdmVjNCBkaWZmdXNlX2NvbG9yX2Z1bmN0aW9uKCkgewogIHZlYzIg\ndGNvb3JkcyA9IHRleHR1cmVfY29vcmRpbmF0ZV9mdW5jdGlvbigpOwogIHJldHVybiB0ZXh0dXJl\nMkQoZGlmZnVzZV90ZXh0dXJlLCB0Y29vcmRzKTsKfQoKCnZvaWQgZ2J1ZmZlcnNfbWFpbigpIHsK\nICAvLyBnLWJ1ZmZlciBwYXNzCiAgdmVjNCBkaWZmdXNlID0gZGlmZnVzZV9jb2xvcl9mdW5jdGlv\nbigpOwogIGlmIChkaWZmdXNlLmEgPCAwLjUpIHsKICAgIGRpc2NhcmQ7CiAgfQogIGdsX0ZyYWdE\nYXRhWzBdID0gZGlmZnVzZTsKICBnbF9GcmFnRGF0YVsxXSA9IHZlYzQod29ybGRfcG9zaXRpb24s\nIGxpbmVhcl9kZXB0aCk7CiAgZ2xfRnJhZ0RhdGFbMl0gPSB2ZWM0KHdvcmxkX25vcm1hbCwgMC4w\nKTsKfQo=\n", "normalize_screen_coord.glsl": "CnVuaWZvcm0gZmxvYXQgbWdybF9idWZmZXJfd2lkdGg7CnVuaWZvcm0gZmxvYXQgbWdybF9idWZm\nZXJfaGVpZ2h0OwoKLy8KLy8gIFRoaXMgZnVuY3Rpb24gdGFrZXMgYSB2YWx1ZSBsaWtlIGdsX0Zy\nYWdDb29yZC54eSwgd2hlcmVpbiB0aGUKLy8gIGNvb3JkaW5hdGUgaXMgZXhwcmVzc2VkIGluIHNj\ncmVlbiBjb29yZGluYXRlcywgYW5kIHJldHVybnMgYW4KLy8gIGVxdWl2YWxlbnQgY29vcmRpbmF0\nZSB0aGF0IGlzIG5vcm1hbGl6ZWQgdG8gYSB2YWx1ZSBpbiB0aGUgcmFuZ2UKLy8gIG9mIDAuMCB0\nbyAxLjAuCi8vCnZlYzIgbm9ybWFsaXplX3NjcmVlbl9jb29yZCh2ZWMyIGNvb3JkKSB7CiAgcmV0\ndXJuIHZlYzIoY29vcmQueC9tZ3JsX2J1ZmZlcl93aWR0aCwgY29vcmQueS9tZ3JsX2J1ZmZlcl9o\nZWlnaHQpOwp9Cgo=\n", "picking.frag": "CnZhcnlpbmcgdmVjMyBsb2NhbF9wb3NpdGlvbjsKdW5pZm9ybSB2ZWMzIG9iamVjdF9pbmRleDsK\ndW5pZm9ybSBib29sIG1ncmxfc2VsZWN0X21vZGU7CnVuaWZvcm0gdmVjMyBtZ3JsX21vZGVsX2xv\nY2FsX21pbjsKdW5pZm9ybSB2ZWMzIG1ncmxfbW9kZWxfbG9jYWxfc2l6ZTsKCgp2b2lkIG1haW4o\ndm9pZCkgewogIGlmIChtZ3JsX3NlbGVjdF9tb2RlKSB7CiAgICBnbF9GcmFnQ29sb3IgPSB2ZWM0\nKG9iamVjdF9pbmRleCwgMS4wKTsKICB9CiAgZWxzZSB7CiAgICB2ZWMzIHNoaWZ0ZWQgPSBsb2Nh\nbF9wb3NpdGlvbiAtIG1ncmxfbW9kZWxfbG9jYWxfbWluOwogICAgdmVjMyBzY2FsZWQgPSBzaGlm\ndGVkIC8gbWdybF9tb2RlbF9sb2NhbF9zaXplOwogICAgZ2xfRnJhZ0NvbG9yID0gdmVjNChzY2Fs\nZWQsIDEuMCk7CiAgfTsKfQo=\n", "deferred_renderer/shadow_buffers.frag": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7CgoKdm9pZCBzaGFkb3df\nYnVmZmVycygpIHsKICBmbG9hdCBkZXB0aCA9IGxpbmVhcl9kZXB0aDsKICBnbF9GcmFnRGF0YVsw\nXSA9IHZlYzQoZGVwdGgsIGRlcHRoLCBkZXB0aCwgMS4wKTsKfQo=\n", "deferred_renderer/simple_brdf.glsl": "CmluY2x1ZGUoImRlZmVycmVkX3JlbmRlcmVyL2NvbW1vbi5nbHNsIik7Cgp1bmlmb3JtIHNhbXBs\nZXIyRCBkaWZmdXNlX3RleHR1cmU7CnVuaWZvcm0gdmVjMyBhbWJpZW50X2NvbG9yOwp1bmlmb3Jt\nIGZsb2F0IGFtYmllbnRfaW50ZW5zaXR5OwoKdmVjMyBicmRmX2Z1bmN0aW9uKGJyZGZfaW5wdXQg\ncGFyYW1zKSB7CiAgdmVjMiB0Y29vcmRzID0gbm9ybWFsaXplX3NjcmVlbl9jb29yZChnbF9GcmFn\nQ29vcmQueHkpOwogIHZlYzMgYmFzZV9jb2xvciA9IHRleHR1cmUyRChkaWZmdXNlX3RleHR1cmUs\nIHRjb29yZHMpLnJnYjsKCiAgZmxvYXQgaW5jaWRlbmNlID0gZG90KHBhcmFtcy5ub3JtYWxfdmVj\ndG9yLCBwYXJhbXMubGlnaHRfdmVjdG9yKTsKICB2ZWMzIHJlZmxlY3Rpb24gPSAyLjAgKiBwYXJh\nbXMubm9ybWFsX3ZlY3RvciAqIGluY2lkZW5jZSAtIHBhcmFtcy5saWdodF92ZWN0b3I7CgogIGZs\nb2F0IGludGVuc2l0eSA9IHBhcmFtcy5pbnRlbnNpdHkgKiBwYXJhbXMuZmFsbG9mZjsKCiAgdmVj\nMyBhbWJpZW50ID0gYW1iaWVudF9jb2xvciAqIGJhc2VfY29sb3IgKiBhbWJpZW50X2ludGVuc2l0\neTsKICB2ZWMzIGRpZmZ1c2UgPSBwYXJhbXMuY29sb3IgKiBpbmNpZGVuY2UgKiBiYXNlX2NvbG9y\nICogaW50ZW5zaXR5ICogcGFyYW1zLm9jY2x1c2lvbjsKICB2ZWMzIHNwZWN1bGFyID0gcGFyYW1z\nLmNvbG9yICogcG93KG1heChkb3QocmVmbGVjdGlvbiwgcGFyYW1zLnZpZXdfdmVjdG9yKSwgMC4w\nKSwgaW50ZW5zaXR5KSAqIHBhcmFtcy5vY2NsdXNpb247CgogIHJldHVybiBhbWJpZW50ICsgZGlm\nZnVzZSArIHNwZWN1bGFyOwp9Cg==\n", "deferred_renderer/main.frag": "I2V4dGVuc2lvbiBHTF9FWFRfZHJhd19idWZmZXJzIDogcmVxdWlyZQoKaW5jbHVkZSgiZGVmZXJy\nZWRfcmVuZGVyZXIvZ2VvbWV0cnlfYnVmZmVycy5mcmFnIik7CmluY2x1ZGUoImRlZmVycmVkX3Jl\nbmRlcmVyL3NoYWRvd19idWZmZXJzLmZyYWciKTsKaW5jbHVkZSgiZGVmZXJyZWRfcmVuZGVyZXIv\nbGlnaHRpbmdfcGFzc2VzLmZyYWciKTsKaW5jbHVkZSgiZGVmZXJyZWRfcmVuZGVyZXIvZmluaXNo\naW5nX3Bhc3MuZnJhZyIpOwoKdW5pZm9ybSBpbnQgc2hhZGVyX3Bhc3M7CgoKdm9pZCBtYWluKHZv\naWQpIHsKICBpZiAoc2hhZGVyX3Bhc3MgPT0gMCkgewogICAgLy8gVGhlIGdidWZmZXJzIHBhc3Mg\naXMgY2FsbGVkIG9uY2UgZnJvbSB0aGUgY2FtZXJhJ3MgcGVyc3BlY3RpdmUKICAgIC8vIHRvIHBv\ncHVsYXRlIHRoZSBnZW9tZXRyeSBidWZmZXJzLgogICAgZ2J1ZmZlcnNfbWFpbigpOwogIH0KICBl\nbHNlIGlmIChzaGFkZXJfcGFzcyA9PSAxKSB7CiAgICAvLyBUaGUgc2hhZG93IGJ1ZmZlcnMgcGFz\ncyBpcyBjYWxsZWQgbWFueSB0aW1lcywgYXQgbGVhc3Qgb25jZSBwZXIKICAgIC8vIGVhY2ggbGln\naHQgdGhhdCBjYXN0cyBhIHNoYWRvdy4gIFRoZSByZXN1bHRzIHdpbGwgYmUgdXNlZCBpbgogICAg\nLy8gdGhlIGxpZ2h0aW5nIHBhc3NlLgogICAgc2hhZG93X2J1ZmZlcnMoKTsKICB9CiAgZWxzZSBp\nZiAoc2hhZGVyX3Bhc3MgPT0gMikgewogICAgLy8gVGhlIGxpZ2h0aW5nIHBhc3MgaXMgY2FsbGVk\nIGF0IGxlYXN0IG9uY2UgcGVyIGxpZ2h0LiAgVGhlCiAgICAvLyBsaWdodGluZyBwYXNzZXMgYXJl\nIHNjcmVlbnNwYWNlIHBhc3NlcywgYW5kIHV0aWxpemUgaW5mb3JtYXRpb24KICAgIC8vIGluIHNv\nbWUgb2YgdGhlIGdidWZmZXJzIHRvIGFjY3VtdWxhdGUgYSBsaWdodG1hcC4KICAgIGxpZ2h0aW5n\nX3Bhc3MoKTsKICB9CiAgZWxzZSBpZiAoc2hhZGVyX3Bhc3MgPT0gMykgewogICAgLy8gVGhlIGZp\nbmlzaGluZyBwYXNzIGlzIGNhbGxlZCBvbmNlIHBlciBmcmFtZSwgYW5kIHRoZSByZXN1bHQgZnJv\nbQogICAgLy8gdGhlIGxpZ2h0aW5nIHBhc3NlcyBpcyBjb21wb3NpdGVkIHdpdGggdGhlIGRpZmZ1\nc2UgZ2J1ZmZlci4KICAgIGZpbmlzaGluZ19wYXNzKCk7CiAgfQp9Cg==\n", "curve_template.glsl": "Ly8gIERvIG5vdCBjYWxsIGluY2x1ZGUgb24gY3VydmVfdGVtcGxhdGUuZ2xzbCBpbiB5b3VyIHNv\ndXJjZSBmaWxlcy4KLy8gIFVzZSB0aGUgY3VydmUgbWFjcm8gaW5zdGVhZCEhIQoKR0xfVFlQRSBz\nYW1wbGVfY3VydmUoR0xfVFlQRSBzYW1wbGVzW0FSUkFZX0xFTl0sIGZsb2F0IGFscGhhKSB7CiAg\nZmxvYXQgcGljayA9IChBUlJBWV9MRU4uMCAtIDEuMCkgKiBhbHBoYTsKICBpbnQgbG93ID0gaW50\nKGZsb29yKHBpY2spKTsKICBpbnQgaGlnaCA9IGludChjZWlsKHBpY2spKTsKICBmbG9hdCBiZXRh\nID0gZnJhY3QocGljayk7CgogIEdMX1RZUEUgbG93X3NhbXBsZTsKICBHTF9UWVBFIGhpZ2hfc2Ft\ncGxlOwoKICAvLyB3b3JrYXJvdW5kIGJlY2F1c2UgZ2xzbCBkb2VzIG5vdCBhbGxvdyBmb3IgcmFu\nZG9tIGFjY2VzcyBvbiBhcnJheXMgPjpPCiAgZm9yIChpbnQgaT0wOyBpPEFSUkFZX0xFTjsgaSs9\nMSkgewogICAgaWYgKGkgPT0gbG93KSB7CiAgICAgIGxvd19zYW1wbGUgPSBzYW1wbGVzW2ldOwog\nICAgfQogICAgaWYgKGkgPT0gaGlnaCkgewogICAgICBoaWdoX3NhbXBsZSA9IHNhbXBsZXNbaV07\nCiAgICB9CiAgfQogIAogIHJldHVybiBtaXgobG93X3NhbXBsZSwgaGlnaF9zYW1wbGUsIGJldGEp\nOwp9Cg==\n"};
     please.prop_map(please.__bundled_glsl, function (name, src) {
         addEventListener("mgrl_gl_context_created", function () {
             // see m.media.js's please.media.handlers.glsl for reference:
