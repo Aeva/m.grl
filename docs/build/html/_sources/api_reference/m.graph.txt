@@ -95,12 +95,14 @@ GraphNodes have some special properties:
 -  **scale** Animatable tripple, used to generate the node's local
    matrix.
 
--  **shader** An object, automatically contains bindings for most GLSL
-   shader variables. Variables with non-zero defaults are be listed
-   below.
+-  **selectable** Defaults to false. Set to true if you want this object
+   to receive picking events.
 
--  **selectable** Defaults to false. May be set to true to allow the
-   object to be considered for picking.
+-  **override\_location\_picking** Defaults to null. This is used to
+   override the 'enable\_location\_info' global setting on a per-object
+   basis. If null, the global setting will be used, otherwise false will
+   disable location info picking for this object, and true will enable
+   it.
 
 -  **visible** Defaults to true. May be set to false to prevent the node
    and its children from being drawn.

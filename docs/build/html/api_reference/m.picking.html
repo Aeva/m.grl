@@ -1,0 +1,171 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>m.picking.js &mdash; M.GRL version zero documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/mgrl.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     'version zero',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="M.GRL version zero documentation" href="../index.html" />
+    <link rel="up" title="API Reference" href="index.html" />
+    <link rel="next" title="m.prefab.js" href="m.prefab.html" />
+    <link rel="prev" title="m.particles.js" href="m.particles.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="m.prefab.html" title="m.prefab.js"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="m.particles.html" title="m.particles.js"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">API Reference</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="m-picking-js">
+<h1>m.picking.js<a class="headerlink" href="#m-picking-js" title="Permalink to this headline">¶</a></h1>
+<p>This part of the module implements the object picking functionality for
+M.GRL. This allows for rudimentry 3D mouse events.</p>
+<p>Here is an example of the most basic usage of this - assigning an event
+handler to a GraphNode, so that it can receive mouse events:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">graph_root</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">SceneGraph</span><span class="p">();</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">picking</span><span class="p">.</span><span class="nx">graph</span> <span class="o">=</span> <span class="nx">graph_root</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">some_critter</span> <span class="o">=</span> <span class="nx">please</span><span class="p">.</span><span class="nx">access</span><span class="p">(</span><span class="s2">&quot;fancy_critter.jta&quot;</span><span class="p">).</span><span class="nx">instance</span><span class="p">();</span>
+<span class="nx">some_critter</span><span class="p">.</span><span class="nx">selectable</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+<span class="nx">some_critter</span><span class="p">.</span><span class="nx">on_click</span><span class="p">.</span><span class="nx">connect</span><span class="p">(</span><span class="kd">function</span> <span class="p">(</span><span class="nx">event</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s2">&quot;Hi Mom!&quot;</span><span class="p">);</span>
+<span class="p">});</span>
+<span class="nx">graph_root</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">some_critter</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>It is possible to get the 3D location of the mouse click as well:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">graph_root</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">SceneGraph</span><span class="p">();</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">picking</span><span class="p">.</span><span class="nx">graph</span> <span class="o">=</span> <span class="nx">graph_root</span><span class="p">;</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">picking</span><span class="p">.</span><span class="nx">enable_location_info</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span> <span class="c1">// &lt;----------</span>
+<span class="nx">graph_root</span><span class="p">.</span><span class="nx">on_mouseup</span><span class="p">.</span><span class="nx">connect</span><span class="p">(</span><span class="kd">function</span> <span class="p">(</span><span class="nx">event</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">coord</span> <span class="o">=</span> <span class="nx">event</span><span class="p">.</span><span class="nx">world_location</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nx">coord</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s2">&quot;Click coordinate: (&quot;</span> <span class="o">+</span> <span class="nx">coord</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;)&quot;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+<p>The following event handlers may be used on either selectable GraphNodes
+(as defined above) or on the root graph node:</p>
+<ul class="simple">
+<li>mousedown</li>
+<li>mouseup</li>
+<li>click</li>
+<li>doubleclick</li>
+</ul>
+<p>For more advanced uses, you can define multiple picking graphs, and
+assign them as &#8220;layers&#8221;. Only one layer may be active at any given
+moment, but you can use an event handler to change the current layer.
+This can be used to implement click-and-drag functionality.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">picking_graph_a</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">SceneGraph</span><span class="p">();</span>
+<span class="kd">var</span> <span class="nx">picking_graph_b</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">please</span><span class="p">.</span><span class="nx">SceneGraph</span><span class="p">();</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">picking</span><span class="p">.</span><span class="nx">graph</span> <span class="o">=</span> <span class="p">[</span><span class="nx">picking_graph_a</span><span class="p">,</span> <span class="nx">picking_graph_b</span><span class="p">];</span>
+<span class="nx">please</span><span class="p">.</span><span class="nx">picking</span><span class="p">.</span><span class="nx">current_layer</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+<span class="nx">picking_graph_a</span><span class="p">.</span><span class="nx">on_mousedown</span><span class="p">.</span><span class="nx">connect</span><span class="p">(</span><span class="kd">function</span> <span class="p">(</span><span class="nx">event</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">please</span><span class="p">.</span><span class="nx">picking</span><span class="p">.</span><span class="nx">current_layer</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s2">&quot;picking layer is now 1&quot;</span><span class="p">);</span>
+<span class="p">});</span>
+
+<span class="nx">picking_graph_b</span><span class="p">.</span><span class="nx">on_mouseup</span><span class="p">.</span><span class="nx">connect</span><span class="p">(</span><span class="kd">function</span> <span class="p">(</span><span class="nx">event</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">please</span><span class="p">.</span><span class="nx">picking</span><span class="p">.</span><span class="nx">current_layer</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s2">&quot;picking layer is now 0&quot;</span><span class="p">);</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+<p>The &#8220;bezier_pick&#8221; demo implements click-and-drag using the picking
+layer API.</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="m.particles.html"
+                        title="previous chapter">m.particles.js</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="m.prefab.html"
+                        title="next chapter">m.prefab.js</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/api_reference/m.picking.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="m.prefab.html" title="m.prefab.js"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="m.particles.html" title="m.particles.js"
+             >previous</a> |</li>
+        <li><a href="../index.html">Contents</a> &raquo;</li>
+          <li><a href="index.html" >API Reference</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>

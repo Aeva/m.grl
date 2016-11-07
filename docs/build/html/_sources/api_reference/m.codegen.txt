@@ -48,15 +48,14 @@ a '@' like in the example below.
     generated();
 
 
-please.__drawable_ir
---------------------
-\*please.\ **drawable\_ir\* **\ (prog, vbo, ibo, ranges, defaults,
+please.__DrawableIR
+-------------------
+\*please.\ **DrawableIR\* **\ (vbo, ibo, ranges, defaults,
 graph\_node)\_\_
 
-Creates a list of IR objects needed to render a partical VBO/IBO of
-data. The only required params are 'prog' and 'vbo'.
-
--  **prog** a compiled shader program object
+Creates an DrawableIR object, which has a "generate" function to produce
+a list of the IR objects needed to render a particular VBO/IBO of data.
+The only required param is 'vbo'.
 
 -  **vbo** a vbo object, as defined in m.gl.buffers.js
 
@@ -72,15 +71,18 @@ data. The only required params are 'prog' and 'vbo'.
 
 -  **graph\_node** a graph node object to optionally data bind against
 
-This method returns a list of strings and IR objects that can be used to
-generate a function.
+Call the 'generate' method with a shader program object as the first
+argument to receive a list of strings and IR objects that can be used to
+generate a function to draw the described object.
 
 
 please.__compile_ir
 -------------------
-\*please.\ **compile\_ir\* **\ (ir\_tokens, cache)\_\_
+\*please.\ **compile\_ir\* **\ (ir\_tokens, cache, [src\_name])\_\_
 
 Takes a list of IR tokens and strings and generates a function from
-them.
+them. Optionally you can pass a name for this function, which is used to
+add a sourceURL directive to the funtion, so that it can be debugged in
+firefox. If src\_name is omitted, then a UUID will be assigned.
 
 

@@ -24,6 +24,7 @@ API Reference
     m.overlay.rst
     m.pages.rst
     m.particles.rst
+    m.picking.rst
     m.prefab.rst
     m.qa.rst
     m.struct.rst

@@ -130,11 +130,13 @@ suffering from gimbal lock. Behind the scenes, m.grl reads from this
 property, not from rotation.</li>
 <li><strong>scale</strong> Animatable tripple, used to generate the node&#8217;s local
 matrix.</li>
-<li><strong>shader</strong> An object, automatically contains bindings for most GLSL
-shader variables. Variables with non-zero defaults are be listed
-below.</li>
-<li><strong>selectable</strong> Defaults to false. May be set to true to allow the
-object to be considered for picking.</li>
+<li><strong>selectable</strong> Defaults to false. Set to true if you want this object
+to receive picking events.</li>
+<li><strong>override_location_picking</strong> Defaults to null. This is used to
+override the &#8216;enable_location_info&#8217; global setting on a per-object
+basis. If null, the global setting will be used, otherwise false will
+disable location info picking for this object, and true will enable
+it.</li>
 <li><strong>visible</strong> Defaults to true. May be set to false to prevent the node
 and its children from being drawn.</li>
 <li><strong>sort_mode</strong> Defaults to &#8220;solid&#8221;, but may be set to &#8220;alpha&#8221; to

@@ -131,6 +131,13 @@ console:
     - Window
 
 
+please.array_src
+----------------
+*please.array\_src* **(array)**
+
+Returns a string representation of a provided array or typed array.
+
+
 please.array_hash
 -----------------
 *please.array\_hash* **(array, digits)**
