@@ -132,7 +132,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var count = 5;
     for (var i=0; i<count; i+=1) {
         point = gavroche_model.instance();
-        point.selectable = true;
         point.shader.mode = 3;
         point.rotation_z = function () {
             return performance.now()/10;
@@ -142,7 +141,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
         graph.add(point);
         controls.push(point);
 
-        point.selectable = true;
         point.on_mousedown = function (event) {
             selected = this;
             drag_mode();
