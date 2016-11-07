@@ -211,14 +211,15 @@ var FloorNode = function () {
         this.__vbo.draw();
     };
 
-    // ----------------------------------------------------
-    // dummy out the remaining lines in this constructor to
-    // force this to be rendered in the legacy path
-    // ----------------------------------------------------
     this.__buffers = {
         "vbo" : this.__vbo,
         "ibo" : null,
     };
+
+    // ----------------------------------------------------
+    // dummy out the remaining lines in this constructor to
+    // force this to be rendered in the legacy path
+    // ----------------------------------------------------
     this.__ir = new please.__DrawableIR(this.__vbo, null, null, null, this);
     this.__ir.dirty.connect(function () {
         if (this.graph_root) {
