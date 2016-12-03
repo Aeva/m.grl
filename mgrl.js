@@ -1428,6 +1428,24 @@ please.__DrawableIR.prototype.freeze = function () {
     Object.freeze(this.__frozen);
     this.dirty();
 };
+// make a copy of this IR object and freeze it
+please.__DrawableIR.prototype.copy_freeze = function () {
+    var defaults = {};
+    for (var key in this.__defaults) if (this.__defaults.hasOwnProperty(key)) {
+        defaults[key] = this.__defaults[key];
+        if (this.__node) {
+            defaults[key] = this.__node.shader[key];
+        }
+    }
+    var copy = new please.__DrawableIR(
+        this.__vbo,
+        this.__ibo,
+        this.__ranges,
+        defaults,
+        null);
+    copy.freeze();
+    return copy;
+};
 please.__DrawableIR.prototype.bindings_for_shader = function (prog) {
     if (!prog) {
         prog = please.gl.__cache.current;
@@ -1478,9 +1496,6 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
         }
         else {
             value = this.__node.__ani_store[name];
-            if (typeof(value) == "string") {
-                value = '"' + value + '"';
-            }
         }
     }
     if (binding) {
@@ -1500,6 +1515,9 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
             token = new please.JSIR('=', cmd, '@', value);
         }
         else {
+            if (typeof(value) == "string") {
+                value = '"' + value + '"';
+            }
             token = new please.JSIR('=', cmd, value);
         }
         this.__uniforms[name] = token;
@@ -8749,12 +8767,29 @@ please.GraphNode.prototype = {
             }
         }
     },
+    "__copy_and_freeze_ir" : function (found) {
+        if (!found) {
+            found = [];
+        }
+        if (this.__ir) {
+            found.push(this.__ir.copy_freeze());
+        }
+        else if (this.__drawable) {
+            console.warn("Attempting to 'stamp' an unfreezable GraphNode.");
+        }
+        for (var c=0; c<this.children.length; c+=1) {
+            this.children[c].all_ir(found);
+        }
+    },
     "freeze" : function () {
         if (this.__ir) {
             this.__ir.freeze();
         }
-        else {
+        else if (this.__drawable) {
             console.warn("Called 'freeze' method of unfreezable GraphNode.");
+        }
+        for (var c=0; c<this.children.length; c+=1) {
+            this.children[c].freeze();
         }
     },
     "__set_graph_root" : function (root) {
@@ -8922,6 +8957,7 @@ please.SceneGraph = function () {
     this.__lights = [];
     this.__statics = [];
     this.__all_drawables = [];
+    this.__drawable_ir = [];
     var find_draw_group = function (node) {
         if (node.__is_light) {
             return this.__lights;
@@ -8933,6 +8969,13 @@ please.SceneGraph = function () {
             return this.__flat;
         }
     }.bind(this);
+    this.stamp = function (node) {
+        var old_count = this.__drawable_ir.length;
+        node.__copy_and_freeze_ir(this.__drawable_ir);
+        if (old_count < this.__drawable_ir.length) {
+            this.__regen_static_draw(node);
+        }
+    };
     this.__track = function (node) {
         var group = find_draw_group(node);
         if (group.indexOf(node) === -1) {
@@ -9795,8 +9838,20 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
         "    return;\n" +
         "}\n" +
         "// BEGIN GENERATED GRAPH RENDERING CODE\n"    );
-    // Generate the IR for rendering the individual graph nodes.
     var state_tracker = {};
+    // Generate the IR for stamped drawables.
+    for (var i=0; i<graph.__drawable_ir.length; i+=1) {
+        var drawable = graph.__drawable_ir[i];
+        var node_ir = drawable.generate(this.__prog, state_tracker);
+        for (var p=0; p<node_ir.length; p+=1) {
+            var token = node_ir[p];
+            if (token.constructor == please.JSIR) {
+                token.compiled = true;
+            }
+            ir.push(token);
+        }
+    }
+    // Generate the IR for rendering the individual graph nodes.    
     for (var s=0; s<graph.__statics.length; s+=1) {
         var node = graph.__statics[s];
         if (this.__is_picking_pass) {
