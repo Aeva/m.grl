@@ -310,8 +310,21 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
 // ☿ endquote
     );
 
-    // Generate the IR for rendering the individual graph nodes.
     var state_tracker = {};
+    // Generate the IR for stamped drawables.
+    ITER(i, graph.__drawable_ir) {
+        var drawable = graph.__drawable_ir[i];
+        var node_ir = drawable.generate(this.__prog, state_tracker);
+        ITER(p, node_ir) {
+            var token = node_ir[p];
+            if (token.constructor == please.JSIR) {
+                token.compiled = true;
+            }
+            ir.push(token);
+        }
+    }
+
+    // Generate the IR for rendering the individual graph nodes.    
     ITER(s, graph.__statics) {
         var node = graph.__statics[s];
         if (this.__is_picking_pass) {

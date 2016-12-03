@@ -534,12 +534,29 @@ please.GraphNode.prototype = {
             }
         }
     },
+    "__copy_and_freeze_ir" : function (found) {
+        if (!found) {
+            found = [];
+        }
+        if (this.__ir) {
+            found.push(this.__ir.copy_freeze());
+        }
+        else if (this.__drawable) {
+            console.warn("Attempting to 'stamp' an unfreezable GraphNode.");
+        }
+        ITER(c, this.children) {
+            this.children[c].all_ir(found);
+        }
+    },
     "freeze" : function () {
         if (this.__ir) {
             this.__ir.freeze();
         }
-        else {
+        else if (this.__drawable) {
             console.warn("Called 'freeze' method of unfreezable GraphNode.");
+        }
+        ITER(c, this.children) {
+            this.children[c].freeze();
         }
     },
     "__set_graph_root" : function (root) {
@@ -716,6 +733,7 @@ please.SceneGraph = function () {
     this.__lights = [];
     this.__statics = [];
     this.__all_drawables = [];
+    this.__drawable_ir = [];
     var find_draw_group = function (node) {
         if (node.__is_light) {
             return this.__lights;
@@ -727,6 +745,13 @@ please.SceneGraph = function () {
             return this.__flat;
         }
     }.bind(this);
+    this.stamp = function (node) {
+        var old_count = this.__drawable_ir.length;
+        node.__copy_and_freeze_ir(this.__drawable_ir);
+        if (old_count < this.__drawable_ir.length) {
+            this.__regen_static_draw(node);
+        }
+    };
     this.__track = function (node) {
         var group = find_draw_group(node);
         if (group.indexOf(node) === -1) {

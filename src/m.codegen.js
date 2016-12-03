@@ -241,6 +241,28 @@ please.__DrawableIR.prototype.freeze = function () {
 };
 
 
+// make a copy of this IR object and freeze it
+please.__DrawableIR.prototype.copy_freeze = function () {
+    var defaults = {};
+    ITER_PROPS(key, this.__defaults) {
+        defaults[key] = this.__defaults[key];
+        if (this.__node) {
+            defaults[key] = this.__node.shader[key];
+        }
+    }
+    
+    var copy = new please.__DrawableIR(
+        this.__vbo,
+        this.__ibo,
+        this.__ranges,
+        defaults,
+        null);
+
+    copy.freeze();
+    return copy;
+};
+
+
 please.__DrawableIR.prototype.bindings_for_shader = function (prog) {
     if (!prog) {
         prog = please.gl.__cache.current;
@@ -296,9 +318,6 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
         }
         else {
             value = this.__node.__ani_store[name];
-            if (typeof(value) == "string") {
-                value = '"' + value + '"';
-            }
         }
     }
 
@@ -319,6 +338,9 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
             token = new please.JSIR('=', cmd, '@', value);
         }
         else {
+            if (typeof(value) == "string") {
+                value = '"' + value + '"';
+            }
             token = new please.JSIR('=', cmd, value);
         }
         this.__uniforms[name] = token;
