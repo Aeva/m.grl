@@ -134,19 +134,25 @@ please.get_properties = Object.getOwnPropertyNames;
 // Attempts to return a deep copy of the object.
 //
 please.copy = function(thing) {
-    if (thing === null || thing === undefined) {
+    if (thing === null ||
+        thing === undefined ||
+        typeof(thing) == "number" ||
+        typeof(thing) == "boolean") {
+        
         return thing;
     }
-    var guess = new thing.constructor(thing);
-    if (guess == thing || ArrayBuffer.isView(guess)) {
-        return guess;
+    if (thing.constructor == String) {
+        return thing.slice(0);
+    }
+    if (ArrayBuffer.isView(thing)) {
+        return new thing.constructor(thing);
     }
     if (Array.isArray(thing)) {
-        guess = new Array(thing.length);
+        var new_thing = new Array(thing.length);
         ITER(i, thing) {
-            guess[i] = please.copy(thing[i]);
+            new_thing[i] = please.copy(thing[i]);
         }
-        return guess;
+        return new_thing;
     }
     throw new Error("Unable to deep copy object: " + thing);
 };
