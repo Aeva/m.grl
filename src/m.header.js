@@ -49,6 +49,7 @@
 #endif
 
 #ifdef WEBGL
+#include "m.heap.js"
 #include "m.gl.js"
 #include "m.gl.buffers.js"
 #include "m.gl.ast.js"
