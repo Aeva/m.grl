@@ -292,6 +292,32 @@ please.split_params = function (line, delim) {
 // for more information.
 //
 please.get_properties = Object.getOwnPropertyNames;
+// [+] please.copy(thing)
+//
+// Attempts to return a deep copy of the object.
+//
+please.copy = function(thing) {
+    if (thing === null ||
+        thing === undefined ||
+        typeof(thing) == "number" ||
+        typeof(thing) == "boolean") {
+        return thing;
+    }
+    if (thing.constructor == String) {
+        return thing.slice(0);
+    }
+    if (ArrayBuffer.isView(thing)) {
+        return new thing.constructor(thing);
+    }
+    if (Array.isArray(thing)) {
+        var new_thing = new Array(thing.length);
+        for (var i=0; i<thing.length; i+=1) {
+            new_thing[i] = please.copy(thing[i]);
+        }
+        return new_thing;
+    }
+    throw new Error("Unable to deep copy object: " + thing);
+};
 // [+] please.Signal(represented)
 //
 // Signals are basically functions that can be given multiple bodies
@@ -1434,7 +1460,11 @@ please.__DrawableIR.prototype.copy_freeze = function () {
     for (var key in this.__defaults) if (this.__defaults.hasOwnProperty(key)) {
         defaults[key] = this.__defaults[key];
         if (this.__node) {
-            defaults[key] = this.__node.shader[key];
+            var value = this.__node.__ani_store[key];
+            if (typeof(value) == "function") {
+                value = value.call(this.__node);
+            }
+            defaults[key] = please.copy(value);
         }
     }
     var copy = new please.__DrawableIR(
@@ -1499,12 +1529,7 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
         }
     }
     if (binding) {
-        if (compiled) {
-            binding.update_arg(1, value);
-        }
-        else {
-            binding.update_arg(1, value);
-        }
+        binding.update_arg(1, value);
     }
     else {
         // create a new token for the uniform binding:
@@ -1515,7 +1540,7 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
             token = new please.JSIR('=', cmd, '@', value);
         }
         else {
-            if (typeof(value) == "string") {
+            if (value.constructor == String) {
                 value = '"' + value + '"';
             }
             token = new please.JSIR('=', cmd, value);
