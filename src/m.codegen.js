@@ -66,6 +66,10 @@ please.JSIR = function (method_string/*, args */) {
     this.compiled = false;
     this.frozen = false;
 
+    // A typed array with the property "__ir_repr", used to override
+    // the compiled output for this object.
+    this.lease = false;
+
     var force_dynamic = false;
     ITER(a, args) {
         if (args[a] === '@') {
@@ -85,11 +89,15 @@ please.JSIR = function (method_string/*, args */) {
 // Generates a line of javascript from the IR objcet.  The values of
 // dynamic variables will be updated into the object provided via the
 // 'cache' parameter.
-please.JSIR.prototype.compile = function (cache) {
+please.JSIR.prototype.compile = function (cache, heap) {
     var args = [this.method];
     ITER(p, this.params) {
         var lookup, param = this.params[p];
-        if (param.dynamic) {
+        if (p == 1 && this.lease) {
+            args.push(this.lease.__ir_repr);
+            break;
+        }
+        else if (param.dynamic) {
             cache[param.id] = param.value;
             lookup = 'this["' + param.id + '"]';
             if (typeof(param.value) == "function") {
@@ -270,7 +278,7 @@ please.__DrawableIR.prototype.copy_freeze = function () {
 };
 
 
-please.__DrawableIR.prototype.bindings_for_shader = function (prog) {
+please.__DrawableIR.prototype.bindings_for_shader = function (prog, heap) {
     if (!prog) {
         prog = please.gl.__cache.current;
     }
@@ -306,12 +314,12 @@ please.__DrawableIR.prototype.bindings_for_shader = function (prog) {
     ITER(u, named_uniforms) {
         var name = named_uniforms[u];
         var value = this.__defaults[name];
-        this.bind_or_update_uniform(name, value);
+        this.bind_or_update_uniform(name, value, heap);
     }
 };
 
 
-please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
+please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value, heap) {
     var binding = this.__uniforms[name] ||  null;
     var compiled = binding ? binding.compiled : false;
 
@@ -350,7 +358,7 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
 };
 
 
-please.__DrawableIR.prototype.generate = function (prog, state_tracker) {
+please.__DrawableIR.prototype.generate = function (prog, state_tracker, heap) {
     this.bindings_for_shader(prog);
     var ir = [];
     ir.push(this.__vbo.static_bind(prog, state_tracker));
@@ -366,16 +374,29 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker) {
         var name = prog.uniform_list[u];
         var token = this.__uniforms[name];
         if (token) {
+            var value = token.params[1];
+            var state_key = "uniform:"+name;
             if (this.__frozen && !token.frozen) {
                 token.freeze();
             }
-            var value = token.params[1];
-            var state_key = "uniform:"+name;
             if (value.dynamic) {
                 ir.push(token);
                 delete state_tracker[state_key];
             }
             else if (state_tracker[state_key] !== value.value) {
+                if (!token.lease) {
+                    var type = null;
+                    var size = value.value.length || null;
+                    if (name.endsWith("matrix")) {
+                        type = Float32Array;
+                    }
+                    if (type && size) {
+                        token.lease = heap.request(type, size);
+                        ITER(r, token.lease) {
+                            token.lease[r] = value.value[r];
+                        }
+                    }
+                }
                 ir.push(token);
                 state_tracker[state_key] = value.value;
             }

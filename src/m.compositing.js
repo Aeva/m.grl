@@ -157,6 +157,7 @@ please.RenderNode = function (prog, options) {
         "prog" : prog,
         "graph" : null,
         "exclude_test" : null,
+        "heap" : new please.Heap(),
     };
     this.__dirty_draw = false;
     this.__graph_set = new please.Signal();
@@ -311,10 +312,12 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     );
 
     var state_tracker = {};
+    
     // Generate the IR for stamped drawables.
+    var heap = this.__static_draw_cache.heap;
     ITER(i, graph.__drawable_ir) {
         var drawable = graph.__drawable_ir[i];
-        var node_ir = drawable.generate(this.__prog, state_tracker);
+        var node_ir = drawable.generate(this.__prog, state_tracker, heap);
         ITER(p, node_ir) {
             var token = node_ir[p];
             if (token.constructor == please.JSIR) {
