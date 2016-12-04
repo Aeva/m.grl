@@ -247,7 +247,11 @@ please.__DrawableIR.prototype.copy_freeze = function () {
     ITER_PROPS(key, this.__defaults) {
         defaults[key] = this.__defaults[key];
         if (this.__node) {
-            defaults[key] = this.__node.shader[key];
+            var value = this.__node.__ani_store[key];
+            if (typeof(value) == "function") {
+                value = value.call(this.__node);
+            }
+            defaults[key] = please.copy(value);
         }
     }
     
@@ -322,12 +326,7 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
     }
 
     if (binding) {
-        if (compiled) {
-            binding.update_arg(1, value);
-        }
-        else {
-            binding.update_arg(1, value);
-        }
+        binding.update_arg(1, value);
     }
     else {
         // create a new token for the uniform binding:
@@ -338,7 +337,7 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
             token = new please.JSIR('=', cmd, '@', value);
         }
         else {
-            if (typeof(value) == "string") {
+            if (value.constructor == String) {
                 value = '"' + value + '"';
             }
             token = new please.JSIR('=', cmd, value);
