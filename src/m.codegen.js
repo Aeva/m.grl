@@ -244,9 +244,12 @@ please.__DrawableIR.prototype.freeze = function () {
 // make a copy of this IR object and freeze it
 please.__DrawableIR.prototype.copy_freeze = function () {
     var defaults = {};
+    ITER_PROPS(key, this.__node.__ani_cache) {
+        this.__node.__ani_cache[key] = null;
+    }
     ITER_PROPS(key, this.__defaults) {
         defaults[key] = this.__defaults[key];
-        if (this.__node) {
+        if (this.__node && this.__node.__ani_store[key]) {
             var value = this.__node.__ani_store[key];
             if (typeof(value) == "function") {
                 value = value.call(this.__node);

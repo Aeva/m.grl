@@ -85,8 +85,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // Because everything uses a common rendering system, you can mix
     // 2D and 3D assets.
     var camera = demo.camera = new please.CameraNode();
-    camera.look_at = [0, 0, 0];
-    camera.location = [0, -60, 50];
+    camera.look_at = [0, 0, -10];
+    camera.location = please.shift_driver([0, 5, 5], [0, -70, 50], 10000);
     camera.far = 1000;
     
     // Add the camera to the graph and activate it.  Activation is
@@ -102,17 +102,22 @@ addEventListener("mgrl_media_ready", please.once(function () {
 
     // Background tiles.
     var area = 50;
+    demo.tile_count = 0;
     for (var y=-area; y<=area; y+=1) {
         for (var x=-area; x<=area; x+=1) {
-            cursor.location = [x, y, 0];
+            var z = Math.random() * 5;
+            cursor.location = [x, y, z];
             cursor.scale = [.25, .25, .25];
+            var rotation = 0;
             if (y%2) {
-                cursor.rotation_x = 180;
+                rotation += 180;
             }
             if (x%2) {
-                cursor.rotation_x += 180;
+                rotation += 180;
             }
+            cursor.rotation_x = rotation % 360;
             graph.stamp(cursor);
+            demo.tile_count += 1;
         }
     }
 
