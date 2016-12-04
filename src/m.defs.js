@@ -129,6 +129,29 @@ please.split_params = function (line, delim) {
 please.get_properties = Object.getOwnPropertyNames;
 
 
+// [+] please.copy(thing)
+//
+// Attempts to return a deep copy of the object.
+//
+please.copy = function(thing) {
+    if (thing === null || thing === undefined) {
+        return thing;
+    }
+    var guess = new thing.constructor(thing);
+    if (guess == thing || ArrayBuffer.isView(guess)) {
+        return guess;
+    }
+    if (Array.isArray(thing)) {
+        guess = new Array(thing.length);
+        ITER(i, thing) {
+            guess[i] = please.copy(thing[i]);
+        }
+        return guess;
+    }
+    throw new Error("Unable to deep copy object: " + thing);
+};
+
+
 // [+] please.Signal(represented)
 //
 // Signals are basically functions that can be given multiple bodies
