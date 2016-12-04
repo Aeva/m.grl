@@ -69,6 +69,7 @@ please.JSIR = function (method_string/*, args */) {
     // A typed array with the property "__ir_repr", used to override
     // the compiled output for this object.
     this.lease = false;
+    this.lease_overrides = -1;
 
     var force_dynamic = false;
     ITER(a, args) {
@@ -93,9 +94,9 @@ please.JSIR.prototype.compile = function (cache, heap) {
     var args = [this.method];
     ITER(p, this.params) {
         var lookup, param = this.params[p];
-        if (p == 1 && this.lease) {
+        if (this.lease && p == this.lease_overrides) {
             args.push(this.lease.__ir_repr);
-            break;
+            continue;
         }
         else if (param.dynamic) {
             cache[param.id] = param.value;
@@ -157,6 +158,25 @@ please.JSIR.prototype.freeze = function () {
 };
 
 
+// Creates and returns a JSIR token fol assigning data to a variable.
+please.JSIR.create_for_setter = function (setter_str, data) {
+    if (typeof(data) == "function") {
+        var token = new please.JSIR('=', setter_str, '@', data);
+    }
+    else {
+        if (data === null) {
+            data = "null";
+        }
+        else if (data.constructor == String) {
+            data = '"' + data + '"';
+        }
+        var token = new please.JSIR('=', setter_str, data);
+    }
+    token.lease_overrides = 1;
+    return token;
+};
+
+
 // Updates the value of one of the parameters in the IR object.  If
 // the IR object was used in the compilation of a draw function
 // already, then this will also force the parameter to become dynamic
@@ -208,12 +228,13 @@ please.__DrawableIR = function (vbo, ibo, ranges, defaults, graph_node) {
 
     // recompile signal
     this.dirty = new please.Signal();
-
-    // add initial uniform bindings
-    this.bindings_for_shader(null);
-
-    // connect to GraphNode's dirty signal
+    
     if (graph_node) {
+        // populate defaults
+        //this.populate_defaults();
+        //this.bindings_for_shader(null, null);
+
+        // connect to GraphNode's dirty signal
         graph_node.__uniform_update.connect(function (target, prop, obj) {
             this.bind_or_update_uniform(prop, obj.__ani_store[prop]);
             this.dirty();
@@ -256,8 +277,10 @@ please.__DrawableIR.prototype.copy_freeze = function () {
         this.__node.__ani_cache[key] = null;
     }
     ITER_PROPS(key, this.__defaults) {
-        defaults[key] = this.__defaults[key];
-        if (this.__node && this.__node.__ani_store[key]) {
+        defaults[key] = please.copy(this.__defaults[key]);
+    }
+    if (this.__node) {
+        ITER_PROPS(key, this.__node.__ani_store) {
             var value = this.__node.__ani_store[key];
             if (typeof(value) == "function") {
                 value = value.call(this.__node);
@@ -265,7 +288,6 @@ please.__DrawableIR.prototype.copy_freeze = function () {
             defaults[key] = please.copy(value);
         }
     }
-    
     var copy = new please.__DrawableIR(
         this.__vbo,
         this.__ibo,
@@ -280,7 +302,8 @@ please.__DrawableIR.prototype.copy_freeze = function () {
 
 please.__DrawableIR.prototype.bindings_for_shader = function (prog, heap) {
     if (!prog) {
-        prog = please.gl.__cache.current;
+        return;
+        //prog = please.gl.__cache.current;
     }
     var named_uniforms = [];
     var named_defaults = please.get_properties(this.__defaults);
@@ -314,12 +337,12 @@ please.__DrawableIR.prototype.bindings_for_shader = function (prog, heap) {
     ITER(u, named_uniforms) {
         var name = named_uniforms[u];
         var value = this.__defaults[name];
-        this.bind_or_update_uniform(name, value, heap);
+        this.bind_or_update_uniform(name, value, prog, heap);
     }
 };
 
 
-please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value, heap) {
+please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value, prog, heap) {
     var binding = this.__uniforms[name] ||  null;
     var compiled = binding ? binding.compiled : false;
 
@@ -337,29 +360,18 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value, he
     }
 
     if (binding) {
-        binding.update_arg(1, value);
+        binding.update_arg(binding.lease_overrides, value);
     }
-    else {
-        // create a new token for the uniform binding:
-        var target = value !== null && value.constructor == String ? "samplers" : "vars";
-        var cmd = "this.prog." + target + "['"+name+"']";
-        var token;
-        if (typeof(value) == "function") {
-            token = new please.JSIR('=', cmd, '@', value);
-        }
-        else {
-            if (value.constructor == String) {
-                value = '"' + value + '"';
-            }
-            token = new please.JSIR('=', cmd, value);
-        }
-        this.__uniforms[name] = token;
+    else if (prog) {
+        // only create a new token / binding when we have an
+        // associated shader:
+        this.__uniforms[name] = prog.__lookup_ir(name, value, heap);
     }    
 };
 
 
 please.__DrawableIR.prototype.generate = function (prog, state_tracker, heap) {
-    this.bindings_for_shader(prog);
+    this.bindings_for_shader(prog, heap);
     var ir = [];
     ir.push(this.__vbo.static_bind(prog, state_tracker));
     if (this.__ibo) {
@@ -374,7 +386,7 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker, heap) {
         var name = prog.uniform_list[u];
         var token = this.__uniforms[name];
         if (token) {
-            var value = token.params[1];
+            var value = token.params[token.lease_overrides];
             var state_key = "uniform:"+name;
             if (this.__frozen && !token.frozen) {
                 token.freeze();
@@ -384,19 +396,6 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker, heap) {
                 delete state_tracker[state_key];
             }
             else if (state_tracker[state_key] !== value.value) {
-                if (!token.lease) {
-                    var type = null;
-                    var size = value.value.length || null;
-                    if (name.endsWith("matrix")) {
-                        type = Float32Array;
-                    }
-                    if (type && size) {
-                        token.lease = heap.request(type, size);
-                        ITER(r, token.lease) {
-                            token.lease[r] = value.value[r];
-                        }
-                    }
-                }
                 ir.push(token);
                 state_tracker[state_key] = value.value;
             }
