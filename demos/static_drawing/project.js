@@ -86,7 +86,8 @@ addEventListener("mgrl_media_ready", please.once(function () {
     // 2D and 3D assets.
     var camera = demo.camera = new please.CameraNode();
     camera.look_at = [0, 0, 0];
-    camera.location = [20, -20, 20];
+    camera.location = [0, -60, 50];
+    camera.far = 1000;
     
     // Add the camera to the graph and activate it.  Activation is
     // only needed when using more than one camera per scene, which we
@@ -100,8 +101,9 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var cursor = please.access("flip_tile.jta").instance();
 
     // Background tiles.
-    for (var y=-5; y<=5; y+=1) {
-        for (var x=-5; x<=5; x+=1) {
+    var area = 50;
+    for (var y=-area; y<=area; y+=1) {
+        for (var x=-area; x<=area; x+=1) {
             cursor.location = [x, y, 0];
             cursor.scale = [.25, .25, .25];
             if (y%2) {
