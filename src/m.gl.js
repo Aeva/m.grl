@@ -69,6 +69,7 @@ please.gl.set_context = function (canvas_id, options) {
     }
     else {
         window.gl = this.ctx;
+        please.gl.__run_custom_poly_fills();
         
         // look for common extensions
         var search = [
@@ -118,7 +119,40 @@ please.gl.set_context = function (canvas_id, options) {
         // initialize the picking system
         please.__init_picking();
     }
-},
+};
+
+
+please.gl.__run_custom_poly_fills = function () {
+    var fills = [
+        "uniformMatrix2f",
+        "uniformMatrix3f",
+        "uniformMatrix4f",
+    ];
+    ITER(f, fills) {
+        var size = 2+f;
+        var name = fills[f];
+        if (!gl[name]) {
+            var args = ["pointer", "transpose"]
+            var vargs = [];
+            var slots = size*size;
+            for (var a=0; a<slots; a+=1) {
+                vargs.push("m"+a);
+            };
+            var proxy_to = "gl."+name+"v";
+            var array = "new Float32Array(" + slots + ")";
+            var all_args = (args.concat(vargs)).join(", ")
+            
+            var src = "(function("+all_args+") {\n";
+            src += "\tvar array = "+array+";\n";
+            for (var a=0; a<slots; a+=1) {
+                src += "\tarray["+a+"] = "+vargs[a]+";\n";
+            }
+            src += "\t"+proxy_to+"(" + args.join(", ") + ", array);\n";
+            src += "})\n";
+            gl[name] = eval(src);
+        }
+    };
+};
 
 
 // [+] please.gl.get_program(name)
