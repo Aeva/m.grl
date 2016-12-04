@@ -666,25 +666,6 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     u_map[gl.BOOL_VEC4] = "4iv";
     u_map[gl.SAMPLER_2D] = "1iv";
 
-    // uniform array type lookup
-    var u_types = {}
-    u_types[gl.FLOAT] = Float32Array;
-    u_types[gl.FLOAT_VEC2] = Float32Array;
-    u_types[gl.FLOAT_VEC3] = Float32Array;
-    u_types[gl.FLOAT_VEC4] = Float32Array;
-    u_types[gl.FLOAT_MAT2] = Float32Array;
-    u_types[gl.FLOAT_MAT3] = Float32Array;
-    u_types[gl.FLOAT_MAT4] = Float32Array;
-    u_types[gl.INT] = Int32Array;
-    u_types[gl.INT_VEC2] = Int32Array;
-    u_types[gl.INT_VEC3] = Int32Array;
-    u_types[gl.INT_VEC4] = Int32Array;
-    u_types[gl.BOOL] = Int8Array;
-    u_types[gl.BOOL_VEC2] = Int8Array;
-    u_types[gl.BOOL_VEC3] = Int8Array;
-    u_types[gl.BOOL_VEC4] = Int8Array;
-    u_types[gl.SAMPLER_2D] = Int32Array;
-
     // 
     var sampler_uniforms = [];
 
@@ -939,26 +920,12 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         prog.binding_info[uniform_data.name, binding_name] = uniform_data;
     }
 
-    // Requests a typed Heap lease for a given uniform name.  Returns
-    // null if no lease can be made.
-    prog.__lease_for_uni = function (uniform_name, heap) {
-        if (prog.sampler_list.indexOf(uniform_name) !== -1) {
-            return null;
-        }
-        var ref = type_reference[uniform_name] || null;
-        if (ref) {
-            var size = ref.size;
-            var hint = ref.hint;
-            if (size !== null && size > 1) {
-                return heap.request(u_types[hint], size);
-            }
-        }
-        return null;
-    };
-
     // Returns a JSIR token for the GL call needed to
     // update a given uniform.
-    prog.__lookup_ir = function (uniform_name, data, heap) {
+    prog.__lookup_ir = function (uniform_name, data) {
+        if (data === null) {
+            throw new Error("prog.__lookup_ir does not accept null value args");
+        }
         var type = type_reference[uniform_name].hint;
         var size = type_reference[uniform_name].size;
         var uni = "uniform" + u_map[type];
@@ -968,38 +935,32 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         var is_matrix = uni.indexOf("Matrix") > -1;
         var token = null;
         if (!is_dynamic && !is_sampler) {
-            if (!is_array) {
-                uni = uni.slice(0,-1);
-            }
-            var method = "gl." + uni;
+            var non_ptr_method = uni.slice(0,-1);
+            var flat_args = !!gl[non_ptr_method];
+            var method = "gl." + (flat_args? non_ptr_method : uni);
             var pointer = "gl.getUniformLocation(this.prog.id, '"+uniform_name+"')";
+            var args_array = [pointer];
             if (is_matrix) {
-                token = new please.JSIR(method, pointer, false, data);
-                token.lease_overrides = 2;
+                args_array.push(false); // no need to transpose.
+            }
+            if (flat_args && data.length) {
+                ITER(d, data) {
+                    args_array.push(data[d]);
+                }
             }
             else {
-                token = new please.JSIR(method, pointer, data);
-                token.lease_overrides = 1;
+                args_array.push(data);
             }
-            token.hint = "uniform_gl_call";
+            token = new please.JSIR(method, args_array);
+            if (!is_array) {
+                token.flexible_param = args_array.length-1;
+            }
         }
         else {
             var target = is_sampler ? "samplers" : "vars";
             var cmd = "this.prog." + target + "['"+uniform_name+"']";
             token = please.JSIR.create_for_setter(cmd, data);
-            token.hint = "uniform_setter";
         }
-        token.uniform_name = uniform_name;
-
-        if (heap) {
-            token.lease = prog.__lease_for_uni(uniform_name, heap);
-            if (token.lease) {
-                ITER(v, token.lease) {
-                    token.lease[v] = data[v];
-                }
-            }
-        }
-        
         return token;
     };
 

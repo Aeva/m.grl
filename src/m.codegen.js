@@ -59,46 +59,60 @@ please.format_invocation = function (method_string/*, args */) {
 // generated();
 // ```
 //
-please.JSIR = function (method_string/*, args */) {
-    var args = Array.apply(null, arguments).slice(1);
+please.JSIR = function (method_string, args_array) {
     this.method = method_string;
     this.params = [];
     this.compiled = false;
     this.frozen = false;
-
-    // A typed array with the property "__ir_repr", used to override
-    // the compiled output for this object.
-    this.lease = false;
-    this.lease_overrides = -1;
+    this.flexible_param = null; // null or param index
+    this.__cache_key = null;
 
     var force_dynamic = false;
-    ITER(a, args) {
-        if (args[a] === '@') {
+    ITER(a, args_array) {
+        if (args_array[a] === '@') {
             force_dynamic = true;
             continue;
         }
+        var is_dynamic = force_dynamic || typeof(args_array[a]) == "function";
         this.params.push({
             "id" : please.uuid(),
-            "value" : args[a],
-            "dynamic" : force_dynamic || typeof(args[a]) == "function",
+            "value" : args_array[a],
+            "dynamic" : is_dynamic,
         });
         force_dynamic = false;
     }
 };
 
 
+// Generates a cache key for comparison with other similarly
+// intentioned invocations.
+please.JSIR.prototype.cache_key = function () {
+    if (this.__cache_key === null) {
+        var new_key = this.method + ":";
+        ITER(p, this.params) {
+            var param = this.params[p];
+            if (param.dynamic) {
+                // don't update the cache key
+                return;
+            }
+            else {
+                new_key += param.value + ":";
+            }
+        }
+        this.__cache_key = new_key;
+    }
+    return this.__cache_key;
+};
+
+
 // Generates a line of javascript from the IR objcet.  The values of
 // dynamic variables will be updated into the object provided via the
 // 'cache' parameter.
-please.JSIR.prototype.compile = function (cache, heap) {
+please.JSIR.prototype.compile = function (cache) {
     var args = [this.method];
     ITER(p, this.params) {
         var lookup, param = this.params[p];
-        if (this.lease && p == this.lease_overrides) {
-            args.push(this.lease.__ir_repr);
-            continue;
-        }
-        else if (param.dynamic) {
+        if (param.dynamic) {
             cache[param.id] = param.value;
             lookup = 'this["' + param.id + '"]';
             if (typeof(param.value) == "function") {
@@ -161,7 +175,7 @@ please.JSIR.prototype.freeze = function () {
 // Creates and returns a JSIR token fol assigning data to a variable.
 please.JSIR.create_for_setter = function (setter_str, data) {
     if (typeof(data) == "function") {
-        var token = new please.JSIR('=', setter_str, '@', data);
+        var token = new please.JSIR('=', [setter_str, '@', data]);
     }
     else {
         if (data === null) {
@@ -170,9 +184,9 @@ please.JSIR.create_for_setter = function (setter_str, data) {
         else if (data.constructor == String) {
             data = '"' + data + '"';
         }
-        var token = new please.JSIR('=', setter_str, data);
+        var token = new please.JSIR('=', [setter_str, data]);
     }
-    token.lease_overrides = 1;
+    token.flexible_param = 1;
     return token;
 };
 
@@ -183,12 +197,15 @@ please.JSIR.create_for_setter = function (setter_str, data) {
 // if it was not already.
 please.JSIR.prototype.update_arg = function (index, value, cache) {
     var param = this.params[index];
-    param.value = value;
-    if (this.compiled || typeof(value) == "function") {
-        param.dynamic = true;
-    }
-    if (cache) {
-        cache[param.id] = value;
+    if (param.value !== value) {
+        this.__cache_key = null;
+        param.value = value;
+        if (this.compiled || typeof(value) == "function") {
+            param.dynamic = true;
+        }
+        if (cache) {
+            cache[param.id] = value;
+        }
     }
 };
 
@@ -300,7 +317,7 @@ please.__DrawableIR.prototype.copy_freeze = function () {
 };
 
 
-please.__DrawableIR.prototype.bindings_for_shader = function (prog, heap) {
+please.__DrawableIR.prototype.bindings_for_shader = function (prog) {
     if (!prog) {
         return;
         //prog = please.gl.__cache.current;
@@ -337,12 +354,12 @@ please.__DrawableIR.prototype.bindings_for_shader = function (prog, heap) {
     ITER(u, named_uniforms) {
         var name = named_uniforms[u];
         var value = this.__defaults[name];
-        this.bind_or_update_uniform(name, value, prog, heap);
+        this.bind_or_update_uniform(name, value, prog);
     }
 };
 
 
-please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value, prog, heap) {
+please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value, prog) {
     var binding = this.__uniforms[name] ||  null;
     var compiled = binding ? binding.compiled : false;
 
@@ -360,18 +377,24 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value, pr
     }
 
     if (binding) {
-        binding.update_arg(binding.lease_overrides, value);
+        if (binding.flexible_param !== null) {
+            binding.update_arg(binding.flexible_param, value);
+        }
+        else {
+            // can't update the binding, so just regenerate it
+            binding = this.__uniforms[name] = null;
+        }
     }
-    else if (prog) {
+    if (!binding && prog && value !== null) {
         // only create a new token / binding when we have an
         // associated shader:
-        this.__uniforms[name] = prog.__lookup_ir(name, value, heap);
+        this.__uniforms[name] = prog.__lookup_ir(name, value);
     }    
 };
 
 
-please.__DrawableIR.prototype.generate = function (prog, state_tracker, heap) {
-    this.bindings_for_shader(prog, heap);
+please.__DrawableIR.prototype.generate = function (prog, state_tracker) {
+    this.bindings_for_shader(prog);
     var ir = [];
     ir.push(this.__vbo.static_bind(prog, state_tracker));
     if (this.__ibo) {
@@ -386,18 +409,14 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker, heap) {
         var name = prog.uniform_list[u];
         var token = this.__uniforms[name];
         if (token) {
-            var value = token.params[token.lease_overrides];
-            var state_key = "uniform:"+name;
             if (this.__frozen && !token.frozen) {
                 token.freeze();
             }
-            if (value.dynamic) {
+            var state_key = "uniform:"+name;
+            var state_cmp = token.cache_key()
+            if (state_cmp === null || state_tracker[state_key] !== state_cmp) {
                 ir.push(token);
-                delete state_tracker[state_key];
-            }
-            else if (state_tracker[state_key] !== value.value) {
-                ir.push(token);
-                state_tracker[state_key] = value.value;
+                state_tracker[state_key] = state_cmp;
             }
         }
     }
