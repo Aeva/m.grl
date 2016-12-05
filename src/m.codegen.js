@@ -93,7 +93,7 @@ please.JSIR.prototype.cache_key = function () {
             var param = this.params[p];
             if (param.dynamic) {
                 // don't update the cache key
-                return;
+                return null;
             }
             else {
                 new_key += param.value + ":";
@@ -439,15 +439,21 @@ please.__compile_ir = function (ir_tokens, cache, src_name) {
     ITER(t, ir_tokens) {
         var token = ir_tokens[t];
         if (token.constructor == String) {
-            src += token;
+            var trimmed = token.trim();
+            if (trimmed) {
+                src += trimmed + "\n";
+            }
+            else {
+                continue;
+            }
         }
         else if (token.compile) {
-            src += token.compile(cache);
+            src += token.compile(cache).trim() + "\n";
         }
         else {
             throw new Error("Invalid IR token.");
         }
-        src += "\n";
+        //src += "\n";
     }
     if (!src_name) {
         src_name = please.uuid();
