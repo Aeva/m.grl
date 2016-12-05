@@ -39,8 +39,8 @@ addEventListener("load", function setup () {
 
     // Define where m.grl is to find various assets when using the
     // load methed.
-    please.set_search_path("img", "images/");
-    please.set_search_path("jta", "models/");
+    please.set_search_path("img", "../gl_assets/img/");
+    please.set_search_path("jta", "../gl_assets/models/");
     
     // Queue up assets to be downloaded before the game starts.
     please.load("gavroche_hall.jta");
