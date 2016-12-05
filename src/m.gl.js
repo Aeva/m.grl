@@ -782,10 +782,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                         else {
                             number = value[0];
                         }
-                        if (prog.__cache.vars[binding_name] !== number) {
-                            prog.__cache.vars[binding_name] = number;
-                            return gl[uni](pointer, upload);
-                        }
+                        prog.__cache.vars[binding_name] = number;
+                        return gl[uni](pointer, upload);
                     }
                 }
                 else if (data.type === gl.INT || data.type === gl.BOOL) {
@@ -800,10 +798,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                             else {
                                 number = value[0];
                             }
-                            if (prog.__cache.vars[binding_name] !== number) {
-                                prog.__cache.vars[binding_name] = number;
-                                return gl[uni](pointer, upload);
-                            }
+                            prog.__cache.vars[binding_name] = number;
+                            return gl[uni](pointer, upload);
                         }
                     }
                     else {
@@ -826,11 +822,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                             else {
                                 throw new TypeError("Invalid enum: " + value);
                             }
-                            if (prog.__cache.vars[binding_name] !== found) {
-                                prog.__cache.vars[binding_name] = found;
-                                var upload = new Int32Array([found]);
-                                return gl[uni](pointer, upload);
-                            }
+                            prog.__cache.vars[binding_name] = found;
+                            var upload = new Int32Array([found]);
+                            return gl[uni](pointer, upload);
                         }
                     }
                 }
@@ -862,10 +856,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             if (!is_array) {
                 // This is the setter binding for sampler type uniforms variables.
                 setter_method = function (value) {
-                    if (prog.__cache.vars[binding_name] !== value) {
-                        prog.__cache.vars[binding_name] = value;
-                        return gl[uni](pointer, new Int32Array([value]));
-                    }
+                    prog.__cache.vars[binding_name] = value;
+                    return gl[uni](pointer, new Int32Array([value]));
                 };
             }
             else {
