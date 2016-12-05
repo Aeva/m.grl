@@ -287,6 +287,7 @@ please.time.__schedule_handler = function () {
 please.time.add_score = function (node, action_name, frame_set) {
     var next_frame; // last frame number called
     var current_ani = null; // current action
+    var atend = null; // callback when animation ends
     var expected_next = null; // expected time stamp for the next frame
 
     var reset = function () {
@@ -332,19 +333,23 @@ please.time.add_score = function (node, action_name, frame_set) {
             please.time.schedule(frame_handler, 0);
         }
         else if (action.queue && node.actions[action.queue]) {
-            // animatino finished, doesn't repeat, defines an action
+            // animation finished, doesn't repeat, defines an action
             // to play afterwards, so play that.
             reset();
             current_action = action.queue;
             please.time.schedule(frame_handler, 0);
         }
+        else if (atend) {
+            atend();
+        }
     };
     
-    // start_animation is mixed into node objects as node.start
-    var start_animation = function (action_name) {
+    // start_animation is mixed into node objects as node.play
+    var start_animation = function (action_name, atend_cb) {
         if (node.actions[action_name]) {
             reset();
             current_ani = action_name;
+            atend = atend_cb;
             please.time.schedule(frame_handler, 0);
         }
         else {
@@ -355,6 +360,7 @@ please.time.add_score = function (node, action_name, frame_set) {
     // stop_animation is mixed into node objects as node.stop
     var stop_animation = function () {
         current_ani = null;
+        atend = null;
         please.time.remove(frame_handler);
     };
 
