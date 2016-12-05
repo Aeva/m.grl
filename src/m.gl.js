@@ -69,7 +69,6 @@ please.gl.set_context = function (canvas_id, options) {
     }
     else {
         window.gl = this.ctx;
-        please.gl.__run_custom_poly_fills();
         
         // look for common extensions
         var search = [
@@ -122,37 +121,40 @@ please.gl.set_context = function (canvas_id, options) {
 };
 
 
-please.gl.__run_custom_poly_fills = function () {
-    var fills = [
-        "uniformMatrix2f",
-        "uniformMatrix3f",
-        "uniformMatrix4f",
-    ];
-    ITER(f, fills) {
-        var size = 2+f;
-        var name = fills[f];
-        if (!gl[name]) {
-            var args = ["pointer", "transpose"]
-            var vargs = [];
-            var slots = size*size;
-            for (var a=0; a<slots; a+=1) {
-                vargs.push("m"+a);
-            };
-            var proxy_to = "gl."+name+"v";
-            var array = "new Float32Array(" + slots + ")";
-            var all_args = (args.concat(vargs)).join(", ")
-            
-            var src = "(function("+all_args+") {\n";
-            src += "\tvar array = "+array+";\n";
-            for (var a=0; a<slots; a+=1) {
-                src += "\tarray["+a+"] = "+vargs[a]+";\n";
-            }
-            src += "\t"+proxy_to+"(" + args.join(", ") + ", array);\n";
-            src += "})\n";
-            gl[name] = eval(src);
+please.gl.__register = new (function () {
+    var period = Float32Array.BYTES_PER_ELEMENT;
+    var size = period * 29;
+    var buffer = new ArrayBuffer(size);
+    this.__mat2 = new Float32Array(buffer, 0, 4);
+    this.__mat3 = new Float32Array(buffer, this.__mat2.byteLength, 9);
+    this.__mat4 = new Float32Array(buffer, this.__mat3.byteLength, 16);
+    
+    var meta_compactor = (function (access) {
+        var store = this[access];
+        var slots = store.length;
+        var args = [];
+        var writes = "";
+        ITER(a, store) {
+            args.push("a"+a);
+            writes += "    store["+a+"] = a"+a+";\n";
         }
-    };
-};
+        var src = String(
+// ☿ quote
+(function (ARGUMENTS) {
+ASSIGNMENTS
+    return store;
+});
+// ☿ endquote
+        );
+        src = src.replace("ARGUMENTS", args.join(", "));
+        src = src.replace("ASSIGNMENTS", writes);
+        return eval(src);
+    }).bind(this);
+
+    this.mat2 = meta_compactor("__mat2");
+    this.mat3 = meta_compactor("__mat3");
+    this.mat4 = meta_compactor("__mat4");
+});
 
 
 // [+] please.gl.get_program(name)
@@ -983,7 +985,15 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 }
             }
             else {
-                args_array.push(data);
+                if (is_matrix) {
+                    var handle = "mat4"; // wrong
+                    var register = "please.gl.__register." + handle;
+                    var src = register+"(" + data.join(", ") + ")";
+                    args_array.push(src);
+                }
+                else {
+                    args_array.push(data);
+                }
             }
             token = new please.JSIR(method, args_array);
             if (!is_array) {
