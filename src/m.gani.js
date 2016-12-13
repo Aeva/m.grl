@@ -281,9 +281,9 @@ please.media.__AnimationInstance = function (animation_data) {
     // get_current_frame retrieves the frame that currently should be
     // visible
     ani.get_current_frame = function (progress) {
-        if (progress > ani.data.durration) {
+        if (progress > ani.data.duration) {
             if (ani.data.looping && !typeof(ani.data.setbackto) === "number") {
-                progress = progress % ani.data.durration;
+                progress = progress % ani.data.duration;
             }
             else {
                 return -1;
@@ -483,7 +483,7 @@ please.media.__AnimationData = function (gani_text, uri) {
         */
 
         "base_speed" : 50,
-        "durration" : 0,
+        "duration" : 0,
         
         "single_dir" : false,
         "looping" : false,
@@ -679,9 +679,9 @@ please.media.__AnimationData = function (gani_text, uri) {
         }
     }
 
-    // calculate animation durration
+    // calculate animation duration
     ITER(i, ani.frames) {
-        ani.durration += ani.frames[i].wait;
+        ani.duration += ani.frames[i].wait;
     };
 
 
