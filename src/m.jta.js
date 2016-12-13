@@ -281,7 +281,7 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
                 }
             }
         }
-        return function(speed, skip_to) {
+        return function(node, speed, skip_to) {
             ITER(p, all_updates) {
                 var object_id = all_updates[p];
                 var obj_start = start_updates[object_id] || null;
