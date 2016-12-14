@@ -801,7 +801,9 @@ please.media.__AnimationData = function (gani_text, uri) {
         node.__current_frame = null;
 
         var action_name = get_action_name(this.__uri);
-        setup_callback(this);
+        if (setup_callback) {
+            setup_callback(this);
+        }
 
         // Bind new attributes
         please.prop_map(this.attrs, function (name, value) {
@@ -827,21 +829,13 @@ please.media.__AnimationData = function (gani_text, uri) {
         node.samplers = {};
         node.draw_type = "sprite";
         node.sort_mode = "alpha";
-
-        var setup_callback = function (resource) {
-            if (!resource.ibo) {
-                // build the VBO and IBO for this animation.
-                please.gani.build_gl_buffers(resource);
-            }
-        };
-
-        ani.__common_mixin(node, setup_callback);
+        ani.__common_mixin(node);
 
         // draw function for the animation
         node.draw = function () {
             var frame = node.__current_frame;
             var resource = node.__current_gani;
-            if (frame) {
+            if (frame && resource.vbo) {
                 if (node.sort_mode === "alpha") {
                     gl.depthMask(false);
                 }
@@ -880,6 +874,10 @@ please.media.__AnimationData = function (gani_text, uri) {
                     gl.disable(gl.POLYGON_OFFSET_FILL);
                 }
             }
+            else if (!resource.vbo) {
+                // Try to build the resource if the vbo is not set.
+                please.gani.build_gl_buffers(resource);
+            }
         };
         return node;
     };
@@ -910,7 +908,7 @@ please.media.__AnimationData = function (gani_text, uri) {
 // animation object.
 //
 please.gani.build_gl_buffers = function (ani) {
-    if (ani.vbo && ani.ibo) {
+    if (ani.vbo) {
         // Buffer objects are already present, so do nothing.
         return;
     }
@@ -926,8 +924,11 @@ please.gani.build_gl_buffers = function (ani) {
         if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".gif") || lower.endsWith(".jpeg")) {
             // it is required that the default images are
             // all loaded before the vbo can be built
-            var asset = please.access(asset_name, false);
-            console.assert(asset);
+            var asset = please.access(asset_name, true);
+            if (!asset) {
+                console.warn("Unable to display gani, waiting for required images.");
+                return;
+            }
             images[sprite] = asset;
         }
     };
