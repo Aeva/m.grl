@@ -347,9 +347,9 @@ please.Signal = function (wrapped) {
     };
     signal.connect = function (callback) {
         callbacks.push(callback);
-    }
+    };
     return signal;
-}
+};
 // [+] please.array_hash(array, digits)
 // 
 // Returns a string that represents the array.  This is mainly used
@@ -1593,6 +1593,7 @@ please.time.__schedule_handler = function () {
 please.time.add_score = function (node, action_name, frame_set) {
     var next_frame; // last frame number called
     var current_ani = null; // current action
+    var atend = null; // callback when animation ends
     var expected_next = null; // expected time stamp for the next frame
     var reset = function () {
         next_frame = 0;
@@ -1633,18 +1634,22 @@ please.time.add_score = function (node, action_name, frame_set) {
             please.time.schedule(frame_handler, 0);
         }
         else if (action.queue && node.actions[action.queue]) {
-            // animatino finished, doesn't repeat, defines an action
+            // animation finished, doesn't repeat, defines an action
             // to play afterwards, so play that.
             reset();
             current_action = action.queue;
             please.time.schedule(frame_handler, 0);
         }
+        else if (atend) {
+            atend();
+        }
     };
-    // start_animation is mixed into node objects as node.start
-    var start_animation = function (action_name) {
+    // start_animation is mixed into node objects as node.play
+    var start_animation = function (action_name, atend_cb) {
         if (node.actions[action_name]) {
             reset();
             current_ani = action_name;
+            atend = atend_cb;
             please.time.schedule(frame_handler, 0);
         }
         else {
@@ -1654,6 +1659,7 @@ please.time.add_score = function (node, action_name, frame_set) {
     // stop_animation is mixed into node objects as node.stop
     var stop_animation = function () {
         current_ani = null;
+        atend = null;
         please.time.remove(frame_handler);
     };
     // connect animation machinery if the node lacks it
@@ -1995,7 +2001,7 @@ please.media.__try_media_ready = function () {
 //
 please.media.guess_type = function (file_name) {
     var type_map = {
-        "img" : [".png", ".gif", ".jpg", ".jpeg"],
+        "img" : [".png", ".gif", ".jpg", ".jpeg", ".svg"],
         "jta" : [".jta"],
         "gani" : [".gani"],
         "audio" : [".wav", ".mp3", ".ogg"],
@@ -2604,6 +2610,7 @@ please.__create_canvas_overlay = function (reference) {
         overlay.style.overflow = "hidden";
         document.body.appendChild(overlay);
         please.__align_canvas_overlay();
+        please.time.__frame.register(-1, "mgrl/overlay_sync", please.overlay_sync);
     }
 };
 //
@@ -2794,7 +2801,6 @@ please.overlay_sync = function () {
         }
     }
 };
-please.time.__frame.register(-1, "mgrl/overlay_sync", please.overlay_sync);
 // - m.dom.js ------------------------------------------------------------ //
 // Namespace for code specific to the dom renderer
 please.dom = {};
@@ -7087,9 +7093,9 @@ please.media.__AnimationInstance = function (animation_data) {
     // get_current_frame retrieves the frame that currently should be
     // visible
     ani.get_current_frame = function (progress) {
-        if (progress > ani.data.durration) {
+        if (progress > ani.data.duration) {
             if (ani.data.looping && !typeof(ani.data.setbackto) === "number") {
-                progress = progress % ani.data.durration;
+                progress = progress % ani.data.duration;
             }
             else {
                 return -1;
@@ -7273,7 +7279,7 @@ please.media.__AnimationData = function (gani_text, uri) {
         // ...
         */
         "base_speed" : 50,
-        "durration" : 0,
+        "duration" : 0,
         "single_dir" : false,
         "looping" : false,
         "continuous" : false,
@@ -7446,9 +7452,9 @@ please.media.__AnimationData = function (gani_text, uri) {
             pending_lines = [];
         }
     }
-    // calculate animation durration
+    // calculate animation duration
     for (var i=0; i<ani.frames.length; i+=1) {
-        ani.durration += ani.frames[i].wait;
+        ani.duration += ani.frames[i].wait;
     };
     // Convert the resources dict into a list with no repeating elements eg a set:
     ani.__resources = please.get_properties(ani.__resources);
