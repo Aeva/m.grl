@@ -161,7 +161,6 @@ addEventListener("mgrl_media_ready", please.once(function () {
             var action = pick===0? "coin" : "walk";
             var entity = please.access(action + ".gani").instance(false);
             if (action === "walk") {
-                entity.add_gani("idle.gani");
                 entity.state = Math.floor(Math.random()*4);
                 entity.updater = function () {
                     this.state = (this.state + 1) % 4;
