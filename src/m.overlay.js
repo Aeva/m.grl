@@ -40,6 +40,7 @@ please.__create_canvas_overlay = function (reference) {
         overlay.style.overflow = "hidden";
         document.body.appendChild(overlay);
         please.__align_canvas_overlay();
+        please.time.__frame.register(-1, "mgrl/overlay_sync", please.overlay_sync);
     }
 };
 
@@ -250,4 +251,3 @@ please.overlay_sync = function () {
         }
     }
 };
-please.time.__frame.register(-1, "mgrl/overlay_sync", please.overlay_sync);
