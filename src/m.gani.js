@@ -506,7 +506,11 @@ please.media.__AnimationData = function (gani_text, uri) {
     };
 
     var get_action_name = function (uri) {
-        var name = uri.split("/").slice(-1)[0];
+        var name = uri;
+        var path = please.media.search_paths.gani;
+        if (name.startsWith(path)) {
+            name = name.slice(path.length);
+        }
         if (name.endsWith(".gani")) {
             name = name.slice(0, -5);
         }
@@ -800,7 +804,6 @@ please.media.__AnimationData = function (gani_text, uri) {
         node.__current_gani = null;
         node.__current_frame = null;
 
-        var action_name = get_action_name(this.__uri);
         if (setup_callback) {
             setup_callback(this);
         }
