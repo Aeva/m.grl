@@ -277,6 +277,22 @@ please.time.__schedule_handler = function () {
     }
 };
 
+// [+] please.time.setup_action(node.actions, action_name, frame_set)
+//
+// Adds an animation "action" to a graph node's action object.
+// Usually you will not be calling this function directly.
+//
+please.time.setup_action = function (actions, action_name, frame_set) {
+    // add the new action definition if the object lacks it
+    if (!actions[action_name]) {
+        var action = {};
+        please.make_animatable(action, "speed", 1, null, false);
+        action.frames = frame_set;
+        action.repeat = false;
+        action.queue = null;
+        actions[action_name] = action;
+    }
+};
 
 // [+] please.time.add_score(graph_node, action_name, frame_set)
 //
@@ -284,9 +300,13 @@ please.time.__schedule_handler = function () {
 // animation machinery if it is not already present.  Usually you will
 // not be calling this function directly.
 //
+// If only node is supplied, set up animation machinery without adding an
+// action.  This is used for ganis, which have their action set up at load
+// time.
 please.time.add_score = function (node, action_name, frame_set) {
     var next_frame; // last frame number called
     var current_ani = null; // current action
+    var atend = null; // callback when animation ends
     var expected_next = null; // expected time stamp for the next frame
 
     var reset = function () {
@@ -323,7 +343,7 @@ please.time.add_score = function (node, action_name, frame_set) {
             // animation in progress
             var delay = (frame.speed / action.speed);
             var skip = late ? (late / delay) : null;
-            frame.callback(delay, skip);
+            frame.callback(node, delay, skip);
             please.time.schedule(frame_handler, delay-late);
         }
         else if (action.repeat) {
@@ -332,19 +352,23 @@ please.time.add_score = function (node, action_name, frame_set) {
             please.time.schedule(frame_handler, 0);
         }
         else if (action.queue && node.actions[action.queue]) {
-            // animatino finished, doesn't repeat, defines an action
+            // animation finished, doesn't repeat, defines an action
             // to play afterwards, so play that.
             reset();
-            current_action = action.queue;
+            current_ani = action.queue;
             please.time.schedule(frame_handler, 0);
+        }
+        else if (atend) {
+            atend();
         }
     };
     
-    // start_animation is mixed into node objects as node.start
-    var start_animation = function (action_name) {
+    // start_animation is mixed into node objects as node.play
+    var start_animation = function (action_name, atend_cb) {
         if (node.actions[action_name]) {
             reset();
             current_ani = action_name;
+            atend = atend_cb;
             please.time.schedule(frame_handler, 0);
         }
         else {
@@ -355,24 +379,23 @@ please.time.add_score = function (node, action_name, frame_set) {
     // stop_animation is mixed into node objects as node.stop
     var stop_animation = function () {
         current_ani = null;
+        atend = null;
         please.time.remove(frame_handler);
     };
 
     // connect animation machinery if the node lacks it
-    if (!node.actions) { 
-        node.actions = {};
+    if (!node.play) {
         node.play = start_animation;
         node.stop = stop_animation;
     }
 
-    // add the new action definition if the node lacks it
-    if (!node.actions[action_name]) {
-        var action = {};
-        please.make_animatable(action, "speed", 1, null, false);
-        action.frames = frame_set;
-        action.repeat = false;
-        action.queue = null;
-        node.actions[action_name] = action;
+    // this attribute must exist before calling setup_action.
+    if (!node.actions) {
+        node.actions = {};
+    }
+    // if an action was provided, set it up.
+    if (action_name !== undefined) {
+        please.time.setup_action(node.actions, action_name, frame_set);
     }
 };
 

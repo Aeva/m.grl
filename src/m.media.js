@@ -343,7 +343,7 @@ please.media.__try_media_ready = function () {
 //
 please.media.guess_type = function (file_name) {
     var type_map = {
-        "img" : [".png", ".gif", ".jpg", ".jpeg"],
+        "img" : [".png", ".gif", ".jpg", ".jpeg", ".svg"],
         "jta" : [".jta"],
         "gani" : [".gani"],
         "audio" : [".wav", ".mp3", ".ogg"],
