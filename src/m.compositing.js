@@ -311,6 +311,7 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     );
 
     var state_tracker = {};
+    
     // Generate the IR for stamped drawables.
     ITER(i, graph.__drawable_ir) {
         var drawable = graph.__drawable_ir[i];
@@ -324,7 +325,8 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
         }
     }
 
-    // Generate the IR for rendering the individual graph nodes.    
+    // Generate the IR for rendering the individual graph nodes.
+    var last_hint = null;
     ITER(s, graph.__statics) {
         var node = graph.__statics[s];
         if (this.__is_picking_pass) {
@@ -336,6 +338,20 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
         }
         if (!this.__graph_filter || this.__graph_filter(node)) {
             var node_ir = node.__ir.generate(this.__prog, state_tracker) || [];
+            if (node_ir) {
+                if (node.__asset_hint) {
+                    if (node.__asset_hint !== last_hint) {
+                        ir.push("//");
+                        ir.push("// begin draw calls for " + node.__asset_hint);
+                        last_hint = node.__asset_hint;
+                    }
+                }
+                else {
+                    ir.push("//");
+                    ir.push("// begin draw calls for anonymous object");
+                    last_hint = null;
+                }
+            }
             ITER(p, node_ir) {
                 var token = node_ir[p];
                 if (token.constructor == please.JSIR) {

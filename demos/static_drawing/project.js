@@ -101,7 +101,7 @@ addEventListener("mgrl_media_ready", please.once(function () {
     var cursor = please.access("flip_tile.jta").instance();
 
     // Background tiles.
-    var area = 50;
+    var area = 30;
     demo.tile_count = 0;
     for (var y=-area; y<=area; y+=1) {
         for (var x=-area; x<=area; x+=1) {

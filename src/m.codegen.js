@@ -59,26 +59,49 @@ please.format_invocation = function (method_string/*, args */) {
 // generated();
 // ```
 //
-please.JSIR = function (method_string/*, args */) {
-    var args = Array.apply(null, arguments).slice(1);
+please.JSIR = function (method_string, args_array) {
     this.method = method_string;
     this.params = [];
     this.compiled = false;
     this.frozen = false;
+    this.flexible_param = null; // null or param index
+    this.__cache_key = null;
 
     var force_dynamic = false;
-    ITER(a, args) {
-        if (args[a] === '@') {
+    ITER(a, args_array) {
+        if (args_array[a] === '@') {
             force_dynamic = true;
             continue;
         }
+        var is_dynamic = force_dynamic || typeof(args_array[a]) == "function";
         this.params.push({
             "id" : please.uuid(),
-            "value" : args[a],
-            "dynamic" : force_dynamic || typeof(args[a]) == "function",
+            "value" : args_array[a],
+            "dynamic" : is_dynamic,
         });
         force_dynamic = false;
     }
+};
+
+
+// Generates a cache key for comparison with other similarly
+// intentioned invocations.
+please.JSIR.prototype.cache_key = function () {
+    if (this.__cache_key === null) {
+        var new_key = this.method + ":";
+        ITER(p, this.params) {
+            var param = this.params[p];
+            if (param.dynamic) {
+                // don't update the cache key
+                return null;
+            }
+            else {
+                new_key += param.value + ":";
+            }
+        }
+        this.__cache_key = new_key;
+    }
+    return this.__cache_key;
 };
 
 
@@ -149,18 +172,40 @@ please.JSIR.prototype.freeze = function () {
 };
 
 
+// Creates and returns a JSIR token fol assigning data to a variable.
+please.JSIR.create_for_setter = function (setter_str, data) {
+    if (typeof(data) == "function") {
+        var token = new please.JSIR('=', [setter_str, '@', data]);
+    }
+    else {
+        if (data === null) {
+            data = "null";
+        }
+        else if (data.constructor == String) {
+            data = '"' + data + '"';
+        }
+        var token = new please.JSIR('=', [setter_str, data]);
+    }
+    token.flexible_param = 1;
+    return token;
+};
+
+
 // Updates the value of one of the parameters in the IR object.  If
 // the IR object was used in the compilation of a draw function
 // already, then this will also force the parameter to become dynamic
 // if it was not already.
 please.JSIR.prototype.update_arg = function (index, value, cache) {
     var param = this.params[index];
-    param.value = value;
-    if (this.compiled || typeof(value) == "function") {
-        param.dynamic = true;
-    }
-    if (cache) {
-        cache[param.id] = value;
+    if (param.value !== value) {
+        this.__cache_key = null;
+        param.value = value;
+        if (this.compiled || typeof(value) == "function") {
+            param.dynamic = true;
+        }
+        if (cache) {
+            cache[param.id] = value;
+        }
     }
 };
 
@@ -200,12 +245,13 @@ please.__DrawableIR = function (vbo, ibo, ranges, defaults, graph_node) {
 
     // recompile signal
     this.dirty = new please.Signal();
-
-    // add initial uniform bindings
-    this.bindings_for_shader(null);
-
-    // connect to GraphNode's dirty signal
+    
     if (graph_node) {
+        // populate defaults
+        //this.populate_defaults();
+        //this.bindings_for_shader(null, null);
+
+        // connect to GraphNode's dirty signal
         graph_node.__uniform_update.connect(function (target, prop, obj) {
             this.bind_or_update_uniform(prop, obj.__ani_store[prop]);
             this.dirty();
@@ -248,8 +294,10 @@ please.__DrawableIR.prototype.copy_freeze = function () {
         this.__node.__ani_cache[key] = null;
     }
     ITER_PROPS(key, this.__defaults) {
-        defaults[key] = this.__defaults[key];
-        if (this.__node && this.__node.__ani_store[key]) {
+        defaults[key] = please.copy(this.__defaults[key]);
+    }
+    if (this.__node) {
+        ITER_PROPS(key, this.__node.__ani_store) {
             var value = this.__node.__ani_store[key];
             if (typeof(value) == "function") {
                 value = value.call(this.__node);
@@ -257,7 +305,6 @@ please.__DrawableIR.prototype.copy_freeze = function () {
             defaults[key] = please.copy(value);
         }
     }
-    
     var copy = new please.__DrawableIR(
         this.__vbo,
         this.__ibo,
@@ -272,7 +319,8 @@ please.__DrawableIR.prototype.copy_freeze = function () {
 
 please.__DrawableIR.prototype.bindings_for_shader = function (prog) {
     if (!prog) {
-        prog = please.gl.__cache.current;
+        return;
+        //prog = please.gl.__cache.current;
     }
     var named_uniforms = [];
     var named_defaults = please.get_properties(this.__defaults);
@@ -306,12 +354,12 @@ please.__DrawableIR.prototype.bindings_for_shader = function (prog) {
     ITER(u, named_uniforms) {
         var name = named_uniforms[u];
         var value = this.__defaults[name];
-        this.bind_or_update_uniform(name, value);
+        this.bind_or_update_uniform(name, value, prog);
     }
 };
 
 
-please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
+please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value, prog) {
     var binding = this.__uniforms[name] ||  null;
     var compiled = binding ? binding.compiled : false;
 
@@ -329,23 +377,18 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value) {
     }
 
     if (binding) {
-        binding.update_arg(1, value);
-    }
-    else {
-        // create a new token for the uniform binding:
-        var target = value !== null && value.constructor == String ? "samplers" : "vars";
-        var cmd = "this.prog." + target + "['"+name+"']";
-        var token;
-        if (typeof(value) == "function") {
-            token = new please.JSIR('=', cmd, '@', value);
+        if (binding.flexible_param !== null) {
+            binding.update_arg(binding.flexible_param, value);
         }
         else {
-            if (value.constructor == String) {
-                value = '"' + value + '"';
-            }
-            token = new please.JSIR('=', cmd, value);
+            // can't update the binding, so just regenerate it
+            binding = this.__uniforms[name] = null;
         }
-        this.__uniforms[name] = token;
+    }
+    if (!binding && prog && value !== null) {
+        // only create a new token / binding when we have an
+        // associated shader:
+        this.__uniforms[name] = prog.__lookup_ir(name, value);
     }    
 };
 
@@ -369,15 +412,11 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker) {
             if (this.__frozen && !token.frozen) {
                 token.freeze();
             }
-            var value = token.params[1];
             var state_key = "uniform:"+name;
-            if (value.dynamic) {
+            var state_cmp = token.cache_key()
+            if (state_cmp === null || state_tracker[state_key] !== state_cmp) {
                 ir.push(token);
-                delete state_tracker[state_key];
-            }
-            else if (state_tracker[state_key] !== value.value) {
-                ir.push(token);
-                state_tracker[state_key] = value.value;
+                state_tracker[state_key] = state_cmp;
             }
         }
     }
@@ -400,15 +439,21 @@ please.__compile_ir = function (ir_tokens, cache, src_name) {
     ITER(t, ir_tokens) {
         var token = ir_tokens[t];
         if (token.constructor == String) {
-            src += token;
+            var trimmed = token.trim();
+            if (trimmed) {
+                src += trimmed + "\n";
+            }
+            else {
+                continue;
+            }
         }
         else if (token.compile) {
-            src += token.compile(cache);
+            src += token.compile(cache).trim() + "\n";
         }
         else {
             throw new Error("Invalid IR token.");
         }
-        src += "\n";
+        //src += "\n";
     }
     if (!src_name) {
         src_name = please.uuid();

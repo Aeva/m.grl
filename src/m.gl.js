@@ -118,7 +118,43 @@ please.gl.set_context = function (canvas_id, options) {
         // initialize the picking system
         please.__init_picking();
     }
-},
+};
+
+
+please.gl.__register = new (function () {
+    var period = Float32Array.BYTES_PER_ELEMENT;
+    var size = period * 29;
+    var buffer = new ArrayBuffer(size);
+    this.__mat2 = new Float32Array(buffer, 0, 4);
+    this.__mat3 = new Float32Array(buffer, this.__mat2.byteLength, 9);
+    this.__mat4 = new Float32Array(buffer, this.__mat3.byteLength, 16);
+    
+    var meta_compactor = (function (access) {
+        var store = this[access];
+        var slots = store.length;
+        var args = [];
+        var writes = "";
+        ITER(a, store) {
+            args.push("a"+a);
+            writes += "    store["+a+"] = a"+a+";\n";
+        }
+        var src = String(
+// ☿ quote
+(function (ARGUMENTS) {
+ASSIGNMENTS
+    return store;
+});
+// ☿ endquote
+        );
+        src = src.replace("ARGUMENTS", args.join(", "));
+        src = src.replace("ASSIGNMENTS", writes);
+        return eval(src);
+    }).bind(this);
+
+    this.mat2 = meta_compactor("__mat2");
+    this.mat3 = meta_compactor("__mat3");
+    this.mat4 = meta_compactor("__mat4");
+});
 
 
 // [+] please.gl.get_program(name)
@@ -474,6 +510,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "sampler_list" : [], // immutable, canonical list of sampler var names
         "binding_info" : {}, // lookup reference for variable bindings
         "binding_ctx" : {}, // lists of uniforms associated with contexts
+        "__ptrs" : {}, // cache of named WebGLUniformLocation objects
         "__cache" : {
             // the cache records the last value set,
             "vars" : {},
@@ -720,6 +757,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         var binding_name = rewrites[data.name] || binding_name;
         var strings = enums[binding_name] || null;
 
+        // cache the pointer
+        prog.__ptrs[binding_name] = pointer;
+
         // size of array to be uploaded.  eg vec3 == 3, mat4 == 16
         var vec_size = (size_lookup[data.type] || 1) * data.size;
         type_reference[binding_name] = {
@@ -746,10 +786,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                         else {
                             number = value[0];
                         }
-                        if (prog.__cache.vars[binding_name] !== number) {
-                            prog.__cache.vars[binding_name] = number;
-                            return gl[uni](pointer, upload);
-                        }
+                        prog.__cache.vars[binding_name] = number;
+                        return gl[uni](pointer, upload);
                     }
                 }
                 else if (data.type === gl.INT || data.type === gl.BOOL) {
@@ -764,10 +802,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                             else {
                                 number = value[0];
                             }
-                            if (prog.__cache.vars[binding_name] !== number) {
-                                prog.__cache.vars[binding_name] = number;
-                                return gl[uni](pointer, upload);
-                            }
+                            prog.__cache.vars[binding_name] = number;
+                            return gl[uni](pointer, upload);
                         }
                     }
                     else {
@@ -790,11 +826,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                             else {
                                 throw new TypeError("Invalid enum: " + value);
                             }
-                            if (prog.__cache.vars[binding_name] !== found) {
-                                prog.__cache.vars[binding_name] = found;
-                                var upload = new Int32Array([found]);
-                                return gl[uni](pointer, upload);
-                            }
+                            prog.__cache.vars[binding_name] = found;
+                            var upload = new Int32Array([found]);
+                            return gl[uni](pointer, upload);
                         }
                     }
                 }
@@ -826,10 +860,8 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             if (!is_array) {
                 // This is the setter binding for sampler type uniforms variables.
                 setter_method = function (value) {
-                    if (prog.__cache.vars[binding_name] !== value) {
-                        prog.__cache.vars[binding_name] = value;
-                        return gl[uni](pointer, new Int32Array([value]));
-                    }
+                    prog.__cache.vars[binding_name] = value;
+                    return gl[uni](pointer, new Int32Array([value]));
                 };
             }
             else {
@@ -917,8 +949,60 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         }
         bind_uniform(uniform_data, binding_name);
         // store this data so that we can introspect elsewhere
-        prog.binding_info[uniform_data.name, binding_name] = uniform_data;
+        prog.binding_info[binding_name] = uniform_data;
     }
+
+    // Returns a JSIR token for the GL call needed to
+    // update a given uniform.
+    prog.__lookup_ir = function (uniform_name, data) {
+        if (data === null) {
+            throw new Error("prog.__lookup_ir does not accept null value args");
+        }
+        var type = type_reference[uniform_name].hint;
+        var size = type_reference[uniform_name].size;
+        var uni = "uniform" + u_map[type];
+        var is_sampler = type === gl.SAMPLER_2D;
+        var is_array = size > 1;
+        var is_dynamic = typeof(data) == "function";
+        var is_matrix = uni.indexOf("Matrix") > -1;
+        var token = null;
+        if (!is_dynamic && !is_sampler) {
+            var non_ptr_method = uni.slice(0,-1);
+            var flat_args = !!gl[non_ptr_method];
+            var method = "gl." + (flat_args? non_ptr_method : uni);
+            var pointer = "this.prog.__ptrs['"+uniform_name+"']";
+            var args_array = [pointer];
+            if (is_matrix) {
+                args_array.push(false); // no need to transpose.
+            }
+            if (flat_args && data.length) {
+                ITER(d, data) {
+                    args_array.push(data[d]);
+                }
+            }
+            else {
+                if (is_matrix) {
+                    var handle = "mat4"; // wrong
+                    var register = "please.gl.__register." + handle;
+                    var src = register+"(" + data.join(", ") + ")";
+                    args_array.push(src);
+                }
+                else {
+                    args_array.push(data);
+                }
+            }
+            token = new please.JSIR(method, args_array);
+            if (!is_array) {
+                token.flexible_param = args_array.length-1;
+            }
+        }
+        else {
+            var target = is_sampler ? "samplers" : "vars";
+            var cmd = "this.prog." + target + "['"+uniform_name+"']";
+            token = please.JSIR.create_for_setter(cmd, data);
+        }
+        return token;
+    };
 
     // add a mechanism to lookup uniform type size
     prog.__uniform_initial_value = function (uniform_name) {
