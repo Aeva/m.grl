@@ -510,6 +510,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "sampler_list" : [], // immutable, canonical list of sampler var names
         "binding_info" : {}, // lookup reference for variable bindings
         "binding_ctx" : {}, // lists of uniforms associated with contexts
+        "__ptrs" : {}, // cache of named WebGLUniformLocation objects
         "__cache" : {
             // the cache records the last value set,
             "vars" : {},
@@ -756,6 +757,9 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         var binding_name = rewrites[data.name] || binding_name;
         var strings = enums[binding_name] || null;
 
+        // cache the pointer
+        prog.__ptrs[binding_name] = pointer;
+
         // size of array to be uploaded.  eg vec3 == 3, mat4 == 16
         var vec_size = (size_lookup[data.type] || 1) * data.size;
         type_reference[binding_name] = {
@@ -945,7 +949,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         }
         bind_uniform(uniform_data, binding_name);
         // store this data so that we can introspect elsewhere
-        prog.binding_info[uniform_data.name, binding_name] = uniform_data;
+        prog.binding_info[binding_name] = uniform_data;
     }
 
     // Returns a JSIR token for the GL call needed to
@@ -966,7 +970,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             var non_ptr_method = uni.slice(0,-1);
             var flat_args = !!gl[non_ptr_method];
             var method = "gl." + (flat_args? non_ptr_method : uni);
-            var pointer = "gl.getUniformLocation(this.prog.id, '"+uniform_name+"')";
+            var pointer = "this.prog.__ptrs['"+uniform_name+"']";
             var args_array = [pointer];
             if (is_matrix) {
                 args_array.push(false); // no need to transpose.
