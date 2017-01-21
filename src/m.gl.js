@@ -492,26 +492,30 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 this.__cache.samplers[name] = null;
             }
         },
-        "activate" : function () {
-            var old = null;
-            var prog = this;
-
+        "deactivate" : function () {
             var handle = please.gl.__last_fbo;
             if (handle) {
                 ITER(i, prog.sampler_list) {
-                    var name = prog.sampler_list[i];
-                    if (prog.samplers[name] === handle) {
-                        prog.samplers[name] = "error_image";
-                        // console.warn("debinding texture '" + handle + "' while rendering to it");
-                    }
-                    if (old && old.samplers[name] === handle) {
-                        old.samplers[name] = "error_image";
+                    var name = this.sampler_list[i];
+                    if (this.samplers[name] === handle) {
+                        this.samplers[name] = "error_image";
                     }
                 }
             }
-            
+
+        },
+        "activate" : function () {
+            var old = please.gl.__cache.current;
+            var prog = this;
+            if (old === prog) {
+                return;
+            }
             if (prog.ready && !prog.error) {
                 if (please.gl.__cache.current !== this) {
+                    if (old) {
+                        // deactivate the old shader program
+                        old.deactivate();
+                    }
                     // change shader program
                     gl.useProgram(prog.id);
                     // update the cache pointer
