@@ -373,6 +373,8 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
     // Generate render function suffix IR.
     ir.push(
 // ☿ quote
+        please.gl.__buffers.last_vbo = null;
+        please.gl.__buffers.last_ibo = null;
         // END GENERATED GRAPH RENDERING CODE
         
         // Legacy dynamic rendering code follows:
