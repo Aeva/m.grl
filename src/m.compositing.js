@@ -414,6 +414,9 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
             }
             gl.depthMask(true);
         }
+
+        // Unbind all texture units used by this shader.
+        prog.release_texture_units();
 // ☿ endquote
     );
 

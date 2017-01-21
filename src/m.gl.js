@@ -11,6 +11,15 @@ please.gl = {
         "programs" : {},
         "textures" : {},
     },
+    "__debug" : {
+#if DEBUG
+        "active" : true,
+        "framebuffer" : null,
+#else
+        "active" : window.location.hash === "#gldebug",
+#endif
+        "texture_units" : [],
+    },
 
     // these might be unused?
     "name" : "gl",
@@ -75,7 +84,12 @@ please.gl.set_context = function (canvas_id, options) {
     }
     else {
         window.gl = this.ctx;
-        if (window.location.hash === "#gldebug") {
+        if (this.__debug.active) {
+            var max_texture_units = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
+            RANGE(i, max_texture_units) {
+                this.__debug.texture_units.push(null);
+            }
+            
             // gl error strings from https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/getError
             var gl_errors = {};
 #define err(ID, MSG) gl_errors[this.ctx.ID] = MSG
@@ -529,17 +543,17 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 this.__cache.samplers[name] = null;
             }
         },
-        "deactivate" : function () {
-            var handle = please.gl.__last_fbo;
-            if (handle) {
-                ITER(i, prog.sampler_list) {
-                    var name = this.sampler_list[i];
-                    if (this.samplers[name] === handle) {
-                        this.samplers[name] = "error_image";
-                    }
+        "release_texture_units" : function () {
+            RANGE(i, this.sampler_list.length) {
+                var symbol = gl["TEXTURE"+i];
+                gl.activeTexture(symbol);
+                gl.bindTexture(gl.TEXTURE_2D, null);
+                var binding_name = this.sampler_list[0];
+                prog.__cache.samplers[binding_name] = null;
+                if (please.gl.__debug.active) {
+                    please.gl.__debug.texture_units[i] = null;
                 }
             }
-
         },
         "activate" : function () {
             var old = please.gl.__cache.current;
@@ -550,8 +564,6 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             if (prog.ready && !prog.error) {
                 if (please.gl.__cache.current !== this) {
                     if (old) {
-                        // deactivate the old shader program
-                        old.deactivate();
                     }
                     // change shader program
                     gl.useProgram(prog.id);
@@ -903,8 +915,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
 
             prog.__cache.samplers[binding_name] = null;
-
-            prog.samplers.__defineSetter__(binding_name, function (uri) {
+            var sampler_setter = function (uri) {
                 // FIXME: allow an option for a placeholder texture somehow.
 
                 if (uri === null) {
@@ -936,7 +947,23 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                         prog.__cache.samplers[binding_name] = uri;
                     }
                 }
-            });
+            };
+            if (please.gl.__debug.active) {
+                prog.samplers.__defineSetter__(binding_name, function (uri) {
+                    please.gl.__debug.texture_units[data.t_unit] = [
+                        prog.name, binding_name, uri];
+#if DEBUG
+                    var framebuffer = please.gl.__debug.framebuffer;
+                    if (framebuffer && uri.startsWith(framebuffer[0])) {
+                        throw new Error("Attempted to bind active frame buffer texture to a uniform.");
+                    }
+#endif
+                    return sampler_setter(uri);
+                });
+            }
+            else {
+                prog.samplers.__defineSetter__(binding_name, sampler_setter);
+            }
 
             prog.samplers.__defineGetter__(binding_name, function () {
                 return prog.__cache.samplers[binding_name];
@@ -1238,21 +1265,32 @@ please.gl.set_framebuffer = function (handle) {
         var height = prog.vars.mgrl_buffer_height = please.gl.canvas.height;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.viewport(0, 0, width, height);
+#if DEBUG
+        this.__debug.framebuffer = null;
+#endif
     }
     else {
         var tex = please.gl.__cache.textures[handle];
         if (tex && tex.fbo) {
-            ITER(i, prog.sampler_list) {
-                var name = prog.sampler_list[i];
-                if (prog.samplers[name] === handle) {
-                    prog.samplers[name] = "error_image";
-                    console.warn("debinding texture '" + handle + "' while rendering to it");
+#if DEBUG
+            ITER(u, this.__debug.texture_units) {
+                var unit = this.__debug.texture_units[u];
+                if (unit) {
+                    var name = unit[1];
+                    var uri = unit[2];
+                    if (uri.startsWith(handle)) {
+                        throw new Error("Attempting to attach framebuffer to bound texture.");
+                    }
                 }
             }
+#endif
             var width = prog.vars.mgrl_buffer_width = tex.fbo.options.width;
             var height = prog.vars.mgrl_buffer_height = tex.fbo.options.height;
             gl.bindFramebuffer(gl.FRAMEBUFFER, tex.fbo);
             gl.viewport(0, 0, width, height);
+#if DEBUG
+            this.__debug.framebuffer = [handle, tex];
+#endif
         }
         else {
             throw new Error("No framebuffer registered for " + handle);
