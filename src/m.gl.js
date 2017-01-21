@@ -18,6 +18,12 @@ please.gl = {
 };
 
 
+please.gl.__add_error_handling = function (gl) {
+    return gl;
+};
+
+
+
 // [+] please.gl.set_context(canvas_id, options)
 //
 // This function is used for setting the current rendering context
@@ -65,10 +71,41 @@ please.gl.set_context = function (canvas_id, options) {
     }
     catch (err) {}
     if (this.ctx === null) {
-        alert("cant webgl! halp!");
+        alert("Unable to create a WebGL rendering context.");
     }
     else {
         window.gl = this.ctx;
+        if (window.location.hash === "#gldebug") {
+            // gl error strings from https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/getError
+            var gl_errors = {};
+#define err(ID, MSG) gl_errors[this.ctx.ID] = MSG
+            err(INVALID_ENUM, "An unacceptable value has been specified for an enumerated argument.");
+            err(INVALID_VALUE, "A numeric argument is out of range.");
+            err(INVALID_OPERATION, "The specified command is not allowed for the current state.");
+            err(INVALID_FRAMEBUFFER_OPERATION, "The currently bound framebuffer is not framebuffer complete when trying to render to or to read from it.");
+            err(OUT_OF_MEMORY, "Not enough memory is left to execute the command.");
+            err(CONTEXT_LOST_WEBGL, "Rendering context lost.");
+#undef err
+            
+            var debug_wrap = function (old_method) {
+                return function () {
+                    var result = old_method.apply(this, arguments);
+                    var error = gl.getError();
+                    if (error) {
+                        var msg = "gl." + old_method.name;
+                        msg += " caused the following WebGL Error:\n";
+                        msg += (gl_errors[error] || "An unknown error occurred.");
+                        throw new Error(msg);
+                    }
+                    return result;
+                };
+            }
+            ITER_PROPS(prop, gl.constructor.prototype) {
+                if (this.ctx[prop].constructor === Function && prop != "getError") {
+                    this.ctx[prop] = debug_wrap(this.ctx[prop]);
+                }
+            }
+        }
         
         // look for common extensions
         var search = [
