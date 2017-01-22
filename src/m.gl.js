@@ -20,6 +20,20 @@ please.gl = {
 #endif
         "texture_units" : [],
     },
+    "info" : {
+        "MAX_VERTEX_ATTRIBS" : 0,
+        "MAX_VERTEX_TEXTURE_IMAGE_UNITS" : 0,
+        "MAX_VERTEX_UNIFORM_VECTORS" : 0,
+        "MAX_FRAGMENT_UNIFORM_VECTORS" : 0,
+        "MAX_VARYING_VECTORS" : 0,
+        
+        "MAX_TEXTURE_SIZE" : 0,
+        "MAX_RENDERBUFFER_SIZE" : 0,
+        "MAX_CUBE_MAP_TEXTURE_SIZE" : 0,
+        
+        "MAX_TEXTURE_IMAGE_UNITS" : 0,
+        "MAX_COMBINED_TEXTURE_IMAGE_UNITS" : 0,
+    },
 
     // these might be unused?
     "name" : "gl",
@@ -84,9 +98,12 @@ please.gl.set_context = function (canvas_id, options) {
     }
     else {
         window.gl = this.ctx;
+        ITER_PROPS(param_name, please.gl.info) {
+            please.gl.info[param_name] = gl.getParameter(gl[param_name]);
+        }
+        Object.freeze(please.gl.info);
         if (this.__debug.active) {
-            var max_texture_units = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
-            RANGE(i, max_texture_units) {
+            RANGE(i, please.gl.info.MAX_TEXTURE_IMAGE_UNITS) {
                 this.__debug.texture_units.push(null);
             }
             
@@ -541,18 +558,6 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
             ITER_PROPS(name, this.__cache.samplers) {
                 this.__cache.samplers[name] = null;
-            }
-        },
-        "release_texture_units" : function () {
-            RANGE(i, this.sampler_list.length) {
-                var symbol = gl["TEXTURE"+i];
-                gl.activeTexture(symbol);
-                gl.bindTexture(gl.TEXTURE_2D, null);
-                var binding_name = this.sampler_list[0];
-                prog.__cache.samplers[binding_name] = null;
-                if (please.gl.__debug.active) {
-                    please.gl.__debug.texture_units[i] = null;
-                }
             }
         },
         "activate" : function () {
@@ -1270,6 +1275,26 @@ please.gl.set_framebuffer = function (handle) {
 #endif
     }
     else {
+        {
+            // HACK - Unbind all texture units before attaching the
+            // framebuffer.  This ensures that there will never be a
+            // feedback loop.  In the future, it would be better to
+            // double buffer instead.
+            RANGE(i, this.info.MAX_TEXTURE_IMAGE_UNITS) {
+                var symbol = gl["TEXTURE"+i];
+                gl.activeTexture(symbol);
+                gl.bindTexture(gl.TEXTURE_2D, null);
+                if (this.__debug.active) {
+                    this.__debug.texture_units[i] = null;
+                }
+            }
+            var prog = please.gl.__cache.current;
+            ITER(b, prog.sampler_list) {
+                var binding_name = prog.sampler_list[b];
+                prog.__cache.samplers[binding_name] = null;
+            }
+        }
+        
         var tex = please.gl.__cache.textures[handle];
         if (tex && tex.fbo) {
 #if DEBUG

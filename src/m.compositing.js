@@ -414,9 +414,6 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
             }
             gl.depthMask(true);
         }
-
-        // Unbind all texture units used by this shader.
-        prog.release_texture_units();
 // ☿ endquote
     );
 
@@ -532,14 +529,21 @@ please.render = function(node) {
 
     // use an indirect texture if the stack length is greater than 1
     node.__cached_framebuffer = stack.length > 0 ? node.__id : null;
-
+    please.gl.set_framebuffer(node.__cached_framebuffer);
+    
     // upload shader vars
     for (var name in node.shader) {
         if (node.__prog.vars.hasOwnProperty(name)) {
             var value = sampler_cache[name] || node.shader[name];
             if (value !== null && value !== undefined) {
                 if (node.__prog.samplers.hasOwnProperty(name)) {
-                    node.__prog.samplers[name] = value;
+                    if (value.startsWith(node.__cached_framebuffer)) {
+                        // maybe make this a throw
+                        node.__prog.samplers[name] = "error_image";
+                    }
+                    else {
+                        node.__prog.samplers[name] = value;
+                    }
                 }
                 else {
                     node.__prog.vars[name] = value;
@@ -555,7 +559,6 @@ please.render = function(node) {
     }
 
     // call the rendering logic
-    please.gl.set_framebuffer(node.__cached_framebuffer);
     gl.clearColor.apply(gl, node.clear_color);
     node.__prog.vars.mgrl_clear_color = node.clear_color;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
