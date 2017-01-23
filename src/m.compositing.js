@@ -102,13 +102,36 @@ please.RenderNode = function (prog, options) {
     DEFAULT(options, {});
     please.gl.register_framebuffer(this.__id, options);
 
+    // Book keeping for tracking how many times this is node is
+    // rendered in a frame, to allow results to be cached.
+    this.__last_framestart = null;
+    this.__has_framebuffer = false;
+    this.__framebuffer_uri = this.__id;
+
+    // Force an object's property to always read-write from the
+    // object's prototype.
+    var wrap = function (thing, property) {
+        Object.defineProperty(thing, property, {
+            enumerable: true,
+            get : function () {
+                return this[property];
+            }.bind(this),
+            set : function (value) {
+                return this[property] = value;
+            }.bind(this),
+        });
+    }.bind(this);
+
     // render targets
     if (options.buffers) {
         this.buffers = {};
         ITER(i, options.buffers) {
             var name = options.buffers[i];
             var proxy = Object.create(this);
+            wrap(proxy, "__last_framestart");
+            wrap(proxy, "__has_framebuffer");
             proxy.selected_texture = name;
+            proxy.__framebuffer_uri = this.__id + "::" + name;
             this.buffers[name] = proxy;
         }
     }
@@ -143,11 +166,6 @@ please.RenderNode = function (prog, options) {
 
     // clear color for this pass
     please.make_animatable_tripple(this, "clear_color", "rgba", [1, 1, 1, 1]);
-
-    // Book keeping for tracking how many times this is node is
-    // rendered in a frame, to allow results to be cached.
-    this.__last_framestart = null;
-    this.__cached_framebuffer = null;
 
     // The "graph" property is an optional mechanism for which a scene
     // graph may be associated with a compositing node.  A custom
@@ -457,22 +475,23 @@ please.set_viewport = function (node) {
 // Renders the compositing tree.
 //
 please.render = function(node) {
-    var expire = arguments[1] || please.time.__framestart;
+    var framestart = arguments[1] || please.time.__framestart;
     var stack = arguments[2] || [];
     if (stack.indexOf(node)>=0) {
         throw new Error("M.GRL doesn't currently suport render graph cycles.");
     }
-
-    var delay = 0;
+    var indirect_rendering = stack.length > 0;
+    var expire_after = node.__last_framestart;
     if (node.frequency) {
-        delay = (1/node.frequency)*1000;
+        expire_after += (1/node.frequency)*1000;
     }
 
-    if (stack.length > 0 && (node.__last_framestart+delay) >= expire && node.__cached_framebuffer) {
-        return node.__cached_framebuffer;
+    if (indirect_rendering && expire_after >= framestart && node.__has_framebuffer) {
+        // return the uuid of the render node if we're doing indirect rendering
+        return node.__framebuffer_uri;
     }
     else {
-        node.__last_framestart = please.time.__framestart;
+        node.__last_framestart = framestart;
     }
 
     // peek method on the render node can be used to allow the node to exclude
@@ -492,7 +511,7 @@ please.render = function(node) {
             }
             else if (typeof(proxy) === "object") {
                 // proxy is another RenderNode
-                return please.render(proxy, expire, stack);
+                return please.render(proxy, framestart, stack);
             }
         }
     }
@@ -508,7 +527,7 @@ please.render = function(node) {
         var sampler = node.shader[name];
         if (sampler !== null) {
             if (typeof(sampler) === "object") {
-                sampler_cache[name] = please.render(sampler, expire, stack);
+                sampler_cache[name] = please.render(sampler, framestart, stack);
             }
             else {
                 sampler_cache[name] = sampler;
@@ -528,8 +547,10 @@ please.render = function(node) {
     node.__prog.activate();
 
     // use an indirect texture if the stack length is greater than 1
-    node.__cached_framebuffer = stack.length > 0 ? node.__id : null;
-    please.gl.set_framebuffer(node.__cached_framebuffer);
+    please.gl.set_framebuffer(indirect_rendering ? node.__id : null);
+    if (indirect_rendering) {
+        node.__has_framebuffer = true;
+    }
     
     // upload shader vars
     for (var name in node.shader) {
@@ -551,12 +572,6 @@ please.render = function(node) {
             }
         }
     }
-    ITER(i, node.__prog.sampler_list) {
-        var name = node.__prog.sampler_list[i];
-        if (node.__prog.samplers[name] === node.__cached_framebuffer) {
-            node.__prog.samplers[name] = "error_image";
-        }
-    }
 
     // call the rendering logic
     gl.clearColor.apply(gl, node.clear_color);
@@ -566,8 +581,8 @@ please.render = function(node) {
 
     // optionally pull the texture data into an array and trigger a
     // callback
-    if (node.stream_callback && node.__cached_framebuffer) {
-        var fbo = please.gl.__cache.textures[node.__cached_framebuffer].fbo;
+    if (node.stream_callback && indirect_rendering) {
+        var fbo = please.gl.__cache.textures[node.__framebuffer_uri].fbo;
         var width = fbo.options.width;
         var height = fbo.options.height;
         var format = fbo.options.format;
@@ -631,12 +646,7 @@ please.render = function(node) {
     }
 
     // return the uuid of the render node if we're doing indirect rendering
-    if (node.__cached_framebuffer && node.selected_texture) {
-        return node.__id + "::" + node.selected_texture;
-    }
-    else {
-        return node.__cached_framebuffer;
-    }
+    return indirect_rendering ? node.__framebuffer_uri : null;
 };
 
 
