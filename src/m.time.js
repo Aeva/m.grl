@@ -127,6 +127,7 @@ please.time.__frame.on_draw = function () {
 #ifdef WEBGL
     var prog = please.gl.__cache.current;
     if (prog) {
+        please.gl.__globals.mgrl_frame_start = start_time/1000.0;
         prog.vars.mgrl_frame_start = start_time/1000.0;
     }
 #endif

@@ -40,7 +40,7 @@ please.add_autoscale = function (max_height) {
             if (set_w !== canvas_w || set_h !== canvas_h) {
                 canvas.width = set_w;
                 canvas.height = set_h;
-                gl.viewport(0, 0, set_w, set_h);
+                please.gl.reset_viewport();
             }
             please.__align_canvas_overlay();
         }).skip_when(skip_condition);

@@ -76,6 +76,73 @@ please.PictureInPicture = function () {
 };
 
 
+// [+] please.DebugViewportSplitter()
+//
+// Creates a RenderNode which splits the screen into 9 viewports,
+// overlaying the "main_texture".
+//
+// This works somewhat like PictureInPicture, but is less
+// configurable, and gives you more PIPs in a single pass.
+//
+// This is controlled with the following shader params:
+//
+//  - effect.shader.main_texure
+//  - effect.shader.enable[N]
+//  - effect.shader.pips[N]
+//
+// Replace "N" with a number 0 - 8.  So for example, you might do:
+//
+// ```
+// var effect = please.DebugViewportSplitter();
+// effect.shader.main_texture = "some_image.png";
+// effect.shader.pip = ["some_other_image.png"];
+// effect.shader.activate = [true];
+// ```
+//
+please.DebugViewportSplitter = function () {
+    var prog = please.gl.get_program(["splat.vert", "debug_splitter.frag"]);
+    if (!prog) {
+        prog = please.glsl("debug_splitter", "splat.vert", "debug_splitter.frag");
+    }
+    var effect = new please.RenderNode(prog);
+    var pips = [];
+    var enables = [];
+    RANGE(i, 9) {
+        pips.push("error");
+        enables.push(false);
+    }
+    effect.shader.pips = pips;
+    effect.shader.enable = enables;
+    return effect;
+};
+
+
+// [+] please.FloatingPointBufferViewer()
+//
+// Creates a RenderNode which scales a floating point texture into a
+// viewable range.  This is primarily intended for debugging.
+//
+// ```
+// var viewer = please.FloatingPointBufferViewer();
+// viewer.shader.float_buffer = some_renderer;
+// viewer.shader.min_value = -1.0;
+// viewer.shader.min_value = 1.0;
+// ```
+//
+please.FloatingPointBufferViewer = function (buffer, min, max) {
+    var prog = please.gl.get_program(["splat.vert", "float_viewer.frag"]);
+    if (!prog) {
+        prog = please.glsl("float_viewer", "splat.vert", "float_viewer.frag");
+    }
+    var effect = new please.RenderNode(prog);
+    // the controls for the pip position and size are expressed as percents
+    effect.shader.float_buffer = buffer || "error";
+    effect.shader.min_value = min || 0.0;
+    effect.shader.max_value = max || 1.0;
+    return effect;
+};
+
+
 // [+] please.ScatterBlur()
 //
 // Creates a RenderNode for applying a fast blur effect.

@@ -225,7 +225,7 @@ please.DeferredRenderer = function () {
                 if (assembly.graph.__lights[i].cast_shadows) {
                     var node = assembly.graph.__lights[i].depth_pass;
                     please.indirect_render(node)
-                    this.targets.push(node.__cached_framebuffer);
+                    this.targets.push(node.__id);
                 }
                 else {
                     this.targets.push(null);
@@ -272,7 +272,25 @@ please.DeferredRenderer = function () {
         }
     };
 
-    
+#ifdef DEBUG
+    var debug_splitter = new please.DebugViewportSplitter();
+    debug_splitter.shader.main_texture = assembly;
+    debug_splitter.shader.pips = [
+        gbuffers.buffers.color,
+        gbuffers.buffers.normal,
+        gbuffers.buffers.spatial,
+        null,
+        new please.FloatingPointBufferViewer(gbuffers.buffers.normal, -1.0, 1.0),
+        new please.FloatingPointBufferViewer(gbuffers.buffers.spatial, -10, 10),
+    ];
+    debug_splitter.shader.enable = [true, true, true, false, true, true];
+
+    assembly.__debug = {
+        "gbuffers" : gbuffers,
+        "apply_lighting" : apply_lighting,
+        "debug_splitter" : debug_splitter,
+    };
+#endif
     assembly.shader.diffuse_texture = gbuffers.buffers.color;
     assembly.shader.light_texture = apply_lighting;
     assembly.shader.exposure = 10;

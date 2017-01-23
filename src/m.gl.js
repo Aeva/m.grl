@@ -35,6 +35,11 @@ please.gl = {
         "MAX_COMBINED_TEXTURE_IMAGE_UNITS" : 0,
     },
 
+    // shader vars to always set after changing shader program
+    "__globals" : {
+        "mgrl_frame_start" : 0,
+    },
+
     // these might be unused?
     "name" : "gl",
     "overlay" : null,
@@ -173,6 +178,9 @@ please.gl.set_context = function (canvas_id, options) {
         // enable culling
         gl.enable(gl.CULL_FACE);
 
+        // setup viewport
+        please.gl.reset_viewport();
+
         // fire an event to indicate that a gl context exists now
         var ctx_event = new CustomEvent("mgrl_gl_context_created");
         window.dispatchEvent(ctx_event);
@@ -267,6 +275,14 @@ please.set_clear_color = function (red, green, blue, alpha) {
 // is mostly used internally.
 //
 please.gl.get_texture = function (uri, use_placeholder, no_error) {
+    if (uri.constructor !== String) {
+        if (uri.__framebuffer_uri) {
+            uri = uri.__framebuffer_uri;
+        }
+        else {
+            throw new Error("Unable to get texture for object...?");
+        }
+    }
 
     // See if we already have a texture object for the uri:
     var texture = please.gl.__cache.textures[uri];
@@ -568,17 +584,20 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
             if (prog.ready && !prog.error) {
                 if (please.gl.__cache.current !== this) {
-                    if (old) {
-                    }
                     // change shader program
                     gl.useProgram(prog.id);
                     // update the cache pointer
-                    old = please.gl.__cache.current;
                     please.gl.__cache.current = this;
+                    // drop the uniform cache
+                    prog.__cache.samplers = {};
+                    prog.__cache.vars = {};
                 }
             }
             else {
                 throw new Error(build_fail);
+            }
+            ITER_PROPS(prop, please.gl.__globals) {
+                prog.vars[prop] = please.gl.__globals[prop];
             }
             if (old) {
                 // trigger things to be rebound if neccesary
@@ -586,22 +605,6 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 shader_event.old_program = old;
                 shader_event.new_program = prog;
                 window.dispatchEvent(shader_event);
-
-                // copy over defaults from the last pass
-                ITER_PROPS(prop, old.vars) {
-                    if (old.vars[prop]) {
-                        if (old.vars[prop].hasOwnProperty("dirty")) {
-                            old.vars[prop].dirty = true;
-                        }
-                        prog.vars[prop] = old.vars[prop];
-                    }
-                }
-
-                // drop the sampler cache
-                prog.__cache.samplers = {};
-
-                // regenerate the viewport
-                please.gl.reset_viewport();
             }
         },
     };
@@ -758,6 +761,15 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     size_lookup[gl.FLOAT_MAT4] = 16;
     
     var type_reference = {};
+    var __texture_units = 0;
+    var request_texture_units = function (count) {
+        if (__texture_units + count > please.gl.info.MAX_TEXTURE_IMAGE_UNITS) {
+            throw new Error("Exceeded number of available texture units.");
+        }
+        var first = __texture_units;
+        __texture_units += count;
+        return first;
+    }
         
     // create helper functions for uniform vars
     var bind_uniform = function (data, binding_name) {
@@ -864,10 +876,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     }
                 }
                 else {
-                    // Setter method for vectors and arbitrary arrays.  In this
-                    // case we don't bother checking the cache as the performance
-                    // gains in doing so are dubious.  We still set it, though, so
-                    // that the corresponding getter still works.
+                    // Setter method for vectors and arbitrary arrays.
                     setter_method = function (value) {
                         if (typeof(value) === "function" && value.stops) {
                             value = please.gl.__flatten_path(value, data);
@@ -887,11 +896,11 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                 };
             }
             else {
-                throw(
-                    "M.GRL does not support sampler arrays.  " + \
-                    "See this issue for more details:\n" + \
-                    "https://github.com/Aeva/m.grl/issues/155"
-                );
+                // This is the setter binding for sampler[] type uniforms variables.
+                setter_method = function (value) {
+                    prog.__cache.vars[binding_name] = value;
+                    return gl[uni](pointer, value);
+                };
             }
         }
         prog.vars.__defineSetter__(binding_name, setter_method);
@@ -910,40 +919,24 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         });
 
         if (data.type === gl.SAMPLER_2D) {
-            data.t_unit = sampler_uniforms.length;
+            prog.__cache.samplers[binding_name] = null;
             prog.sampler_list.push(binding_name);
             sampler_uniforms.push(binding_name);
-            data.t_symbol = gl["TEXTURE"+data.t_unit];
-            if (!data.t_symbol) {
-                console.error("Exceeded number of available texture units.  Doing nothing.");
-                return;
-            }
-
-            prog.__cache.samplers[binding_name] = null;
-            var sampler_setter = function (uri) {
-                // FIXME: allow an option for a placeholder texture somehow.
-
-                if (uri === null) {
-                    return;
-                }
-                if (uri.constructor === Array) {
-                    // FIXME: texture array upload
-                    //
-                    // var t_id, t_id_set = [];
-                    // ITER(i, uri) {
-                    //     t_id = please.gl.get_texture(uri[i]);
-                    //     if (t_id !== null) {
-                    //         gl.activeTexture(data.t_symbol);
-                    //         gl.bindTexture(gl.TEXTURE_2D, t_id);
-                    //     }
-                    // }
-                }
-                else {
+            var sampler_setter;
+            if (!is_array) {
+                data.t_unit = request_texture_units(1);
+                data.t_symbol = gl["TEXTURE"+data.t_unit];
+                sampler_setter = function (uri) {
+                    if (uri === null) {
+                        gl.activeTexture(data.t_symbol);
+                        gl.bindTexture(gl.TEXTURE_2D, null);
+                        prog.__cache.samplers[binding_name] = null;
+                        return;
+                    }
                     if (uri === prog.__cache.samplers[binding_name]) {
                         // redundant state change, do nothing
                         return;
                     }
-
                     var t_id = please.gl.get_texture(uri);
                     if (t_id !== null) {
                         gl.activeTexture(data.t_symbol);
@@ -952,15 +945,68 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                         prog.__cache.samplers[binding_name] = uri;
                     }
                 }
+            }
+            else {
+                data.t_unit = request_texture_units(data.size);
+                var null_state = [];
+                RANGE(i, data.size) {
+                    null_state.push(null);
+                }
+                Object.freeze(null_state);
+                prog.__cache.samplers[binding_name] = null_state;
+                sampler_setter = function (uris) {
+                    if (uris === null) {
+                        RANGE(i, data.size) {
+                            var symbol = gl["TEXTURE" + (data.t_unit + i)];
+                            gl.activeTexture(symbol);
+                            gl.bindTexture(gl.TEXTURE_2D, null);
+                        }
+                        prog.__cache.samplers[binding_name] = null_set;
+                        return;
+                    }
+                    var upload = [];
+                    RANGE(i, data.size) {
+                        var uri = uris[i] || null;
+                        var unit = data.t_unit + i;
+                        var symbol = gl["TEXTURE"+unit];
+                        gl.activeTexture(symbol);
+                        if (uri === null) {
+                            gl.bindTexture(gl.TEXTURE_2D, null);
+                            upload.push(null);
+                        }
+                        else {
+                            var t_id = please.gl.get_texture(uri);
+                            gl.bindTexture(gl.TEXTURE_2D, t_id);
+                            upload.push(unit);
+                        }
+                    }
+                    prog.vars[binding_name] = upload;
+                    prog.__cache.samplers[binding_name] = uris;
+                }
+            }
+#if DEBUG
+            var ____check_framebuffer_collision = function (uri) {
+                if (uri && uri.constructor === String) {
+                    var framebuffer = please.gl.__debug.framebuffer;
+                    if (framebuffer && uri.startsWith(framebuffer[0])) {
+                        throw new Error("Attempted to bind active frame buffer texture to a uniform.");
+                    }
+                }
             };
+#endif
+            
             if (please.gl.__debug.active) {
                 prog.samplers.__defineSetter__(binding_name, function (uri) {
                     please.gl.__debug.texture_units[data.t_unit] = [
                         prog.name, binding_name, uri];
 #if DEBUG
-                    var framebuffer = please.gl.__debug.framebuffer;
-                    if (framebuffer && uri.startsWith(framebuffer[0])) {
-                        throw new Error("Attempted to bind active frame buffer texture to a uniform.");
+                    if (is_array) {
+                        RANGE(i, data.size) {
+                            ____check_framebuffer_collision(uri[i]);
+                        }
+                    }
+                    else {
+                        ____check_framebuffer_collision(uri);
                     }
 #endif
                     return sampler_setter(uri);
@@ -1327,24 +1373,27 @@ please.gl.set_framebuffer = function (handle) {
 // [+] please.gl.reset_viewport()
 //
 // Reset the viewport dimensions so that they are synced with the
-// rendering canvas's dimensions.
-//
-// Usually, this function is called when the canvas has been resized.
+// rendering target's dimensions.
 //
 please.gl.reset_viewport = function () {
+    var width, height;
+    if (please.gl.__last_fbo === null) {
+        width = please.gl.canvas.width;
+        height = please.gl.canvas.height;
+    }
+    else {
+        var opt = please.gl.__cache.textures[please.gl.__last_fbo].fbo.options;
+        width = opt.width;
+        height = opt.height;
+    }
+    gl.viewport(0, 0, width, height);
+    please.gl.__globals.mgrl_buffer_width = width;
+    please.gl.__globals.mgrl_buffer_height = height;
+
     var prog = please.gl.__cache.current;
     if (prog) {
-        if (please.gl.__last_fbo === null) {
-            var width = prog.vars.mgrl_buffer_width = please.gl.canvas.width;
-            var height = prog.vars.mgrl_buffer_height = please.gl.canvas.height;
-            gl.viewport(0, 0, width, height);
-        }
-        else {
-            var opt = please.gl.__cache.textures[please.gl.__last_fbo].fbo.options;
-            var width = prog.vars.mgrl_buffer_width = opt.width;
-            var height = prog.vars.mgrl_buffer_height = opt.height;
-            gl.viewport(0, 0, width, height);
-        }
+        prog.vars.mgrl_buffer_width = width;
+        prog.vars.mgrl_buffer_height = height;
     }
 }
 

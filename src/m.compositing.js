@@ -526,7 +526,7 @@ please.render = function(node) {
         var name = samplers[i];
         var sampler = node.shader[name];
         if (sampler !== null) {
-            if (typeof(sampler) === "object") {
+            if (typeof(sampler) === "object" && sampler.constructor !== Array) {
                 sampler_cache[name] = please.render(sampler, framestart, stack);
             }
             else {
@@ -548,6 +548,7 @@ please.render = function(node) {
 
     // use an indirect texture if the stack length is greater than 1
     please.gl.set_framebuffer(indirect_rendering ? node.__id : null);
+    please.gl.reset_viewport();
     if (indirect_rendering) {
         node.__has_framebuffer = true;
     }
@@ -558,13 +559,7 @@ please.render = function(node) {
             var value = sampler_cache[name] || node.shader[name];
             if (value !== null && value !== undefined) {
                 if (node.__prog.samplers.hasOwnProperty(name)) {
-                    if (value.startsWith(node.__cached_framebuffer)) {
-                        // maybe make this a throw
-                        node.__prog.samplers[name] = "error_image";
-                    }
-                    else {
-                        node.__prog.samplers[name] = value;
-                    }
+                    node.__prog.samplers[name] = value;
                 }
                 else {
                     node.__prog.vars[name] = value;
