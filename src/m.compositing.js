@@ -523,18 +523,23 @@ please.render = function(node) {
     // call rendernodes for samplers, where applicable, and then cache output
     var samplers = node.__prog.sampler_list;
     var sampler_cache = {};
-    for (var i=0; i<samplers.length; i+=1) {
+#define MAYBE_RENDER(sampler) (sampler.constructor === String ? sampler : please.render(sampler, framestart, stack))
+    ITER(i, samplers) {
         var name = samplers[i];
         var sampler = node.shader[name];
         if (sampler !== null) {
-            if (typeof(sampler) === "object" && sampler.constructor !== Array) {
-                sampler_cache[name] = please.render(sampler, framestart, stack);
+            if (sampler.constructor === Array) {
+                sampler_cache[name] = [];
+                ITER(a, sampler) {
+                    sampler_cache[name].push(MAYBE_RENDER(sampler[a]));
+                }
             }
             else {
-                sampler_cache[name] = sampler;
+                sampler_cache[name] = MAYBE_RENDER(sampler);
             }
         }
     }
+#undef MAYBE_RENDER
 
     // call the before_render method, if applicable
     if (node.before_render) {

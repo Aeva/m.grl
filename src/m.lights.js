@@ -283,11 +283,16 @@ please.DeferredRenderer = function () {
         gbuffers.buffers.color,
         gbuffers.buffers.normal,
         gbuffers.buffers.spatial,
-        null,
+        new please.FloatingPointBufferViewer(apply_lighting, 0.0, 10.0),
         new please.FloatingPointBufferViewer(gbuffers.buffers.normal, -1.0, 1.0),
         new please.FloatingPointBufferViewer(gbuffers.buffers.spatial, -10, 10),
+        assembly,
+        "error",
+        "error",
     ];
-    debug_splitter.shader.enable = [true, true, true, false, true, true];
+    debug_splitter.shader.enable = [true, true, true,
+                                    true, true, true,
+                                    true, false, false];
 
     assembly.__debug = {
         "gbuffers" : gbuffers,

@@ -986,10 +986,13 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
 #if DEBUG
             var ____check_framebuffer_collision = function (uri) {
-                if (uri && uri.constructor === String) {
-                    var framebuffer = please.gl.__debug.framebuffer;
-                    if (framebuffer && uri.startsWith(framebuffer[0])) {
-                        throw new Error("Attempted to bind active frame buffer texture to a uniform.");
+                if (uri) {
+                    uri = uri.__framebuffer_uri || uri;
+                    if (uri.constructor === String) {
+                        var framebuffer = please.gl.__debug.framebuffer;
+                        if (framebuffer && uri.startsWith(framebuffer[0])) {
+                            throw new Error("Attempted to bind active frame buffer texture to a uniform.");
+                        }
                     }
                 }
             };
