@@ -4,7 +4,7 @@
 python regen_asset_bundle.py
 
 # build m.grl
-sh jspp.sh src/m.header.js mgrl.js -DBSIDES -DDOM -DWEBGL -DGLSL_ASSETS -DASSETS
+sh jspp.sh src/m.header.js mgrl.js -DBSIDES -DDOM -DWEBGL -DGLSL_ASSETS -DASSETS -DDEBUG=0
 
 # apply extra transforms
 python reflow.py mgrl.js
