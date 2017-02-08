@@ -122,6 +122,7 @@ please.SpotLightNode = function (options) {
     DEFAULT(options.min_filter, gl.LINEAR)
 
     this.depth_pass = new please.RenderNode(prog, options);
+    this.depth_pass.__hint = "spot light depth pass";
     
     this.depth_pass.graph_filter = function (node) {
         return node.cast_shadows;
@@ -186,6 +187,7 @@ please.DeferredRenderer = function () {
         "buffers" : ["color"],
         "force_splat" : true,
     });
+    assembly.__hint = "deferred renderer assembly pass";
     assembly.clear_color = [0.15, 0.15, 0.15, 1.0];
     assembly.shader.shader_pass = 3;
     assembly.shader.geometry_pass = false;
@@ -197,6 +199,7 @@ please.DeferredRenderer = function () {
         "type" : gl.FLOAT,
     };
     var gbuffers = new please.RenderNode(prog, gbuffer_options);
+    gbuffers.__hint = "deferred renderer gbuffers pass";
     gbuffers.clear_color = [-1, -1, -1, -1];
     gbuffers.shader.shader_pass = 0;
     gbuffers.shader.geometry_pass = true;
@@ -212,6 +215,7 @@ please.DeferredRenderer = function () {
         "type" : gl.FLOAT,
     };
     var apply_lighting = new please.RenderNode(prog, light_options);
+    apply_lighting.__hint = "deferred renderer illumination pass";
     apply_lighting.clear_color = [0.0, 0.0, 0.0, 1.0];
     apply_lighting.shader.shader_pass = 2;
     apply_lighting.shader.geometry_pass = false;

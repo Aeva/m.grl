@@ -223,6 +223,7 @@ please.picking.__etc.attach_renderer = function(graph) {
         "is_picking_pass" : true,
     };
     var renderer = new please.RenderNode("object_picking", options);
+    renderer.__hint = "object picking pass";
     renderer.req = {x:0, y:0};
     renderer.clear_color = [0.0, 0.0, 0.0, 0.0];
     renderer.stream_callback = function (picked_color) {

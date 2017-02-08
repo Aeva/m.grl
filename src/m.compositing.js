@@ -52,6 +52,7 @@ please.RenderNode = function (prog, options) {
     console.assert(this !== window);
     prog = typeof(prog) === "string" ? please.gl.get_program(prog) : prog;
     this.__is_render_node = true;
+    this.__hint = "unknown";
 
     // UUID, used to provide a uri handle for indirect rendering.
     Object.defineProperty(this, "__id", {
@@ -688,6 +689,7 @@ please.indirect_render = function(node) {
 //
 please.TransitionEffect = function (prog) {
     please.RenderNode.call(this, prog);
+    this.__hint = "transition effect";
     this.shader.progress = 0.0;
 };
 please.TransitionEffect.prototype = Object.create(please.RenderNode.prototype);

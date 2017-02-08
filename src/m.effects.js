@@ -68,6 +68,7 @@ please.PictureInPicture = function () {
         prog = please.glsl("picture_in_picture", "splat.vert", "picture_in_picture.frag");
     }
     var effect = new please.RenderNode(prog);
+    effect.__hint = "picture in picture";
     // the controls for the pip position and size are expressed as percents
     effect.shader.pip_size = [25, 25];
     effect.shader.pip_coord = [70, 70];
@@ -105,6 +106,7 @@ please.DebugViewportSplitter = function () {
         prog = please.glsl("debug_splitter", "splat.vert", "debug_splitter.frag");
     }
     var effect = new please.RenderNode(prog);
+    effect.__hint = "debug framebuffer splitter";
     var pips = [];
     var enables = [];
     RANGE(i, 9) {
@@ -135,6 +137,7 @@ please.FloatingPointBufferViewer = function (buffer, min, max) {
         prog = please.glsl("float_viewer", "splat.vert", "float_viewer.frag");
     }
     var effect = new please.RenderNode(prog);
+    effect.__hint = "floating point buffer viewer";
     // the controls for the pip position and size are expressed as percents
     effect.shader.float_buffer = buffer || "error";
     effect.shader.min_value = min || 0.0;
@@ -165,6 +168,7 @@ please.ScatterBlur = function () {
     
     // handle
     var effect = new please.RenderNode(prog);
+    effect.__hint = "scatter blur";
     effect.shader.blur_radius = 16;
     effect.shader.samples = 8;
     
@@ -183,6 +187,7 @@ please.ColorCurve = function () {
     
     // handle
     var effect = new please.RenderNode(prog);
+    effect.__hint = "color curve";
     effect.shader.red_curve = please.linear_path(0.0, 1.0);
     effect.shader.blue_curve = please.linear_path(0.0, 1.0);
     effect.shader.green_curve = please.linear_path(0.0, 1.0);

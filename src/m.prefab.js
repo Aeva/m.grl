@@ -109,6 +109,7 @@ please.LoadingScreen = function (transition_effect) {
     })();
 
     var effect = new please.RenderNode("default");
+    effect.__hint = "default shader";
     effect.graph = graph;
 
     var transition = typeof(transition_effect) === "function" ? new transition_effect() : transition_effect;
@@ -133,6 +134,7 @@ please.LoadingScreen = function (transition_effect) {
             return transition.shader.progress <= 0.5;
         },
     });
-       
+
+    transition.__hint = "loading_screen";
     return transition;
 };
