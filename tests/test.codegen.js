@@ -14,7 +14,7 @@ test["codegen dynamic IR integration"] = function () {
         this.test_result = a + b;
     };
 
-    var ir = new please.JSIR("this.test_method", '@', 1, '@', 2);
+    var ir = new please.JSIR("this.test_method", ['@', 1, '@', 2]);
     var src = ir.compile(cache);
  
     var expected = 'this.test_method(this["';
@@ -45,7 +45,7 @@ test["codegen partial dynamic IR integration"] = function () {
         this.test_result = a + b;
     };
 
-    var ir = new please.JSIR("this.test_method", 1, '@', 2);
+    var ir = new please.JSIR("this.test_method", [1, '@', 2]);
     var src = ir.compile(cache);
 
     var expected = 'this.test_method(1, ';
@@ -66,7 +66,7 @@ test["codegen static IR integration"] = function () {
         this.test_result = a + b;
     };
 
-    var ir = new please.JSIR("this.test_method", 1, 2);
+    var ir = new please.JSIR("this.test_method", [1, 2]);
     var src = ir.compile(cache);
 
     var expected = 'this.test_method(1, 2);';
