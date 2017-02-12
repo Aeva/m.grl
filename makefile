@@ -1,5 +1,8 @@
 all:
-	./build.sh
+	python build.py
+
+debug:
+	python build.py --debug
 
 clean:
 	git checkout \

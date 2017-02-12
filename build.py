@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import os
+import glob
+import shutil
 import argparse
 import subprocess
 
@@ -53,12 +55,13 @@ if __name__ == "__main__":
     run("python reflow.py mgrl.js")
 
     # regenerate the project templates archive
-    run("python reflow.py m.grl")
-    run("cp mgrl.js templates/common_assets/libs/")
-    run("cp theme/* templates/common_assets/libs/")
+    shutil.copy("mgrl.js", "templates/common_assets/libs/")
+    shutil.copy("theme/theme.css", "templates/common_assets/libs/")
     os.chdir("templates")
-    run("cp common_assets/libs/* basic_project/libs/")
-    run("rm *.zip")
+    for path in glob.glob("common_assets/libs/*"):
+        shutil.copy(path, "basic_project/libs/")
+    if os.path.exists("basic_project.zip"):
+        os.remove("basic_project.zip")
     run("zip -r basic_project.zip basic_project")
 
-    print "\n <3 M.GRL has been built with the following flags:\n" + build_flags
+    print "<3 M.GRL has been built with the following flags:\n" + build_flags
