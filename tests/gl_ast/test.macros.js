@@ -71,3 +71,14 @@ test['swappable methods integration'] = function () {
     assert(method.indexOf('return example'));
     assert(method.indexOf('return derps * derps'));
 };
+
+
+test['instancing switch globals'] = function () {
+    var src = '';
+    src += 'in/uniform vec3 position;\n';
+    src += 'in/uniform mat4 world_matrix;\n';
+        
+    var tree = please.gl.glsl_to_ast(src);
+    var generated = tree.print();
+    assert(generated.indexOf("attribute mat4 inst_attr2_world_matrix;") != -1);
+};

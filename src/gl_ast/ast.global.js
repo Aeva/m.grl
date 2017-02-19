@@ -19,12 +19,39 @@ please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro
     this.mode = mode;
     this.type = type;
     this.name = name;
-    this.size = size;
-    this.macro = macro;
+    this.size = size || null;
+    this.macro = macro || null;
     this.rewrite = null;
-    this.qualifier = qualifier;
+    this.qualifier = qualifier || null;
     this.value = null;
     this.binding_ctx = {};
+    this.virtual_globals = null;
+
+    if (mode == "in/uniform") {
+        if (type == "float" || type.startsWith("vec") || type.startsWith("mat")) {
+        }
+        else {
+            throw new Error(
+                "Only floats, vectors, or matrices are valid for in/uniform.");
+        }
+        this.virtual_globals = [
+            new please.gl.ast.Global(null, type, name),
+            new please.gl.ast.Global("uniform", "bool", "inst_ctrl_" + name),
+            new please.gl.ast.Global("uniform", type, "inst_uni_" + name),
+        ];
+        if (type === "mat3" || type === "mat4") {
+            var rows = type === "mat3" ? 3 : 4;
+            RANGE(r, rows) {
+                var row_name = "inst_attr" + r + "_" + name;
+                this.virtual_globals.push(
+                    new please.gl.ast.Global("attribute", type, row_name));
+            }
+        }
+        else {
+            this.virtual_globals.push(
+                new please.gl.ast.Global("attribute", type, "inst_attr_" + name));
+        }
+    }
 
     if (type == "mode_switch") {
         this.rewrite = name;
@@ -56,6 +83,14 @@ please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro
 };
 please.gl.ast.Global.prototype.print = function () {
     var out = "";
+    if (this.virtual_globals) {
+        out += "// BEGIN generated globals for " + this.name + "\n";
+        ITER(v, this.virtual_globals) {
+            out += this.virtual_globals[v].print();
+        }
+        out += "// END generated globals for " + this.name + "\n";
+        return out;
+    }
     if (this.mode) {
         out += this.mode + " ";
     }
@@ -143,6 +178,7 @@ please.gl.__clean_globals = function (globals) {
 // - ['uniform float foo', ',', 'bar', ';'];
 please.gl.__identify_global = (function() {
     var modes = [
+        "in/uniform", 
         "uniform", "attribute", "varying", "const",
         "uniform curve", "mode_switch"
     ];
