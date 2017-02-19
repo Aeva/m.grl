@@ -115,3 +115,38 @@ please.gl.macros.rewrite_swappable = function (method, available) {
     out += '}\n'
     return out;
 };
+
+
+//
+please.gl.macros.instancing_support = function (globals) {
+    var ext = "";
+
+    ITER_PROPS(name, globals) {
+        var global = globals[name];
+        if (global.mode == "in/uniform") {
+            var tmp = "  NAME = inst_ctrl_NAME ? inst_attr_NAME : inst_uni_NAME;\n";
+            ext += tmp.replaceAll("NAME", global.name);
+        }
+    }
+    if (ext) {
+        ext = "  // BEGIN GENERATED CODE\n" + ext;
+        ext += "  // END GENERATED CODE\n";
+    }
+    return ext;
+};
+
+
+//
+please.gl.macros.main_prefix_hook = function (globals, main) {
+    var ext = "";
+    ext += please.gl.macros.instancing_support(globals);
+
+    var out = main.print();
+    var pivot = out.indexOf("\n");
+    if (ext && pivot) {
+        var pre = out.slice(0, pivot);
+        var post = out.slice(pivot);
+        out = pre + "\n" + ext + "\n" + post;
+    }
+    return out;
+};

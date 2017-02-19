@@ -82,6 +82,25 @@ if (!String.prototype.startsWith) {
 }
 
 
+// Polyfill for non-standard String.replaceAll
+if (!String.prototype.replaceAll) {
+    Object.defineProperty(String.prototype, 'replaceAll', {
+        enumerable: false,
+        configurable: false,
+        writable: false,
+        value: function (regex, new_str) {
+            if (regex == new_str || this.search(regex) == -1) {
+                return this;
+            }
+            else {
+                var mutatoe = this.replace(regex, new_str);
+                return mutatoe.replaceAll(regex, new_str);
+            }
+        }
+    });
+}
+
+
 // Polyfill Array.map, code via MDN:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map
 if (!Array.prototype.map) {

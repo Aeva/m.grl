@@ -77,8 +77,16 @@ test['instancing switch globals'] = function () {
     var src = '';
     src += 'in/uniform vec3 position;\n';
     src += 'in/uniform mat4 world_matrix;\n';
+    src += 'void main() {\n}\n';
         
     var tree = please.gl.glsl_to_ast(src);
     var generated = tree.print();
     assert(generated.indexOf("attribute mat4 inst_attr2_world_matrix;") != -1);
+    var main_decl_index = generated.indexOf("void main() {");
+    var boiler_index = generated.indexOf("BEGIN GENERATED CODE");
+    var vec_boiler_index = generated.indexOf(
+        "position = inst_ctrl_position ? inst_attr_position : inst_uni_position;");
+    assert(main_decl_index > -1);
+    assert(boiler_index > main_decl_index);
+    assert(vec_boiler_index > boiler_index);
 };

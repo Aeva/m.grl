@@ -49,12 +49,15 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     this.rewrite = {};
     this.enums = {};
 
-    var out = "";    
+    var out = "";
+    var globals = {};
     var methods = [];
     var hoists = [];
     var extensions = [];
     var structs_by_name = {};
     var structs = [];
+
+    var globals_printed = false;
 
     var find_hoists = function (methods, hoists) {
         var found = [];
@@ -68,25 +71,24 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     }
 
     var skip_virtuals = false;
-    
+
+    var append_global = function(global) {
+        if (globals[global.name] === undefined) {
+            globals[global.name] = global;
+        }
+        else {
+            var composite = please.gl.__check_for_contradicting_globals(
+                globals[global.name], global);
+            globals[global.name] = composite;
+        }
+    };
+
     if (!is_include && this.inclusions.length > 0) {
         // First, combine all of the globals and hoist them to the top
         // of the generated file.
-        var globals = {};
         var ext_ast = {};
         var imports = this.all_includes();
         skip_virtuals = true;
-
-        var append_global = function(global) {
-            if (globals[global.name] === undefined) {
-                globals[global.name] = global;
-            }
-            else {
-                var composite = please.gl.__check_for_contradicting_globals(
-                    globals[global.name], global);
-                globals[global.name] = composite;
-            }
-        };
 
         var append_struct = function(struct) {
             var previous = structs_by_name[struct.name];
@@ -135,6 +137,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         ITER_PROPS(name, globals) {
             out += globals[name].print();
         }
+        globals_printed = true;
 
         // Generate function prototypes for all methods, validate the
         // resulting concatination, and print the to the output buffer.
@@ -168,6 +171,9 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     }
 
     if (!is_include && this.inclusions.length==0) {
+        // collect available globals
+        this.globals.map(append_global);
+        
         // print out structs
         ITER(s, this.structs) {
             out += this.structs[s].print();            
@@ -223,7 +229,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         var token = this.data[i]
         var last_token = this.data[i-1] || null;
         if (token.constructor == please.gl.ast.Global) {
-            var dummy_out = (this.inclusions.length>0 || is_include) ? "// " : "";
+            var dummy_out = globals_printed ? "// " : "";
             out += dummy_out + token.print();
         }
         else if (token.constructor == please.gl.ast.FunctionPrototype) {
@@ -243,6 +249,10 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         }
         else if (token.constructor == please.gl.ast.Struct) {
             out += "/*\n" + token.print() + "\n*/\n";
+        }
+        else if (token.type == "function" && token.name == "main") {
+            // macro hook for adding things to the main() call
+            out += please.gl.macros.main_prefix_hook(globals, token);
         }
         else if (token.print) {
             out += token.print();
