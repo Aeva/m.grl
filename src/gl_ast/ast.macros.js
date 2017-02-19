@@ -124,8 +124,22 @@ please.gl.macros.instancing_support = function (globals) {
     ITER_PROPS(name, globals) {
         var global = globals[name];
         if (global.mode == "in/uniform") {
-            var tmp = "  NAME = inst_ctrl_NAME ? inst_attr_NAME : inst_uni_NAME;\n";
-            ext += tmp.replaceAll("NAME", global.name);
+            var constructor = "inst_attr_NAME";
+            if (global.type == "mat2") {
+                constructor = "mat2(inst_attr_NAME.xy, inst_attr_NAME.zw)";
+            }
+            else if (global.type == "mat3" || global.type == "mat4") {
+                var args = [];
+                var cols = global.type === "mat3" ? 3 : 4;
+                RANGE(c, cols) {
+                    args.push("inst_attr" + c + "_NAME");
+                }
+                constructor = "mat" + cols + "(" + args.join(", ") + ")";
+            }
+            var tmp = "NAME = inst_ctrl_NAME ? CONSTRUCTOR : inst_uni_NAME";
+            tmp = tmp.replace("CONSTRUCTOR", constructor);
+            tmp = tmp.replaceAll("NAME", global.name);
+            ext += "  " + tmp + ";\n";
         }
     }
     if (ext) {

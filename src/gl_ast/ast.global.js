@@ -40,16 +40,19 @@ please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro
             new please.gl.ast.Global("uniform", type, "inst_uni_" + name),
         ];
         if (type === "mat3" || type === "mat4") {
-            var rows = type === "mat3" ? 3 : 4;
-            RANGE(r, rows) {
-                var row_name = "inst_attr" + r + "_" + name;
+            var cols = type === "mat3" ? 3 : 4;
+            var attr_type = "vec" + cols;
+            RANGE(c, cols) {
+                var col_name = "inst_attr" + c + "_" + name;
                 this.virtual_globals.push(
-                    new please.gl.ast.Global("attribute", type, row_name));
+                    new please.gl.ast.Global("attribute", attr_type, col_name));
             }
         }
         else {
+            var attr_type = type === "mat2" ? "vec4" : type;
             this.virtual_globals.push(
-                new please.gl.ast.Global("attribute", type, "inst_attr_" + name));
+                new please.gl.ast.Global(
+                    "attribute", attr_type, "inst_attr_" + name));
         }
     }
 
