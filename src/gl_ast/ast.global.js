@@ -19,11 +19,19 @@ please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro
     this.mode = mode;
     this.type = type;
     this.name = name;
+#if DEBUG
+    if (!this.type) {
+        throw new Error("Global must be constructed with a type!");
+    }
+    if (!this.name) {
+        throw new Error("Global must be constructed with a name!");
+    }
+#endif
+    this.value = null;
     this.size = size || null;
+    this.qualifier = qualifier || null;
     this.macro = macro || null;
     this.rewrite = null;
-    this.qualifier = qualifier || null;
-    this.value = null;
     this.binding_ctx = {};
     this.virtual_globals = null;
 
@@ -34,10 +42,16 @@ please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro
             throw new Error(
                 "Only floats, vectors, or matrices are valid for in/uniform.");
         }
+        var BoundUniform = function (alias, type, name) {
+            var uniform = new please.gl.ast.Global("uniform", type, name);
+            uniform.binding_ctx.GraphNode = true;
+            uniform.rewrite = alias;
+            return uniform;
+        };
         this.virtual_globals = [
             new please.gl.ast.Global(null, type, name),
-            new please.gl.ast.Global("uniform", "bool", "inst_ctrl_" + name),
-            new please.gl.ast.Global("uniform", type, "inst_uni_" + name),
+            new BoundUniform("_instctrl_" + name, "bool", "inst_ctrl_" + name),
+            new BoundUniform(name, type, "inst_uni_" + name),
         ];
         if (type === "mat3" || type === "mat4") {
             var cols = type === "mat3" ? 3 : 4;
@@ -327,7 +341,7 @@ please.gl.__parse_globals = (function () {
                         found = found[0];
                         ITER(b, found) {
                             var bind = found[b];
-                            if (bind.mode !== "attribute" && bind.mode !== "uniform") {
+                            if (bind.mode !== "attribute" && bind.mode !== "uniform" && bind.mode !== "in/uniform") {
                                 please.gl.ast.error(
                                     bind,
                                     "Only uniform and attribute variables may be given a binding context.");

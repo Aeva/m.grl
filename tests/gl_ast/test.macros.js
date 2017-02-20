@@ -83,6 +83,8 @@ test['instancing switch globals'] = function () {
         
     var tree = please.gl.glsl_to_ast(src);
     var generated = tree.print();
+    assert(generated.indexOf("uniform vec3 inst_uni_vector;") != -1);
+    assert(generated.indexOf("uniform bool inst_ctrl_vector;") != -1);
     assert(generated.indexOf("attribute vec3 inst_attr_vector;") != -1);
     assert(generated.indexOf("attribute vec4 inst_attr_two_rows;") != -1);
     assert(generated.indexOf("attribute vec3 inst_attr2_three_rows;") != -1);
