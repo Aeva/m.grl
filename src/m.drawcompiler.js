@@ -82,6 +82,7 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
             // Instancing might be worthwhile here.  The 'requires'
             // array contains the uniforms that have to be instancable.
             var requires = [];
+            var instances = stamped_ir.length;
             ITER(v, graph.__ir_variance[state_key]) {
                 var uniform = graph.__ir_variance[state_key][v];
                 if (this.__prog.vars.hasOwnProperty(uniform)) {
@@ -97,9 +98,32 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
                 }
             }
             if (instancing_possible) {
-                // do a thing
-                //alert('instancing!');
-                //continue;
+                var buffer = please.gl.get_instance_buffer(
+                    this.__prog.name + ":" + state_key,
+                    this.__prog, stamped_ir);
+                var prototype = stamped_ir[0];
+                var new_ir = prototype.generate(
+                    this.__prog, state_tracker, instances);
+                ITER(p, new_ir) {
+                    var token = new_ir[p];
+                    if (token.constructor == please.JSIR) {
+                        token.compiled = true;
+                    }
+                    ir.push(token);
+
+                    if (p == 0) {
+                        // HACK to do any of this here
+                        ir.push("gl.uniform1i(this.prog.__ptrs['_instctrl_world_matrix'], 1);\n");
+                        ir.push(
+                            buffer.static_bind(this.__prog, state_tracker, true));
+                    }
+                }
+                // HACK
+                ir.push("gl.uniform1i(this.prog.__ptrs['_instctrl_world_matrix'], 0);\n");
+
+                // add ir for drawing
+                // disable instancing / attrs afterwards?
+                continue;
             }
         }
                 

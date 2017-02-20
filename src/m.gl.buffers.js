@@ -400,3 +400,61 @@ please.gl.ibo = function (data, options) {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, opt.hint);
     return ibo;
 };
+
+
+//
+please.gl.get_instance_buffer = function (state_key, shader, tokens) {
+    var buffer_key = shader.name + ":" + state_key;
+    var instances = tokens.length;
+    var size_chart = {
+        "float" : 1,
+        "vec2" : 2,
+        "vec3" : 3,
+        "vec4" : 4,
+        "mat2" : 4, // both rows are packed into the same array
+        "mat3" : 3, // will be split into three attributes
+        "mat4" : 4, // will be split into four attributes
+    };
+
+    // allocate the arrays
+    var attr_map = {};
+    ITER_PROPS(name, shader.instanceable) {
+        var type = shader.instanceable[name];
+        var size = size_chart[type];
+        var attr_names = [];
+        if (type == "mat3" || type == "mat4") {
+            RANGE(c, size) {
+                var attr_name = "inst_attr" + c + "_" + name;
+                attr_map[attr_name] = new Float32Array(instances * size);
+                attr_names.push(attr_name);
+            }
+        }
+        else {
+            var attr_name = "inst_attr_" + name;
+            attr_map[attr_name] = new Float32Array(instances * size);
+            attr_names.push(attr_name);
+        }
+        // populate the array
+        ITER(t, tokens) {
+            var token = tokens[t];
+            var column = 0;
+            ITER(n, attr_names) {
+                var attr_name = attr_names[n];
+                var attr = attr_map[attr_name];
+
+                var size = attr.length / tokens.length;
+                var insert = t*size;
+                if (size == 1) {
+                    attr[insert] = token.__defaults[name];
+                }
+                else {
+                    RANGE(s, size) {
+                        attr[insert + s] = token.__defaults[name][column+s];
+                    }
+                }
+                column += size;
+            }
+        }
+    }
+    return new please.gl.vbo(instances, attr_map);
+};

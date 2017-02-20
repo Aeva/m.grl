@@ -263,13 +263,17 @@ please.__DrawableIR = function (vbo, ibo, ranges, defaults, graph_node) {
         ranges = [[null, null]];
     }
 
-    this.__draw_invocation = "";
-    var draw_buffer = ibo || vbo;
-    ITER(r, ranges) {
-        var start = ranges[r][0];
-        var total = ranges[r][1];
-        this.__draw_invocation = draw_buffer.static_draw(start, total);
+    this.__make_draw_invocation = function (instances) {
+        var invocation = "";
+        var draw_buffer = ibo || vbo;
+        ITER(r, ranges) {
+            var start = ranges[r][0];
+            var total = ranges[r][1];
+            invocation += draw_buffer.static_draw(start, total, instances);
+        }
+        return invocation;
     }
+    this.__draw_invocation = this.__make_draw_invocation(0);
 };
 
 
@@ -393,8 +397,9 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value, pr
 };
 
 
-please.__DrawableIR.prototype.generate = function (prog, state_tracker) {
+please.__DrawableIR.prototype.generate = function (prog, state_tracker, instances) {
     this.bindings_for_shader(prog);
+    instances = instances || 0;
     var ir = [];
     ir.push(this.__vbo.static_bind(prog, state_tracker));
     if (this.__ibo) {
@@ -421,7 +426,13 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker) {
         }
     }
 
-    ir.push(this.__draw_invocation);
+    if (instances) {
+        ir.push(this.__make_draw_invocation(instances));
+    }
+    else {
+        // use the cached invocation for non-instanced drawing
+        ir.push(this.__draw_invocation);
+    }
     return ir;
 };
 
