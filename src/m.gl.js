@@ -732,6 +732,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     var sampler_uniforms = [];
 
     // track special behavior from glsl->glsl compiler
+    var instanceable = {};
     var rewrites = {};
     var enums = {};
     ITER_PROPS(shader_type, ast_ref) {
@@ -745,6 +746,18 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             if (!enums[name]) {
                 enums[name] = tree.enums[name];
             }
+        }
+    }
+    ITER(g, ast_ref.vert.globals) {
+        var global = ast_ref.vert.globals[g];
+        if (global.mode == "in/uniform") {
+            ITER(v, global.virtual_globals) {
+                var virtual = global.virtual_globals[v];
+                if (virtual.rewrite) {
+                    rewrites[virtual.name] = virtual.rewrite;
+                }
+            }
+            instanceable[global.name] = global.type;
         }
     }
     console.info("rewrites:");
