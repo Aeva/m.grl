@@ -14,7 +14,7 @@ uniform float mgrl_orthographic_scale;
 
 
 binding_context GraphNode {
-  uniform mat4 world_matrix;
+  in/uniform mat4 world_matrix;
   uniform float billboard_mode;
 }
 

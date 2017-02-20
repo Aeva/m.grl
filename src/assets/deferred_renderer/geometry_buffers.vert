@@ -4,7 +4,7 @@ include("deferred_renderer/common.glsl");
 
 binding_context GraphNode {
   // object matrices
-  uniform mat4 world_matrix;
+  in/uniform mat4 world_matrix;
   uniform mat4 particle_matrix;
 
   // billboard sprites enabler

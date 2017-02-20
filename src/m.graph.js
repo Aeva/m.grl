@@ -534,10 +534,8 @@ please.GraphNode.prototype = {
             }
         }
     },
-    "__copy_and_freeze_ir" : function (found) {
-        if (!found) {
-            found = [];
-        }
+    "__copy_and_freeze_ir" : function () {
+        var found = [];
         if (this.__ir) {
             found.push(this.__ir.copy_freeze());
         }
@@ -547,6 +545,7 @@ please.GraphNode.prototype = {
         ITER(c, this.children) {
             this.children[c].all_ir(found);
         }
+        return found;
     },
     "freeze" : function () {
         if (this.__ir) {
@@ -733,7 +732,51 @@ please.SceneGraph = function () {
     this.__lights = [];
     this.__statics = [];
     this.__all_drawables = [];
-    this.__drawable_ir = [];
+    
+    this.__drawable_ir = {};
+    this.__ir_variance = {};
+    var ir_state_tracker = {};
+    var add_ir = function (token) {
+        var group = "v" + token.__vbo.buffer_index + ":i" + token.__ibo.buffer_index;
+        if (!this.__drawable_ir[group]) {
+            this.__drawable_ir[group] = [token];
+            this.__ir_variance[group] = [];
+            ir_state_tracker[group] = {};
+            ITER_PROPS(uni, token.__defaults) {
+                ir_state_tracker[group][uni] = token.__defaults[uni];
+            }
+        }
+        else {
+            ITER_PROPS(uni, ir_state_tracker[group]) {
+                var value = token.__defaults[uni];
+                var recorded = ir_state_tracker[group][uni];
+                var changed = recorded !== value;
+                if (value && value.length && recorded.length == value.length) {
+                    changed = false;
+                    ITER(s, value) {
+                        if (recorded[s] !== value[s]) {
+                            changed = true;
+                            break;
+                        }
+                    }
+                }
+                if (changed) {
+                    delete ir_state_tracker[group][uni];
+                    this.__ir_variance[group].push(uni);
+                }
+            }
+            this.__drawable_ir[group].push(token);
+        }
+    }.bind(this);
+    this.stamp = function (node) {
+        var new_ir = node.__copy_and_freeze_ir();
+        ITER(i, new_ir) {
+            add_ir(new_ir[i]);
+        }
+        if (new_ir.length) {
+            this.__regen_static_draw(node);
+        }
+    };
     var find_draw_group = function (node) {
         if (node.__is_light) {
             return this.__lights;
@@ -745,13 +788,6 @@ please.SceneGraph = function () {
             return this.__flat;
         }
     }.bind(this);
-    this.stamp = function (node) {
-        var old_count = this.__drawable_ir.length;
-        node.__copy_and_freeze_ir(this.__drawable_ir);
-        if (old_count < this.__drawable_ir.length) {
-            this.__regen_static_draw(node);
-        }
-    };
     this.__track = function (node) {
         var group = find_draw_group(node);
         if (group.indexOf(node) === -1) {

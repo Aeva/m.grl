@@ -13,7 +13,7 @@ uniform float mgrl_buffer_width;
 uniform float mgrl_buffer_height;
 
 binding_context GraphNode {
-  uniform mat4 world_matrix;
+  in/uniform mat4 world_matrix;
   uniform float billboard_mode;
 }
 

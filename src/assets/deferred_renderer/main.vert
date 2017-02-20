@@ -7,7 +7,7 @@ attribute vec2 tcoords;
 
 binding_context GraphNode {
   // object matrices
-  uniform mat4 world_matrix;
+  in/uniform mat4 world_matrix;
 }
 
 uniform mat4 view_matrix;

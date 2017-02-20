@@ -3,7 +3,6 @@
 please.gl.__buffers = {
     "last_vbo" : null,
     "last_ibo" : null,
-    "next_id" : 0,
     "all" : [],
 };
 

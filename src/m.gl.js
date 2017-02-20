@@ -558,6 +558,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
         "sampler_list" : [], // immutable, canonical list of sampler var names
         "binding_info" : {}, // lookup reference for variable bindings
         "binding_ctx" : {}, // lists of uniforms associated with contexts
+        "instanceable" : {}, // all of the uniforms that support instancing
         "__ptrs" : {}, // cache of named WebGLUniformLocation objects
         "__cache" : {
             // the cache records the last value set,
@@ -732,7 +733,6 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     var sampler_uniforms = [];
 
     // track special behavior from glsl->glsl compiler
-    var instanceable = {};
     var rewrites = {};
     var enums = {};
     ITER_PROPS(shader_type, ast_ref) {
@@ -757,7 +757,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
                     rewrites[virtual.name] = virtual.rewrite;
                 }
             }
-            instanceable[global.name] = global.type;
+            prog.instanceable[global.name] = global.type;
         }
     }
     console.info("rewrites:");
