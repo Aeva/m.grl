@@ -35,7 +35,11 @@ please.gl.ast.Global = function (mode, type, name, value, size, qualifier, macro
     this.binding_ctx = {};
     this.virtual_globals = null;
 
-    if (mode == "in/uniform") {
+    if (mode == "in/uniform" && !please.gl.ext.ANGLE_instanced_arrays) {
+        this.mode = mode = "uniform";
+    }
+
+    if (mode == "in/uniform") {        
         if (type == "float" || type.startsWith("vec") || type.startsWith("mat")) {
         }
         else {
