@@ -57,7 +57,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
     var structs_by_name = {};
     var structs = [];
 
-    var globals_printed = false;
+    var globals_printed = is_include;
 
     var find_hoists = function (methods, hoists) {
         var found = [];
