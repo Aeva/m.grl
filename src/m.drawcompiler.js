@@ -98,6 +98,8 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
                 }
             }
             if (instancing_possible) {
+                ir.push("//");
+                ir.push("// begin instancing for " + instances + " stamps");
                 var buffer = please.gl.get_instance_buffer(
                     this.__prog.name + ":" + state_key,
                     this.__prog, stamped_ir);
@@ -122,6 +124,8 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
         }
                 
         ITER(i, stamped_ir) {
+            ir.push("//");
+            ir.push("// begin graphless-but-not-instanced draw calls");
             var drawable = stamped_ir[i];
             var node_ir = drawable.generate(this.__prog, state_tracker);
             ITER(p, node_ir) {

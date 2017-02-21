@@ -306,7 +306,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             ITER (a, attr_names) {
                 var name = attr_names[a];
                 if (prog.attrs[name]) {
-                    src += "\n" + please.format_invocation(
+                    src += please.format_invocation(
                         ext+".vertexAttribDivisorANGLE",
                         "this.prog.attrs['" + name + "'].loc", 1);
                 }
