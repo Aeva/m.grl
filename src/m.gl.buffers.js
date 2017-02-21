@@ -262,7 +262,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         else {
             // only enable what we need, disable everything else
             for (var name in prog.attrs) {
-                if (instance_buffer && instance_buffer.attr_names.indexOf[name] !== -1) {
+                if (instance_buffer && instance_buffer.attr_names.indexOf(name) !== -1) {
                     continue;
                 }
                 var enabled = attr_names.indexOf(name) !== -1;
