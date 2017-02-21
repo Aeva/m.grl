@@ -732,15 +732,17 @@ please.SceneGraph = function () {
     this.__lights = [];
     this.__statics = [];
     this.__all_drawables = [];
-    
-    this.__drawable_ir = {};
-    this.__ir_variance = {};
+
+    this.__instances = {}; // last number of instances compiled per group
+    this.__drawable_ir = {}; // drawable ir tokens, sorted by group
+    this.__ir_variance = {}; // state delta of the ir tokens
     var ir_state_tracker = {};
     var add_ir = function (token) {
         var group = "v" + token.__vbo.buffer_index + ":i" + token.__ibo.buffer_index;
         if (!this.__drawable_ir[group]) {
             this.__drawable_ir[group] = [token];
             this.__ir_variance[group] = [];
+            this.__instances[group] = 0; // to be increased by the compiler
             ir_state_tracker[group] = {};
             ITER_PROPS(uni, token.__defaults) {
                 ir_state_tracker[group][uni] = token.__defaults[uni];

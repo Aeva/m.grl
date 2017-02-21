@@ -3,6 +3,7 @@
 please.gl.__buffers = {
     "last_vbo" : null,
     "last_ibo" : null,
+    "instancing" : {},
     "all" : [],
 };
 
@@ -33,6 +34,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             }
         });
     }
+    var deleted = false;
     var instances = opt.instanced ? vertex_count : 0;
     var attr_names = please.get_properties(attr_map);
     var vbo = {
@@ -49,6 +51,11 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         "attr_names" : attr_names,
         "static_bind" : null,
         "static_draw" : function (start, total, instance_buffer) {
+#if DEBUG
+            if (deleted) {
+                throw new Error("Attempted to draw a deleted buffer!");
+            }
+#endif
             if (!start) {
                 start = 0;
             }
@@ -65,6 +72,12 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             else {
                 return please.format_invocation(
                     "gl.drawArrays", opt.mode, start, total);
+            }
+        },
+        "destroy" : function () {
+            if (!deleted && this.id) {
+                deleted = true;
+                gl.deleteBuffer(this.id);
             }
         },
         "stats" : {
@@ -206,6 +219,11 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         gl.bufferData(gl.ARRAY_BUFFER, builder, opt.hint);
 
         vbo.bind = function () {
+#if DEBUG
+            if (deleted) {
+                throw new Error("Attempted to bind a deleted buffer!");
+            }
+#endif
             if (common_bind()) {
                 var prog = please.gl.__cache.current;
                 gl.bindBuffer(gl.ARRAY_BUFFER, this.id);
@@ -226,6 +244,11 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
 
     // For generating static bind methods.
     vbo.static_bind = function (prog, state_tracker, instance_buffer) {
+#if DEBUG
+        if (deleted) {
+            throw new Error("Attempted to static_bind a deleted buffer!");
+        }
+#endif
         var src = "";
         state_tracker = state_tracker || {};
         var redundant = state_tracker["vbo"] == this.id;
@@ -416,8 +439,18 @@ please.gl.ibo = function (data, options) {
 
 
 //
-please.gl.get_instance_buffer = function (state_key, shader, tokens) {
+please.gl.get_instance_buffer = function (state_key, shader, tokens, flush) {
     var buffer_key = shader.name + ":" + state_key;
+    var cached = please.gl.__buffers[buffer_key];
+    if (cached) {
+        if (flush) {
+            cached.destroy()
+        }
+        else {
+            return cached;
+        }
+    }
+    
     var instances = tokens.length;
     var size_chart = {
         "float" : 1,
@@ -469,5 +502,7 @@ please.gl.get_instance_buffer = function (state_key, shader, tokens) {
             }
         }
     }
-    return new please.gl.vbo(instances, attr_map, {instanced:true});
+    var instance_buffer = new please.gl.vbo(instances, attr_map, {instanced:true});
+    please.gl.__buffers[buffer_key] = instance_buffer;
+    return instance_buffer;
 };

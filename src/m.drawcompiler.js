@@ -100,9 +100,12 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
             if (instancing_possible) {
                 ir.push("//");
                 ir.push("// begin instancing for " + instances + " stamps");
+                var last_build_count = graph.__instances[state_key];
+                var force_rebuild = last_build_count !== instances;
                 var buffer = please.gl.get_instance_buffer(
                     this.__prog.name + ":" + state_key,
-                    this.__prog, stamped_ir);
+                    this.__prog, stamped_ir, force_rebuild);
+                graph.__instances[state_key] = instances;
                 var prototype = stamped_ir[0];
                 var new_ir = prototype.generate(this.__prog, state_tracker, buffer);
                 ITER(p, new_ir) {
