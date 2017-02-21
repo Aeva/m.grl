@@ -112,17 +112,11 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
                     ir.push(token);
 
                     if (p == 0) {
-                        // HACK to do any of this here
-                        ir.push("gl.uniform1i(this.prog.__ptrs['_instctrl_world_matrix'], 1);\n");
+                        // HACK
                         ir.push(
                             buffer.static_bind(this.__prog, state_tracker, true));
                     }
                 }
-                // HACK
-                ir.push("gl.uniform1i(this.prog.__ptrs['_instctrl_world_matrix'], 0);\n");
-
-                // add ir for drawing
-                // disable instancing / attrs afterwards?
                 continue;
             }
         }

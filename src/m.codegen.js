@@ -418,9 +418,34 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker, instance
                 token.freeze();
             }
             var state_key = "uniform:"+name;
+            if (instances && prog.instanceable[name]) {
+                state_key = "instanced";
+            }
+            
             var state_cmp = token.cache_key()
             if (state_cmp === null || state_tracker[state_key] !== state_cmp) {
-                ir.push(token);
+                if (state_key == "instanced") {
+                    // activate instancing for this uniform
+                    ir.push(new please.JSIR(
+                        "gl.uniform1i",
+                        [
+                            "this.prog.__ptrs['_instctrl_" + name + "']",
+                            1,
+                        ]))
+                }
+                else {
+                    if (state_cmp == "instanced") {
+                        // turn off instancing for this uniform
+                        ir.push(new please.JSIR(
+                            "gl.uniform1i",
+                            [
+                                "this.prog.__ptrs['_instctrl_" + name + "']",
+                                0,
+                            ]))
+
+                    }
+                    ir.push(token);
+                }
                 state_tracker[state_key] = state_cmp;
             }
         }
