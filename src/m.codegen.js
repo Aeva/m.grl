@@ -263,13 +263,13 @@ please.__DrawableIR = function (vbo, ibo, ranges, defaults, graph_node) {
         ranges = [[null, null]];
     }
 
-    this.__make_draw_invocation = function (instances) {
+    this.__make_draw_invocation = function (instance_buffer) {
         var invocation = "";
         var draw_buffer = ibo || vbo;
         ITER(r, ranges) {
             var start = ranges[r][0];
             var total = ranges[r][1];
-            invocation += draw_buffer.static_draw(start, total, instances);
+            invocation += draw_buffer.static_draw(start, total, instance_buffer);
         }
         return invocation;
     }
@@ -397,11 +397,10 @@ please.__DrawableIR.prototype.bind_or_update_uniform = function (name, value, pr
 };
 
 
-please.__DrawableIR.prototype.generate = function (prog, state_tracker, instances) {
+please.__DrawableIR.prototype.generate = function (prog, state_tracker, instance_buffer) {
     this.bindings_for_shader(prog);
-    instances = instances || 0;
     var ir = [];
-    ir.push(this.__vbo.static_bind(prog, state_tracker));
+    ir.push(this.__vbo.static_bind(prog, state_tracker, instance_buffer));
     if (this.__ibo) {
         if (state_tracker["ibo"] !== this.__ibo.id) {
             ir.push(this.__ibo.static_bind);
@@ -418,7 +417,7 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker, instance
                 token.freeze();
             }
             var state_key = "uniform:"+name;
-            if (instances && prog.instanceable[name]) {
+            if (instance_buffer && prog.instanceable[name]) {
                 state_key = "instanced";
             }
             
@@ -429,7 +428,7 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker, instance
                     ir.push(new please.JSIR(
                         "gl.uniform1i",
                         [
-                            "this.prog.__ptrs['_instctrl_" + name + "']",
+                            "prog.__ptrs['_instctrl_" + name + "']",
                             1,
                         ]))
                 }
@@ -439,7 +438,7 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker, instance
                         ir.push(new please.JSIR(
                             "gl.uniform1i",
                             [
-                                "this.prog.__ptrs['_instctrl_" + name + "']",
+                                "prog.__ptrs['_instctrl_" + name + "']",
                                 0,
                             ]))
 
@@ -451,8 +450,8 @@ please.__DrawableIR.prototype.generate = function (prog, state_tracker, instance
         }
     }
 
-    if (instances) {
-        ir.push(this.__make_draw_invocation(instances));
+    if (instance_buffer) {
+        ir.push(this.__make_draw_invocation(instance_buffer));
     }
     else {
         // use the cached invocation for non-instanced drawing

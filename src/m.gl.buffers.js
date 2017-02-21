@@ -24,6 +24,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         "type" : gl.FLOAT,
         "mode" : gl.TRIANGLES,
         "hint" : gl.STATIC_DRAW,
+        "instanced" : false,
     }
     if (options) {
         please.get_properties(opt).map(function (name) {
@@ -32,7 +33,8 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             }
         });
     }
-
+    var instances = opt.instanced ? vertex_count : 0;
+    var attr_names = please.get_properties(attr_map);
     var vbo = {
         "id" : null,
         "opt" : opt,
@@ -43,23 +45,22 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
             DEFAULT(total, vertex_count);
             gl.drawArrays(opt.mode, start, total);
         },
+        "instances" : instances,
+        "attr_names" : attr_names,
         "static_bind" : null,
-        "static_draw" : function (start, total, instances) {
+        "static_draw" : function (start, total, instance_buffer) {
             if (!start) {
                 start = 0;
             }
             if (!total) {
                 total = vertex_count;
             }
-            if (!instances) {
-                instances = 0;
-            }
-
-            if (instances > 0) {
+            var _instances = instance_buffer ? instance_buffer.instances : instances;
+            if (_instances > 0) {
                 var ext = "please.gl.ext.ANGLE_instanced_arrays";
                 return please.format_invocation(
                     ext + ".drawArraysInstancedANGLE",
-                    "gl.drawArrays", opt.mode, start, total, instances);
+                    "gl.drawArrays", opt.mode, start, total, _instances);
             }
             else {
                 return please.format_invocation(
@@ -80,8 +81,6 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
     };
     please.gl.__register_buffer(vbo);
 
-    var attr_names = please.get_properties(attr_map);
-    
     // generate the type info for each attr in the buffer (eg vec4 = 4)
     ITER_PROPS(attr, attr_map) {
         vbo.reference.type[attr] = attr_map[attr].length / vertex_count;
@@ -226,7 +225,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
 
 
     // For generating static bind methods.
-    vbo.static_bind = function (prog, state_tracker, instanced) {
+    vbo.static_bind = function (prog, state_tracker, instance_buffer) {
         var src = "";
         state_tracker = state_tracker || {};
         var redundant = state_tracker["vbo"] == this.id;
@@ -234,15 +233,28 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         // we don't just return here if this is a redundant call,
         // because instancing will have an effect on how attrs are
         // bound
+
+        if (instance_buffer) {
+#if DEBUG
+            if (instances) {
+                throw new Error("Instancing buffer bound with 'instance_buffer' argument.  This should only be invoked on non-instanced buffers.");
+            }
+            if (!instance_buffer.instances) {
+                throw new Error("vbo.static_bind argument 'instance_buffer' was not actually set up for instancing.");
+            }
+#endif
+            // also bind another vbo to set up instancing
+            src += instance_buffer.static_bind(prog, state_tracker);
+        }
         
         // enable attributes
-        if (instanced) {
+        if (instances) {
             // don't disable other arrays
             ITER(a, attr_names) {
                 var name = attr_names[a];
                 var state = "attr:" + name;
                 if (prog.attrs[name] && !state_tracker[state]) {
-                    src += "this.prog.attrs['"+name+"'].enabled = true;\n";
+                    src += "prog.attrs['"+name+"'].enabled = true;\n";
                 }
                 state_tracker[state] = true;
             }
@@ -250,10 +262,13 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
         else {
             // only enable what we need, disable everything else
             for (var name in prog.attrs) {
+                if (instance_buffer && instance_buffer.attr_names.indexOf[name] !== -1) {
+                    continue;
+                }
                 var enabled = attr_names.indexOf(name) !== -1;
                 var state = "attr:" + name;
                 if (state_tracker[state] != enabled) {
-                    src += "this.prog.attrs['"+name+"'].enabled = "+enabled+";\n";
+                    src += "prog.attrs['"+name+"'].enabled = "+enabled+";\n";
                 }
                 state_tracker[state] = enabled
             }
@@ -265,7 +280,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 for (var name in vbo.stats) {
                     var glsl_name = "mgrl_model_local_" + name;
                     if (prog.vars.hasOwnProperty(glsl_name)) {
-                        src += "this.prog.vars['"+glsl_name+"'] = ";
+                        src += "prog.vars['"+glsl_name+"'] = ";
                         src += please.array_src(vbo.stats[name]) + ";\n";
                     }
                 }
@@ -281,7 +296,7 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 // single attribute buffer binding
                 src += please.format_invocation(
                     "gl.vertexAttribPointer",
-                    "this.prog.attrs['" + attr + "'].loc",
+                    "prog.attrs['" + attr + "'].loc",
                     item_size, opt.type, false, 0, 0) + "\n";
             }
             else {
@@ -293,14 +308,14 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                     if (prog.attrs[attr]) {
                         src += please.format_invocation(
                             "gl.vertexAttribPointer",
-                            "this.prog.attrs['" + attr + "'].loc",
+                            "prog.attrs['" + attr + "'].loc",
                             item_size, opt.type, false, stride*4, offset*4) + "\n";
                     }
                 }
             }
         }
 
-        if (instanced) {
+        if (instances) {
             // enable instancing
             var ext = "please.gl.ext.ANGLE_instanced_arrays";
             ITER (a, attr_names) {
@@ -308,11 +323,11 @@ please.gl.vbo = function (vertex_count, attr_map, options) {
                 if (prog.attrs[name]) {
                     src += please.format_invocation(
                         ext+".vertexAttribDivisorANGLE",
-                        "this.prog.attrs['" + name + "'].loc", 1);
+                        "prog.attrs['" + name + "'].loc", 1) + "\n";
                 }
             }
         }
-        return src.trim();
+        return src;
     };
 
     return vbo;
@@ -361,16 +376,14 @@ please.gl.ibo = function (data, options) {
             gl.drawElements(opt.mode, total, opt.type, start*data.BYTES_PER_ELEMENT);
         },
         "static_bind" : null,
-        "static_draw" : function (start, total, instances) {
+        "static_draw" : function (start, total, instance_buffer) {
             if (!start) {
                 start = 0;
             }
             if (!total) {
                 total = face_count;
             }
-            if (!instances) {
-                instances = 0;
-            }
+            var instances = instance_buffer ? instance_buffer.instances : instances;
             
             if (instances > 0) {
                 var ext = "please.gl.ext.ANGLE_instanced_arrays";
@@ -456,5 +469,5 @@ please.gl.get_instance_buffer = function (state_key, shader, tokens) {
             }
         }
     }
-    return new please.gl.vbo(instances, attr_map);
+    return new please.gl.vbo(instances, attr_map, {instanced:true});
 };
