@@ -1069,7 +1069,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             var non_ptr_method = uni.slice(0,-1);
             var flat_args = !!gl[non_ptr_method];
             var method = "gl." + (flat_args? non_ptr_method : uni);
-            var pointer = "this.prog.__ptrs['"+uniform_name+"']";
+            var pointer = "prog.__ptrs['"+uniform_name+"']";
             var args_array = [pointer];
             if (is_matrix) {
                 args_array.push(false); // no need to transpose.
