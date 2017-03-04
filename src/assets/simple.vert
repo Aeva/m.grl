@@ -29,11 +29,16 @@ varying vec3 screen_normal;
 varying float linear_depth;
 
 
+swappable void morph(inout vec3 position, inout vec3 normal, inout vec2 tcoords) {
+}
+
+
 void main(void) {
   // pass along to the fragment shader
   local_position = position * mgrl_orthographic_scale;
   local_normal = normal;
   local_tcoords = tcoords;
+  morph(local_position, local_normal, local_tcoords);
 
   // calculate modelview matrix
   mat4 model_view = view_matrix * world_matrix;
