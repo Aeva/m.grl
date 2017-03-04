@@ -1414,52 +1414,78 @@ please.gl.reset_viewport = function () {
 }
 
 
-// [+] please.gl.make_quad (width, height, origin, draw_hint)
+// [+] please.gl.make_grid (tile_w, tile_h, board_w, board_h, origin)
 //
-// Create and return a vertex buffer object containing a square.  This
-// generates vertices and normals, but not texture coordinates.
+// Create a flat grid of tiles, and return a vertex buffer object for
+// it.  This generates vertices, normals, and texture coordinates.
 //
-please.gl.make_quad = function (width, height, origin, draw_hint) {
-
+please.gl.make_grid = function (tile_w, tile_h, board_w, board_h, origin) {
     if (!origin) {
         origin = [0, 0, 0];
     }
+#if DEBUG
     console.assert(origin.length === 3, "Origin must be in the form [0, 0, 0].");
-    if (!width) {
-        width = 2;
-    }
-    if (!height) {
-        height = 2;
-    }
-    if (!draw_hint) {
-        draw_hint = gl.STATIC_DRAW;
-    }
+#endif
+
+    var position = new Float32Array(18 * board_w * board_h);
+    var normal = new Float32Array(18 * board_w * board_h);
+    var tcoords = new Float32Array(12 * board_w * board_h);
+
+    var reference = [
+        0, 0,
+        1, 0,
+        1, 1,
+        1, 1,
+        0, 1,
+        0, 0,
+    ];
+
+    var offset_x = origin[0] - (tile_w * board_w * 0.5);
+    var offset_y = origin[1] - (tile_h * board_h * 0.5);
+    var offset_z = origin[2];
+    var tile = new Float32Array(4);
+
+    RANGE(tile_y, board_h) {
+        RANGE(tile_x, board_h) {
+            var pointer = (tile_y * board_h) + tile_x;
+            tile[0] = offset_x + (tile_w * tile_x);
+            tile[1] = offset_x + (tile_w * (tile_x+1));
+            tile[2] = offset_y + (tile_h * tile_y);
+            tile[3] = offset_y + (tile_h * (tile_y+1));
+            RANGE(row, 6) {
+                var ref_x = reference[row*2];
+                var ref_y = reference[row*2+1];
+                var p_pointer = pointer*18 + (row*3);
+                var t_pointer = pointer*12 + (row*2);
+                position[p_pointer + 0] = tile[ref_x];
+                position[p_pointer + 1] = tile[ref_y+2];
+                position[p_pointer + 2] = offset_z;
+                normal[p_pointer + 0] = 0;
+                normal[p_pointer + 1] = 0;
+                normal[p_pointer + 2] = 1;
+                tcoords[t_pointer + 0] = (tile_x + ref_x) / board_w;
+                tcoords[t_pointer + 1] = (tile_y + ref_y) / board_h;
+            }
+        }
+    };
+
+    var attr_map = {
+        "position" : position,
+        "noraml" : normal,
+        "tcoords" : tcoords,
+    };
     
-    var x1 = origin[0] + (width/2);
-    var x2 = origin[0] - (width/2);
-    var y1 = origin[1] + (height/2);
-    var y2 = origin[1] - (height/2);
-    var z = origin[2];
+    return please.gl.vbo(position.length/3, attr_map);
+};
 
-    var attr_map = {};
-    attr_map.position = new Float32Array([
-        x1, y1, z,
-        x2, y1, z,
-        x2, y2, z,
-        x2, y2, z,
-        x1, y2, z,
-        x1, y1, z,
-    ]);
-    attr_map.normal = new Float32Array([
-        0, 0, 1,
-        0, 0, 1,
-        0, 0, 1,
-        0, 0, 1,
-        0, 0, 1,
-        0, 0, 1,
-    ]);
 
-    return please.gl.vbo(6, attr_map, {"hint" : draw_hint});
+// [+] please.gl.make_quad (width, height, origin)
+//
+// Create and return a vertex buffer object containing a square.  This
+// generates the position, normal, and tcoords attribute buffers.
+//
+please.gl.make_quad = function (width, height, origin) {
+    return please.gl.make_grid(width, height, 1, 1, origin);
 };
 
 
