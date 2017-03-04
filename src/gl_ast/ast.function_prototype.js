@@ -45,7 +45,7 @@ please.gl.ast.FunctionPrototype.prototype.print = function () {
     var ret = this.output + " " + this.name + "(";
     var parts = [];
     ITER(i, this.input) {
-        parts.push(this.input[i][0]);
+        parts.push(this.input[i].slice(0,-1).join(" "));
     }
     ret += parts.join(", ") + ");\n";
     return ret;

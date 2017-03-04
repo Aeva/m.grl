@@ -391,7 +391,7 @@ please.gl.ast.Block.prototype.make_function = function (invocation) {
             var prefix = this.output + " " + this.name + "(";
             var parts = [];
             ITER(i, this.input) {
-                parts.push(this.input[i][0] + " " + this.input[i][1]);
+                parts.push(this.input[i].join(" "));
             }
             prefix += parts.join(", ") + ")";
             return prefix;
@@ -402,7 +402,7 @@ please.gl.ast.Block.prototype.make_function = function (invocation) {
         get: function () {
             var sig = this.output;
             ITER(i, this.input) {
-                sig += ":" + this.input[i][0];
+                sig += ":" + this.input[i].slice(0,-1).join(" ");
             }
             return sig;
         },
