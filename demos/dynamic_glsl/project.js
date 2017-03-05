@@ -29,6 +29,7 @@ var demo = {
     "last_index" : -1,
     
     "manifest" : [
+        "ext.vert",
         "ext.frag",
         "base.frag",
         "suzanne.jta",
@@ -70,7 +71,7 @@ demo.build_shader = function () {
     
     try {
         // attempt to build and activate the new shader
-        var prog = please.glsl(handle, "simple.vert", "base.frag", "ext.frag");
+        var prog = please.glsl(handle, "simple.vert", "ext.vert", "base.frag", "ext.frag");
         var new_enums = prog.final_ast.frag.enums.diffuse_color;
         prog.activate();
         demo.last_index += 1;
@@ -197,17 +198,27 @@ addEventListener("mgrl_media_ready", please.once(function () {
         graph.add(monkey);
         demo.models.push(monkey);
         monkey.rotation_z = please.repeating_driver(360, 0, 8000);
+        monkey.shader.morph = 0;
     });
 
     var scene = please.access("holodeck.jta").instance();
+    scene.node_lookup.water.destroy();
     scene.children.map(function (model) {
         demo.models.push(model);
+        model.shader.morph = 0;
     });
     scene.propogate(function (node) {
         node.freeze();
     });
-    
     graph.add(scene);
+    
+    var water = new WaterNode();
+    water.shader.morph = "waves";
+    water.shader.diffuse_color = 5;
+    water.node_name = "water_grid";
+    demo.models.push(water);
+    graph.add(water);
+    
     demo.initial_model_settings();
 
     graph.on_mousedown.connect(function (event) {
@@ -235,3 +246,20 @@ addEventListener("mgrl_media_ready", please.once(function () {
     please.set_viewport(demo.renderer);
     demo.renderer.clear_color = [0.5, 0.5, 0.5, 1.0];
 }));
+
+
+var WaterNode = function () {
+    console.assert(this !== window);
+    please.GraphNode.call(this);
+
+    this.__vbo = please.gl.make_grid(.5, .5, 20, 20);
+    this.__drawable = true;
+
+    this.bind = function () {
+        this.__vbo.bind();
+    };
+    this.draw = function () {
+        this.__vbo.draw();
+    };
+};
+WaterNode.prototype = please.GraphNode.prototype;
