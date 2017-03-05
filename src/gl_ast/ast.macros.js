@@ -82,7 +82,7 @@ please.gl.macros.rewrite_swappable = function (method, available) {
 
     var original = method.print().split('\n');
     var args = method.input.map(function (arg) {
-        return arg[1];
+        return arg.slice(-1);
     }).join(", ");
     
     var uniform = method.dynamic_globals[0].name;
@@ -93,11 +93,12 @@ please.gl.macros.rewrite_swappable = function (method, available) {
     
     var body = '';
     var cases = [];
+    var ret = method.output == "void" ? '' : 'return ';
     ITER(i, order) {
         if (i > 0) {
             var clause = '';
             clause += 'if ('+uniform+'=='+i+') {\n';
-            clause +=  '  return ' + order[i] + '(' + args + ');\n';
+            clause +=  '  ' + ret + order[i] + '(' + args + ');\n';
             clause += '}\n';
             cases.push(clause);
         }
