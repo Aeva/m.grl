@@ -1,9 +1,22 @@
 
 uniform float mgrl_frame_start;
 
+
 vec3 wave_at_point(float x, float y) {
-  float z = sin(x + mgrl_frame_start) * sin(y + mgrl_frame_start) * 0.2;
-  return vec3(x, y, z);
+  float flow = mgrl_frame_start * 1.3;
+  float dist = distance(vec2(x, y), vec2(0.0));
+
+  // some curves
+  float falloff = 20.0;
+  float alpha = exp(-1.0 * ((dist*dist)/falloff));
+  float bump = exp(-1.0 * dist*dist);
+  
+  // 5 and .2 are nice baselines
+  float frequency = 5.0;
+  float amplitude = 0.2;
+
+  float wave = sin((dist - flow) * frequency) * amplitude * alpha + bump;
+  return vec3(x, y, wave);
 }
 
 

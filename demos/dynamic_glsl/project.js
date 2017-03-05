@@ -252,7 +252,7 @@ var WaterNode = function () {
     console.assert(this !== window);
     please.GraphNode.call(this);
 
-    this.__vbo = please.gl.make_grid(.5, .5, 20, 20);
+    this.__vbo = please.gl.make_grid(.1, .1, 100, 100);
     this.__drawable = true;
 
     this.bind = function () {
