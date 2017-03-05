@@ -184,6 +184,9 @@ please.RenderNode.prototype.__compile_graph_draw = function () {
 // ☿ quote
         please.gl.__buffers.last_vbo = null;
         please.gl.__buffers.last_ibo = null;
+        for (var name in prog.__cache.vars) if (prog.__cache.vars.hasOwnProperty(name)) {
+            prog.__cache.vars[name] = null;
+        }
         // END GENERATED GRAPH RENDERING CODE
         
         // Legacy dynamic rendering code follows:
