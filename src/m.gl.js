@@ -1471,7 +1471,7 @@ please.gl.make_grid = function (tile_w, tile_h, board_w, board_h, origin) {
 
     var attr_map = {
         "position" : position,
-        "noraml" : normal,
+        "normal" : normal,
         "tcoords" : tcoords,
     };
     

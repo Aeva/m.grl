@@ -54,8 +54,8 @@ void main(void) {
   // various coordinate transforms
   vec4 final_position = projection_matrix * model_view * vec4(local_position, 1.0);
   world_position = (world_matrix * vec4(local_position, 1.0)).xyz;
-  world_normal = normalize(mat3(world_matrix) * normal).xyz;
-  screen_normal = normalize(mat3(projection_matrix * model_view) * normal).xyz;
+  world_normal = normalize(mat3(world_matrix) * local_normal).xyz;
+  screen_normal = normalize(mat3(projection_matrix * model_view) * local_normal).xyz;
   linear_depth = length(model_view * vec4(local_position, 1.0));
   gl_Position = final_position;
 }
