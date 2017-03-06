@@ -6,7 +6,6 @@ precision mediump float;
 #endif
 
 uniform vec4 mgrl_clear_color;
-uniform float mgrl_frame_start;
 uniform float mgrl_buffer_width;
 uniform float mgrl_buffer_height;
 
