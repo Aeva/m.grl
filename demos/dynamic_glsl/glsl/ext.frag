@@ -14,6 +14,8 @@ varying vec3 world_normal;
 varying vec3 screen_normal;
 varying float linear_depth;
 
+include("precision_sine.glsl");
+
 
 plugin vec3 vibrant() {
   return fract(world_position * world_normal);
@@ -47,7 +49,7 @@ plugin vec3 grid() {
 
 // takes a point in space and outputs a color
 float distortion (vec3 coords, float frequency, float amplitude) {
-  vec3 wave = sin(coords*frequency)*amplitude;
+  vec3 wave = p_sin(coords*frequency)*amplitude;
   vec3 tmp = fract((coords + wave.x + wave.y + wave.z));
   float warp = (tmp.x + tmp.y + tmp.z) / 3.0;
   return warp;
@@ -65,7 +67,7 @@ plugin vec3 tree() {
   float amp = 0.2;
   float freq = 30.0;
   float spacing = 0.75;
-  float wave = sin((world_position.x + world_position.y)*freq)*amp;
+  float wave = p_sin((world_position.x + world_position.y)*freq)*amp;
   float z = world_position.z + wave;
   float z_mod = fract(z/spacing);
   
