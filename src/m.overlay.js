@@ -25,6 +25,7 @@
 // namespace
 please.overlay = {
     "__bindings" : [],
+    "distortion_function" : null,
 };
 
 
@@ -225,10 +226,28 @@ please.overlay_sync = function () {
             
             var position = vec4.create();
             vec4.transformMat4(position, origin, final_matrix);
-            var x = (position[0] / position[3]) * 0.5;
-            var y = (position[1] / position[3]) * 0.5;
-            element.style.left = offset_x + x * rect.width + 'px';
-            element.style.top = offset_y - y * rect.height + 'px';
+            var x = (position[0] / position[3]);
+            var y = (position[1] / position[3]);
+            if (please.overlay.distortion_function) {
+                x = (x+1)/2;
+                y = 1.0 - (y+1)/2;
+                var time = please.__compositing_viewport.__last_framestart/1000.0;
+                var new_coords = please.overlay.distortion_function(time, x, y);
+                var new_x = new_coords[0];
+                var new_y = new_coords[1];
+                if (new_x < 0.0 || new_x > 1.0) {
+                    var fract = new_x % 1;
+                    new_x = new_x < 0.0 ? 1.0 - fract : fract;
+                }
+                if (new_y < 0.0 || new_y > 1.0) {
+                    var fract = new_y % 1;
+                    new_y = new_y < 0.0 ? 1.0 - fract : fract;
+                }
+                var x = new_x * 2.0 - 1.0;
+                var y = (new_y * 2.0 - 1.0) * -1.0;
+            }
+            element.style.left = offset_x + x * 0.5 * rect.width + 'px';
+            element.style.top = offset_y - y * 0.5  * rect.height + 'px';
             
             // This must be an integer according to the standard, so a
             // maximum precision must be chosen.  position[2] is the distance
