@@ -70,8 +70,6 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         return please.gl.__reduce_hoists(hoists.concat(found));
     }
 
-    var skip_virtuals = false;
-
     var append_global = function(global) {
         if (globals[global.name] === undefined) {
             globals[global.name] = global;
@@ -88,7 +86,6 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         // of the generated file.
         var ext_ast = {};
         var imports = this.all_includes();
-        skip_virtuals = true;
 
         var append_struct = function(struct) {
             var previous = structs_by_name[struct.name];
@@ -188,7 +185,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         }
     }
     
-    if (!is_include && methods.length > 0 && !skip_virtuals) {
+    if (!is_include && methods.length > 0) {
         // find and print virtual globals
         var virtuals = [];
         ITER(m, methods) {
@@ -229,8 +226,12 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         var token = this.data[i]
         var last_token = this.data[i-1] || null;
         if (token.constructor == please.gl.ast.Global) {
-            var dummy_out = globals_printed ? "// " : "";
-            out += dummy_out + token.print();
+            if (globals_printed) {
+                out += "/* " + token.print().trim() + " */\n";
+            }
+            else {
+                out += token.print();
+            }
         }
         else if (token.constructor == please.gl.ast.FunctionPrototype) {
             out += "// " + token.print();
