@@ -115,10 +115,10 @@ please.gl.set_context = function (canvas_id, options) {
             // gl error strings from https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/getError
             var gl_errors = {};
 #define err(ID, MSG) gl_errors[this.ctx.ID] = MSG
-            err(INVALID_ENUM, "An unacceptable value has been specified for an enumerated argument.");
-            err(INVALID_VALUE, "A numeric argument is out of range.");
-            err(INVALID_OPERATION, "The specified command is not allowed for the current state.");
-            err(INVALID_FRAMEBUFFER_OPERATION, "The currently bound framebuffer is not framebuffer complete when trying to render to or to read from it.");
+            err(INVALID_ENUM, "INVALID_ENUM: An unacceptable value has been specified for an enumerated argument.");
+            err(INVALID_VALUE, "INVALID_VALUE: A numeric argument is out of range.");
+            err(INVALID_OPERATION, "INVALID_OPERATION: The specified command is not allowed for the current state.");
+            err(INVALID_FRAMEBUFFER_OPERATION, "INVALID_FRAMEBUFFER_OPERATION: The currently bound framebuffer is not framebuffer complete when trying to render to or to read from it.");
             err(OUT_OF_MEMORY, "Not enough memory is left to execute the command.");
             err(CONTEXT_LOST_WEBGL, "Rendering context lost.");
 #undef err

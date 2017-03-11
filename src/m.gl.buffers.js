@@ -380,7 +380,10 @@ please.gl.ibo = function (data, options) {
     else if (data.BYTES_PER_ELEMENT == 4) {
         opt["type"] = gl.UNSIGNED_INT;
     }
-    var poly_size = 3; // fixme this should be determined by opt.mode
+    var poly_size = 3;
+    if (opt.mode !== gl.TRIANGLES) {
+        throw new Error("Index buffers currently only support rendering triangles.");
+    }
     var face_count = data.length;
 
     var ibo = {
