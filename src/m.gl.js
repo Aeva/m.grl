@@ -10,6 +10,7 @@ please.gl = {
         "current" : null,
         "programs" : {},
         "textures" : {},
+        "attributes" : [],
     },
     "__debug" : {
 #if DEBUG
@@ -126,6 +127,7 @@ please.gl.set_context = function (canvas_id, options) {
             var debug_wrap = function (old_method) {
                 return function () {
                     var result = old_method.apply(this, arguments);
+                    gl.flush();
                     var error = gl.getError();
                     if (error) {
                         var msg = "gl." + old_method.name;
@@ -137,7 +139,8 @@ please.gl.set_context = function (canvas_id, options) {
                 };
             }
             ITER_PROPS(prop, gl.constructor.prototype) {
-                if (this.ctx[prop].constructor === Function && prop != "getError") {
+                if (this.ctx[prop].constructor === Function &&
+                    prop != "getError" && prop != "flush") {
                     this.ctx[prop] = debug_wrap(this.ctx[prop]);
                 }
             }
@@ -564,6 +567,7 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             // the cache records the last value set,
             "vars" : {},
             "samplers" : {},
+            "attr_bindings" : {},
         },
         "vert" : null,
         "frag" : null,
@@ -1153,24 +1157,25 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
     // create handlers for available attributes + getter/setter for
     // enabling/disabling them
     var bind_attribute = function(attr) {
-        var state = false;
         attr.loc = gl.getAttribLocation(prog.id, attr.name);
 
         Object.defineProperty(attr, "enabled", {
             enumerable: true,
             get : function () {
-                return state;
+                return please.gl.__cache[attr.loc] || null;
             },
             set : function (value) {
-                if (value != state) {
-                    state = !state;
-                    if (state) {
+                var value = !!value;
+                if (please.gl.__cache[attr.loc] !== value) {
+                    please.gl.__cache[attr.loc] = value;
+                    if (value) {
                         gl.enableVertexAttribArray(attr.loc);
                     }
                     else {
                         gl.disableVertexAttribArray(attr.loc);
                     }
                 }
+                return value;
             },
         });
 
