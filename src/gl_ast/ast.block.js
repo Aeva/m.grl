@@ -139,7 +139,7 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         // Generate function prototypes for all methods, validate the
         // resulting concatination, and print the to the output buffer.
         hoists = find_hoists(methods, hoists);
-        out += "\n// Generated and hoisted function prototypes follow:\n"
+        out += "\n// Geneerated and hoisted function prototypes follow:\n"
         ITER(h, hoists) {
             if (hoists[h].name !== "main") {
                 out += hoists[h].print();
@@ -193,6 +193,12 @@ please.gl.ast.Block.prototype.__print_program = function (is_include) {
         }
         ITER(v, virtuals) {
             var global = virtuals[v];
+            if (globals[global.name]) {
+                // check for possible error, otherwise just continue
+                please.gl.__check_for_contradicting_globals(
+                    globals[global.name], global);
+                continue;
+            }
             if (global.rewrite) {
                 this.rewrite[global.name] = global.rewrite;
             }
