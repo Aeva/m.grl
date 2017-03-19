@@ -17,6 +17,13 @@ test["verify bundled assets"] = function () {
 
 
 
+test["pretty_print integration"] = function () {
+    var shader = please.access("deferred_renderer/main.frag");
+    var out = please.gl.ast.build_program(shader.__ast);
+};
+
+
+
 test["please.gl.__trim"] = function () {
     var foo = ['', ' ', '\t', '\n', 'hello', '\r\n', ' '];
     foo = foo.map(function (token) { return please.gl.ast.str(token, 10); });

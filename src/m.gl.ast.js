@@ -32,6 +32,7 @@ please.gl.__binding_contexts = [
 #include "gl_ast/ast.invocation.js"
 #include "gl_ast/ast.function_prototype.js"
 #include "gl_ast/ast.macros.js"
+#include "gl_ast/ast.pretty_print.js"
 
 // - glslglsl/ast.js ----------------------------------------------------- //
 
