@@ -21,7 +21,7 @@ please.gl.ast.build_program = function (tree) {
     var methods = {};
     var extensions = [];
 
-    var out = "\n";
+    var out = "#version 100\n";
 
     ITER(g, gathered) {
         var world = gathered[g];
@@ -63,6 +63,15 @@ please.gl.ast.build_program = function (tree) {
         out += extensions[e].print();
     }
 
+    // write out precision
+    out += "#ifdef GL_FRAGMENT_PRECISION_HIGH\n";
+    out += "precision highp float;\n";
+    out += "#else\n";
+    out += "precision mediump float;\n";
+    out += "#endif\n";
+    out += "\n\n";
+
+
     var banner = function (msg) {
         var multiline = msg.trim().indexOf("\n") > -1;
         var out = "";
@@ -85,9 +94,6 @@ please.gl.ast.build_program = function (tree) {
     };
 
     // add a notice explaining that this is compiled output
-    if (extensions.length) {
-        out += "\n";
-    }
     out += banner(
 // ☿ quote
 This code was generated from possibly multiple source files, and likely has
