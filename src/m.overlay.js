@@ -64,11 +64,12 @@ please.__align_canvas_overlay = function () {
 };
 
 
-// [+] please.overlay.new_element(id, classes)
+// [+] please.overlay.new_element(id_or_node, classes)
 //
 // Creates and returns a new overlay child div.  This div is
 // automatically added to the dom.  The arguments to this function are
-// both optional.  The first sets the dom id of the element, and the
+// both optional.  The first sets the dom id of the element if it's a
+// string, and binds the element to the given node otherwise, and the
 // second sets the class list for the element.  The "classes" argument
 // may be either a string or an array of strings.
 //
@@ -107,21 +108,10 @@ please.__align_canvas_overlay = function () {
 // label.style.pointerEvents = "auto"; // restore mouse events
 // ```
 //
-please.overlay.new_element = function (id, classes) {
+please.overlay.new_element = function (id_or_node, classes) {
     var el = document.createElement("div");
     please.renderer.overlay.appendChild(el);
     el.style.position = "absolute";
-    if (id) {
-        el.id = id;
-    }
-    if (classes) {
-        if (typeof(classes) === "string") {
-            el.className = classes;
-        }
-        else {
-            el.className = classes.join(" ");
-        }
-    }
 
     el.__graph_node = null;
     el.auto_center = false;
@@ -132,7 +122,24 @@ please.overlay.new_element = function (id, classes) {
     };
 
     el.hide_when = null;
-    
+
+    if (id_or_node) {
+        if (typeof(id_or_node) === "string") {
+            el.id = id_or_node;
+        }
+        else {
+            el.bind_to_node(id_or_node);
+        }
+    }
+    if (classes) {
+        if (typeof(classes) === "string") {
+            el.className = classes;
+        }
+        else {
+            el.className = classes.join(" ");
+        }
+    }
+
     return el;
 };
 
