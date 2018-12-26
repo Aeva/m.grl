@@ -17,6 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
+import bpy
 import bmesh
 import mathutils
 
@@ -66,14 +67,13 @@ class Model(Exportable):
         Exportable.__init__(self, selection, scene, options)
 
         self.texture_store = texture_store
-        self.mesh = self.obj.to_mesh(
-            scene, options["use_mesh_modifiers"], "PREVIEW", calc_tessface=False)
+        self.mesh = self.obj.to_mesh(bpy.context.depsgraph, options["use_mesh_modifiers"])
         self.mesh.transform(mathutils.Matrix.Scale(options["global_scale"], 4))
         self.__triangulate()
 
         self.use_smooth = self.__is_smooth_shading()
         self.use_weights = len(self.obj.vertex_groups) > 0
-        self.texture_count = len(self.mesh.uv_textures)
+        self.texture_count = len(self.mesh.uv_layers)
         self.__generate_vertices()
 
         self.attr_struct = None

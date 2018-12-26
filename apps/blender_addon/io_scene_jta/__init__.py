@@ -22,7 +22,7 @@ bl_info = {
     "name": "Export Mondaux Graphics and Recreation Library (.jta)",
     "author": "Aeva Palecek",
     "version": (0, 0, 0),
-    "blender": (2, 72, 0),
+    "blender": (2, 80, 0),
     "location": "File > Import-Export",
     "description": "Exports models and animation to M.GRL's json-based model format (.jta).",
     "warning": "Incomplete support, work in progress.",
@@ -49,7 +49,7 @@ from bpy_extras.io_utils import (ImportHelper,
                                  )
 
 
-class ExportJTA(bpy.types.Operator, ExportHelper):
+class JTA_OT_ExportJTA(bpy.types.Operator, ExportHelper):
     """Save a M.GRL JTA File"""
 
     bl_idname = "export_scene.jta"
@@ -57,31 +57,31 @@ class ExportJTA(bpy.types.Operator, ExportHelper):
     bl_options = {"PRESET"}
 
     filename_ext = ".jta"
-    filter_glob = StringProperty(
+    filter_glob: StringProperty(
         default="*.jta",
         options={"HIDDEN"},
     )
 
     # metadata
-    meta_author = StringProperty(
+    meta_author: StringProperty(
         name="Author",
         description="Name or names to which this file should be attributed to.",
         default="",
     )
 
-    meta_url = StringProperty(
+    meta_url: StringProperty(
         name="Attribution URL",
         description="URL to which this file should be attributed to.",
         default="",
     )
 
-    meta_src_url = StringProperty(
+    meta_src_url: StringProperty(
         name="Source work URL",
         description="URL or URLs to works of which this work is based on derived from.",
         default="",
     )
 
-    meta_license = EnumProperty(
+    meta_license: EnumProperty(
         name="License",
         description="Copyright license for this work.",
         items=[
@@ -102,32 +102,32 @@ class ExportJTA(bpy.types.Operator, ExportHelper):
         default="none",
     )
 
-    use_selection = BoolProperty(
+    use_selection: BoolProperty(
         name="Selection Only",
         description="Export selected objects only",
         default=False,
     )
 
-    use_mesh_modifiers = BoolProperty(
+    use_mesh_modifiers: BoolProperty(
         name="Apply Modifiers",
         description="Apply modifiers (preview resolution)",
         default=True,
     )
 
-    trim_paths = BoolProperty(
+    trim_paths: BoolProperty(
         name="Truncate Paths",
         description="For externally referenced files, only store the file name of the asset.",
         default = True,
     )
 
-    pack_images = BoolProperty(
+    pack_images: BoolProperty(
         name="Pack All Images (caution!)",
         description="Embeds images in the exported file instead of storing only referencs."
         "  Use sparingly as this will *GREATLY* inflate the size of the exported file!!!",
         default=False,
     )
 
-    global_scale = FloatProperty(
+    global_scale: FloatProperty(
         name="Scale",
         min=0.001, max=1000.0,
         default=1.0,
@@ -147,17 +147,23 @@ class ExportJTA(bpy.types.Operator, ExportHelper):
 
 
 def menu_func_export(self, context):
-    self.layout.operator(ExportJTA.bl_idname, text="M.GRL (.jta)")
+    self.layout.operator(JTA_OT_ExportJTA.bl_idname, text="M.GRL (.jta)")
 
+
+classes = (JTA_OT_ExportJTA,)
 
 def register():
-    bpy.utils.register_module(__name__)
-    bpy.types.INFO_MT_file_export.append(menu_func_export)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
-    bpy.types.INFO_MT_file_export.remove(menu_func_export)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
+    from bpy.utils import unregister_class
+    for cls in classes:
+        unregister_class(cls)
 
 
 if __name__ == "__main__":
