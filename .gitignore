@@ -2,8 +2,7 @@
 *#
 .#*
 *.pyc
-/apps/jta_tool/dist/
-/apps/jta_tool/*.egg-info
 *.blend?
 /src/tmp/
 /src/Makefile
+/apps/blender_addon/io_scene_jta.zip

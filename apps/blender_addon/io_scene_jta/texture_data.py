@@ -57,7 +57,7 @@ class TextureStore(object):
             return None
         
         renderer = bpy.context.scene.render.engine
-        if renderer == "CYCLES":
+        if renderer in ("CYCLES", "BLENDER_EEVEE"):
             image = self.__cycles_refcode_target(model)
         elif renderer == "BLENDER_RENDER":
             image = self.__blender_refcode_target(model)
@@ -68,6 +68,8 @@ class TextureStore(object):
             assert image.file_format in ["PNG", "JPEG"]
             if image.filepath == "" or self.force_pack:
                 if image.filepath == "":
+                    if image.packed_file is None:
+                        raise ValueError("Texture is not saved and not packed.")
                     return self.pack_image(BytesIO(image.packed_file.data), image.file_format)
                 else:
                     return self.pack_image(open(image.filepath, "r"), image.file_format)

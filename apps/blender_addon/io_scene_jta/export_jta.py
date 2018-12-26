@@ -111,7 +111,7 @@ def save(operator, context, options={}):
     export_rigs = []
     for selection in selections:
         used_selection = False
-        if selection.dupli_type == "NONE" and selection.type == "MESH":
+        if selection.instance_type == "NONE" and selection.type == "MESH":
             model = Model(selection, scene, options, texture_store)
             if not model.face_vertices:
                 print("Skipping empty mesh {0}".format(selection))
@@ -130,8 +130,8 @@ def save(operator, context, options={}):
             used_selection = True
 
         else:
-            if selection.dupli_type != "NONE":
-                print("Skipping object {0} of dupli_type {1}".format(selection, selection.dupli_type))
+            if selection.instance_type != "NONE":
+                print("Skipping object {0} of instance_type {1}".format(selection, selection.instance_type))
             if selection.type != "MESH":
                 print("Skipping non-mesh object {0}".format(selection))
 
