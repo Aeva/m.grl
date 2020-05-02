@@ -561,27 +561,34 @@ please.path_group = function (paths) {
     }
     return path;
 };
-// [+] please.path_driver(path, period, repeat, oscilate)
+// [+] please.path_driver(path, period, repeat, oscilate, callback)
 //
 // This function generates a driver function for animating along a
 // path reterned by another generator function.
+//
+// **callback** a function which will be called when then driver finishes. This
+// is only called for repeat == false, and only once.
 //
 // ```
 // var path = please.linear_path(-10, 10);
 // player.location_x = please.path_driver(path, 1000, true, true);
 // ```
 //
-please.path_driver = function (path, period, repeat, oscilate) {
+please.path_driver = function (path, period, repeat, oscilate, callback) {
     var start = performance.now();
     var generated = null;
     // non-repeating driver
     if (!repeat) {
+        var protected_callback = (callback === undefined ? false : please.once(callback));
         generated = function () {
             var stamp = performance.now();
             if (stamp < start+period) {
                 return path((stamp-start)/period);
             }
             else {
+                if (protected_callback) {
+                    protected_callback();
+                }
                 return path(1.0);
             }
         };
@@ -1584,12 +1591,31 @@ please.time.__schedule_handler = function () {
         };
     }
 };
+// [+] please.time.setup_action(node.actions, action_name, frame_set)
+//
+// Adds an animation "action" to a graph node's action object.
+// Usually you will not be calling this function directly.
+//
+please.time.setup_action = function (actions, action_name, frame_set) {
+    // add the new action definition if the object lacks it
+    if (!actions[action_name]) {
+        var action = {};
+        please.make_animatable(action, "speed", 1, null, false);
+        action.frames = frame_set;
+        action.repeat = false;
+        action.queue = null;
+        actions[action_name] = action;
+    }
+};
 // [+] please.time.add_score(graph_node, action_name, frame_set)
 //
 // Adds an animation "action" to a graph node, and sets up any needed
 // animation machinery if it is not already present.  Usually you will
 // not be calling this function directly.
 //
+// If only node is supplied, set up animation machinery without adding an
+// action.  This is used for ganis, which have their action set up at load
+// time.
 please.time.add_score = function (node, action_name, frame_set) {
     var next_frame; // last frame number called
     var current_ani = null; // current action
@@ -1625,7 +1651,7 @@ please.time.add_score = function (node, action_name, frame_set) {
             // animation in progress
             var delay = (frame.speed / action.speed);
             var skip = late ? (late / delay) : null;
-            frame.callback(delay, skip);
+            frame.callback(node, delay, skip);
             please.time.schedule(frame_handler, delay-late);
         }
         else if (action.repeat) {
@@ -1637,7 +1663,7 @@ please.time.add_score = function (node, action_name, frame_set) {
             // animation finished, doesn't repeat, defines an action
             // to play afterwards, so play that.
             reset();
-            current_action = action.queue;
+            current_ani = action.queue;
             please.time.schedule(frame_handler, 0);
         }
         else if (atend) {
@@ -1663,19 +1689,17 @@ please.time.add_score = function (node, action_name, frame_set) {
         please.time.remove(frame_handler);
     };
     // connect animation machinery if the node lacks it
-    if (!node.actions) {
-        node.actions = {};
+    if (!node.play) {
         node.play = start_animation;
         node.stop = stop_animation;
     }
-    // add the new action definition if the node lacks it
-    if (!node.actions[action_name]) {
-        var action = {};
-        please.make_animatable(action, "speed", 1, null, false);
-        action.frames = frame_set;
-        action.repeat = false;
-        action.queue = null;
-        node.actions[action_name] = action;
+    // this attribute must exist before calling setup_action.
+    if (!node.actions) {
+        node.actions = {};
+    }
+    // if an action was provided, set it up.
+    if (action_name !== undefined) {
+        please.time.setup_action(node.actions, action_name, frame_set);
     }
 };
 // Automatically start the event scheduler when the page finishes
@@ -2630,11 +2654,12 @@ please.__align_canvas_overlay = function () {
     var event = new CustomEvent("mgrl_overlay_aligned");
     window.dispatchEvent(event);
 };
-// [+] please.overlay.new_element(id, classes)
+// [+] please.overlay.new_element(id_or_node, classes)
 //
 // Creates and returns a new overlay child div.  This div is
 // automatically added to the dom.  The arguments to this function are
-// both optional.  The first sets the dom id of the element, and the
+// both optional.  The first sets the dom id of the element if it's a
+// string, and binds the element to the given node otherwise, and the
 // second sets the class list for the element.  The "classes" argument
 // may be either a string or an array of strings.
 //
@@ -2673,12 +2698,25 @@ please.__align_canvas_overlay = function () {
 // label.style.pointerEvents = "auto"; // restore mouse events
 // ```
 //
-please.overlay.new_element = function (id, classes) {
+please.overlay.new_element = function (id_or_node, classes) {
     var el = document.createElement("div");
     please.renderer.overlay.appendChild(el);
     el.style.position = "absolute";
-    if (id) {
-        el.id = id;
+    el.__graph_node = null;
+    el.auto_center = false;
+    el.bind_to_node = function (node) {
+        el.__graph_node = node;
+        el.auto_center = true;
+        please.overlay.__bindings.push(this);
+    };
+    el.hide_when = null;
+    if (id_or_node) {
+        if (typeof(id_or_node) === "string") {
+            el.id = id_or_node;
+        }
+        else {
+            el.bind_to_node(id_or_node);
+        }
     }
     if (classes) {
         if (typeof(classes) === "string") {
@@ -2688,14 +2726,6 @@ please.overlay.new_element = function (id, classes) {
             el.className = classes.join(" ");
         }
     }
-    el.__graph_node = null;
-    el.auto_center = false;
-    el.bind_to_node = function (node) {
-        el.__graph_node = node;
-        el.auto_center = true;
-        please.overlay.__bindings.push(this);
-    };
-    el.hide_when = null;
     return el;
 };
 // [+] please.overlay.remove_element(element)
@@ -6461,7 +6491,7 @@ please.gl.__jta_add_action = function (root_node, action_name, raw_data) {
                 }
             }
         }
-        return function(speed, skip_to) {
+        return function(node, speed, skip_to) {
             for (var p=0; p<all_updates.length; p+=1) {
                 var object_id = all_updates[p];
                 var obj_start = start_updates[object_id] || null;
@@ -6876,6 +6906,7 @@ please.media.handlers.gani = function (url, asset_name, callback) {
 // Namespace for m.ani guts
 please.gani = {
     "__frame_cache" : {},
+    "ganis": {},
     "resolution" : 16,
     // [+] please.gani.get\_cache\_name(uri, ani)
     //
@@ -7035,7 +7066,7 @@ please.media.__AnimationInstance = function (animation_data) {
             object[key] = value;
         }
     };
-    // advance animaiton sets up events to flag when the animation has
+    // advance animation sets up events to flag when the animation has
     // updated
     var advance = function (time_stamp) {
         if (!time_stamp) {
@@ -7294,6 +7325,17 @@ please.media.__AnimationData = function (gani_text, uri) {
     ani.create = function () {
         return please.media.__AnimationInstance(ani);
     };
+    var get_action_name = function (uri) {
+        var name = uri;
+        var path = please.media.search_paths.gani;
+        if (name.startsWith(path)) {
+            name = name.slice(path.length);
+        }
+        if (name.endsWith(".gani")) {
+            name = name.slice(0, -5);
+        }
+        return name;
+    };
     var frames_start = 0;
     var frames_end = 0;
     var defs_phase = true;
@@ -7358,7 +7400,7 @@ please.media.__AnimationData = function (gani_text, uri) {
                     if (!next_file.endsWith(".gani")) {
                         next_file += ".gani";
                     }
-                    ani.setbackto = next_file;
+                    ani.setbackto = get_action_name(next_file);
                     ani.__resources[next_file] = true;
                 }
             }
@@ -7474,6 +7516,37 @@ please.media.__AnimationData = function (gani_text, uri) {
             please.gani.on_bake_ani_frameset(ani.__uri, ani);
         });
     }
+    // Generate the frameset for the animation.
+    var score = ani.frames.map(function (frame) {
+        var callback;
+        callback = function (node, speed, skip_to) {
+            // FIXME play frame.sound
+            node.__current_frame = frame;
+            node.__current_gani = ani;
+            var html = ""
+            var cell = ani.single_dir ? frame.data[0] : frame.data[node.dir%4];
+            for (var sprite=0; sprite<cell.length; sprite+=1) {
+                var instance = cell[sprite];
+                var sprite_id = instance.sprite;
+                var x = instance.x;
+                var y = instance.y;
+                html += please.gani.sprite_to_html(ani, sprite_id, x, y);
+            }
+            if (node.div !== undefined) {
+                node.div.innerHTML = html;
+            }
+        };
+        return {
+            "speed" : frame.wait,
+            "callback" : callback,
+        };
+    });
+    // configure the new action
+    var action_name = get_action_name(ani.__uri);
+    please.time.setup_action(please.gani.ganis, action_name, score);
+    var action = please.gani.ganis[action_name];
+    action.repeat = ani.looping;
+    action.queue = ani.setbackto;
     // return a graph node instance of this animation
     ani.instance = function () {
         var node;
@@ -7509,65 +7582,23 @@ please.media.__AnimationData = function (gani_text, uri) {
         return node;
     };
     // used by both possible instance functions
-    ani.__common_mixin = function (node, setup_callback, frame_callback) {
-        // cache of gani data
-        node.__ganis = {};
+    ani.__common_mixin = function (node, setup_callback) {
+        // cache of gani data (shared by all gani object instances).
+        node.actions = please.gani.ganis;
         node.__current_gani = null;
         node.__current_frame = null;
-        var get_action_name = function (uri) {
-            var name = uri.split("/").slice(-1)[0];
-            if (name.endsWith(".gani")) {
-                name = name.slice(0, -5);
+        if (setup_callback) {
+            setup_callback(this);
+        }
+        // Bind new attributes
+        please.prop_map(this.attrs, function (name, value) {
+            if (!node[name]) {
+                node[name] = value;
+                //please.make_animatable(node, name, value);
             }
-            return name;
-        };
-        // The .add_gani method can be used to load additional
-        // animations on to a gani graph node.  This is useful for
-        // things like characters.
-        node.add_gani = function (resource) {
-            if (typeof(resource) === "string") {
-                resource = please.access(resource);
-            }
-            // We just want 'resource', since we don't need any of the
-            // animation machinery and won't be state tracking on the
-            // gani object.
-            var ani_name = resource.__uri;
-            var action_name = get_action_name(ani_name);
-            if (!node.__ganis[action_name]) {
-                node.__ganis[action_name] = resource;
-                setup_callback(resource);
-                // Bind new attributes
-                please.prop_map(resource.attrs, function (name, value) {
-                    if (!node[name]) {
-                        node[name] = value;
-                        //please.make_animatable(node, name, value);
-                    }
-                });
-                // Generate the frameset for the animation.
-                var score = resource.frames.map(function (frame) {
-                    var callback;
-                    callback = function (speed, skip_to) {
-                        // FIXME play frame.sound
-                        node.__current_frame = frame;
-                        node.__current_gani = resource;
-                        if (frame_callback) {
-                            frame_callback(resource, frame);
-                        }
-                    };
-                    return {
-                        "speed" : frame.wait,
-                        "callback" : callback,
-                    };
-                });
-                // add the action for this animation
-                please.time.add_score(node, action_name, score);
-                // configure the new action
-                var action = node.actions[action_name];
-                action.repeat = resource.looping;
-                //action.queue = resource.setbackto; // not sure about this
-            }
-        };
-        node.add_gani(this);
+        });
+        // add the action machinery for this object
+        please.time.add_score(node);
         node.play(get_action_name(this.__uri));
     };
     ani.__gl_instance = function () {
@@ -7578,18 +7609,12 @@ please.media.__AnimationData = function (gani_text, uri) {
         node.samplers = {};
         node.draw_type = "sprite";
         node.sort_mode = "alpha";
-        var setup_callback = function (resource) {
-            if (!resource.ibo) {
-                // build the VBO and IBO for this animation.
-                please.gani.build_gl_buffers(resource);
-            }
-        };
-        ani.__common_mixin(node, setup_callback, null);
+        ani.__common_mixin(node);
         // draw function for the animation
         node.draw = function () {
             var frame = node.__current_frame;
             var resource = node.__current_gani;
-            if (frame) {
+            if (frame && resource.vbo) {
                 if (node.sort_mode === "alpha") {
                     gl.depthMask(false);
                 }
@@ -7626,6 +7651,10 @@ please.media.__AnimationData = function (gani_text, uri) {
                     gl.disable(gl.POLYGON_OFFSET_FILL);
                 }
             }
+            else if (!resource.vbo) {
+                // Try to build the resource if the vbo is not set.
+                please.gani.build_gl_buffers(resource);
+            }
         };
         return node;
     };
@@ -7635,21 +7664,7 @@ please.media.__AnimationData = function (gani_text, uri) {
             node.div = please.overlay.new_element();
             node.div.bind_to_node(node);
         };
-        var frame_callback = function(resource, frame, speed, skip_to) {
-            var html = ""
-            var cell = resource.single_dir ? frame.data[0] : frame.data[node.dir%4];
-            for (var sprite=0; sprite<cell.length; sprite+=1) {
-                var instance = cell[sprite];
-                var sprite_id = instance.sprite;
-                var x = instance.x;
-                var y = instance.y;
-                html += please.gani.sprite_to_html(resource, sprite_id, x, y);
-            }
-            if (node.div !== undefined) {
-                node.div.innerHTML = html;
-            }
-        };
-        ani.__common_mixin(node, setup_callback, frame_callback);
+        ani.__common_mixin(node, setup_callback);
         return node;
     };
     return ani;
@@ -7661,7 +7676,7 @@ please.media.__AnimationData = function (gani_text, uri) {
 // animation object.
 //
 please.gani.build_gl_buffers = function (ani) {
-    if (ani.vbo && ani.ibo) {
+    if (ani.vbo) {
         // Buffer objects are already present, so do nothing.
         return;
     }
@@ -7675,8 +7690,11 @@ please.gani.build_gl_buffers = function (ani) {
         if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".gif") || lower.endsWith(".jpeg")) {
             // it is required that the default images are
             // all loaded before the vbo can be built
-            var asset = please.access(asset_name, false);
-            console.assert(asset);
+            var asset = please.access(asset_name, true);
+            if (!asset) {
+                console.warn("Unable to display gani, waiting for required images.");
+                return;
+            }
             images[sprite] = asset;
         }
     };

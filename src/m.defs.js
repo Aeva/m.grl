@@ -421,28 +421,35 @@ please.path_group = function (paths) {
 };
 
 
-// [+] please.path_driver(path, period, repeat, oscilate)
+// [+] please.path_driver(path, period, repeat, oscilate, callback)
 //
 // This function generates a driver function for animating along a
 // path reterned by another generator function.
+//
+// **callback** a function which will be called when then driver finishes. This
+// is only called for repeat == false, and only once.
 //
 // ```
 // var path = please.linear_path(-10, 10);
 // player.location_x = please.path_driver(path, 1000, true, true);
 // ```
 //
-please.path_driver = function (path, period, repeat, oscilate) {
+please.path_driver = function (path, period, repeat, oscilate, callback) {
     var start = performance.now();
     var generated = null;
 
     // non-repeating driver
     if (!repeat) {
+        var protected_callback = (callback === undefined ? false : please.once(callback));
         generated = function () {
             var stamp = performance.now();
             if (stamp < start+period) {
                 return path((stamp-start)/period);
             }
             else {
+                if (protected_callback) {
+                    protected_callback();
+                }
                 return path(1.0);
             }
         };
