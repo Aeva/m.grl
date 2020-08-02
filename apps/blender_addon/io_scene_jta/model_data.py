@@ -67,7 +67,7 @@ class Model(Exportable):
         Exportable.__init__(self, selection, scene, options)
 
         self.texture_store = texture_store
-        self.mesh = self.obj.to_mesh(bpy.context.depsgraph, options["use_mesh_modifiers"])
+        self.mesh = self.obj.to_mesh()
         self.mesh.transform(mathutils.Matrix.Scale(options["global_scale"], 4))
         self.__triangulate()
 

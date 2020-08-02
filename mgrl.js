@@ -8232,7 +8232,8 @@ please.GraphNode.prototype = {
         }
         window.removeEventListener(
             "mgrl_changed_shader", this.__regen_glsl_bindings);
-        this.graph_root.__ignore(this);
+        if (this.graph_root !== null)
+            this.graph_root.__ignore(this);
         delete please.graph_index[this.__id];
     },
     "propogate" : function (method, skip_root) {

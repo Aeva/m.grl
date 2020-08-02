@@ -70,7 +70,7 @@ class Bone(object):
 
         matrix = bone.matrix
         if bone.parent:
-            matrix = bone.parent.matrix.inverted() * matrix
+            matrix = bone.parent.matrix.inverted() @ matrix
         head, rotation, scale = matrix.decompose()
         
         target["position"] = dict(zip("xyz", head))

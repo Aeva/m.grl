@@ -62,10 +62,6 @@ def save(operator, context, options={}):
 
     scale_matrix = mathutils.Matrix.Scale(options["global_scale"], 4)
 
-    # call the update thing for good measure
-    scene.update()
-
-    
     # The variable 'container' is where we will structure the data to
     # be exported.  This will conclude with it being encoded as json.
     container = {}
