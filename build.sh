@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 # bundle assets
-python regen_asset_bundle.py
+python3 regen_asset_bundle.py
 
 # build m.grl
 sh jspp.sh src/m.header.js mgrl.js -DBSIDES -DDOM -DWEBGL -DGLSL_ASSETS -DASSETS
