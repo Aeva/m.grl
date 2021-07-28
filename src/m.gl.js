@@ -308,7 +308,7 @@ please.gl.__build_texture = function (uri, image_object, use_mipmaps) {
     }
 
     if (!please.gl.__cache.textures[uri]) {
-        console.info("Loading texture: " + uri);
+        //console.info("Loading texture: " + uri);
         var tid = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, tid);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);

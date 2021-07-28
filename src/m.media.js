@@ -77,22 +77,29 @@ please.set_search_path = function (type, path) {
 //
 // Downloads an asset if it is not already in memory.
 //
-// - **asset\_name** The URI of an asset to be downloaded, relative to
+// - **url** The URI of an asset to be downloaded, relative to
 //   the set search path.  If the key 'absolute_url' in the options
-//   object is true then nothing will be prepended to 'asset_name'.
+//   object is true then nothing will be prepended to 'url'.
 //
 // - **callback** An optional callback to be triggered as soon as the
 //   asset exists in memory.  Repeated calls of please.load to an
 //   asset already in memory will trigger a callback if one is set.
 //   This param may be set to null.
 //
-// - **force\_type** when this key on the 'options' parameter is set, the
+// - **force\_reload** when this key on the 'options' parameter is set,
+//   the file is reloaded from the server if it is already in memory.
+//
+// - **force\_type** when this key on the 'options' parameter is set,
 //   the value overrides the type that would otherwise be inferred
 //   from the file's URI.
 //
 // - **absolute\_url** when this key on the 'options' parameter is set
 //   to true, the searchpath is bypassed, and the asset_name is
 //   treated as an asolute path or URL.
+//
+// - **asset\_name** when this key on the 'options' parameter is set,
+//   the value is used for the asset's name as used by please.access.
+//   Otherwise the url is used as the asset name.
 //
 // ```
 // please.set_search_path("img", "/assets/images/");
@@ -106,11 +113,12 @@ please.set_search_path = function (type, path) {
 // });
 // ```
 //
-please.load = function (asset_name, callback, options) {
+please.load = function (url, callback, options) {
     var opt = {
         "force_reload" : false,
         "force_type" : false,
         "absolute_url" : false,
+        "asset_name": false,
     }
     if (options) {
         ITER_PROPS(key, options) {
@@ -120,11 +128,15 @@ please.load = function (asset_name, callback, options) {
             }
         }
     }
+    var asset_name = opt.asset_name ? options.asset_name : url;
     if (please.media.assets[asset_name] && !please.media.assets[asset_name].bundled && !opt.force_reload) {
+        please.postpone(function () {
+            callback("pass", asset_name);
+        });
         return;
     }
-    var type = opt.force_type ? opt.force_type : please.media.guess_type(asset_name);
-    if (please.media.handlers[type] === "undefined") {
+    var type = opt.force_type ? options.force_type : please.media.guess_type(url);
+    if (please.media.handlers[type] === undefined) {
         if (absolute_url) {
             console.warn("Unknown media type, coercing to plain text.");
             type = "text";
@@ -133,14 +145,12 @@ please.load = function (asset_name, callback, options) {
             throw new Error("Unknown media type '"+type+"'");
         }
     }
-    var url = opt.absolute_url ? asset_name : please.media.relative_path(type, asset_name);
-    if (!!please.access(url, true) && typeof(callback) === "function") {
-        please.postpone(function () {
-            callback("pass", asset_name);
-        });
-    }
-    else if (please.media.pending.indexOf(url) === -1) {
+    url = opt.absolute_url ? url : please.media.relative_path(type, url);
+    if (please.media.pending.indexOf(url) === -1) {
         please.media.handlers[type](url, asset_name, callback);
+    }
+    else if (!!callback) {
+        please.media._push(url, callback);
     }
 };
 
@@ -294,7 +304,7 @@ please.media._push = function (req_key, callback) {
 //
 // **Intended for M.GRL's internal use only**.  This method is called
 // after an asset has finished downloading.  It is responsible for
-// triggering all of the callbacks (implicit first, then explicite)
+// triggering all of the callbacks (implicit first, then explicit)
 // associated to the download, and may also trigger the
 // "mgrl_media_ready" DOM event.
 //
@@ -469,14 +479,20 @@ please.media.__xhr_helper = function (req_type, url, asset_name, media_callback,
 please.media.handlers.img = function (url, asset_name, callback) {
     var media_callback = function (req, finishing_callback) {
         var img = new Image();
+        var reader = new FileReader();
         img.loaded = false;
-        img.addEventListener("load", function() {
+        reader.addEventListener("load", function() {
             img.loaded = true;
+            img.src = reader.result;
             please.media.processing -= 1;
             please.media.assets[asset_name] = img;
             finishing_callback();
         });
-        img.src = url;
+        reader.addEventListener("error", function() {
+            finishing_callback("fail");
+        });
+        reader.readAsDataURL(req.response);
+        img.url = url;
         img.asset_name = asset_name;
         img.instance = please.media.__image_instance;
         please.media.processing += 1;

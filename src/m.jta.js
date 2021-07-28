@@ -239,7 +239,7 @@ please.gl.__jta_model = function (src, uri) {
         return please.gl.__jta_metadata_html(scene);
     };
 
-    console.info("Done loading " + uri + " ...?");
+    //console.info("Done loading " + uri + " ...?");
     return scene;
 };
 
