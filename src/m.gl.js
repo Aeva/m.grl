@@ -409,7 +409,7 @@ please.gl.__build_shader = function (src, uri, lazy) {
             }
         }
         else {
-            console.info("Shader compiled: " + uri);
+            //console.info("Shader compiled: " + uri);
             glsl.ready = true;
         }
     }
@@ -683,10 +683,10 @@ please.glsl = function (name /*, shader_a, shader_b,... */) {
             }
         }
     }
-    console.info("rewrites:");
-    console.info(rewrites);
-    console.info("enums:");
-    console.info(enums);
+    //console.info("rewrites:");
+    //console.info(rewrites);
+    //console.info("enums:");
+    //console.info(enums);
 
     var size_lookup = {};
     size_lookup[gl.FLOAT_VEC2] = 2;

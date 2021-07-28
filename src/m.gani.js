@@ -2,7 +2,7 @@
 
 /* [+]
  *
- * This part of the module is provides functionality for parsing 2D
+ * This part of the module provides functionality for parsing 2D
  * keyframe animatinos defined in the .gani file format as well as the
  * ability to play the animations using m.time's scheduler, and
  * instance them into the scene graph.
@@ -990,7 +990,7 @@ please.gani.sprite_to_html = function (ani_object, sprite_id, x, y) {
         is_error = true;
         please.load(uri, function(state, uri) {
             if (state === "pass") {
-	        ani_object.__set_dirty();
+                ani_object.__set_dirty();
             }
         });
     }
